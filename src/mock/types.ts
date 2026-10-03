@@ -29,12 +29,28 @@ export interface CurriculumExercise {
   completed: boolean
 }
 
+export interface CurriculumInstrumentRow {
+  key: string
+  value: string
+}
+
+/** A worksheet a module asks you to fill in, shown as a key/value table. */
+export interface CurriculumInstrument {
+  name: string
+  rows: CurriculumInstrumentRow[]
+  note?: string
+}
+
 export interface CurriculumModule {
   id: string
   title: string
   summary: string
   materials: CurriculumMaterial[]
   exercises: CurriculumExercise[]
+  /** Planned span, used by the module ruler. */
+  weeks?: number
+  instrument?: CurriculumInstrument
+  evaluation?: string
 }
 
 export type CurriculumStatus = 'active' | 'planned' | 'completed'

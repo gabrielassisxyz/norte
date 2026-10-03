@@ -1,6 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHistory } from 'vue-router'
 
+import CurriculumView from '../views/CurriculumView.vue'
 import Placeholder from '../views/Placeholder.vue'
 import ProjectView from '../views/ProjectView.vue'
 import DsGallery from '../views/DsGallery.vue'
@@ -21,7 +22,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/notas', name: 'notas', component: Placeholder, meta: { title: 'Notas' } },
   { path: '/revisao', name: 'revisao', component: Placeholder, meta: { title: 'Revisão' } },
   { path: '/estudo', name: 'estudo', component: Placeholder, meta: { title: 'Estudo' } },
-  { path: '/curriculos/:slug', name: 'curriculo', component: Placeholder, meta: { title: 'Currículo' } },
+  { path: '/curriculos/:slug', name: 'curriculo', component: CurriculumView, meta: { title: 'Currículo' } },
   {
     path: '/material/:kind/:id',
     name: 'material',

@@ -7,6 +7,7 @@ import type {
   Bucket,
   CardRating,
   Curriculum,
+  CurriculumModule,
   Highlight,
   LibraryItem,
   LibraryStatus,
@@ -23,6 +24,7 @@ type NewProject = Omit<Project, 'id' | 'features' | 'bugs'> & Partial<Pick<Proje
 type NewTask = Omit<Task, 'id' | 'steps' | 'completed'> & Partial<Pick<Task, 'steps' | 'completed'>>
 type NewSession = Omit<Session, 'id'>
 type NewArea = Omit<Area, 'id' | 'archived'> & Partial<Pick<Area, 'archived'>>
+type NewCurriculum = Omit<Curriculum, 'slug' | 'status' | 'modules'> & Partial<Pick<Curriculum, 'status' | 'modules'>>
 type NewHighlight = Omit<Highlight, 'id' | 'createdAt'>
 type NewAnnotation = Omit<Annotation, 'id' | 'createdAt'>
 type NewQuestion = Omit<Question, 'id' | 'createdAt'>
@@ -35,6 +37,15 @@ function requireItem<T extends { id: string }>(items: T[], id: string, label: st
   const item = items.find((candidate) => candidate.id === id)
   if (!item) throw new Error(`${label} "${id}" was not found`)
   return item
+}
+
+function slugify(title: string): string {
+  return title
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '')
 }
 
 function nextId(prefix: string, items: { id: string }[]): string {
@@ -123,8 +134,7 @@ export function createMockStore() {
   }
 
   function addArea(area: NewArea): Area {
-    const slug = area.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-    const id = `a-${slug}`
+    const id = `a-${slugify(area.title)}`
     if (state.areas.some((candidate) => candidate.id === id)) throw new Error(`Area "${id}" already exists`)
     const created: Area = { id, archived: false, ...area }
     state.areas.unshift(created)
@@ -139,10 +149,33 @@ export function createMockStore() {
     requireItem(state.areas, id, 'Area').archived = true
   }
 
-  function updateCurriculum(slug: string, updates: Pick<Curriculum, 'title' | 'goal' | 'status'>): void {
+  function requireCurriculum(slug: string): Curriculum {
     const curriculum = state.curricula.find((candidate) => candidate.slug === slug)
     if (!curriculum) throw new Error(`Curriculum "${slug}" was not found`)
-    Object.assign(curriculum, updates)
+    return curriculum
+  }
+
+  function updateCurriculum(slug: string, updates: Pick<Curriculum, 'title' | 'goal' | 'status'>): void {
+    Object.assign(requireCurriculum(slug), updates)
+  }
+
+  function updateCurriculumModule(slug: string, moduleId: string, updates: Pick<CurriculumModule, 'title'>): void {
+    Object.assign(requireItem(requireCurriculum(slug).modules, moduleId, 'Curriculum module'), updates)
+  }
+
+  function addCurriculum(curriculum: NewCurriculum): Curriculum {
+    const slug = slugify(curriculum.title)
+    if (!slug) throw new Error('A curriculum needs a title that yields a slug')
+    if (state.curricula.some((candidate) => candidate.slug === slug)) throw new Error(`Curriculum "${slug}" already exists`)
+    // A new curriculum starts with one empty module so the page has somewhere to put materials.
+    const created: Curriculum = {
+      slug,
+      status: 'planned',
+      modules: [{ id: 'mod-1', title: 'Primeiro módulo', summary: '', materials: [], exercises: [] }],
+      ...curriculum
+    }
+    state.curricula.unshift(created)
+    return created
   }
 
   function addHighlight(highlight: NewHighlight): Highlight {
@@ -176,6 +209,8 @@ export function createMockStore() {
     updateArea,
     archiveArea,
     updateCurriculum,
+    updateCurriculumModule,
+    addCurriculum,
     addHighlight,
     addAnnotation
   })
