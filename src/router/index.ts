@@ -9,6 +9,7 @@ import HomeView from '../views/HomeView.vue'
 import LibraryView from '../views/LibraryView.vue'
 import NotesView from '../views/NotesView.vue'
 import MaterialView from '../views/MaterialView.vue'
+import ProjectsView from '../views/ProjectsView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -32,7 +33,7 @@ export const routes: RouteRecordRaw[] = [
     component: MaterialView,
     meta: { title: 'Material', layout: 'bare' }
   },
-  { path: '/projetos', name: 'projetos', component: Placeholder, meta: { title: 'Projetos' } },
+  { path: '/projetos', name: 'projetos', component: ProjectsView, meta: { title: 'Projetos' } },
   { path: '/areas/:id', name: 'area', component: Placeholder, meta: { title: 'Área' } },
   {
     path: '/projetos/:id',
