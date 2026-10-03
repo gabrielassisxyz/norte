@@ -6,6 +6,11 @@ export const curricula: Curriculum[] = [
     title: 'Fundamentos de compiladores',
     goal: 'Construir um interpretador pequeno e legível.',
     status: 'active',
+    currentModule: 'Módulo 1',
+    currentLesson: 'Léxico e sintaxe',
+    currentItem: 2,
+    totalItems: 8,
+    progress: 0.25,
     modules: [
       {
         id: 'mod-lexico',
@@ -90,6 +95,11 @@ export const curricula: Curriculum[] = [
     title: 'Tipografia prática',
     goal: 'Escolher e aplicar tipos com intenção.',
     status: 'active',
+    currentModule: 'Módulo 1',
+    currentLesson: 'Ritmo e hierarquia',
+    currentItem: 1,
+    totalItems: 5,
+    progress: 0.2,
     modules: [
       {
         id: 'mod-rhythm',

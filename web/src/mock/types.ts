@@ -10,6 +10,9 @@ export interface LibraryItem {
   title: string
   author: string
   url: string
+  domain?: string
+  minutes?: number
+  readProgress?: number
   status: LibraryStatus
   unread: boolean
   savedAt: string
@@ -61,6 +64,11 @@ export interface Curriculum {
   goal: string
   status: CurriculumStatus
   modules: CurriculumModule[]
+  currentModule?: string
+  currentLesson?: string
+  currentItem?: number
+  totalItems?: number
+  progress?: number
 }
 
 export interface ReviewDeck {
