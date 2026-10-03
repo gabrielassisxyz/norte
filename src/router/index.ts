@@ -16,9 +16,12 @@ const routes: RouteRecordRaw[] = [
   { path: '/areas/:id', name: 'area', component: BlankView },
   { path: '/projetos/:id', name: 'projeto', component: BlankView },
   { path: '/decisoes/:id', name: 'decisao', component: BlankView },
-  { path: '/tarefas/:id', name: 'tarefa', component: BlankView },
-  { path: '/_ds', name: 'ds-gallery', component: DsGallery }
+  { path: '/tarefas/:id', name: 'tarefa', component: BlankView }
 ]
+
+if (import.meta.env.DEV) {
+  routes.unshift({ path: '/_ds', name: 'design-system-gallery', component: DsGallery })
+}
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

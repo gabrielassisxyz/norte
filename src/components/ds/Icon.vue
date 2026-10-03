@@ -1,24 +1,12 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import type { IconName } from './types'
 
-export type IconName =
-  | 'check'
-  | 'play'
-  | 'plus'
-  | 'lock'
-  | 'arrow'
-  | 'arrowLeft'
-  | 'chevronDown'
-  | 'collapse'
-  | 'expand'
-  | 'external'
-  | 'note'
-  | 'comment'
-  | 'image'
+withDefaults(defineProps<{ name: IconName; size?: number; className?: string }>(), {
+  size: 16,
+  className: undefined
+})
 
-const props = withDefaults(defineProps<{ name: IconName; size?: number }>(), { size: 16 })
-
-const PATHS: Record<IconName, string> = {
+const paths: Record<IconName, string> = {
   check: 'M4 8.5l2.5 2.5L12 5.5',
   play: 'M5.5 3.5v9l7-4.5z',
   plus: 'M8 3.5v9M3.5 8h9',
@@ -33,13 +21,11 @@ const PATHS: Record<IconName, string> = {
   comment: 'M2.5 3.5h11v7h-6l-3 2.5v-2.5h-2z',
   image: 'M2.5 3.5h11v9h-11zM13.5 10.5l-3-3-6.5 5M6 7.25h.01'
 }
-
-const path = computed(() => PATHS[props.name])
 </script>
 
 <template>
   <svg
-    class="nt-icon"
+    :class="['nt-icon', className]"
     :width="size"
     :height="size"
     viewBox="0 0 16 16"
@@ -50,13 +36,13 @@ const path = computed(() => PATHS[props.name])
     stroke-linejoin="round"
     aria-hidden="true"
   >
-    <path :d="path" />
+    <path :d="paths[name]" />
   </svg>
 </template>
 
 <style scoped>
 .nt-icon {
-  flex: none;
   display: block;
+  flex: none;
 }
 </style>
