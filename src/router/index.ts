@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import AreaView from '../views/AreaView.vue'
 import CurriculumView from '../views/CurriculumView.vue'
+import DecisionView from '../views/DecisionView.vue'
 import Placeholder from '../views/Placeholder.vue'
 import ProjectView from '../views/ProjectView.vue'
 import ReviewView from '../views/ReviewView.vue'
@@ -51,7 +52,16 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Projeto' },
     props: (route) => ({ id: String(route.params.id ?? ''), tasksExpanded: route.query.tasksExpanded === '1' })
   },
-  { path: '/decisoes/:id', name: 'decisao', component: Placeholder, meta: { title: 'Decisão' } },
+  {
+    path: '/decisoes/:id',
+    name: 'decisao',
+    component: DecisionView,
+    meta: { title: 'Decisão' },
+    props: (route) => ({
+      id: String(route.params.id ?? ''),
+      preselect: route.query.preselect === '1' || route.query.preselect === 'true'
+    })
+  },
   {
     path: '/tarefas/:id',
     name: 'tarefa',
