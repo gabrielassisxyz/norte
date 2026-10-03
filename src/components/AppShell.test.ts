@@ -40,7 +40,7 @@ describe('app shell', () => {
     expect(wrapper.find('.app-content h1').text()).toBe('Sábado, 3 de outubro')
   })
 
-  it('names every unbuilt screen on its own route', async () => {
+  it('names every screen on its own route', async () => {
     const cases: Array<[string, string]> = [
       ['/biblioteca', 'Biblioteca'],
       ['/revisao', 'Revisão'],
@@ -48,7 +48,7 @@ describe('app shell', () => {
       ['/projetos', 'Projetos'],
       ['/areas/a-casa', 'Casa'],
       ['/projetos/project-horta', 'Horta da varanda'],
-      ['/decisoes/decision-backup-media', 'Decisão'],
+      ['/decisoes/decision-backup-media', 'Escolher mídia para a cópia externa'],
       ['/tarefas/task-backup', 'Definir destinos de cópia']
     ]
     for (const [path, title] of cases) {
