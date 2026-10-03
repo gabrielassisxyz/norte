@@ -1,0 +1,20 @@
+<!-- @dsCard group="Leitor" height=420 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>SidePanel — preview</title>
+<style>#root { padding: 24px;  } .nt-panel { width: 380px; }</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var N = window.Norte, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+  h('div', { style: { display: 'flex', gap: 40, height: 360 } },
+    h(N.SidePanel, { label: 'Nota e anotações', defaultValue: 'anot', tabs: [{ value: 'nota', label: 'Nota', icon: 'note' }, { value: 'anot', label: 'Anotações', count: 3, icon: 'comment' }],
+      panels: { nota: h('p', { style: { margin: 0, color: 'var(--ink-2)' } }, 'Tratar comportamentos estranhos como bugs.'),
+        anot: h(N.AnnotationItem, { quote: 'transforme a hipótese em algo que possa falhar', location: 'Seção 2', time: '13:40' }) } }),
+    h(N.SidePanel, { label: 'Nota e anotações', defaultCollapsed: true, tabs: [{ value: 'nota', label: 'Nota', icon: 'note' }, { value: 'anot', label: 'Anotações', count: 3, icon: 'comment' }] }))
+  );
+</script>
+</body>
+</html>

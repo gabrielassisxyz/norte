@@ -1,0 +1,18 @@
+<!-- @dsCard group="Ações" height=110 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>SegmentedControl — preview</title>
+<style>#root { padding: 24px;  } </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var N = window.Norte, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+  h('div', { className: 'nt-row', style: { gap: 24 } },
+    h(N.SegmentedControl, { label: 'Modo', options: [{ value: 'leitura', label: 'Leitura' }, { value: 'ex', label: 'Exercícios', count: '1/3' }] }),
+    h(N.SegmentedControl, { label: 'Visualização', defaultValue: 'tabela', options: [{ value: 'capas', label: 'Capas' }, { value: 'tabela', label: 'Tabela' }] }))
+  );
+</script>
+</body>
+</html>

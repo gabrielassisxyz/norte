@@ -1,0 +1,18 @@
+<!-- @dsCard group="Estrutura" height=140 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>SectionHeader — preview</title>
+<style>#root { padding: 24px;  } </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var N = window.Norte, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+  h('div', { style: { display: 'grid', gap: 8, maxWidth: 820 } },
+    h(N.SectionHeader, { title: 'Currículos', actionLabel: 'Ver todos' }),
+    h(N.SectionHeader, { title: 'Assuntos', actionLabel: 'Ver todos', trailing: h(N.SegmentedControl, { label: 'Visualização', options: [{ value: 'capas', label: 'Capas' }, { value: 'tabela', label: 'Tabela' }] }) }))
+  );
+</script>
+</body>
+</html>

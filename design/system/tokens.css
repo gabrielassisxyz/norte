@@ -1,0 +1,118 @@
+/* Norte — tokens (gerado de tokens.json) */
+:root, [data-theme="light"] {
+  --ground: #fcfcfd;
+  --surface: #ffffff;
+  --sunken: #f1f3f6;
+  --line: #e3e6eb;
+  --line-strong: #80889a;
+  --ink: #0d1117;
+  --ink-2: #3a414d;
+  --muted: #5a6271;
+  --norte: #1d42d6;
+  --norte-hover: #1636b5;
+  --norte-soft: #e8edff;
+  --on-norte: #ffffff;
+  --link: var(--norte);
+  --lime: #dcf56b;
+  --on-lime: #0d1117;
+  --success: #0b6f61;
+  --danger: #c21f32;
+  --streak-0: var(--sunken);
+  --streak-1: #cad5ff;
+  --streak-2: #8ea6ff;
+  --streak-3: #4a6cf0;
+  --streak-4: #1d42d6;
+  --focus: #1d42d6;
+  --shadow-pop: 0 1px 2px #0d111714, 0 6px 16px -6px #0d111733;
+  --focus-ring: 0 0 0 2px #fcfcfd, 0 0 0 4px #1d42d6;
+}
+[data-theme="dark"] {
+  --ground: #0b0d10;
+  --surface: #13161b;
+  --sunken: #07080a;
+  --line: #23272e;
+  --line-strong: #6c7482;
+  --ink: #f2f3f5;
+  --ink-2: #c4c9d1;
+  --muted: #8f97a4;
+  --norte: #86a2ff;
+  --norte-hover: #a7bcff;
+  --norte-soft: #161f40;
+  --on-norte: #0b0d10;
+  --link: var(--norte);
+  --lime: #cdea52;
+  --on-lime: #0d1117;
+  --success: #4fd0b4;
+  --danger: #ff7a84;
+  --streak-0: #1a1e25;
+  --streak-1: #1c2a63;
+  --streak-2: #2c47b4;
+  --streak-3: #5577f2;
+  --streak-4: #9cb3ff;
+  --focus: #9cb3ff;
+  --shadow-pop: 0 8px 20px -6px #000000cc;
+  --focus-ring: 0 0 0 2px #0b0d10, 0 0 0 4px #9cb3ff;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --ground: #0b0d10;
+  --surface: #13161b;
+  --sunken: #07080a;
+  --line: #23272e;
+  --line-strong: #6c7482;
+  --ink: #f2f3f5;
+  --ink-2: #c4c9d1;
+  --muted: #8f97a4;
+  --norte: #86a2ff;
+  --norte-hover: #a7bcff;
+  --norte-soft: #161f40;
+  --on-norte: #0b0d10;
+  --link: var(--norte);
+  --lime: #cdea52;
+  --on-lime: #0d1117;
+  --success: #4fd0b4;
+  --danger: #ff7a84;
+  --streak-0: #1a1e25;
+  --streak-1: #1c2a63;
+  --streak-2: #2c47b4;
+  --streak-3: #5577f2;
+  --streak-4: #9cb3ff;
+  --focus: #9cb3ff;
+  --shadow-pop: 0 8px 20px -6px #000000cc;
+  --focus-ring: 0 0 0 2px #0b0d10, 0 0 0 4px #9cb3ff;
+} }
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-9: 36px;
+  --space-11: 48px;
+  --space-16: 72px;
+  --space-24: 112px;
+  --radius-xs: 3px;
+  --radius-sm: 5px;
+  --radius-md: 8px;
+  --radius-full: 9999px;
+  --font-display: "Schibsted Grotesk", "Hanken Grotesk", system-ui, sans-serif;
+  --font-sans: "Geist", "Hanken Grotesk", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "Commit Mono", "Iosevka", "Cascadia Code", ui-monospace, monospace;
+}
+@font-face { font-family: "Schibsted Grotesk"; src: url("fonts/SchibstedGrotesk-Variable.woff2") format("woff2"); font-weight: 400 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Geist"; src: url("fonts/Geist-Variable.woff2") format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
+@font-face { font-family: "Commit Mono"; src: url("fonts/CommitMono-400.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+@font-face { font-family: "Commit Mono"; src: url("fonts/CommitMono-500.woff2") format("woff2"); font-weight: 500; font-style: normal; font-display: swap; }
+@font-face { font-family: "Commit Mono"; src: url("fonts/CommitMono-700.woff2") format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+.display { font-family: var(--font-display); font-size: 64px; line-height: 64px; font-weight: 750; letter-spacing: -0.035em; }
+.title { font-family: var(--font-display); font-size: 40px; line-height: 44px; font-weight: 700; letter-spacing: -0.03em; }
+.heading { font-family: var(--font-display); font-size: 24px; line-height: 30px; font-weight: 650; letter-spacing: -0.015em; }
+.subheading { font-family: var(--font-display); font-size: 17px; line-height: 24px; font-weight: 600; letter-spacing: -0.005em; }
+.label { font-family: var(--font-display); font-size: 14px; line-height: 20px; font-weight: 550; }
+.label-sm { font-family: var(--font-display); font-size: 12px; line-height: 16px; font-weight: 550; letter-spacing: 0.01em; }
+.body-lg { font-family: var(--font-sans); font-size: 18px; line-height: 30px; font-weight: 400; }
+.body { font-family: var(--font-sans); font-size: 16px; line-height: 26px; font-weight: 400; }
+.body-sm { font-family: var(--font-sans); font-size: 14px; line-height: 22px; font-weight: 400; }
+.caption { font-family: var(--font-sans); font-size: 12px; line-height: 16px; font-weight: 450; }
+.metric { font-family: var(--font-mono); font-size: 32px; line-height: 36px; font-weight: 500; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.data { font-family: var(--font-mono); font-size: 13px; line-height: 20px; font-weight: 400; font-variant-numeric: tabular-nums; }
+.code { font-family: var(--font-mono); font-size: 14px; line-height: 22px; font-weight: 400; font-variant-numeric: tabular-nums; }

@@ -1,0 +1,22 @@
+<!-- @dsCard group="Trilhas e cursos" height=340 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>TrailPath — preview</title>
+<style>#root { padding: 24px;  }</style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var N = window.Norte, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+  h(N.TrailPath, { steps: [
+    { title: 'Fundamentos de linguagens formais', meta: 'Curso · 8 lições · concluído em 12 ago', status: 'done' },
+    { title: 'Análise léxica', meta: 'Curso · 6 lições · 4/6', status: 'current' },
+    { title: 'Parsing recursivo descendente', meta: 'Curso · 9 lições', status: 'next' },
+    { title: 'Projeto: interpretador de calculadora', meta: 'Projeto prático · ~6 h', status: 'next' },
+    { title: 'Geração de código', meta: 'Desbloqueia após o projeto', status: 'locked' }
+  ] })
+  );
+</script>
+</body>
+</html>

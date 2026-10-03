@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+*.local
+.DS_Store
+
+# Design-tool prototype exports. Their mock content is personal, so they stay local.
+design/prototypes/
+
+# bv (beads viewer) local config and caches
+.bv/

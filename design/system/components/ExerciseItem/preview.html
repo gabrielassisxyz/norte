@@ -1,0 +1,20 @@
+<!-- @dsCard group="Leitor" height=470 -->
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><title>ExerciseItem — preview</title>
+<style>#root { padding: 24px;  } </style>
+</head>
+<body>
+<div id="root"></div>
+<script>
+  var N = window.Norte, h = React.createElement;
+  ReactDOM.createRoot(document.getElementById('root')).render(
+  h('div', { style: { maxWidth: 640 } },
+    h(N.ExerciseItem, { n: 1, kind: 'Explicar sem consultar', prompt: 'Descreva o processo de debugging em até cinco passos.', done: true, answer: 'Notar → reproduzir → descrever → hipótese → por quê de novo → testar.', time: '28 set' }),
+    h(N.ExerciseItem, { n: 2, kind: 'Aplicar', prompt: 'Escolha um comportamento recorrente e produza três hipóteses concorrentes.' },
+      h(N.TextField, { label: 'Resposta', hideLabel: true, multiline: true, placeholder: 'Fenômeno, e depois as hipóteses A, B e C…' }),
+      h('div', { style: { display: 'flex', justifyContent: 'flex-end' } }, h(N.Button, { size: 'sm', variant: 'primary' }, 'Enviar resposta'))))
+  );
+</script>
+</body>
+</html>
