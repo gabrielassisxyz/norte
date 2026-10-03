@@ -19,5 +19,6 @@ export const initialMockData: MockData = {
   tasks,
   sessions,
   subjects,
-  studyDays
+  studyDays,
+  syncMinutesAgo: 2
 }

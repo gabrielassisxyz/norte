@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import App from '@/App.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
+import { store } from '@/mock/store'
 import { routes } from '@/router'
 
 async function mountAt(path: string) {
@@ -125,20 +126,81 @@ describe('app shell', () => {
     expect(wrapper.text()).not.toContain('Arquivo')
   })
 
-  it('toggles pinning from the favourites star, kept in memory', async () => {
+  it('toggles the sidebar collapsed state from the brand button', async () => {
     const { wrapper } = await mountAt('/')
-    const fixados = () => wrapper.find('nav[aria-label="Fixados"]')
+    const toggle = () => wrapper.find('button.app-collapse')
 
-    expect(fixados().text()).toContain('Inbox')
-    await expandAll(wrapper)
+    expect(toggle().attributes('aria-label')).toBe('Recolher barra lateral')
+    expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(false)
 
-    const star = wrapper.find('button[aria-label="Remover dos favoritos: Inbox"]')
-    await star.trigger('click')
-    expect(wrapper.find('button[aria-label="Favoritar: Inbox"]').exists()).toBe(true)
-    expect(fixados().text()).not.toContain('Inbox')
+    await toggle().trigger('click')
+    expect(toggle().attributes('aria-label')).toBe('Expandir barra lateral')
+    expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(true)
+    expect(wrapper.find('nav[aria-label="Principal"]').exists()).toBe(false)
 
-    await wrapper.find('button[aria-label="Favoritar: Inbox"]').trigger('click')
-    expect(fixados().text()).toContain('Inbox')
+    await toggle().trigger('click')
+    expect(toggle().attributes('aria-label')).toBe('Recolher barra lateral')
+    expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(false)
+    expect(wrapper.find('nav[aria-label="Principal"]').exists()).toBe(true)
+  })
+
+  it('keeps the collapsed state across route changes', async () => {
+    const { wrapper, router } = await mountAt('/')
+
+    await wrapper.find('button.app-collapse').trigger('click')
+    expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(true)
+
+    await router.push('/biblioteca?v=inbox')
+    await wrapper.vm.$nextTick()
+    expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(true)
+    expect(wrapper.find('.app-content h1').text()).toBe('Biblioteca')
+  })
+
+  it('shows the prototype shortcut groups with counts and no Fixados group', async () => {
+    const { wrapper } = await mountAt('/')
+    const shortcuts = wrapper.find('nav[aria-label="Atalhos"]')
+
+    expect(wrapper.find('nav[aria-label="Fixados"]').exists()).toBe(false)
+    expect(shortcuts.exists()).toBe(true)
+    expect(shortcuts.text()).toContain('Biblioteca')
+    expect(shortcuts.text()).toContain('Estudo')
+    for (const label of ['Inbox', 'Artigos', 'Shortlist', 'Currículos']) {
+      expect(shortcuts.text()).toContain(label)
+    }
+    expect(wrapper.find('button.app-star').exists()).toBe(false)
+  })
+
+  it('routes every shortcut entry to its matching target', async () => {
+    const { wrapper, router } = await mountAt('/')
+    const shortcuts = wrapper.find('nav[aria-label="Atalhos"]')
+
+    const targets: Record<string, string> = {}
+    for (const link of shortcuts.findAll('a.app-item')) {
+      const href = link.attributes('href')
+      if (!href) continue
+      targets[link.text().replace(/\d+$/, '').trim()] = router.resolve(href).fullPath
+    }
+
+    expect(targets['Inbox']).toBe('/biblioteca?v=inbox')
+    expect(targets['Artigos']).toBe('/biblioteca?tipo=artigos')
+    expect(targets['Shortlist']).toBe('/biblioteca?v=tudo')
+    expect(targets['Currículos']).toBe('/estudo')
+
+    const shortlist = shortcuts
+      .findAll('a.app-item')
+      .find((link) => link.text().includes('Shortlist'))
+    expect(shortlist).toBeDefined()
+    await clickAndSettle(shortlist!, router, '/biblioteca?v=tudo')
+    expect(router.currentRoute.value.fullPath).toBe('/biblioteca?v=tudo')
+  })
+
+  it('renders the sync status footer from mock data', async () => {
+    const { wrapper } = await mountAt('/')
+
+    const sync = wrapper.find('.app-sync')
+    expect(sync.exists()).toBe(true)
+    expect(sync.text()).toBe(`Sincronizado há ${store.syncMinutesAgo} min`)
+    expect(sync.find('.app-sync-dot').exists()).toBe(true)
   })
 
   it('opens the matching overlay from the sidebar controls', async () => {

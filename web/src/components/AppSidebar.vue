@@ -5,9 +5,12 @@ import { RouterLink, useRoute, useRouter, type RouteLocationRaw } from 'vue-rout
 import Icon from '@/components/ds/Icon.vue'
 import { store } from '@/mock/store'
 
+withDefaults(defineProps<{ collapsed?: boolean }>(), { collapsed: false })
+
 defineEmits<{
   search: []
   preferences: []
+  'toggle-collapse': []
 }>()
 
 interface SidebarLink {
@@ -17,12 +20,16 @@ interface SidebarLink {
   count?: number | string
   /** False for cross-links that share their target with another entry. */
   trackActive?: boolean
-  pinnable?: boolean
 }
 
 interface SidebarHead {
   head: true
   label: string
+}
+
+interface ShortcutGroup {
+  label: string
+  entries: SidebarLink[]
 }
 
 type SidebarRow = SidebarLink | SidebarHead
@@ -46,18 +53,9 @@ const router = useRouter()
 const route = useRoute()
 
 const open = ref({ biblioteca: false, estudo: false, projetos: false, notas: false })
-const pinned = ref<string[]>(['inbox', 'curriculos', 'revisao'])
 
 function toggleSection(section: keyof typeof open.value): void {
   open.value[section] = !open.value[section]
-}
-
-function isPinned(id: string): boolean {
-  return pinned.value.includes(id)
-}
-
-function togglePin(id: string): void {
-  pinned.value = isPinned(id) ? pinned.value.filter((item) => item !== id) : [...pinned.value, id]
 }
 
 function countByStatus(status: string): number {
@@ -124,18 +122,36 @@ const noteRows = computed<SidebarLink[]>(() => [
   { id: 'perguntas-notas', label: 'Perguntas', to: { name: 'notas', query: { tab: 'perguntas' } }, count: store.questions.length }
 ])
 
-const allLinks = computed<SidebarLink[]>(() => [
-  ...(libraryRows.value.filter((row) => !isHead(row)) as SidebarLink[]),
-  ...studyRows.value,
-  ...projectRows.value,
-  ...noteRows.value
+const shortcutGroups = computed<ShortcutGroup[]>(() => [
+  {
+    label: 'Biblioteca',
+    entries: [
+      { id: 'atalho-inbox', label: 'Inbox', to: { name: 'biblioteca', query: { v: 'inbox' } }, count: countByStatus('inbox') },
+      // The prototype links Artigos at the library root; the app filters
+      // articles through tipo=artigos (kind post).
+      {
+        id: 'atalho-artigos',
+        label: 'Artigos',
+        to: { name: 'biblioteca', query: { tipo: 'artigos' } },
+        count: store.libraryItems.filter((item) => item.kind === 'post').length
+      },
+      // The prototype links Shortlist at the library root (v=tudo); the mock
+      // store has no shortlist yet, so it shares the full-library count.
+      {
+        id: 'atalho-shortlist',
+        label: 'Shortlist',
+        to: { name: 'biblioteca', query: { v: 'tudo' } },
+        count: store.libraryItems.length
+      }
+    ]
+  },
+  {
+    label: 'Estudo',
+    entries: [
+      { id: 'atalho-curriculos', label: 'Currículos', to: { name: 'estudo' }, count: store.curricula.length }
+    ]
+  }
 ])
-
-const pinnedEntries = computed<SidebarLink[]>(() =>
-  pinned.value
-    .map((id) => allLinks.value.find((link) => link.id === id))
-    .filter((link): link is SidebarLink => link !== undefined)
-)
 
 function isActive(link: SidebarLink): boolean {
   if (link.trackActive === false) return false
@@ -163,12 +179,35 @@ const projectCount = computed(() => store.projects.length)
 </script>
 
 <template>
-  <aside class="app-sidebar" aria-label="Navegação principal">
+  <aside class="app-sidebar" :class="{ 'is-collapsed': collapsed }" aria-label="Navegação principal">
     <div class="app-brand">
-      <RouterLink :to="{ name: 'inicio' }" class="app-brand-link">Norte</RouterLink>
+      <RouterLink v-if="!collapsed" :to="{ name: 'inicio' }" class="app-brand-link">Norte</RouterLink>
+      <button
+        type="button"
+        class="app-collapse"
+        :aria-label="collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'"
+        :title="collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'"
+        :aria-expanded="!collapsed"
+        @click="$emit('toggle-collapse')"
+      >
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="1.5"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <rect x="2" y="3" width="12" height="10" rx="2" />
+          <path d="M6 3v10" />
+        </svg>
+      </button>
     </div>
 
-    <nav aria-label="Principal" class="app-nav">
+    <nav v-if="!collapsed" aria-label="Principal" class="app-nav">
       <RouterLink :to="{ name: 'inicio' }" class="app-item" :class="{ 'is-active': isInicio }">Início</RouterLink>
 
       <div class="app-line">
@@ -193,33 +232,15 @@ const projectCount = computed(() => store.projects.length)
       <div v-if="open.biblioteca" class="app-children">
         <template v-for="row in libraryRows" :key="isHead(row) ? row.label : row.id">
           <div v-if="isHead(row)" class="app-head">{{ row.label }}</div>
-          <div v-else class="app-line">
-            <RouterLink :to="row.to" class="app-item app-sub" :class="{ 'is-active': isActive(row) }">
-              <span class="app-label">{{ row.label }}</span>
-              <span v-if="row.count !== undefined" class="app-count">{{ row.count }}</span>
-            </RouterLink>
-            <button
-              type="button"
-              class="app-star"
-              :aria-pressed="isPinned(row.id)"
-              :title="isPinned(row.id) ? 'Remover dos favoritos' : 'Favoritar'"
-              :aria-label="`${isPinned(row.id) ? 'Remover dos favoritos:' : 'Favoritar:'} ${row.label}`"
-              @click="togglePin(row.id)"
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                stroke="currentColor"
-                stroke-width="1.5"
-                stroke-linejoin="round"
-                aria-hidden="true"
-                :fill="isPinned(row.id) ? 'currentColor' : 'none'"
-              >
-                <path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />
-              </svg>
-            </button>
-          </div>
+          <RouterLink
+            v-else
+            :to="row.to"
+            class="app-item app-sub"
+            :class="{ 'is-active': isActive(row) }"
+          >
+            <span class="app-label">{{ row.label }}</span>
+            <span v-if="row.count !== undefined" class="app-count">{{ row.count }}</span>
+          </RouterLink>
         </template>
       </div>
 
@@ -239,33 +260,16 @@ const projectCount = computed(() => store.projects.length)
         </button>
       </div>
       <div v-if="open.estudo" class="app-children">
-        <div v-for="entry in studyRows" :key="entry.id" class="app-line">
-          <RouterLink :to="entry.to" class="app-item app-sub" :class="{ 'is-active': isActive(entry) }">
-            <span class="app-label">{{ entry.label }}</span>
-            <span v-if="entry.count !== undefined" class="app-count">{{ entry.count }}</span>
-          </RouterLink>
-          <button
-            type="button"
-            class="app-star"
-            :aria-pressed="isPinned(entry.id)"
-            :title="isPinned(entry.id) ? 'Remover dos favoritos' : 'Favoritar'"
-            :aria-label="`${isPinned(entry.id) ? 'Remover dos favoritos:' : 'Favoritar:'} ${entry.label}`"
-            @click="togglePin(entry.id)"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-              aria-hidden="true"
-              :fill="isPinned(entry.id) ? 'currentColor' : 'none'"
-            >
-              <path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />
-            </svg>
-          </button>
-        </div>
+        <RouterLink
+          v-for="entry in studyRows"
+          :key="entry.id"
+          :to="entry.to"
+          class="app-item app-sub"
+          :class="{ 'is-active': isActive(entry) }"
+        >
+          <span class="app-label">{{ entry.label }}</span>
+          <span v-if="entry.count !== undefined" class="app-count">{{ entry.count }}</span>
+        </RouterLink>
       </div>
 
       <div class="app-line">
@@ -289,33 +293,16 @@ const projectCount = computed(() => store.projects.length)
         </button>
       </div>
       <div v-if="open.projetos" class="app-children">
-        <div v-for="entry in projectRows" :key="entry.id" class="app-line">
-          <RouterLink :to="entry.to" class="app-item app-sub" :class="{ 'is-active': isActive(entry) }">
-            <span class="app-label">{{ entry.label }}</span>
-            <span v-if="entry.count !== undefined" class="app-count">{{ entry.count }}</span>
-          </RouterLink>
-          <button
-            type="button"
-            class="app-star"
-            :aria-pressed="isPinned(entry.id)"
-            :title="isPinned(entry.id) ? 'Remover dos favoritos' : 'Favoritar'"
-            :aria-label="`${isPinned(entry.id) ? 'Remover dos favoritos:' : 'Favoritar:'} ${entry.label}`"
-            @click="togglePin(entry.id)"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-              aria-hidden="true"
-              :fill="isPinned(entry.id) ? 'currentColor' : 'none'"
-            >
-              <path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />
-            </svg>
-          </button>
-        </div>
+        <RouterLink
+          v-for="entry in projectRows"
+          :key="entry.id"
+          :to="entry.to"
+          class="app-item app-sub"
+          :class="{ 'is-active': isActive(entry) }"
+        >
+          <span class="app-label">{{ entry.label }}</span>
+          <span v-if="entry.count !== undefined" class="app-count">{{ entry.count }}</span>
+        </RouterLink>
         <RouterLink :to="{ name: 'projetos' }" class="app-item app-sub app-new">
           <Icon name="plus" :size="14" />
           <span class="app-label">Nova área</span>
@@ -338,51 +325,36 @@ const projectCount = computed(() => store.projects.length)
         </button>
       </div>
       <div v-if="open.notas" class="app-children">
-        <div v-for="entry in noteRows" :key="entry.id" class="app-line">
-          <RouterLink :to="entry.to" class="app-item app-sub" :class="{ 'is-active': isActive(entry) }">
-            <span class="app-label">{{ entry.label }}</span>
-            <span v-if="entry.count !== undefined" class="app-count">{{ entry.count }}</span>
-          </RouterLink>
-          <button
-            type="button"
-            class="app-star"
-            :aria-pressed="isPinned(entry.id)"
-            :title="isPinned(entry.id) ? 'Remover dos favoritos' : 'Favoritar'"
-            :aria-label="`${isPinned(entry.id) ? 'Remover dos favoritos:' : 'Favoritar:'} ${entry.label}`"
-            @click="togglePin(entry.id)"
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              stroke="currentColor"
-              stroke-width="1.5"
-              stroke-linejoin="round"
-              aria-hidden="true"
-              :fill="isPinned(entry.id) ? 'currentColor' : 'none'"
-            >
-              <path d="M8 1.8l1.9 3.9 4.3.6-3.1 3 .7 4.3L8 11.6l-3.8 2 .7-4.3-3.1-3 4.3-.6z" />
-            </svg>
-          </button>
-        </div>
+        <RouterLink
+          v-for="entry in noteRows"
+          :key="entry.id"
+          :to="entry.to"
+          class="app-item app-sub"
+          :class="{ 'is-active': isActive(entry) }"
+        >
+          <span class="app-label">{{ entry.label }}</span>
+          <span v-if="entry.count !== undefined" class="app-count">{{ entry.count }}</span>
+        </RouterLink>
       </div>
     </nav>
 
-    <nav v-if="pinnedEntries.length > 0" aria-label="Fixados" class="app-nav">
-      <div class="app-head">Fixados</div>
-      <RouterLink
-        v-for="entry in pinnedEntries"
-        :key="entry.id"
-        :to="entry.to"
-        class="app-item"
-        :class="{ 'is-active': isActive(entry) }"
-      >
-        <span class="app-label">{{ entry.label }}</span>
-        <span v-if="entry.count !== undefined" class="app-count">{{ entry.count }}</span>
-      </RouterLink>
+    <nav v-if="!collapsed" aria-label="Atalhos" class="app-nav">
+      <template v-for="group in shortcutGroups" :key="group.label">
+        <div class="app-head">{{ group.label }}</div>
+        <RouterLink
+          v-for="entry in group.entries"
+          :key="entry.id"
+          :to="entry.to"
+          class="app-item"
+          :class="{ 'is-active': isActive(entry) }"
+        >
+          <span class="app-label">{{ entry.label }}</span>
+          <span v-if="entry.count !== undefined" class="app-count">{{ entry.count }}</span>
+        </RouterLink>
+      </template>
     </nav>
 
-    <div class="app-foot">
+    <div v-if="!collapsed" class="app-foot">
       <button type="button" class="app-item app-button" @click="$emit('search')">
         <span class="app-label">Buscar</span>
         <span class="app-count app-kbd">⌘K</span>
@@ -390,6 +362,10 @@ const projectCount = computed(() => store.projects.length)
       <button type="button" class="app-item app-button" @click="$emit('preferences')">
         <span class="app-label">Preferências</span>
       </button>
+      <div class="app-sync">
+        <span class="app-sync-dot" aria-hidden="true" />
+        <span>Sincronizado há {{ store.syncMinutesAgo }} min</span>
+      </div>
     </div>
   </aside>
 </template>
@@ -411,10 +387,21 @@ const projectCount = computed(() => store.projects.length)
   border-right: 1px solid var(--line);
 }
 
+.app-sidebar.is-collapsed {
+  width: 52px;
+  padding: 20px 8px 16px;
+}
+
 .app-brand {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   padding: 0 4px 0 10px;
+}
+
+.is-collapsed .app-brand {
+  justify-content: center;
+  padding: 0;
 }
 
 .app-brand-link {
@@ -425,6 +412,30 @@ const projectCount = computed(() => store.projects.length)
   letter-spacing: -0.035em;
   color: var(--ink);
   text-decoration: none;
+}
+
+.app-collapse {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.app-collapse:hover {
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.app-collapse:focus-visible {
+  outline: 2px solid transparent;
+  box-shadow: var(--focus-ring);
 }
 
 .app-nav {
@@ -521,12 +532,11 @@ const projectCount = computed(() => store.projects.length)
   color: var(--muted);
 }
 
-.app-nav[aria-label='Fixados'] .app-head {
+.app-nav[aria-label='Atalhos'] .app-head {
   padding-left: 10px;
 }
 
-.app-chevron,
-.app-star {
+.app-chevron {
   flex: none;
   width: 26px;
   height: 26px;
@@ -540,14 +550,12 @@ const projectCount = computed(() => store.projects.length)
   cursor: pointer;
 }
 
-.app-chevron:hover,
-.app-star:hover {
+.app-chevron:hover {
   background: var(--surface);
   color: var(--ink);
 }
 
-.app-chevron:focus-visible,
-.app-star:focus-visible {
+.app-chevron:focus-visible {
   outline: 2px solid transparent;
   box-shadow: var(--focus-ring);
 }
@@ -559,21 +567,6 @@ const projectCount = computed(() => store.projects.length)
 
 .app-chevron.is-open :deep(svg) {
   transform: none;
-}
-
-.app-star {
-  opacity: 0;
-  transition: opacity 120ms cubic-bezier(0.2, 0, 0, 1);
-}
-
-.app-line:hover .app-star,
-.app-star:focus-visible,
-.app-star[aria-pressed='true'] {
-  opacity: 1;
-}
-
-.app-star[aria-pressed='true'] {
-  color: var(--ink-2);
 }
 
 .app-foot {
@@ -592,6 +585,26 @@ const projectCount = computed(() => store.projects.length)
   cursor: pointer;
   text-align: left;
   font: inherit;
+}
+
+.app-sync {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 8px 10px 0;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 450;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.app-sync-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--success);
 }
 
 @media (max-width: 900px) {
