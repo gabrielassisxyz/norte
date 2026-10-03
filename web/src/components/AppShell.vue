@@ -8,6 +8,13 @@ import ShellOverlay, { type ShellOverlayMode } from './ShellOverlay.vue'
 const route = useRoute()
 const bare = computed(() => route.meta.layout === 'bare')
 const overlay = ref<ShellOverlayMode>(null)
+// Session-only: collapsing hides the sidebar rail-wide and survives route
+// changes because the shell outlives every route view.
+const collapsed = ref(false)
+
+function toggleCollapse(): void {
+  collapsed.value = !collapsed.value
+}
 
 function open(mode: Exclude<ShellOverlayMode, null>): void {
   overlay.value = mode
@@ -33,11 +40,13 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell">
+  <div class="app-shell" :class="{ 'is-collapsed': collapsed }">
     <AppSidebar
       v-if="!bare"
+      :collapsed="collapsed"
       @search="open('busca')"
       @preferences="open('prefs')"
+      @toggle-collapse="toggleCollapse"
     />
     <div class="app-content">
       <slot />
@@ -53,6 +62,10 @@ onBeforeUnmount(() => {
   min-height: 100vh;
   background: var(--ground);
   color: var(--ink);
+}
+
+.app-shell.is-collapsed {
+  grid-template-columns: auto minmax(0, 1fr);
 }
 
 .app-content {
