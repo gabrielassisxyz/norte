@@ -149,6 +149,10 @@ export function createMockStore() {
     requireItem(state.areas, id, 'Area').archived = true
   }
 
+  function unarchiveArea(id: string): void {
+    requireItem(state.areas, id, 'Area').archived = false
+  }
+
   function requireCurriculum(slug: string): Curriculum {
     const curriculum = state.curricula.find((candidate) => candidate.slug === slug)
     if (!curriculum) throw new Error(`Curriculum "${slug}" was not found`)
@@ -208,6 +212,7 @@ export function createMockStore() {
     addArea,
     updateArea,
     archiveArea,
+    unarchiveArea,
     updateCurriculum,
     updateCurriculumModule,
     addCurriculum,

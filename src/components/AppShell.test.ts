@@ -46,7 +46,7 @@ describe('app shell', () => {
       ['/revisao', 'Revisão'],
       ['/estudo', 'Estudo'],
       ['/projetos', 'Projetos'],
-      ['/areas/a-casa', 'Área'],
+      ['/areas/a-casa', 'Casa'],
       ['/projetos/project-horta', 'Horta da varanda'],
       ['/decisoes/decision-backup-media', 'Decisão'],
       ['/tarefas/task-backup', 'Tarefa']

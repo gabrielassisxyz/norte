@@ -1,6 +1,7 @@
 import type { RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHistory } from 'vue-router'
 
+import AreaView from '../views/AreaView.vue'
 import CurriculumView from '../views/CurriculumView.vue'
 import Placeholder from '../views/Placeholder.vue'
 import ProjectView from '../views/ProjectView.vue'
@@ -35,7 +36,13 @@ export const routes: RouteRecordRaw[] = [
     meta: { title: 'Material', layout: 'bare' }
   },
   { path: '/projetos', name: 'projetos', component: ProjectsView, meta: { title: 'Projetos' } },
-  { path: '/areas/:id', name: 'area', component: Placeholder, meta: { title: 'Área' } },
+  {
+    path: '/areas/:id',
+    name: 'area',
+    component: AreaView,
+    meta: { title: 'Área' },
+    props: (route) => ({ id: String(route.params.id ?? '') })
+  },
   {
     path: '/projetos/:id',
     name: 'projeto',
