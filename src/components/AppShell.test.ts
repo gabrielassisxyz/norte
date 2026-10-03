@@ -49,7 +49,7 @@ describe('app shell', () => {
       ['/curriculos/fundamentos-de-compiladores', 'Currículo'],
       ['/projetos', 'Projetos'],
       ['/areas/a-casa', 'Área'],
-      ['/projetos/project-horta', 'Projeto'],
+      ['/projetos/project-horta', 'Horta da varanda'],
       ['/decisoes/decision-backup-media', 'Decisão'],
       ['/tarefas/task-backup', 'Tarefa']
     ]
