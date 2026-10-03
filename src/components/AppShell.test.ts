@@ -37,7 +37,7 @@ describe('app shell', () => {
 
     expect(wrapper.find('.app-sidebar').exists()).toBe(true)
     expect(wrapper.find('.app-content main').exists()).toBe(true)
-    expect(wrapper.find('.app-content h1').text()).toBe('Início')
+    expect(wrapper.find('.app-content h1').text()).toBe('Sábado, 3 de outubro')
   })
 
   it('names every unbuilt screen on its own route', async () => {
