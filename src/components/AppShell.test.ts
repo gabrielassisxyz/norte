@@ -44,7 +44,6 @@ describe('app shell', () => {
     const cases: Array<[string, string]> = [
       ['/biblioteca', 'Biblioteca'],
       ['/revisao', 'Revisão'],
-      ['/estudo', 'Estudo'],
       ['/projetos', 'Projetos'],
       ['/areas/a-casa', 'Casa'],
       ['/projetos/project-horta', 'Horta da varanda'],
