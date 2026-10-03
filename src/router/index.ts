@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import Placeholder from '../views/Placeholder.vue'
 import DsGallery from '../views/DsGallery.vue'
+import HomeView from '../views/HomeView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -14,7 +15,7 @@ declare module 'vue-router' {
 }
 
 export const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'inicio', component: Placeholder, meta: { title: 'Início' } },
+  { path: '/', name: 'inicio', component: HomeView, meta: { title: 'Início' } },
   { path: '/biblioteca', name: 'biblioteca', component: Placeholder, meta: { title: 'Biblioteca' } },
   { path: '/notas', name: 'notas', component: Placeholder, meta: { title: 'Notas' } },
   { path: '/revisao', name: 'revisao', component: Placeholder, meta: { title: 'Revisão' } },
