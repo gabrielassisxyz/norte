@@ -7,6 +7,7 @@ import ProjectView from '../views/ProjectView.vue'
 import DsGallery from '../views/DsGallery.vue'
 import HomeView from '../views/HomeView.vue'
 import NotesView from '../views/NotesView.vue'
+import MaterialView from '../views/MaterialView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -27,7 +28,7 @@ export const routes: RouteRecordRaw[] = [
   {
     path: '/material/:kind/:id',
     name: 'material',
-    component: Placeholder,
+    component: MaterialView,
     meta: { title: 'Material', layout: 'bare' }
   },
   { path: '/projetos', name: 'projetos', component: Placeholder, meta: { title: 'Projetos' } },
