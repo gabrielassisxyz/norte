@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHistory } from 'vue-router'
 
 import Placeholder from '../views/Placeholder.vue'
+import ProjectView from '../views/ProjectView.vue'
 import DsGallery from '../views/DsGallery.vue'
 import HomeView from '../views/HomeView.vue'
 
@@ -29,7 +30,13 @@ export const routes: RouteRecordRaw[] = [
   },
   { path: '/projetos', name: 'projetos', component: Placeholder, meta: { title: 'Projetos' } },
   { path: '/areas/:id', name: 'area', component: Placeholder, meta: { title: 'Área' } },
-  { path: '/projetos/:id', name: 'projeto', component: Placeholder, meta: { title: 'Projeto' } },
+  {
+    path: '/projetos/:id',
+    name: 'projeto',
+    component: ProjectView,
+    meta: { title: 'Projeto' },
+    props: (route) => ({ id: String(route.params.id ?? ''), tasksExpanded: route.query.tasksExpanded === '1' })
+  },
   { path: '/decisoes/:id', name: 'decisao', component: Placeholder, meta: { title: 'Decisão' } },
   { path: '/tarefas/:id', name: 'tarefa', component: Placeholder, meta: { title: 'Tarefa' } }
 ]
