@@ -2,6 +2,7 @@ import type { RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHistory } from 'vue-router'
 
 import BlankView from '../views/BlankView.vue'
+import DsGallery from '../views/DsGallery.vue'
 
 const routes: RouteRecordRaw[] = [
   { path: '/', name: 'inicio', component: BlankView },
@@ -15,7 +16,8 @@ const routes: RouteRecordRaw[] = [
   { path: '/areas/:id', name: 'area', component: BlankView },
   { path: '/projetos/:id', name: 'projeto', component: BlankView },
   { path: '/decisoes/:id', name: 'decisao', component: BlankView },
-  { path: '/tarefas/:id', name: 'tarefa', component: BlankView }
+  { path: '/tarefas/:id', name: 'tarefa', component: BlankView },
+  { path: '/_ds', name: 'ds-gallery', component: DsGallery }
 ]
 
 const router = createRouter({
