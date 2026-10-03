@@ -142,14 +142,28 @@ describe('app shell', () => {
     expect(fixados().text()).toContain('Inbox')
   })
 
-  it('emits search and preferences instead of opening an overlay', async () => {
+  it('opens the matching overlay from the sidebar controls', async () => {
     const { wrapper } = await mountAt('/')
 
     await wrapper.find('.app-foot .app-button').trigger('click')
     expect(wrapper.findComponent(AppSidebar).emitted('search')).toHaveLength(1)
+    expect(wrapper.find('input[aria-label="Buscar"]').exists()).toBe(true)
 
     await wrapper.findAll('.app-foot .app-button')[1].trigger('click')
     expect(wrapper.findComponent(AppSidebar).emitted('preferences')).toHaveLength(1)
+    expect(wrapper.find('#shell-preferences-title').text()).toBe('Preferências')
+  })
+
+  it.each([
+    ['Ctrl+K', { ctrlKey: true }],
+    ['⌘+K', { metaKey: true }]
+  ])('opens the search overlay from %s on every route', async (_shortcut, modifier) => {
+    const { wrapper } = await mountAt('/projetos')
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ...modifier }))
+    await wrapper.vm.$nextTick()
+
+    expect(wrapper.find('input[aria-label="Buscar"]').exists()).toBe(true)
   })
 
   it('renders bare material routes without the sidebar', async () => {

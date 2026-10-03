@@ -1,28 +1,48 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 import AppSidebar from './AppSidebar.vue'
-
-defineEmits<{
-  search: []
-  preferences: []
-}>()
+import ShellOverlay, { type ShellOverlayMode } from './ShellOverlay.vue'
 
 const route = useRoute()
 const bare = computed(() => route.meta.layout === 'bare')
+const overlay = ref<ShellOverlayMode>(null)
+
+function open(mode: Exclude<ShellOverlayMode, null>): void {
+  overlay.value = mode
+}
+
+function close(): void {
+  overlay.value = null
+}
+
+function handleWindowKeydown(event: KeyboardEvent): void {
+  if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    open('busca')
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', handleWindowKeydown)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleWindowKeydown)
+})
 </script>
 
 <template>
   <div class="app-shell">
     <AppSidebar
       v-if="!bare"
-      @search="$emit('search')"
-      @preferences="$emit('preferences')"
+      @search="open('busca')"
+      @preferences="open('prefs')"
     />
     <div class="app-content">
       <slot />
     </div>
+    <ShellOverlay :open="overlay" @close="close" @open-preferences="open('prefs')" />
   </div>
 </template>
 
