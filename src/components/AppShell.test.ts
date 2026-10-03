@@ -157,6 +157,6 @@ describe('app shell', () => {
     const { wrapper } = await mountAt('/material/post/post-compilation')
 
     expect(wrapper.find('.app-sidebar').exists()).toBe(false)
-    expect(wrapper.find('.app-content h1').text()).toBe('Material')
+    expect(wrapper.find('.app-content h1').text()).toBe('Mapas de símbolos em compiladores pequenos')
   })
 })
