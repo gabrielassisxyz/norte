@@ -111,6 +111,14 @@ export function createMockStore() {
     task.completed = !task.completed
   }
 
+  function setTaskBucket(taskId: string, bucket: Bucket): void {
+    requireItem(state.tasks, taskId, 'Task').bucket = bucket
+  }
+
+  function updateTask(taskId: string, updates: Pick<Task, 'title' | 'description'>): void {
+    Object.assign(requireItem(state.tasks, taskId, 'Task'), updates)
+  }
+
   function addProject(project: NewProject): Project {
     requireItem(state.areas, project.areaId, 'Area')
     const created: Project = { id: nextId('project', state.projects), features: [], bugs: [], ...project }
@@ -202,6 +210,8 @@ export function createMockStore() {
     postponeDecision,
     toggleTaskStep,
     toggleTaskDone,
+    setTaskBucket,
+    updateTask,
     addProject,
     addTask,
     addSession,

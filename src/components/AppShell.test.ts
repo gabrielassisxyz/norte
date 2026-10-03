@@ -49,7 +49,7 @@ describe('app shell', () => {
       ['/areas/a-casa', 'Área'],
       ['/projetos/project-horta', 'Horta da varanda'],
       ['/decisoes/decision-backup-media', 'Decisão'],
-      ['/tarefas/task-backup', 'Tarefa']
+      ['/tarefas/task-backup', 'Definir destinos de cópia']
     ]
     for (const [path, title] of cases) {
       const { wrapper } = await mountAt(path)

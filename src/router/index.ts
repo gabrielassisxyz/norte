@@ -11,6 +11,7 @@ import LibraryView from '../views/LibraryView.vue'
 import NotesView from '../views/NotesView.vue'
 import MaterialView from '../views/MaterialView.vue'
 import ProjectsView from '../views/ProjectsView.vue'
+import TaskView from '../views/TaskView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -44,7 +45,13 @@ export const routes: RouteRecordRaw[] = [
     props: (route) => ({ id: String(route.params.id ?? ''), tasksExpanded: route.query.tasksExpanded === '1' })
   },
   { path: '/decisoes/:id', name: 'decisao', component: Placeholder, meta: { title: 'Decisão' } },
-  { path: '/tarefas/:id', name: 'tarefa', component: Placeholder, meta: { title: 'Tarefa' } }
+  {
+    path: '/tarefas/:id',
+    name: 'tarefa',
+    component: TaskView,
+    meta: { title: 'Tarefa' },
+    props: (route) => ({ id: String(route.params.id ?? '') })
+  }
 ]
 
 if (import.meta.env.DEV) {
