@@ -584,7 +584,6 @@ const projectCount = computed(() => store.projects.length)
   background: transparent;
   cursor: pointer;
   text-align: left;
-  font: inherit;
 }
 
 .app-sync {

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest'
 
 import App from '@/App.vue'
 import AppSidebar from '@/components/AppSidebar.vue'
+import sidebarSource from '@/components/AppSidebar.vue?raw'
 import { store } from '@/mock/store'
 import { routes } from '@/router'
 
@@ -201,6 +202,30 @@ describe('app shell', () => {
     expect(sync.exists()).toBe(true)
     expect(sync.text()).toBe(`Sincronizado há ${store.syncMinutesAgo} min`)
     expect(sync.find('.app-sync-dot').exists()).toBe(true)
+  })
+
+  it('renders the sidebar footer buttons with the navigation link typography', async () => {
+    const { wrapper } = await mountAt('/')
+
+    const navLink = wrapper.find('.app-sidebar nav a.app-item')
+    const buttons = wrapper.findAll('.app-foot .app-button')
+    expect(navLink.exists()).toBe(true)
+    expect(buttons).toHaveLength(2)
+    for (const button of buttons) {
+      // Footer buttons share the .app-item typography class with nav links.
+      expect(button.classes()).toContain('app-item')
+    }
+
+    // jsdom does not compute fonts, so assert on the scoped style rule: the
+    // .app-button reset must keep the button chrome without overriding the
+    // .app-item typography.
+    const appButtonRule = /\.app-button\s*\{([^}]*)\}/.exec(sidebarSource)?.[1] ?? ''
+    expect(appButtonRule).not.toMatch(/font\s*:/)
+    expect(appButtonRule).not.toMatch(/font-(family|size|weight)/)
+    expect(appButtonRule).not.toMatch(/line-height/)
+    for (const declaration of ['width: 100%', 'border: 0', 'background: transparent', 'text-align: left']) {
+      expect(appButtonRule).toContain(declaration)
+    }
   })
 
   it('opens the matching overlay from the sidebar controls', async () => {
