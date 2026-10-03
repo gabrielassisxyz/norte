@@ -5,6 +5,7 @@ import Placeholder from '../views/Placeholder.vue'
 import ProjectView from '../views/ProjectView.vue'
 import DsGallery from '../views/DsGallery.vue'
 import HomeView from '../views/HomeView.vue'
+import LibraryView from '../views/LibraryView.vue'
 import NotesView from '../views/NotesView.vue'
 
 declare module 'vue-router' {
@@ -18,7 +19,7 @@ declare module 'vue-router' {
 
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'inicio', component: HomeView, meta: { title: 'Início' } },
-  { path: '/biblioteca', name: 'biblioteca', component: Placeholder, meta: { title: 'Biblioteca' } },
+  { path: '/biblioteca', name: 'biblioteca', component: LibraryView, meta: { title: 'Biblioteca' } },
   { path: '/notas', name: 'notas', component: NotesView, meta: { title: 'Notas' } },
   { path: '/revisao', name: 'revisao', component: Placeholder, meta: { title: 'Revisão' } },
   { path: '/estudo', name: 'estudo', component: Placeholder, meta: { title: 'Estudo' } },
