@@ -43,7 +43,6 @@ describe('app shell', () => {
   it('names every unbuilt screen on its own route', async () => {
     const cases: Array<[string, string]> = [
       ['/biblioteca', 'Biblioteca'],
-      ['/notas', 'Notas'],
       ['/revisao', 'Revisão'],
       ['/estudo', 'Estudo'],
       ['/projetos', 'Projetos'],

@@ -6,6 +6,7 @@ import Placeholder from '../views/Placeholder.vue'
 import ProjectView from '../views/ProjectView.vue'
 import DsGallery from '../views/DsGallery.vue'
 import HomeView from '../views/HomeView.vue'
+import NotesView from '../views/NotesView.vue'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -19,7 +20,7 @@ declare module 'vue-router' {
 export const routes: RouteRecordRaw[] = [
   { path: '/', name: 'inicio', component: HomeView, meta: { title: 'Início' } },
   { path: '/biblioteca', name: 'biblioteca', component: Placeholder, meta: { title: 'Biblioteca' } },
-  { path: '/notas', name: 'notas', component: Placeholder, meta: { title: 'Notas' } },
+  { path: '/notas', name: 'notas', component: NotesView, meta: { title: 'Notas' } },
   { path: '/revisao', name: 'revisao', component: Placeholder, meta: { title: 'Revisão' } },
   { path: '/estudo', name: 'estudo', component: Placeholder, meta: { title: 'Estudo' } },
   { path: '/curriculos/:slug', name: 'curriculo', component: CurriculumView, meta: { title: 'Currículo' } },
