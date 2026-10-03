@@ -190,6 +190,30 @@ export interface Session {
   summary: string
 }
 
+/** A subject groups library material across curricula on the Estudo home. */
+export interface Subject {
+  id: string
+  name: string
+  curricula: number
+  courses: number
+  articles: number
+  videos: number
+  notes: number
+  questions: number
+  /** Short Portuguese recency label, e.g. "hoje" or "há 2d". */
+  activity: string
+}
+
+/** One day of study activity backing the Estudo streak band and stats. */
+export interface StudyDay {
+  /** ISO date (YYYY-MM-DD). */
+  date: string
+  /** Minutes studied that day; 0 means no study. */
+  minutes: number
+  /** Items completed that day (exercises, materials, reviews). */
+  completed: number
+}
+
 export interface MockData {
   libraryItems: LibraryItem[]
   curricula: Curriculum[]
@@ -203,4 +227,6 @@ export interface MockData {
   decisions: Decision[]
   tasks: Task[]
   sessions: Session[]
+  subjects: Subject[]
+  studyDays: StudyDay[]
 }

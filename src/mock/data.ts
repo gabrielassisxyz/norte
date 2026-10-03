@@ -2,6 +2,7 @@ import { libraryItems } from './library'
 import { curricula, reviewCards, reviewDecks } from './learning'
 import { areas, decisions, projects, sessions, tasks } from './life'
 import { annotations, highlights, questions } from './notes'
+import { studyDays, subjects } from './study'
 import type { MockData } from './types'
 
 export const initialMockData: MockData = {
@@ -16,5 +17,7 @@ export const initialMockData: MockData = {
   projects,
   decisions,
   tasks,
-  sessions
+  sessions,
+  subjects,
+  studyDays
 }

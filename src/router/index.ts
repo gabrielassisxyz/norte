@@ -7,6 +7,7 @@ import DecisionView from '../views/DecisionView.vue'
 import Placeholder from '../views/Placeholder.vue'
 import ProjectView from '../views/ProjectView.vue'
 import ReviewView from '../views/ReviewView.vue'
+import StudyHomeView from '../views/StudyHomeView.vue'
 import DsGallery from '../views/DsGallery.vue'
 import HomeView from '../views/HomeView.vue'
 import LibraryView from '../views/LibraryView.vue'
@@ -29,7 +30,7 @@ export const routes: RouteRecordRaw[] = [
   { path: '/biblioteca', name: 'biblioteca', component: LibraryView, meta: { title: 'Biblioteca' } },
   { path: '/notas', name: 'notas', component: NotesView, meta: { title: 'Notas' } },
   { path: '/revisao', name: 'revisao', component: ReviewView, meta: { title: 'Revisão' } },
-  { path: '/estudo', name: 'estudo', component: Placeholder, meta: { title: 'Estudo' } },
+  { path: '/estudo', name: 'estudo', component: StudyHomeView, meta: { title: 'Estudo' } },
   { path: '/curriculos/:slug', name: 'curriculo', component: CurriculumView, meta: { title: 'Currículo' } },
   {
     path: '/material/:kind/:id',
