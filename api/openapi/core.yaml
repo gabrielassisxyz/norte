@@ -1,0 +1,97 @@
+# The core module's contract: the paths that exist whether or not any feature
+# module is switched on.
+#
+# Both the Go server interfaces and the TypeScript types come from this file --
+# `bin/generate` runs the generators -- so changing what the API accepts or
+# returns means changing the contract first. The generated interface then turns
+# a missing handler into a compile error, and a handler can only exist for a
+# route named here.
+#
+# A path in this file must sit under /api/core/, with two exceptions a client
+# calls before it knows which modules exist: /api/config and /api/health. Every
+# other module's file gets exactly one prefix, /api/<module>/, and nothing else.
+# `bin/check-contracts` is what enforces that, in the gate.
+openapi: 3.0.3
+info:
+  title: Norte core API
+  version: 0.1.0
+  description: |
+    The always-on part of Norte's API. A feature module declares its own file
+    under api/openapi/ and is simply not mounted when it is switched off, so a
+    client discovers what exists through /api/config rather than by probing.
+paths:
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: Report that this server is serving
+      description: |
+        Answers from the process itself and touches no database, no file store
+        and no network, so a 200 means the binary is up and nothing more. It is
+        what a container health check and the dev proxy poll.
+      responses:
+        "200":
+          description: The server is serving.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Health"
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  responses:
+    Error:
+      description: |
+        Every failure in one envelope, whether it came from validating the
+        request against this contract or from the domain behind it.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Health:
+      type: object
+      additionalProperties: false
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          description: Always "ok"; a server that cannot answer does not answer at all.
+          enum:
+            - ok
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - request_id
+      properties:
+        code:
+          type: string
+          description: |
+            Stable, machine-readable reason. The frontend branches on this;
+            the message is for a person.
+          example: invalid_request
+        message:
+          type: string
+          description: What went wrong, in one sentence, safe to show.
+        field:
+          type: string
+          description: |
+            The input the failure is attributable to, when it is attributable
+            to exactly one. Absent otherwise.
+          example: kind
+        request_id:
+          type: string
+          description: |
+            The X-Request-Id of the request that failed, so an error a person
+            reports can be matched to the log line that recorded it.

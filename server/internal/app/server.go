@@ -40,20 +40,28 @@ type RouterOptions struct {
 	TestRoutes bool
 }
 
-// NewRouter assembles the mux and the middleware chain. The chain order is
-// deliberate: the request id and the access log see every request, the security
-// headers are set even on the responses the allowlist and the body cap reject,
-// and the body cap is innermost so only handlers run under it.
-func NewRouter(opts RouterOptions) http.Handler {
+// NewRouter assembles the mux and the middleware chain. It fails rather than
+// serving when a module's contract cannot be mounted, because a server missing
+// a route answers 404 to a frontend that was compiled against it.
+func NewRouter(opts RouterOptions) (http.Handler, error) {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/health", handleHealth)
+	if err := mountCoreAPI(mux); err != nil {
+		return nil, err
+	}
 	mux.Handle("/api/", http.HandlerFunc(handleAPINotFound))
 	mux.Handle("/", newFrontendHandler(opts.Assets))
 	if opts.TestRoutes {
 		registerNorteTestOnlyRoutes(mux)
 	}
+	return withStandardMiddleware(opts, mux), nil
+}
 
-	var handler http.Handler = mux
+// withStandardMiddleware wraps a handler in the chain every request goes
+// through. The order is deliberate: the request id and the access log see every
+// request, the security headers are set even on the responses the allowlist and
+// the body cap reject, and the body cap is innermost so only handlers run under
+// it.
+func withStandardMiddleware(opts RouterOptions, handler http.Handler) http.Handler {
 	handler = core.WithBodyLimit(opts.Config.BodyMaxBytes, handler)
 	handler = core.WithHostAllowlist(opts.Config.AllowedHosts(), handler)
 	handler = core.WithSecurityHeaders(handler)
@@ -61,13 +69,6 @@ func NewRouter(opts RouterOptions) http.Handler {
 	handler = core.WithAccessLog(opts.Logger, handler)
 	handler = core.WithRequestID(handler)
 	return handler
-}
-
-// handleHealth is hand-written for now; the contract bead replaces it with a
-// generated handler.
-func handleHealth(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	_ = json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
 }
 
 // handleAPINotFound answers unknown /api/ paths with the error envelope, so an
@@ -145,13 +146,18 @@ func registerNorteTestOnlyRoutes(mux *http.ServeMux) {
 // before returning. The address actually bound is logged, which is both useful
 // with a port of 0 and how the subprocess test finds the server.
 func Serve(ctx context.Context, opts RouterOptions) error {
+	handler, err := NewRouter(opts)
+	if err != nil {
+		return err
+	}
+
 	listener, err := net.Listen("tcp", opts.Config.Listen)
 	if err != nil {
 		return fmt.Errorf("listening on %s: %w", opts.Config.Listen, err)
 	}
 
 	server := &http.Server{
-		Handler:           NewRouter(opts),
+		Handler:           handler,
 		ReadHeaderTimeout: readHeaderTimeout,
 		ReadTimeout:       readTimeout,
 		WriteTimeout:      writeTimeout,

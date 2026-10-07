@@ -1,0 +1,25 @@
+#!/usr/bin/env bash
+# Fail when a contract file breaks a rule no generator checks.
+#
+#   bin/check-contracts [<directory>]      default: api/openapi
+#
+# Two rules, both invisible to oapi-codegen and openapi-typescript, which happily
+# generate working code from a contract that breaks either one:
+#
+#   * a file may only declare paths under /api/<its own name>/, so a module
+#     implements its own interface and nothing else (the core file also carries
+#     /api/config and /api/health, the two paths a client calls before it knows
+#     which modules exist);
+#   * every object schema pins additionalProperties to false, so a request
+#     carrying a field the contract never named is rejected instead of being
+#     silently dropped.
+#
+# The rules themselves live in server/cmd/contractcheck, where a YAML parser is
+# one import away rather than an exercise in awk.
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+directory="${1:-$repo/api/openapi}"
+
+cd "$repo/server"
+exec go run ./cmd/contractcheck "$directory"

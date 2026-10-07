@@ -16,7 +16,11 @@ backend bead lands.
   queries, `goose` for migrations. The Go version is pinned by the `toolchain` directive in
   `server/go.mod`. **Every `go` command runs from `server/`**, which is where the module is.
   - `cmd/norte/` — the entry point.
-  - `internal/app/` — configuration, the cobra command line, the HTTP server wiring.
+  - `cmd/contractcheck/` — a gate tool, not part of the binary: the two contract rules
+    `bin/check-contracts` enforces.
+  - `internal/app/` — configuration, the cobra command line, the HTTP server wiring, and
+    each module's handlers behind the validator built from its contract.
+  - `gen/api/<module>/` — generated from `api/openapi/<module>.yaml`, never edited.
   - `internal/core/` — the always-on part that is not a module: the database handles
     and migrations, ids, the clock and the timestamp format, the item registry and
     links between modules, the content-addressed file store, and the logging and HTTP
@@ -31,7 +35,8 @@ backend bead lands.
 - `design/prototypes/` — git-ignored, and exists only in the main checkout. Open
   `Norte - <Screen> (standalone).html` in a browser to see a screen; read
   `<Screen>/template.html` for its markup, styles and behaviour.
-- `bin/` — `ci` (the gate), `generate`, `check-pins`, `worktree`.
+- `bin/` — `ci` (the gate), `generate`, `check-pins`, `check-contracts`, `check-generated`,
+  `worktree`.
 - `docs/tools/ci-checks.md` — every gate check and the command that reruns it alone.
 
 ## Generated code is never edited
@@ -46,6 +51,21 @@ generated file is erased by the next run of the generator without warning.
 The gate's `sqlc` check runs `go tool sqlc diff`, which fails when the committed output and
 the queries have drifted apart.
 
+`server/gen/api/<module>/` and `web/src/api/<module>.d.ts` come from
+`api/openapi/<module>.yaml`: `bin/generate api`. Adding or changing an endpoint starts in
+the YAML, because the regenerated Go interface then turns a missing handler into a compile
+error, and a handler can only exist for a route the contract names. The generator versions
+are pinned the same way — `oapi-codegen` by `server/go.mod`, `openapi-typescript` by
+`web/package-lock.json` — and `bin/generate` never calls either by bare name, so nothing
+installed on the machine can change what gets generated. The gate's `generate` check
+regenerates everything and fails if the result differs from what is committed.
+
+A contract file may only declare paths under `/api/<its own module>/`. The core file carries
+two exceptions, `/api/config` and `/api/health`, which a client calls before it knows which
+modules exist. Every object schema sets `additionalProperties: false`, which is what makes
+the server reject a field the contract never named instead of dropping it in silence. The
+gate's `contracts` check enforces both.
+
 ## The gate
 
 `bin/ci` is the gate, and `.github/workflows/ci.yml` runs exactly it — so a green local run
@@ -55,9 +75,11 @@ A red run prints `FAILED: <name>`. `docs/tools/ci-checks.md` maps every name to 
 command that reruns that check alone, which is how a failure is investigated without paying
 for the whole gate again. `bin/ci <name>...` runs only the checks named.
 
-`bin/generate` builds the frontend and copies it into `server/internal/webassets/dist/`, so
+`bin/generate` runs the contract generators, then `sqlc`, then builds the frontend and copies
+it into `server/internal/webassets/dist/`, so
 `bin/generate && (cd server && go build -o norte ./cmd/norte)` is what produces a binary with
-the current UI in it.
+the current UI in it. `bin/generate <stage>...` runs only the stages named — `api`, `sqlc`,
+`web` — which is the fast way back after editing one contract.
 
 During development, `npm run dev` in `web/` proxies `/api` to `http://127.0.0.1:8080`, which
 is where a locally running `norte serve` listens by default.
