@@ -1,23 +1,26 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import AnnotationItem from '@/components/ds/AnnotationItem.vue'
 import Button from '@/components/ds/Button.vue'
 import Highlight from '@/components/ds/Highlight.vue'
 import QuestionItem from '@/components/ds/QuestionItem.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
-import { store } from '@/mock/store'
-import type { LibraryItem, MaterialKind, QuestionKind } from '@/mock/types'
+import { useAsyncAction } from '@/lib/asyncResource'
+import { formatDayAge, formatShortDate, todayIsoDate } from '@/lib/clock'
+import type { MaterialKind, QuestionKind } from '@/mock/types'
+import { useSources } from '@/sources'
 
-type NotesTab = 'highlights' | 'anotacoes' | 'perguntas'
+import { useNotes } from '../data/composables'
+import type { NoteRecord, NoteSourceRef, NoteTab } from '../data/source'
 
-interface NoteSource {
-  material: LibraryItem & { kind: MaterialKind }
-  decisionId?: string
+const TABS: NoteTab[] = ['highlights', 'anotacoes', 'perguntas']
+const TAB_LABELS: Record<NoteTab, string> = {
+  highlights: 'Highlights',
+  anotacoes: 'Anotações',
+  perguntas: 'Perguntas'
 }
-
-const TABS: NotesTab[] = ['highlights', 'anotacoes', 'perguntas']
 const QUESTION_KINDS: Array<{ value: QuestionKind; label: string }> = [
   { value: 'what', label: 'O quê' },
   { value: 'why', label: 'Por quê' },
@@ -26,94 +29,59 @@ const QUESTION_KINDS: Array<{ value: QuestionKind; label: string }> = [
   { value: 'where', label: 'Onde' },
   { value: 'how', label: 'Como' }
 ]
+/** Which decision a material's notes feed, as the prototype wires them. */
 const DECISION_BY_MATERIAL: Record<string, string | undefined> = {
   'post-compilation': 'decision-parser-shape',
   'book-garden': 'decision-garden-layout',
   'paper-reading': 'decision-budget-period'
 }
-const AGE_BY_DATE: Record<string, string> = {
-  '2026-09-19': '14 d',
-  '2026-09-18': '15 d',
-  '2026-09-17': '16 d',
-  '2026-09-16': '17 d',
-  '2026-09-15': '18 d',
-  '2026-09-14': '19 d',
-  '2026-09-13': '20 d',
-  '2026-09-12': '21 d',
-  '2026-09-11': '22 d',
-  '2026-09-10': '23 d'
-}
+const READABLE_KINDS: MaterialKind[] = ['post', 'livro', 'paper']
 
 const route = useRoute()
 const router = useRouter()
-const tab = ref<NotesTab>('highlights')
+const { notes: notesSource } = useSources()
+
+const tab = ref<NoteTab>('highlights')
 const filter = ref('')
 const questionKind = ref<QuestionKind>('why')
 const questionText = ref('')
 const questionError = ref('')
 
-function isNotesTab(value: unknown): value is NotesTab {
-  return typeof value === 'string' && TABS.includes(value as NotesTab)
+function isNotesTab(value: unknown): value is NoteTab {
+  return typeof value === 'string' && TABS.includes(value as NoteTab)
 }
 
-function isMaterial(item: LibraryItem | undefined): item is LibraryItem & { kind: MaterialKind } {
-  return item !== undefined && ['post', 'livro', 'paper'].includes(item.kind)
-}
+/** The list is read per tab and per filter, so the source does the filtering. */
+const query = computed(() => ({ tab: tab.value, search: filter.value.trim() }))
+const { data: page, loading, error, refresh, prependNote } = useNotes(query)
+const writing = useAsyncAction()
 
-function sourceFor(materialId: string | undefined): NoteSource | undefined {
-  const material = store.libraryItems.find((item) => item.id === materialId)
-  if (!isMaterial(material)) return undefined
-  return { material, decisionId: DECISION_BY_MATERIAL[material.id] }
-}
+const rows = computed<NoteRecord[]>(() => page.value?.items ?? [])
+const firstLoad = computed(() => loading.value && page.value === null)
 
-function materialPath(source: NoteSource): string {
-  return `/material/${source.material.kind}/${source.material.id}`
-}
+const counts = computed(() => page.value?.counts ?? { highlights: 0, anotacoes: 0, perguntas: 0 })
 
-function matchesFilter(...values: Array<string | undefined>): boolean {
-  const term = filter.value.trim().toLocaleLowerCase('pt-BR')
-  return !term || values.filter(Boolean).join(' ').toLocaleLowerCase('pt-BR').includes(term)
-}
+const options = computed(() => TABS.map((value) => ({ value, label: TAB_LABELS[value], count: counts.value[value] })))
 
-const filteredHighlights = computed(() =>
-  store.highlights.filter((highlight) => {
-    const source = sourceFor(highlight.materialId)
-    return matchesFilter(highlight.text, source?.material.title, source?.material.author)
-  })
-)
+const heading = computed(() => TAB_LABELS[tab.value])
+const shownCount = computed(() => rows.value.length)
 
-const filteredAnnotations = computed(() =>
-  store.annotations.filter((annotation) => {
-    const source = sourceFor(annotation.materialId)
-    return matchesFilter(annotation.text, source?.material.title, source?.material.author)
-  })
-)
-
-const filteredQuestions = computed(() =>
-  store.questions.filter((question) => {
-    const source = sourceFor(question.materialId)
-    return matchesFilter(question.text, source?.material.title, source?.material.author)
-  })
-)
-
-const counts = computed(() => ({
-  highlights: store.highlights.length,
-  anotacoes: store.annotations.length,
-  perguntas: store.questions.length
-}))
-
-const options = computed(() => [
-  { value: 'highlights', label: 'Highlights', count: counts.value.highlights },
-  { value: 'anotacoes', label: 'Anotações', count: counts.value.anotacoes },
-  { value: 'perguntas', label: 'Perguntas', count: counts.value.perguntas }
-])
-
-const heading = computed(() => options.value.find((option) => option.value === tab.value)?.label ?? 'Highlights')
-const shownCount = computed(() => {
-  if (tab.value === 'highlights') return filteredHighlights.value.length
-  if (tab.value === 'anotacoes') return filteredAnnotations.value.length
-  return filteredQuestions.value.length
+const emptyText = computed(() => {
+  if (filter.value.trim()) return `Nada encontrado para “${filter.value.trim()}”.`
+  if (tab.value === 'highlights') return 'Nenhum highlight ainda. O que você marcar na leitura aparece aqui.'
+  if (tab.value === 'anotacoes') return 'Nenhuma anotação ainda.'
+  return 'Nenhuma pergunta ainda.'
 })
+
+function materialPath(source: NoteSourceRef): string | undefined {
+  if (!READABLE_KINDS.includes(source.kind as MaterialKind)) return undefined
+  return `/material/${source.kind}/${source.id}`
+}
+
+function decisionPath(source: NoteSourceRef): string | undefined {
+  const decisionId = DECISION_BY_MATERIAL[source.id]
+  return decisionId ? `/decisoes/${decisionId}` : undefined
+}
 
 watch(
   () => route.query.tab,
@@ -129,18 +97,22 @@ async function selectTab(value: string): Promise<void> {
   await router.replace({ name: 'notas', query: { ...route.query, tab: value } })
 }
 
-function addQuestion(): void {
+async function addQuestion(): Promise<void> {
   const text = questionText.value.trim()
   if (!text.endsWith('?')) {
     questionError.value = 'A pergunta precisa terminar com “?”.'
     return
   }
 
-  store.addQuestion({
-    kind: questionKind.value,
-    text,
-    materialId: 'post-compilation'
-  })
+  const created = await writing.run(() =>
+    notesSource.addQuestion({ kind: questionKind.value, text, materialId: 'post-compilation' })
+  )
+  if (!created) {
+    questionError.value = `Não foi possível salvar: ${writing.error.value ?? 'erro desconhecido'}`
+    return
+  }
+
+  prependNote(created)
   questionText.value = ''
   questionError.value = ''
 }
@@ -158,33 +130,42 @@ function addQuestion(): void {
         <input id="notes-filter" v-model="filter" class="notes-filter" type="search" placeholder="Filtrar por texto ou fonte…" />
       </header>
 
-      <section v-if="tab === 'highlights'" aria-label="Lista de highlights" class="notes-highlights">
-        <article v-for="highlight in filteredHighlights" :key="highlight.id" class="notes-highlight">
+      <p v-if="firstLoad" class="notes-state" role="status">Carregando as notas…</p>
+
+      <div v-else-if="error" class="notes-state" role="alert">
+        <p>Não foi possível carregar as notas: {{ error }}</p>
+        <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+      </div>
+
+      <section v-else-if="tab === 'highlights'" aria-label="Lista de highlights" class="notes-highlights">
+        <p v-if="rows.length === 0" class="notes-state">{{ emptyText }}</p>
+        <article v-for="highlight in rows" :key="highlight.id" class="notes-highlight">
           <Highlight
             :quote="highlight.text"
-            :source="sourceFor(highlight.materialId)?.material.title ?? 'Material sem fonte'"
-            :timestamp="highlight.createdAt.slice(0, 10)"
-            :href="sourceFor(highlight.materialId) ? materialPath(sourceFor(highlight.materialId)!) : undefined"
+            :source="highlight.source?.title ?? 'Material sem fonte'"
+            :timestamp="formatShortDate(highlight.createdAt)"
+            :href="highlight.source ? materialPath(highlight.source) : undefined"
           />
-          <div v-if="sourceFor(highlight.materialId)" class="notes-links">
-            <RouterLink :to="materialPath(sourceFor(highlight.materialId)!)">Abrir fonte</RouterLink>
-            <RouterLink v-if="sourceFor(highlight.materialId)?.decisionId" :to="`/decisoes/${sourceFor(highlight.materialId)?.decisionId}`">Ver decisão</RouterLink>
+          <div v-if="highlight.source" class="notes-links">
+            <RouterLink v-if="materialPath(highlight.source)" :to="materialPath(highlight.source)!">Abrir fonte</RouterLink>
+            <RouterLink v-if="decisionPath(highlight.source)" :to="decisionPath(highlight.source)!">Ver decisão</RouterLink>
           </div>
         </article>
       </section>
 
       <section v-else-if="tab === 'anotacoes'" aria-label="Lista de anotações" class="notes-annotations">
-        <article v-for="annotation in filteredAnnotations" :key="annotation.id" class="notes-annotation">
+        <p v-if="rows.length === 0" class="notes-state">{{ emptyText }}</p>
+        <article v-for="annotation in rows" :key="annotation.id" class="notes-annotation">
           <AnnotationItem
-            :kind="annotation.highlightId ? 'linked' : 'loose'"
-            :quote="annotation.highlightId ? store.highlights.find((highlight) => highlight.id === annotation.highlightId)?.text : undefined"
+            :kind="annotation.quote ? 'linked' : 'loose'"
+            :quote="annotation.quote"
             :note="annotation.text"
-            :location="sourceFor(annotation.materialId)?.material.title"
-            :time="annotation.createdAt.slice(0, 10)"
+            :location="annotation.source?.title"
+            :time="formatShortDate(annotation.createdAt)"
           />
-          <div v-if="sourceFor(annotation.materialId)" class="notes-links">
-            <RouterLink :to="materialPath(sourceFor(annotation.materialId)!)">Abrir fonte</RouterLink>
-            <RouterLink v-if="sourceFor(annotation.materialId)?.decisionId" :to="`/decisoes/${sourceFor(annotation.materialId)?.decisionId}`">Ver decisão</RouterLink>
+          <div v-if="annotation.source" class="notes-links">
+            <RouterLink v-if="materialPath(annotation.source)" :to="materialPath(annotation.source)!">Abrir fonte</RouterLink>
+            <RouterLink v-if="decisionPath(annotation.source)" :to="decisionPath(annotation.source)!">Ver decisão</RouterLink>
           </div>
         </article>
       </section>
@@ -217,30 +198,35 @@ function addQuestion(): void {
         </form>
 
         <div class="notes-question-list" aria-label="Lista de perguntas">
-          <article v-for="question in filteredQuestions" :key="question.id" class="notes-question">
+          <p v-if="rows.length === 0" class="notes-state">{{ emptyText }}</p>
+          <article v-for="question in rows" :key="question.id" class="notes-question">
             <QuestionItem
-              :kind="question.kind"
+              :kind="question.questionKind ?? 'what'"
               :question="question.text"
               :status="question.answer ? 'answered' : 'open'"
               :answer="question.answer"
-              :topic="sourceFor(question.materialId)?.material.title"
-              :age="AGE_BY_DATE[question.createdAt.slice(0, 10)] ?? 'agora'"
+              :topic="question.source?.title"
+              :age="formatDayAge(question.createdAt, todayIsoDate())"
             />
-            <div v-if="sourceFor(question.materialId)" class="notes-links">
-              <RouterLink :to="materialPath(sourceFor(question.materialId)!)">Abrir fonte</RouterLink>
-              <RouterLink v-if="sourceFor(question.materialId)?.decisionId" :to="`/decisoes/${sourceFor(question.materialId)?.decisionId}`">Ver decisão</RouterLink>
+            <div v-if="question.source" class="notes-links">
+              <RouterLink v-if="materialPath(question.source)" :to="materialPath(question.source)!">Abrir fonte</RouterLink>
+              <RouterLink v-if="decisionPath(question.source)" :to="decisionPath(question.source)!">Ver decisão</RouterLink>
             </div>
           </article>
         </div>
       </section>
 
-      <p class="notes-count">{{ shownCount }} {{ shownCount === 1 ? 'item' : 'itens' }}<template v-if="filter.trim()"> para “{{ filter.trim() }}”</template></p>
+      <p v-if="!firstLoad && !error" class="notes-count">
+        {{ shownCount }} {{ shownCount === 1 ? 'item' : 'itens' }}<template v-if="filter.trim()"> para “{{ filter.trim() }}”</template>
+      </p>
     </div>
   </main>
 </template>
 
 <style scoped>
 .notes-view { min-width: 0; }
+.notes-state { margin: 32px 0 0; color: var(--muted); font-size: 15px; line-height: 24px; }
+.notes-state p { margin: 0 0 var(--space-2); }
 .notes-inner { max-width: 1120px; margin: 0 auto; padding-top: 28px; }
 .notes-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
 .notes-tabs { display: flex; align-items: center; gap: var(--space-6); flex-wrap: wrap; }

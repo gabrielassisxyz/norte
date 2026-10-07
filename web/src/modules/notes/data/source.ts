@@ -22,6 +22,8 @@ export interface NoteRecord {
   tab: NoteTab
   text: string
   createdAt: string
+  /** The highlight an annotation hangs on, which is what makes it a linked one. */
+  quote?: string
   questionKind?: QuestionKind
   answer?: string
   source?: NoteSourceRef

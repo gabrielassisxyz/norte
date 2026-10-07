@@ -30,11 +30,15 @@ export function createMockNotesSource(store: MockStore): NotesSource {
   }
 
   function fromAnnotation(annotation: Annotation): NoteRecord {
+    const quote = annotation.highlightId
+      ? store.highlights.find((highlight) => highlight.id === annotation.highlightId)?.text
+      : undefined
     return {
       id: annotation.id,
       tab: 'anotacoes',
       text: annotation.text,
       createdAt: annotation.createdAt,
+      ...(quote ? { quote } : {}),
       source: sourceRef(annotation.materialId)
     }
   }
