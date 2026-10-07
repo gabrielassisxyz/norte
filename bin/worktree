@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# One worktree per unit of work, outside the repository, branched from a fresh origin/main.
+# The main checkout stays on main as a clean reference; nobody works in it.
+#
+#   bin/worktree new <type>/<kebab-desc>   create the branch and its worktree, print the path
+#   bin/worktree rm <task> [-f]            remove the worktree (the branch is kept)
+#   bin/worktree list                      list worktrees
+set -euo pipefail
+
+repo="$(git rev-parse --show-toplevel)"
+base="${NORTE_WORKTREE_BASE:-$HOME/repositories/.worktrees/norte}"
+
+usage() { sed -n '4,7p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+
+cmd="${1:-}"; shift || true
+case "$cmd" in
+    new)
+        branch="${1:-}"; [ -n "$branch" ] || usage
+        task="${branch##*/}"
+        dir="$base/$task"
+        [ -e "$dir" ] && { echo "worktree: $dir already exists" >&2; exit 1; }
+        git -C "$repo" fetch --quiet origin main
+        mkdir -p "$base"
+        git -C "$repo" worktree add --quiet -b "$branch" "$dir" origin/main
+        echo "$dir"
+        ;;
+    rm)
+        task="${1:-}"; [ -n "$task" ] || usage
+        shift
+        git -C "$repo" worktree remove "$@" "$base/$task"
+        ;;
+    list)
+        git -C "$repo" worktree list
+        ;;
+    *)
+        usage
+        ;;
+esac
