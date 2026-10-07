@@ -107,19 +107,21 @@ func TestGarbageCollectionDeletesOnlyOldUnreferencedBlobs(t *testing.T) {
 	// minutes old, past the grace period.
 	old := storeTestBlob(t, store, "<html>orphaned by a crash</html>")
 
-	// Also unreferenced, but stored two minutes later, so it is 59 minutes old
-	// when gc runs: still inside the window where its transaction may be in
-	// flight.
-	clock.Advance(2 * time.Minute)
-	young := storeTestBlob(t, store, "<html>a save still in flight</html>")
-
-	// Referenced, and as old as the first one. Age alone must not be enough.
+	// Stored at the same instant, so it reaches gc exactly as old as the first
+	// one. Nothing but the reference distinguishes them, which is what makes
+	// this the case that fails if gc stops reading core_file_refs.
 	referenced := storeTestBlob(t, store, "<html>a snapshot someone owns</html>")
 	if _, err := database.Writer().Exec(
 		`INSERT INTO core_file_refs (hash, owner_id, kind) VALUES (?, ?, ?)`,
 		referenced.Hash, owner, core.FileRefSnapshot); err != nil {
 		t.Fatalf("referencing the blob: %v", err)
 	}
+
+	// Unreferenced too, but stored two minutes later, so it is 59 minutes old
+	// when gc runs: still inside the window where its transaction may be in
+	// flight.
+	clock.Advance(2 * time.Minute)
+	young := storeTestBlob(t, store, "<html>a save still in flight</html>")
 
 	clock.Advance(59 * time.Minute)
 
@@ -136,7 +138,7 @@ func TestGarbageCollectionDeletesOnlyOldUnreferencedBlobs(t *testing.T) {
 
 	assertBlobGone(t, database, store, old.Hash, "it is unreferenced and past the grace period")
 	assertBlobKept(t, database, store, young.Hash, "it is only 59 minutes old")
-	assertBlobKept(t, database, store, referenced.Hash, "an item references it")
+	assertBlobKept(t, database, store, referenced.Hash, "an item references it, old as it is")
 }
 
 // TestGarbageCollectionCollectsABlobOnceItsOwnerIsUnregistered is the pair of
