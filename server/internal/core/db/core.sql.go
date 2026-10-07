@@ -71,7 +71,7 @@ func (q *Queries) DeleteCoreItem(ctx context.Context, id string) (sql.Result, er
 const insertCoreFile = `-- name: InsertCoreFile :exec
 INSERT INTO core_files (hash, media_type, size, created_at)
 VALUES (?, ?, ?, ?)
-ON CONFLICT (hash) DO NOTHING
+ON CONFLICT (hash) DO UPDATE SET created_at = excluded.created_at
 `
 
 type InsertCoreFileParams struct {
@@ -81,9 +81,11 @@ type InsertCoreFileParams struct {
 	CreatedAt string
 }
 
-// DO NOTHING rather than an update: the row describes bytes that cannot have
-// changed, and refreshing created_at would restart the grace period that
-// CollectCoreFiles reads.
+// Storing bytes that already exist refreshes created_at on purpose. The grace
+// period protects a blob between Store and the transaction that references it,
+// and a second Store opens exactly such a window again; keeping an old
+// unreferenced row's timestamp would let gc delete the blob under that caller.
+// A referenced blob is never collected, so the refresh changes nothing for it.
 func (q *Queries) InsertCoreFile(ctx context.Context, arg InsertCoreFileParams) error {
 	_, err := q.db.ExecContext(ctx, insertCoreFile,
 		arg.Hash,

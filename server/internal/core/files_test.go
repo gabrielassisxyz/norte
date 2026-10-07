@@ -141,6 +141,28 @@ func TestGarbageCollectionDeletesOnlyOldUnreferencedBlobs(t *testing.T) {
 	assertBlobKept(t, database, store, referenced.Hash, "an item references it, old as it is")
 }
 
+// TestGarbageCollectionSparesAnOldOrphanThatIsStoredAgain covers the save that
+// stores bytes an earlier, crashed save had already left behind: the second
+// Store starts a new grace period, so gc cannot delete the blob before the new
+// caller's transaction references it.
+func TestGarbageCollectionSparesAnOldOrphanThatIsStoredAgain(t *testing.T) {
+	clock := clocktest.New(fixedInstant)
+	store, database, _ := newCoreFileStore(t, clock)
+
+	orphan := storeTestBlob(t, store, "<html>stored twice</html>")
+	clock.Advance(3 * time.Hour)
+	again := storeTestBlob(t, store, "<html>stored twice</html>")
+	if again.Hash != orphan.Hash {
+		t.Fatalf("the same bytes hashed differently: %s and %s", orphan.Hash, again.Hash)
+	}
+	clock.Advance(30 * time.Minute)
+
+	if _, err := store.CollectGarbage(context.Background()); err != nil {
+		t.Fatalf("collecting garbage: %v", err)
+	}
+	assertBlobKept(t, database, store, again.Hash, "it was stored again 30 minutes ago")
+}
+
 // TestGarbageCollectionCollectsABlobOnceItsOwnerIsUnregistered is the pair of
 // cascades working together: deleting the item removes the reference, and the
 // next gc past the grace period removes the blob.
