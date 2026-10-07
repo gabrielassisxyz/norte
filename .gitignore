@@ -14,3 +14,14 @@ design/prototypes/
 local/
 docs/backend-plan.md
 docs/reviews/
+
+# The built frontend is copied here by bin/generate so Go's embed can reach it.
+# Only the placeholder is committed, so the package compiles in a fresh clone.
+server/internal/webassets/dist/*
+!server/internal/webassets/dist/placeholder.html
+# bin/generate swaps the new build in through these; a killed run can leave one.
+server/internal/webassets/dist.new/
+server/internal/webassets/dist.old/
+
+# The built binary.
+server/norte

@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+# Build the frontend and copy it where the Go binary can embed it.
+#
+#   bin/generate
+#
+# Go's embed cannot reach outside its own package directory, so the built
+# frontend has to be copied into server/internal/webassets/dist/. The copy is
+# swapped in atomically: a failed or interrupted build leaves the previous dist
+# in place rather than a half-written directory the next `go build` would embed.
+#
+# Later beads add the OpenAPI generators in front of this.
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+web="$repo/web"
+embed_dir="$repo/server/internal/webassets/dist"
+placeholder="$embed_dir/placeholder.html"
+
+log() { printf '==> %s\n' "$*"; }
+
+# node_modules can exist and still be stale, but `npm ci` takes tens of seconds
+# and this script runs on every gate. package-lock.json being newer than the
+# install is the cheap signal that reinstalling is actually needed.
+if [ ! -d "$web/node_modules" ] || [ "$web/package-lock.json" -nt "$web/node_modules" ]; then
+    log "npm ci"
+    (cd "$web" && npm ci)
+fi
+
+log "npm run build"
+(cd "$web" && npm run build)
+
+[ -d "$web/dist" ] || { echo "generate: npm run build produced no $web/dist" >&2; exit 1; }
+# The placeholder is the committed file that keeps the webassets package
+# compiling in a fresh clone, so it has to survive every swap.
+[ -f "$placeholder" ] || { echo "generate: $placeholder is missing from the checkout" >&2; exit 1; }
+
+log "embedding the frontend in server/internal/webassets/dist"
+rm -rf "$embed_dir.new" "$embed_dir.old"
+cp -R "$web/dist" "$embed_dir.new"
+cp "$placeholder" "$embed_dir.new/placeholder.html"
+
+if [ -e "$embed_dir" ]; then
+    mv "$embed_dir" "$embed_dir.old"
+fi
+mv "$embed_dir.new" "$embed_dir"
+rm -rf "$embed_dir.old"
+
+log "done: $(find "$embed_dir" -type f | wc -l) files embedded"

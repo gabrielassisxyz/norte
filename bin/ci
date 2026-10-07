@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+# The gate. Everything that must be true before a commit lands, in one command.
+#
+#   bin/ci                 run every check
+#   bin/ci <name>...       run only the named checks
+#   bin/ci --list          list the check names
+#
+# This is exactly what .github/workflows/ci.yml runs, so a green local run and a
+# green CI run mean the same thing. A failing check prints `FAILED: <name>`;
+# docs/tools/ci-checks.md maps every name to the single command that reruns it
+# alone, which is how a red run is investigated without rerunning the gate.
+#
+# Later beads add their checks here.
+set -uo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$repo" || exit 1
+
+checks=(pins pins-test gofmt go-vet generate go-build go-test web-test)
+
+# A temporary NORTE_DATA keeps the suite off the real data directory, so a test
+# that writes cannot touch whatever is installed on the machine running the gate.
+scratch=""
+scratch_dir() {
+    if [ -z "$scratch" ]; then
+        scratch="$(mktemp -d -p "${TMPDIR:-/tmp}" norte-ci.XXXXXX)"
+    fi
+    printf '%s' "$scratch"
+}
+cleanup() { [ -n "$scratch" ] && rm -rf "$scratch"; }
+trap cleanup EXIT
+
+check_pins() {
+    bin/check-pins
+}
+
+check_pins_test() {
+    bash scripts/pins-test.sh
+}
+
+# gofmt reports nothing and exits 0 on unformatted files, so the output is the
+# verdict and the exit code is not.
+check_gofmt() {
+    local unformatted
+    unformatted="$(cd server && gofmt -l .)"
+    if [ -n "$unformatted" ]; then
+        printf 'these files are not gofmt-clean:\n%s\n' "$unformatted" >&2
+        return 1
+    fi
+}
+
+check_go_vet() {
+    (cd server && go vet ./...)
+}
+
+# bin/generate builds the frontend and copies it where Go's embed can reach it.
+# It also covers `npm run build`, which is why there is no separate check for
+# that: repeating the frontend build would double the gate's slowest step and
+# prove nothing the embed does not already need.
+check_generate() {
+    bin/generate
+}
+
+check_go_build() {
+    (cd server && go build -o norte ./cmd/norte)
+}
+
+check_go_test() {
+    (cd server && NORTE_DATA="$(scratch_dir)/data" go test ./...)
+}
+
+check_web_test() {
+    (cd web && npm test)
+}
+
+# run_check <name> — run one check, announce the verdict, return its status.
+run_check() {
+    local name="$1"
+    local function_name="check_${name//-/_}"
+    if ! declare -F "$function_name" > /dev/null; then
+        echo "ci: no such check: $name" >&2
+        return 1
+    fi
+    printf '\n=== %s ===\n' "$name"
+    if "$function_name"; then
+        printf 'ok: %s\n' "$name"
+        return 0
+    fi
+    printf 'FAILED: %s\n' "$name" >&2
+    return 1
+}
+
+case "${1:-}" in
+    --list)
+        printf '%s\n' "${checks[@]}"
+        exit 0
+        ;;
+    -h | --help)
+        sed -n '2,12p' "$0" | sed 's/^# \{0,1\}//'
+        exit 0
+        ;;
+esac
+
+requested=("${checks[@]}")
+if [ "$#" -gt 0 ]; then
+    requested=("$@")
+fi
+
+# Every check runs even after one fails, because a single red run that names all
+# the broken checks is worth more than the first one found.
+failed=()
+for name in "${requested[@]}"; do
+    run_check "$name" || failed+=("$name")
+done
+
+printf '\n'
+if [ "${#failed[@]}" -gt 0 ]; then
+    printf 'FAILED: %s\n' "${failed[@]}" >&2
+    printf 'ci: %d of %d checks failed; docs/tools/ci-checks.md has the command to rerun each one\n' \
+        "${#failed[@]}" "${#requested[@]}" >&2
+    exit 1
+fi
+printf 'ci: all %d checks passed\n' "${#requested[@]}"
