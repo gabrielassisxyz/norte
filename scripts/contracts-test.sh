@@ -236,7 +236,10 @@ else
     # types, so openapi-typescript has to have run first, and `web` is last
     # because it copies the built frontend into the server tree. The log lines
     # are the only record of what ran when, so they are what this reads.
-    ran="$(printf '%s\n' "$generate_output" | sed -n 's/^==> \([a-z-]*\).*/\1/p' | tr '\n' ' ')"
+    # Only the three generators are ordered here. `npm ci` logs a stage of its
+    # own when node_modules is missing, which is every CI run and no warm
+    # checkout, so counting it made this pass locally and fail in CI.
+    ran="$(printf '%s\n' "$generate_output" | sed -n 's/^==> \(oapi-codegen\|openapi-typescript\|sqlc\)\b.*/\1/p' | tr '\n' ' ')"
     case "$ran" in
         "oapi-codegen openapi-typescript sqlc "*)
             pass "bin/generate runs oapi-codegen, then openapi-typescript, then sqlc"
