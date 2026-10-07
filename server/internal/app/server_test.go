@@ -19,7 +19,7 @@ func testRouter(t *testing.T) http.Handler {
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	return NewRouter(RouterOptions{
+	handler, err := NewRouter(RouterOptions{
 		Config: cfg,
 		Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)),
 		Assets: fstest.MapFS{
@@ -27,6 +27,10 @@ func testRouter(t *testing.T) http.Handler {
 			"assets/app.js": {Data: []byte("export default 1\n")},
 		},
 	})
+	if err != nil {
+		t.Fatalf("NewRouter: %v", err)
+	}
+	return handler
 }
 
 // get sends a request through the router with an allowed Host.

@@ -1,0 +1,47 @@
+# A contract that exists only for this package's tests.
+#
+# The validation cases need a route with a request body to reject -- an unknown
+# field, unparseable JSON, a value outside an enum -- and the core has no POST
+# route yet. Rather than wait for the first real one, or weaken the real
+# contract with a route nothing serves, the tests mount this file through the
+# same validator and the same error handler production uses.
+#
+# It lives under testdata/ on purpose: the Go tool ignores that directory, and
+# it is outside api/openapi/, so no generator and no gate check ever sees it.
+openapi: 3.0.3
+info:
+  title: Norte test-only API
+  version: 0.0.0
+paths:
+  /api/core/test-notes:
+    post:
+      operationId: createTestNote
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TestNote"
+      responses:
+        "201":
+          description: The note was accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TestNote"
+components:
+  schemas:
+    TestNote:
+      type: object
+      additionalProperties: false
+      required:
+        - title
+        - kind
+      properties:
+        title:
+          type: string
+        kind:
+          type: string
+          enum:
+            - note
+            - quote
