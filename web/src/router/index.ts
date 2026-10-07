@@ -1,20 +1,9 @@
-import type { RouteRecordRaw } from 'vue-router'
+import type { Router, RouteRecordRaw } from 'vue-router'
 import { createRouter, createWebHistory } from 'vue-router'
 
-import AreaView from '../views/AreaView.vue'
-import CurriculumView from '../views/CurriculumView.vue'
-import DecisionView from '../views/DecisionView.vue'
-import Placeholder from '../views/Placeholder.vue'
-import ProjectView from '../views/ProjectView.vue'
-import ReviewView from '../views/ReviewView.vue'
-import StudyHomeView from '../views/StudyHomeView.vue'
-import DsGallery from '../views/DsGallery.vue'
-import HomeView from '../views/HomeView.vue'
-import LibraryView from '../views/LibraryView.vue'
-import NotesView from '../views/NotesView.vue'
-import MaterialView from '../views/MaterialView.vue'
-import ProjectsView from '../views/ProjectsView.vue'
-import TaskView from '../views/TaskView.vue'
+import { norteModules } from '@/modules'
+import { isModuleMounted } from '@/modules/mounting'
+import type { NorteModule } from '@/modules/types'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -25,55 +14,66 @@ declare module 'vue-router' {
   }
 }
 
-export const routes: RouteRecordRaw[] = [
-  { path: '/', name: 'inicio', component: HomeView, meta: { title: 'Início' } },
-  { path: '/biblioteca', name: 'biblioteca', component: LibraryView, meta: { title: 'Biblioteca' } },
-  { path: '/notas', name: 'notas', component: NotesView, meta: { title: 'Notas' } },
-  { path: '/revisao', name: 'revisao', component: ReviewView, meta: { title: 'Revisão' } },
-  { path: '/estudo', name: 'estudo', component: StudyHomeView, meta: { title: 'Estudo' } },
-  { path: '/curriculos/:slug', name: 'curriculo', component: CurriculumView, meta: { title: 'Currículo' } },
-  {
-    path: '/material/:kind/:id',
-    name: 'material',
-    component: MaterialView,
-    meta: { title: 'Material', layout: 'bare' }
-  },
-  { path: '/projetos', name: 'projetos', component: ProjectsView, meta: { title: 'Projetos' } },
-  {
-    path: '/areas/:id',
-    name: 'area',
-    component: AreaView,
-    meta: { title: 'Área' },
-    props: (route) => ({ id: String(route.params.id ?? '') })
-  },
-  {
-    path: '/projetos/:id',
-    name: 'projeto',
-    component: ProjectView,
-    meta: { title: 'Projeto' },
-    props: (route) => ({ id: String(route.params.id ?? ''), tasksExpanded: route.query.tasksExpanded === '1' })
-  },
-  {
-    path: '/decisoes/:id',
-    name: 'decisao',
-    component: DecisionView,
-    meta: { title: 'Decisão' },
-    props: (route) => ({
-      id: String(route.params.id ?? ''),
-      preselect: route.query.preselect === '1' || route.query.preselect === 'true'
-    })
-  },
-  {
-    path: '/tarefas/:id',
-    name: 'tarefa',
-    component: TaskView,
-    meta: { title: 'Tarefa' },
-    props: (route) => ({ id: String(route.params.id ?? '') })
-  }
+/**
+ * The routes that exist whichever modules are on: the home screen, and in
+ * development the design-system gallery.
+ */
+export const shellRoutes: RouteRecordRaw[] = [
+  { path: '/', name: 'inicio', component: () => import('@/shell/HomeView.vue'), meta: { title: 'Início' } }
 ]
 
 if (import.meta.env.DEV) {
-  routes.push({ path: '/_ds', name: 'design-system-gallery', component: DsGallery, meta: { title: 'Galeria' } })
+  shellRoutes.push({
+    path: '/_ds',
+    name: 'design-system-gallery',
+    component: () => import('@/components/ds/gallery/DsGallery.vue'),
+    meta: { title: 'Galeria' }
+  })
+}
+
+/**
+ * A module that is off still owns its addresses: the shell answers them with a
+ * page that says the module is switched off, rather than letting the address
+ * fall through to nothing and look like a broken screen.
+ */
+export function disabledModuleRoutes(module: NorteModule): RouteRecordRaw[] {
+  return module.manifest.routePaths.map((path, index) => ({
+    path,
+    name: `modulo-desligado-${module.manifest.name}-${index}`,
+    component: () => import('@/shell/ModuleDisabled.vue'),
+    meta: { title: 'Módulo desligado' }
+  }))
+}
+
+export function createRouteTable(modules: NorteModule[] = norteModules): RouteRecordRaw[] {
+  const mounted = modules.filter((module) => isModuleMounted(module.manifest.name))
+  const disabled = modules.filter((module) => !isModuleMounted(module.manifest.name))
+  return [...shellRoutes, ...mounted.flatMap((module) => module.routes), ...disabled.flatMap(disabledModuleRoutes)]
+}
+
+/**
+ * The table with every module mounted. Every manifest is `mock`-backed in this
+ * delivery, so this is also what the app starts with before `/api/config`
+ * answers; `applyMountedModules` prunes it once the answer arrives.
+ */
+export const routes: RouteRecordRaw[] = createRouteTable()
+
+/**
+ * Bring a live router in line with the mount state, after `/api/config` has
+ * been read.
+ *
+ * The router is created before the fetch so that the first paint has somewhere
+ * to render; pruning it afterwards is what keeps a single router instance
+ * instead of swapping one in mid-flight.
+ */
+export function applyMountedModules(router: Router, modules: NorteModule[] = norteModules): void {
+  for (const module of modules) {
+    if (isModuleMounted(module.manifest.name)) continue
+    for (const route of module.routes) {
+      if (route.name && router.hasRoute(route.name)) router.removeRoute(route.name)
+    }
+    for (const route of disabledModuleRoutes(module)) router.addRoute(route)
+  }
 }
 
 const router = createRouter({

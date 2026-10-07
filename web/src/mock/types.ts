@@ -237,6 +237,4 @@ export interface MockData {
   sessions: Session[]
   subjects: Subject[]
   studyDays: StudyDay[]
-  /** Minutes since the last mock sync, shown in the sidebar status line. */
-  syncMinutesAgo: number
 }
