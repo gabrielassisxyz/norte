@@ -12,7 +12,6 @@ import (
 	readability "codeberg.org/readeck/go-readability/v2"
 	trafilatura "github.com/markusmobius/go-trafilatura/v2"
 	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 	"golang.org/x/text/runes"
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
@@ -54,11 +53,10 @@ var libraryPreElementPattern = regexp.MustCompile(`(?i)<pre(\s|>|/>)`)
 
 // libraryExtractOptions is the configuration every extraction runs under.
 //
-// HtmlDate is pinned to Fast rather than left on Default. With the fallback
-// enabled Default means Extensive, which runs a large body of regular
-// expressions over the whole document to read dates written in prose; the pages
-// Norte saves declare their date in a meta tag or JSON-LD, which Fast already
-// reads, and the extensive scan costs far more than it finds here.
+// HtmlDate is left on Default, which with the fallback enabled means the
+// extensive scan: that one reads a date written in prose, and a blog post whose
+// only date is the line "6 February 2024" under the title is exactly the case
+// the declarations in metadata.go cannot answer.
 func libraryExtractOptions(pageURL *url.URL) trafilatura.Options {
 	return trafilatura.Options{
 		OriginalURL:     pageURL,
@@ -67,7 +65,6 @@ func libraryExtractOptions(pageURL *url.URL) trafilatura.Options {
 		ExcludeComments: true,
 		IncludeImages:   true,
 		IncludeLinks:    true,
-		HtmlDateMode:    trafilatura.Fast,
 	}
 }
 
@@ -101,22 +98,11 @@ func libraryExtractPage(source []byte, pageURL *url.URL) (libraryExtracted, erro
 	sanitized := libraryExtractPolicy().Sanitize(libraryRenderFragment(content))
 	text := libraryTextFromHTML(sanitized)
 
-	extracted := libraryExtracted{
-		Title:       strings.TrimSpace(result.Metadata.Title),
-		Author:      strings.TrimSpace(result.Metadata.Author),
-		Site:        strings.TrimSpace(result.Metadata.Sitename),
-		LeadImage:   strings.TrimSpace(result.Metadata.Image),
-		ContentHTML: sanitized,
-		ContentText: text,
-		Headings:    headings,
-		Minutes:     libraryReadingMinutes(text),
-	}
-	if !result.Metadata.Date.IsZero() {
-		extracted.PublishedAt = core.FormatTime(result.Metadata.Date)
-	}
-	if extracted.LeadImage != "" {
-		extracted.LeadImage = libraryAbsoluteImageURL(extracted.LeadImage, pageURL)
-	}
+	extracted := libraryResolveMetadata(libraryReadDeclarations(source), result.Metadata, pageURL)
+	extracted.ContentHTML = sanitized
+	extracted.ContentText = text
+	extracted.Headings = headings
+	extracted.Minutes = libraryReadingMinutes(text)
 	return extracted, nil
 }
 
@@ -165,13 +151,27 @@ func libraryRenderFragment(node *html.Node) string {
 // alt text of an image that still fails to load.
 func libraryResolveContentURLs(content *html.Node, pageURL *url.URL) {
 	libraryWalkElements(content, func(node *html.Node) {
-		switch node.DataAtom {
-		case atom.A:
+		switch libraryTagName(node) {
+		case "a":
 			libraryResolveAttr(node, "href", pageURL, false)
-		case atom.Img:
+		case "img":
 			libraryResolveAttr(node, "src", pageURL, true)
 		}
 	})
+}
+
+// libraryTagName is an element's name, lowercased.
+//
+// It reads node.Data rather than node.DataAtom, and every rule in this package
+// does the same. The extractors build their output tree node by node and leave
+// DataAtom unset on much of it -- an <img> that came through trafilatura
+// reports atom 0 while its Data is still "img" -- so a rule keyed on the atom
+// silently skips exactly the nodes the extractor touched.
+func libraryTagName(node *html.Node) string {
+	if node.Type != html.ElementNode {
+		return ""
+	}
+	return strings.ToLower(node.Data)
 }
 
 func libraryResolveAttr(node *html.Node, name string, pageURL *url.URL, forceHTTPS bool) {
@@ -209,8 +209,8 @@ func libraryAbsoluteImageURL(raw string, pageURL *url.URL) string {
 }
 
 // libraryHeadingLevels maps a heading element to its level.
-var libraryHeadingLevels = map[atom.Atom]int{
-	atom.H1: 1, atom.H2: 2, atom.H3: 3, atom.H4: 4, atom.H5: 5, atom.H6: 6,
+var libraryHeadingLevels = map[string]int{
+	"h1": 1, "h2": 2, "h3": 3, "h4": 4, "h5": 5, "h6": 6,
 }
 
 // libraryAssignHeadingAnchors gives every heading the id the table of contents
@@ -223,7 +223,7 @@ func libraryAssignHeadingAnchors(content *html.Node) []libraryHeading {
 	headings := []libraryHeading{}
 	used := map[string]int{}
 	libraryWalkElements(content, func(node *html.Node) {
-		level, ok := libraryHeadingLevels[node.DataAtom]
+		level, ok := libraryHeadingLevels[libraryTagName(node)]
 		if !ok {
 			return
 		}
@@ -329,12 +329,12 @@ func librarySetAttr(node *html.Node, name, value string) {
 
 // libraryBlockElements are the elements a line break belongs around when the
 // stored HTML is rendered back to plain text.
-var libraryBlockElements = map[atom.Atom]bool{
-	atom.P: true, atom.Div: true, atom.H1: true, atom.H2: true, atom.H3: true,
-	atom.H4: true, atom.H5: true, atom.H6: true, atom.Li: true, atom.Ul: true,
-	atom.Ol: true, atom.Blockquote: true, atom.Pre: true, atom.Figure: true,
-	atom.Figcaption: true, atom.Table: true, atom.Tr: true, atom.Hr: true,
-	atom.Br: true, atom.Section: true, atom.Article: true,
+var libraryBlockElements = map[string]bool{
+	"p": true, "div": true, "h1": true, "h2": true, "h3": true, "h4": true,
+	"h5": true, "h6": true, "li": true, "ul": true, "ol": true, "dl": true,
+	"dt": true, "dd": true, "blockquote": true, "pre": true, "figure": true,
+	"figcaption": true, "table": true, "tr": true, "hr": true, "br": true,
+	"section": true, "article": true, "caption": true,
 }
 
 // libraryTextFromHTML renders the stored HTML as the plain text that goes into
@@ -363,7 +363,7 @@ func libraryTextFromHTML(markup string) string {
 		case node.Type == html.TextNode:
 			pending.WriteString(node.Data)
 			return
-		case node.Type == html.ElementNode && node.DataAtom == atom.Pre:
+		case libraryTagName(node) == "pre":
 			// A code block's own line breaks and indentation are the content.
 			flush()
 			var raw strings.Builder
@@ -372,7 +372,7 @@ func libraryTextFromHTML(markup string) string {
 				blocks = append(blocks, block)
 			}
 			return
-		case node.Type == html.ElementNode && libraryBlockElements[node.DataAtom]:
+		case libraryBlockElements[libraryTagName(node)]:
 			flush()
 			for child := node.FirstChild; child != nil; child = child.NextSibling {
 				walk(child)

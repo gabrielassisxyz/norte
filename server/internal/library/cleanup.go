@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"golang.org/x/net/html"
-	"golang.org/x/net/html/atom"
 )
 
 // The cleanup rules work on the trailing blocks of the extracted content, and
@@ -43,39 +42,33 @@ func libraryApplyCleanupRules(content *html.Node) {
 // libraryRemoveAdjacentPostLinks drops the "← previous post / next post →"
 // strip a blog template leaves under the article, and reports how many blocks
 // it removed.
-//
-// A block has to contain a link to qualify. That is what separates navigation
-// from prose: an article can end on a sentence about what came before it, and
-// that sentence is not a link to the previous post.
 func libraryRemoveAdjacentPostLinks(content *html.Node) int {
-	return libraryRemoveTrailingBlocks(content, func(block *html.Node, text string) bool {
-		return libraryBlockHasLink(block) && libraryAdjacentPostPattern.MatchString(text)
-	})
+	return libraryRemoveTrailingBlocks(content, libraryAdjacentPostPattern)
 }
 
 // libraryRemoveNewsletterPromo drops the subscription pitch at the end of the
 // article, and reports how many blocks it removed.
 func libraryRemoveNewsletterPromo(content *html.Node) int {
-	return libraryRemoveTrailingBlocks(content, func(_ *html.Node, text string) bool {
-		return libraryNewsletterPattern.MatchString(text)
-	})
+	return libraryRemoveTrailingBlocks(content, libraryNewsletterPattern)
 }
 
 // libraryRemoveTrailingBlocks removes matching blocks from the end of the
 // content, stopping at the first one that does not match.
 //
-// Stopping is the important half. A rule that kept scanning past a block it
-// kept would reach into the article for anything that happened to match, and
-// the leaks these rules exist for are always the last thing on the page.
-func libraryRemoveTrailingBlocks(content *html.Node, matches func(*html.Node, string) bool) int {
+// Stopping is half the rule. A pass that kept scanning past a block it kept
+// would reach into the article for anything that happened to match, and the
+// leaks these rules exist for are always the last thing on the page.
+func libraryRemoveTrailingBlocks(content *html.Node, pattern *regexp.Regexp) int {
 	removed := 0
 	for removed < libraryCleanupTrailingBlocks {
 		block := libraryLastElementChild(content)
 		if block == nil {
 			return removed
 		}
-		text := libraryNodeText(block)
-		if len([]rune(text)) > libraryCleanupMaxBlockRunes || !matches(block, text) {
+		if len([]rune(libraryNodeText(block))) > libraryCleanupMaxBlockRunes {
+			return removed
+		}
+		if !libraryBlockInvitesWith(block, pattern) {
 			return removed
 		}
 		content.RemoveChild(block)
@@ -84,8 +77,56 @@ func libraryRemoveTrailingBlocks(content *html.Node, matches func(*html.Node, st
 	return removed
 }
 
+// libraryBlockInvitesWith is the other half: the pattern has to match something
+// the block asks the reader to *do* -- the text or the target of a link, a
+// button or a form -- and not merely the block's prose.
+//
+// Matching the prose is what the first version of these rules did, and the
+// newsletter fixture is in the corpus because of it. An article's own closing
+// paragraph said that people "push back, usually by pointing at a newsletter
+// somewhere that recommends the opposite"; the rule read the word, the block
+// was short and last, and the author's conclusion was deleted. Furniture is
+// recognisable by carrying the affordance, which prose about the same subject
+// does not.
+func libraryBlockInvitesWith(block *html.Node, pattern *regexp.Regexp) bool {
+	if libraryIsCallToAction(block) && libraryCallMatches(block, pattern) {
+		return true
+	}
+	found := false
+	libraryWalkElements(block, func(node *html.Node) {
+		if !found && libraryIsCallToAction(node) && libraryCallMatches(node, pattern) {
+			found = true
+		}
+	})
+	return found
+}
+
+func libraryIsCallToAction(node *html.Node) bool {
+	switch libraryTagName(node) {
+	case "a", "button", "form":
+		return true
+	}
+	return false
+}
+
+func libraryCallMatches(node *html.Node, pattern *regexp.Regexp) bool {
+	if pattern.MatchString(libraryNodeText(node)) {
+		return true
+	}
+	for _, attr := range node.Attr {
+		switch attr.Key {
+		case "href", "action", "rel", "title", "aria-label":
+			if pattern.MatchString(attr.Val) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // libraryLastElementChild is the content's last block, skipping the whitespace
-// text nodes a renderer leaves between elements.
+// text nodes a renderer leaves between elements. Text that is not whitespace is
+// the article itself, and stops the scan.
 func libraryLastElementChild(content *html.Node) *html.Node {
 	for child := content.LastChild; child != nil; child = child.PrevSibling {
 		if child.Type == html.ElementNode {
@@ -96,17 +137,4 @@ func libraryLastElementChild(content *html.Node) *html.Node {
 		}
 	}
 	return nil
-}
-
-func libraryBlockHasLink(block *html.Node) bool {
-	if block.DataAtom == atom.A {
-		return true
-	}
-	found := false
-	libraryWalkElements(block, func(node *html.Node) {
-		if node.DataAtom == atom.A {
-			found = true
-		}
-	})
-	return found
 }

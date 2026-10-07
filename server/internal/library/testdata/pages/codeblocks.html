@@ -1,0 +1,97 @@
+<!doctype html>
+<!--
+  A page whose point is its code. Indentation and line breaks are the content
+  here, which is why a page carrying a <pre> is read a second time through
+  go-readability: trafilatura flattens a code block into nested <code> and the
+  lines run together.
+
+  Invented article, invented author, and the code is deliberately indented more
+  than one level deep so a flattened version is obvious rather than arguable.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reading A Lease Without Trusting The Clock</title>
+<meta property="og:title" content="Reading A Lease Without Trusting The Clock">
+<meta property="og:site_name" content="Queue Notes">
+<meta name="author" content="Anselmo Reis">
+<meta property="article:published_time" content="2025-07-23T08:00:00Z">
+<meta property="og:image" content="https://queuenotes.example/img/lease.png">
+</head>
+<body>
+<article>
+<h1>Reading A Lease Without Trusting The Clock</h1>
+<p class="byline">Anselmo Reis, 23 July 2025</p>
+
+<p>A worker that holds a lease has to answer two questions that look like one:
+whether the lease is still mine, and whether it is still valid. Those are
+different questions, they fail differently, and a single comparison against the
+wall clock answers neither of them reliably.</p>
+
+<p>The claim and the renewal both have to name the owner, so a worker that was
+paused long enough for its lease to expire cannot resurrect it afterwards:</p>
+
+<pre><code class="language-sql">UPDATE jobs
+   SET lease_until = :now + :duration
+ WHERE id = :id
+   AND lease_owner = :owner
+   AND lease_until &gt; :now;
+</code></pre>
+
+<p>The third condition is the one people drop. Without it the statement renews a
+lease that has already been reclaimed by somebody else, and the two workers then
+both believe they hold it — which is exactly the state the lease existed to
+prevent.</p>
+
+<h2>Reclaiming on the other side</h2>
+
+<p>Reclaiming is the same statement read backwards. It takes the rows whose lease
+has run out, and it keeps the attempt count, because a crash loop that reset its
+own counter would run forever:</p>
+
+<pre><code class="language-sql">UPDATE jobs
+   SET status      = 'queued',
+       lease_until = NULL,
+       lease_owner = NULL
+ WHERE status      = 'running'
+   AND lease_until &lt;= :now;
+</code></pre>
+
+<p>In Go the renewal runs on a timer rather than on each loop iteration, so a
+handler that takes an hour keeps its lease without the loop having anything to
+do with it:</p>
+
+<pre><code class="language-go">func (w *Worker) run(ctx context.Context, job Job) error {
+        renew := w.clock.NewTimer(renewInterval)
+        defer renew.Stop()
+        for {
+                select {
+                case err := &lt;-done:
+                        return err
+                case &lt;-renew.C():
+                        if err := w.renew(ctx, job.ID); err != nil {
+                                // Losing the lease is not a reason to stop: the
+                                // handler is already running and the next claim
+                                // will find the row, not this one.
+                                w.log.Warn("renewing the lease", "err", err)
+                        }
+                        renew = w.clock.NewTimer(renewInterval)
+                }
+        }
+}
+</code></pre>
+
+<p>The indentation in that last block is load bearing: the comment sits inside
+the error branch, and a reader who sees it one level out reads it as a comment
+about the whole loop. That is the whole argument for keeping code blocks
+intact.</p>
+
+<h2>What the clock is for</h2>
+
+<p>Every deadline above goes through an injected clock rather than through the
+system one, so a test walks the lease forward instead of sleeping through it. The
+wall clock then has exactly one job left, which is to be the thing the injected
+clock returns in production.</p>
+</article>
+</body>
+</html>

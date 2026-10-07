@@ -1,0 +1,77 @@
+<!doctype html>
+<!--
+  The newsletter shape, as a hosted platform emits one: full OpenGraph
+  metadata, the byline as a link next to an avatar, and a subscription pitch
+  wrapped around the end of the post. Invented text and an invented publication.
+
+  This fixture is the one the newsletter cleanup rule is proved against: the
+  last two blocks of the article are the pitch, and the paragraph before them
+  mentions a newsletter in prose and must survive.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>The Backlog Is Not A Plan - Slow Software</title>
+<meta property="og:title" content="The Backlog Is Not A Plan">
+<meta property="og:site_name" content="Slow Software">
+<meta property="og:type" content="article">
+<meta property="og:image" content="https://cdn.slowsoftware.example/covers/backlog.png">
+<meta name="author" content="Teodoro Vilas">
+<meta property="article:published_time" content="2024-06-18T09:30:00Z">
+</head>
+<body>
+<nav><a href="/">Slow Software</a> <a href="/archive">Archive</a> <a href="/about">About</a></nav>
+
+<article>
+<h1>The Backlog Is Not A Plan</h1>
+<div class="byline">
+  <img src="https://cdn.slowsoftware.example/avatars/teodoro.png" alt="">
+  <a href="/people/teodoro-vilas" rel="author">Teodoro Vilas</a>
+  <time datetime="2024-06-18">Jun 18, 2024</time>
+</div>
+
+<p>A backlog is a list of things nobody has said no to yet. That is a useful
+artefact and it is not a plan, and the difference matters most at exactly the
+moment a team starts treating the first as the second. A plan says what happens
+next and what that forecloses. A backlog says what has been thought of.</p>
+
+<p>The tell is the ordering. In a plan, the order is a claim: this before that,
+because that depends on this, or because we would rather learn the first thing
+before committing to the second. In a backlog the order is an accident of when
+each item was typed, decorated afterwards with a priority field that everyone
+sets to the same value.</p>
+
+<h2>Where the confusion comes from</h2>
+
+<p>Nobody decides to confuse the two. It happens because the backlog is the only
+written thing, and a written thing attracts the questions a plan would answer.
+Someone asks what we are doing this quarter, the backlog is what exists, and the
+top of the backlog becomes the answer by default.</p>
+
+<p>Once that has happened, the backlog stops being a place to put ideas. Adding
+to it now means arguing about the quarter, so people stop adding, and the one
+artefact that was genuinely useful quietly dies of being promoted.</p>
+
+<h2>What to do instead</h2>
+
+<p>Keep both, and keep them apart. The backlog stays unordered and cheap to add
+to; the plan is short, dated, and says what it rules out. I write mine as a
+paragraph rather than a list, because a paragraph cannot hide the fact that it
+has no argument in it, and a list can.</p>
+
+<p>This is the part people push back on, usually by pointing at a newsletter
+somewhere that recommends the opposite. They may well be right for their team.
+What I am confident about is the diagnosis, not the prescription.</p>
+
+<div class="subscribe-widget">
+  <h3>Subscribe to Slow Software</h3>
+  <p>Join 12,000 readers getting one essay a week in their inbox. No spam, and
+  one click to leave.</p>
+  <form action="/subscribe"><input type="email" name="email"><button>Subscribe</button></form>
+</div>
+
+<p class="promo"><a href="/subscribe">Sign up for the newsletter</a> to get the
+next one.</p>
+</article>
+</body>
+</html>
