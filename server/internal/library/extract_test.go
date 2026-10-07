@@ -394,3 +394,40 @@ func libraryParseFragment(t *testing.T, markup string) *html.Node {
 	}
 	return found
 }
+
+// TestTheSanitizerStripsEveryHostileConstruct feeds the policy the hostile
+// markup directly, because the fixture above cannot tell the sanitizer from the
+// extractor.
+//
+// Running the hostile page through the whole pipeline is still worth doing --
+// it proves what actually gets stored -- but trafilatura drops a script, an
+// event handler and an iframe on its own, so the fixture stays clean even with
+// the policy opened up. The guarantee belongs to the sanitizer, because stored
+// content is read by every consumer without one of their own, and that is what
+// this exercises.
+func TestTheSanitizerStripsEveryHostileConstruct(t *testing.T) {
+	markup := `<h2 id="hostile">Hostile</h2>` +
+		`<script>alert('script')</script>` +
+		`<p onclick="alert('onclick')">clickable</p>` +
+		`<p><img src="https://x.example/a.png" onerror="alert('onerror')" alt="a"></p>` +
+		`<p><a href="javascript:alert('href')">link</a></p>` +
+		`<iframe src="https://x.example/f.html"></iframe>` +
+		`<object data="https://x.example/o.swf"><param name="movie" value="x"></object>` +
+		`<embed src="https://x.example/e.swf">` +
+		`<form action="https://x.example/collect"><input type="password" name="p"></form>` +
+		`<p style="background-image: url('https://x.example/p.png')">styled</p>`
+	sanitized := libraryExtractPolicy().Sanitize(markup)
+
+	for _, hostile := range libraryHostilePatterns {
+		if hostile.pattern.MatchString(sanitized) {
+			t.Errorf("the sanitizer let %s through:\n%s", hostile.name, sanitized)
+		}
+	}
+	// The text of every element that was only carrying an attack has to
+	// survive, or the policy is dropping articles rather than cleaning them.
+	for _, kept := range []string{"clickable", "link", "styled", "Hostile"} {
+		if !strings.Contains(sanitized, kept) {
+			t.Errorf("the sanitizer removed the text %q along with the attack:\n%s", kept, sanitized)
+		}
+	}
+}
