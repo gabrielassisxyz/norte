@@ -38,8 +38,9 @@ Screens still run on mock data. Each module moves to real data as its backend be
   - `gen/api/<module>/` — generated from `api/openapi/<module>.yaml`, never edited.
   - `internal/core/` — the always-on part that is not a module: the database handles
     and migrations, ids, the clock and the timestamp format, the item registry and
-    links between modules, the content-addressed file store, and the logging and HTTP
-    helpers. Its tables carry the `core_` prefix.
+    links between modules, the content-addressed file store, the in-process event bus
+    modules react to each other through, and the logging and HTTP helpers. Its tables
+    carry the `core_` prefix.
   - `internal/webassets/` — the built frontend, embedded. `bin/generate` fills
     `dist/`; only `dist/placeholder.html` is committed, because Go's embed cannot reach
     outside its own package directory and the package has to compile in a fresh clone.

@@ -29,12 +29,15 @@ broken checks rather than just the first.
 
 ## Narrowing further than a check
 
-Within `go-test`, one test reruns on its own:
+Within `go-test`, two tests rerun on their own:
 
     cd server && go test ./internal/app/ -run TestSIGTERMLetsAnInFlightRequestFinish
+    cd server && go test ./internal/library/ -run TestACrashBetweenTheCommitAndThePublishIsReplayed
 
-That one builds and starts the binary, so it is the slowest test in the suite;
-`go test -short ./...` skips it.
+Both start a second process, which is the only way to exercise what they are
+about — a signal handler, and the window between a commit and the publish that
+follows it. They are the slowest tests in the suite, and `go test -short ./...`
+skips both.
 
 Within `web-test`, one file reruns on its own:
 
