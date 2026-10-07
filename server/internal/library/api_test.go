@@ -569,7 +569,7 @@ func TestLibraryWhyUpdateIsSearchable(t *testing.T) {
 	database, dataDir := newLibraryTestDB(t, clock)
 	handler := newLibraryTestRouter(t, database, dataDir, clock)
 	service := newLibraryTestService(t, database, dataDir, clock)
-	outcome := librarySaveOne(t, service, "https://example.org/why", "zebra")
+	outcome := librarySaveOne(t, service, "https://example.org/why", "initial")
 
 	patch := func(why string) {
 		t.Helper()
@@ -844,17 +844,24 @@ func TestLibraryLastOpenedSortListsOnlyOpened(t *testing.T) {
 }
 
 // TestLibraryListOmitsContent proves a list answer never carries the
-// extracted HTML or text, even for an item that has a snapshot.
+// extracted HTML or text, even for an item extraction has filled in -- while
+// the detail answer does carry them.
 func TestLibraryListOmitsContent(t *testing.T) {
 	clock := libraryTestClock()
 	database, dataDir := newLibraryTestDB(t, clock)
 	handler := newLibraryTestRouter(t, database, dataDir, clock)
 
-	status, _ := libraryPostSave(t, handler, map[string]any{
+	status, body := libraryPostSave(t, handler, map[string]any{
 		"url": "https://example.org/snapshot-list", "html": "<html>hi</html>",
 	})
 	if status != http.StatusCreated {
 		t.Fatalf("the save = %d, want 201", status)
+	}
+	id := body["id"].(string)
+	// What the extraction job will write one bead from now.
+	if _, err := database.Writer().Exec(
+		`UPDATE library_items SET content_html = '<p>hi</p>', content_text = 'hi' WHERE id = ?`, id); err != nil {
+		t.Fatalf("filling the extracted content: %v", err)
 	}
 	response := doLibraryRequest(t, handler, http.MethodGet, "/api/library/items?view=tudo", nil)
 	var decoded map[string]any
@@ -871,6 +878,14 @@ func TestLibraryListOmitsContent(t *testing.T) {
 	}
 	if strings.Contains(response.Body.String(), "content_html") {
 		t.Error("the raw list body names content_html")
+	}
+	detail := doLibraryRequest(t, handler, http.MethodGet, "/api/library/items/"+id, nil)
+	var full map[string]any
+	if err := json.Unmarshal(detail.Body.Bytes(), &full); err != nil {
+		t.Fatalf("the detail is not JSON: %v", err)
+	}
+	if full["content_html"] != "<p>hi</p>" || full["content_text"] != "hi" {
+		t.Errorf("the detail does not carry the extracted content (%v)", full)
 	}
 }
 
