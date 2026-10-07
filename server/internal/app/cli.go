@@ -55,7 +55,7 @@ func NewRootCommand() *cobra.Command {
 	for _, s := range flagSettings() {
 		root.PersistentFlags().String(s.flag, "", fmt.Sprintf("%s (env %s)", flagUsage[s.name], s.env))
 	}
-	root.AddCommand(newServeCommand(), newMigrateCommand(), newVersionCommand(), newConfigCommand(), newFilesCommand())
+	root.AddCommand(newServeCommand(), newMigrateCommand(), newVersionCommand(), newConfigCommand(), newFilesCommand(), newJobsCommand())
 	return root
 }
 
@@ -108,12 +108,24 @@ func newServeCommand() *cobra.Command {
 					return err
 				}
 				logger.Info("database ready", "path", database.Path(), "migrations_applied", applied)
-				return Serve(ctx, RouterOptions{
+				// The one in-process worker. A second process would be a second
+				// deployable for a one-user app, and heavy runtimes are created
+				// inside the handler and closed when it returns.
+				queue := core.NewJobs(database.Writer(), core.SystemClock(), logger)
+				worker := core.NewJobsWorker(queue, core.SystemClock(), logger, core.NewID())
+				workerCtx, workerStop := context.WithCancel(ctx)
+				defer workerStop()
+				workerDone := make(chan error, 1)
+				go func() { workerDone <- worker.Run(workerCtx) }()
+				serveErr := Serve(ctx, RouterOptions{
 					Config:     cfg,
 					Logger:     logger,
 					Assets:     webassets.FS(),
 					TestRoutes: testRoutes,
 				})
+				workerStop()
+				workerErr := <-workerDone
+				return errors.Join(serveErr, workerErr)
 			})
 		},
 	}
