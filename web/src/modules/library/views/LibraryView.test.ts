@@ -1,48 +1,62 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
-import { createMemoryHistory, createRouter, type Router } from 'vue-router'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { nextTick } from 'vue'
+import { RouterView, createMemoryHistory, createRouter, type Router } from 'vue-router'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { routes } from '@/router'
-import { store } from '@/mock/store'
+import { createMockStore, type MockStore } from '@/mock/store'
+import type { LibraryItem } from '@/mock/types'
+import { resetModuleMounting } from '@/modules/mounting'
+import { createRouteTable, routes } from '@/router'
+import type { AppSources } from '@/sources'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
+
+import type { LibraryList, LibrarySource } from '../data/source'
 import LibraryView from './LibraryView.vue'
 
-interface StatusSnapshot {
-  id: string
-  status: string
-  unread: boolean
-}
+/** The day the mock data is built against, so a date on screen is a known date. */
+const TODAY = '2026-10-03'
 
-let snapshot: StatusSnapshot[] = []
+let store: MockStore
 
 beforeEach(() => {
-  snapshot = store.libraryItems.map((item) => ({ id: item.id, status: item.status, unread: item.unread }))
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
+  store = createMockStore()
 })
 
 afterEach(() => {
-  for (const saved of snapshot) {
-    const item = store.libraryItems.find((candidate) => candidate.id === saved.id)
-    if (item) {
-      item.status = saved.status as typeof item.status
-      item.unread = saved.unread
-    }
-  }
+  vi.useRealTimers()
+  resetModuleMounting()
 })
 
-async function mountAt(path: string): Promise<{ wrapper: VueWrapper; router: Router }> {
+/** The cross-module menus read these; a test that is not about them can ignore both. */
+function companionSources(): Partial<AppSources> {
+  return {
+    study: {
+      summary: async () => ({
+        counts: { curricula: 1, modules: 1, subjects: 1 },
+        curricula: [{ slug: 'horta-caseira', title: 'Horta caseira' }]
+      })
+    } as unknown as AppSources['study'],
+    projects: {
+      summary: async () => ({
+        counts: { projects: 1, active: 1, paused: 0, openTasks: 0, pendingDecisions: 0 },
+        areas: [],
+        projects: [{ id: 'project-horta', title: 'Horta da varanda' }]
+      })
+    } as unknown as AppSources['projects']
+  }
+}
+
+async function mountAt(path: string, sources: Partial<AppSources>): Promise<{ wrapper: VueWrapper; router: Router }> {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(LibraryView, { global: { plugins: [router] } })
-  await nextTick()
+  const wrapper = mount(LibraryView, {
+    global: { plugins: [router, sourcesPlugin({ ...companionSources(), ...sources })] }
+  })
+  await flushReads()
   return { wrapper, router }
-}
-
-async function settleFor(check: () => boolean): Promise<void> {
-  for (let i = 0; i < 100 && !check(); i++) {
-    await new Promise((resolve) => setTimeout(resolve, 10))
-  }
-  expect(check()).toBe(true)
 }
 
 function titles(wrapper: VueWrapper): string[] {
@@ -52,163 +66,258 @@ function titles(wrapper: VueWrapper): string[] {
 function segCounts(wrapper: VueWrapper): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const button of wrapper.findAll('.nt-seg-btn')) {
-    const label = button.find('span').text()
-    counts[label] = Number(button.find('.nt-seg-count').text())
+    counts[button.find('span').text()] = Number(button.find('.nt-seg-count').text())
   }
   return counts
 }
 
-describe('LibraryView', () => {
-  it('renders its title and main regions', async () => {
-    const { wrapper } = await mountAt('/biblioteca')
+function pageOf(items: LibraryItem[]): LibraryList {
+  return {
+    items,
+    next_cursor: null,
+    counts: {
+      inbox: items.filter((item) => item.status === 'inbox').length,
+      depois: items.filter((item) => item.status === 'depois').length,
+      arquivo: items.filter((item) => item.status === 'arquivo').length,
+      tudo: items.length,
+      unread: items.filter((item) => item.unread).length
+    }
+  }
+}
+
+/** A library source answering with exactly these rows, and whatever the test overrides. */
+function libraryWith(items: LibraryItem[], overrides: Partial<LibrarySource> = {}): Partial<AppSources> {
+  const page = pageOf(items)
+  return {
+    library: {
+      listItems: async () => page,
+      getItem: async () => items[0] ?? null,
+      summary: async () => ({ counts: page.counts, kinds: {}, lists: [] }),
+      saveLink: async () => items[0],
+      setStatus: async () => items[0],
+      setUnread: async () => items[0],
+      setCurriculum: async () => items[0],
+      ...overrides
+    } as unknown as AppSources['library']
+  }
+}
+
+function item(overrides: Partial<LibraryItem> = {}): LibraryItem {
+  return {
+    id: 'post-one',
+    kind: 'post',
+    title: 'Um texto guardado',
+    author: 'Equipe Norte',
+    url: 'https://example.com/one',
+    status: 'inbox',
+    unread: true,
+    savedAt: TODAY,
+    ...overrides
+  }
+}
+
+describe('LibraryView over the mock source', () => {
+  it('renders its title, counts and rows once the list answers', async () => {
+    const { wrapper } = await mountAt('/biblioteca', createMockSources(store))
 
     expect(wrapper.find('h1').text()).toBe('Biblioteca')
-    expect(wrapper.find('.nt-seg').exists()).toBe(true)
     expect(segCounts(wrapper)).toEqual({ Inbox: 6, Depois: 4, Arquivo: 8, Tudo: 18 })
     expect(wrapper.findAll('article.item')).toHaveLength(6)
     expect(wrapper.find('.library-count').text()).toBe('6 itens')
   })
 
-  it('switches the segment and syncs ?v=', async () => {
-    const { wrapper, router } = await mountAt('/biblioteca')
+  it('shows only unread items over Tudo, which is every item nobody has read', async () => {
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', createMockSources(store))
+    const read = store.libraryItems.filter((candidate) => !candidate.unread).length
 
-    await wrapper.findAll('.nt-seg-btn').find((button) => button.text().includes('Depois'))!.trigger('click')
-    await settleFor(() => router.currentRoute.value.query.v === 'depois')
+    expect(read).toBe(8)
+    await wrapper.find('button[aria-label="Só não lidos"]').trigger('click')
 
-    expect(router.currentRoute.value.fullPath).toBe('/biblioteca?v=depois')
-    expect(titles(wrapper)).toHaveLength(4)
-    expect(wrapper.find('.library-count').text()).toBe('4 itens')
+    expect(wrapper.findAll('article.item')).toHaveLength(18 - read)
+    expect(wrapper.find('.library-count').text()).toBe(`${18 - read} itens`)
   })
 
-  it('falls back to the inbox for an unknown view', async () => {
-    const { wrapper, router } = await mountAt('/biblioteca?v=bogus')
-
-    expect(wrapper.find('h1').text()).toBe('Biblioteca')
-    expect(wrapper.findAll('article.item')).toHaveLength(6)
-    expect(router.currentRoute.value.query.v).toBe('bogus')
-  })
-
-  it('shows exactly the archived books for ?v=arquivo&tipo=Livro', async () => {
-    const { wrapper } = await mountAt('/biblioteca?v=arquivo&tipo=Livro')
+  it('narrows to a kind from ?tipo and dates each row by the calendar', async () => {
+    const { wrapper } = await mountAt('/biblioteca?v=tudo&tipo=livros', createMockSources(store))
 
     expect(wrapper.find('h1').text()).toBe('Livros')
-    expect(titles(wrapper)).toEqual(['Letras em Movimento'])
-    expect(wrapper.find('.library-count').text()).toBe('1 item')
+    expect(wrapper.findAll('article.item')).toHaveLength(3)
+    // "Pequenas Linguagens, Grandes Ideias" was saved today, and sorts first.
+    expect(wrapper.findAll('.item-date')[0].text()).toBe('3 out')
   })
 
-  it('accepts both the sidebar kinds and the prototype type labels', async () => {
-    const cases: Array<[string, string, number]> = [
-      ['/biblioteca?tipo=livro', 'Livros', 1],
-      ['/biblioteca?tipo=Artigo', 'Artigos', 1],
-      ['/biblioteca?tipo=PDF', 'PDFs', 1],
-      ['/biblioteca?tipo=V%C3%ADdeo', 'Vídeos', 1],
-      ['/biblioteca?tipo=Podcast', 'Podcasts', 1],
-      ['/biblioteca?tipo=curso', 'Cursos', 1]
-    ]
-    for (const [path, heading, inboxCount] of cases) {
-      const { wrapper } = await mountAt(path)
-      expect(wrapper.find('h1').text()).toBe(heading)
-      expect(wrapper.findAll('article.item')).toHaveLength(inboxCount)
-    }
+  it('searches by title through the source', async () => {
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', createMockSources(store))
+
+    await wrapper.get('#library-search').setValue('compostagem')
+    await flushReads()
+
+    expect(titles(wrapper)).toEqual(['Compostagem Doméstica em Pequena Escala'])
   })
+})
 
-  it('renders the empty state when no mock items match', async () => {
-    const { wrapper } = await mountAt('/biblioteca?v=tudo&tipo=Newsletter')
+describe('LibraryView while it waits, finds nothing, or fails', () => {
+  it('says it is loading before the first answer arrives', async () => {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/biblioteca')
+    const wrapper = mount(LibraryView, {
+      global: {
+        plugins: [
+          router,
+          sourcesPlugin({
+            ...companionSources(),
+            ...libraryWith([], { listItems: () => new Promise<LibraryList>(() => {}) })
+          })
+        ]
+      }
+    })
 
-    expect(wrapper.find('h1').text()).toBe('Newsletters')
+    expect(wrapper.get('[role="status"]').text()).toBe('Carregando a biblioteca…')
     expect(wrapper.findAll('article.item')).toHaveLength(0)
-    expect(wrapper.find('.library-empty').text()).toBe('Nenhum item deste tipo.')
-    expect(wrapper.find('.library-count').text()).toBe('0 itens')
+    expect(wrapper.find('.library-count').exists()).toBe(false)
   })
 
-  it('moves an item to Depois through the later action and updates the counts', async () => {
-    const { wrapper } = await mountAt('/biblioteca')
-    const first = titles(wrapper)[0]
+  it('says the list is empty once it has answered with nothing', async () => {
+    const { wrapper } = await mountAt('/biblioteca', libraryWith([]))
 
-    await wrapper.findAll('article.item')[0].find('button[aria-label="Depois"]').trigger('click')
-    await settleFor(() => !titles(wrapper).includes(first))
-
-    expect(segCounts(wrapper)).toMatchObject({ Inbox: 5, Depois: 5 })
-    expect(wrapper.find('.library-count').text()).toBe('5 itens')
-    expect(store.libraryItems.find((item) => item.title === first)?.status).toBe('depois')
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    expect(wrapper.get('.library-empty').text()).toContain('Inbox vazia')
+    expect(segCounts(wrapper)).toEqual({ Inbox: 0, Depois: 0, Arquivo: 0, Tudo: 0 })
   })
 
-  it('moves an item to Arquivo through the archive action', async () => {
-    const { wrapper, router } = await mountAt('/biblioteca')
-    const first = titles(wrapper)[0]
+  it('says why it could not load, and reads again when asked', async () => {
+    let attempts = 0
+    const { wrapper } = await mountAt(
+      '/biblioteca',
+      libraryWith([item()], {
+        listItems: async () => {
+          attempts += 1
+          if (attempts === 1) throw new Error('rede indisponível')
+          return pageOf([])
+        }
+      })
+    )
 
-    await wrapper.findAll('article.item')[0].find('button[aria-label="Arquivar"]').trigger('click')
-    await settleFor(() => !titles(wrapper).includes(first))
+    expect(wrapper.get('.library-error').text()).toContain('Não foi possível carregar a biblioteca: rede indisponível')
+    expect(wrapper.findAll('article.item')).toHaveLength(0)
 
-    expect(segCounts(wrapper)).toMatchObject({ Inbox: 5, Arquivo: 9 })
+    await wrapper.get('.library-error button').trigger('click')
+    await flushReads()
 
-    await router.push({ query: { v: 'arquivo' } })
-    await settleFor(() => titles(wrapper).includes(first))
-    expect(titles(wrapper)).toContain(first)
+    expect(wrapper.find('.library-error').exists()).toBe(false)
+    expect(wrapper.find('.library-empty').exists()).toBe(true)
+  })
+
+  it('reports nothing found for a search that matches no row', async () => {
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', libraryWith([]))
+
+    await wrapper.get('#library-search').setValue('xilofone')
+    await flushReads()
+
+    expect(wrapper.get('.library-empty').text()).toBe('Nada encontrado para “xilofone”.')
+  })
+})
+
+describe('LibraryView writing to its source', () => {
+  it('shows the row the source answered with, not the one it asked for', async () => {
+    const stored = item({ status: 'inbox' })
+    // The source archives it *and* renames it: only a page that renders the
+    // response can show the new title.
+    const answered: LibraryItem = { ...stored, status: 'arquivo', title: 'O título que o servidor devolveu' }
+    const { wrapper } = await mountAt(
+      '/biblioteca?v=tudo',
+      libraryWith([stored], { setStatus: async () => answered })
+    )
+
+    await wrapper.get('button[aria-label="Arquivar"]').trigger('click')
+    await flushReads()
+
+    expect(titles(wrapper)).toEqual(['O título que o servidor devolveu'])
+    expect(wrapper.find('button[aria-label="Desarquivar"]').exists()).toBe(true)
+    expect(segCounts(wrapper)).toMatchObject({ Arquivo: 1, Inbox: 0 })
+  })
+
+  it('leaves the row untouched and says so when the write fails', async () => {
+    const stored = item({ status: 'inbox' })
+    const { wrapper } = await mountAt(
+      '/biblioteca?v=tudo',
+      libraryWith([stored], {
+        setStatus: async () => {
+          throw new Error('conflito no servidor')
+        }
+      })
+    )
+
+    await wrapper.get('button[aria-label="Arquivar"]').trigger('click')
+    await flushReads()
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível salvar: conflito no servidor')
+    expect(titles(wrapper)).toEqual([stored.title])
+    expect(segCounts(wrapper)).toMatchObject({ Inbox: 1, Arquivo: 0 })
+    // The row still offers to archive, because nothing was archived.
+    expect(wrapper.find('button[aria-label="Arquivar"]').exists()).toBe(true)
   })
 
   it('marks an item read without moving it out of the list it is in', async () => {
-    const { wrapper } = await mountAt('/biblioteca')
+    const { wrapper } = await mountAt('/biblioteca', createMockSources(store))
     const first = titles(wrapper)[0]
 
-    await wrapper.findAll('article.item')[0].find('button[aria-label="Marcar como lido"]').trigger('click')
-    await settleFor(() => wrapper.findAll('article.item')[0].find('.item-dot').exists() === false)
+    await wrapper.findAll('article.item')[0].get('button[aria-label="Marcar como lido"]').trigger('click')
+    await flushReads()
 
-    // Reading is an event: the item keeps its place in the Inbox and only the
-    // unread mark goes away.
     expect(titles(wrapper)).toContain(first)
     expect(segCounts(wrapper)).toMatchObject({ Inbox: 6, Tudo: 18 })
-    expect(store.libraryItems.find((item) => item.title === first)).toMatchObject({ status: 'inbox', unread: false })
+    expect(wrapper.findAll('article.item')[0].find('.item-dot').exists()).toBe(false)
+    expect(wrapper.findAll('article.item')[0].find('button[aria-label="Marcar como não lido"]').exists()).toBe(true)
+  })
+})
+
+describe('LibraryView superseding a read it no longer needs', () => {
+  it('aborts the search in flight when a second search starts', async () => {
+    const signals: AbortSignal[] = []
+    const { wrapper } = await mountAt(
+      '/biblioteca?v=tudo',
+      libraryWith([], {
+        listItems: (_query, signal) => {
+          signals.push(signal)
+          return new Promise<LibraryList>(() => {})
+        }
+      })
+    )
+
+    await wrapper.get('#library-search').setValue('comp')
+    await wrapper.get('#library-search').setValue('compila')
+
+    expect(signals).toHaveLength(3)
+    expect(signals[0].aborted).toBe(true)
+    expect(signals[1].aborted).toBe(true)
+    expect(signals[2].aborted).toBe(false)
   })
 
-  it('filters to unread items with Só não lidos', async () => {
-    const { wrapper } = await mountAt('/biblioteca?v=tudo')
-
-    await wrapper.find('button[aria-label="Só não lidos"]').trigger('click')
-    await settleFor(() => wrapper.find('.library-unread').exists())
-
-    expect(wrapper.findAll('article.item')).toHaveLength(10)
-    expect(wrapper.find('.library-count').text()).toBe('10 itens')
-    for (const row of wrapper.findAll('article.item')) {
-      expect(row.find('.item-dot').exists()).toBe(true)
+  it('aborts the read in flight when the route leaves the screen', async () => {
+    const signals: AbortSignal[] = []
+    const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
+    const sources = {
+      ...companionSources(),
+      ...libraryWith([], {
+        listItems: (_query, signal) => {
+          signals.push(signal)
+          return new Promise<LibraryList>(() => {})
+        }
+      })
     }
 
-    await wrapper.find('.ghost-clear').trigger('click')
-    await settleFor(() => wrapper.findAll('article.item').length === 18)
-  })
+    await router.push('/biblioteca')
+    await router.isReady()
+    mount(RouterView, { global: { plugins: [router, sourcesPlugin(sources)] } })
+    await flushReads()
 
-  it('toggles the sort between Data salva and Título', async () => {
-    const { wrapper } = await mountAt('/biblioteca?v=tudo')
-    const byDate = titles(wrapper)
+    expect(signals).toHaveLength(1)
+    expect(signals[0].aborted).toBe(false)
 
-    await wrapper.findAll('.ghost').find((button) => button.text().includes('Data salva'))!.trigger('click')
-    await settleFor(() => titles(wrapper)[0] !== byDate[0])
+    await router.push('/')
+    await flushReads()
 
-    const expected = [...store.libraryItems].map((item) => item.title).sort((a, b) => a.localeCompare(b, 'pt-BR'))
-    expect(titles(wrapper)).toEqual(expected)
-    expect(wrapper.findAll('.ghost').find((button) => button.text() === 'Título')!.exists()).toBe(true)
-  })
-
-  it('links every item to its material route', async () => {
-    const { wrapper, router } = await mountAt('/biblioteca?v=tudo')
-
-    for (const link of wrapper.findAll('.item-title')) {
-      const resolved = router.resolve(link.attributes('href')!)
-      expect(resolved.name).toBe('material')
-      const item = store.libraryItems.find((candidate) => candidate.id === resolved.params.id)
-      expect(item).toBeDefined()
-      expect(resolved.params.kind).toBe(item!.kind)
-      expect(link.text()).toBe(item!.title)
-    }
-  })
-
-  it('navigates to the material screen when an item is clicked', async () => {
-    const { wrapper, router } = await mountAt('/biblioteca')
-    const first = store.libraryItems.find((item) => titles(wrapper)[0] === item.title)!
-
-    await wrapper.findAll('.item-title')[0].trigger('click')
-    await settleFor(() => router.currentRoute.value.name === 'material')
-
-    expect(router.currentRoute.value.fullPath).toBe(`/material/${first.kind}/${first.id}`)
+    expect(signals[0].aborted).toBe(true)
   })
 })

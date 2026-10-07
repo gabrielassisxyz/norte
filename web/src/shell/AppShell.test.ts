@@ -6,12 +6,15 @@ import App from '@/App.vue'
 import AppSidebar from '@/shell/AppSidebar.vue'
 import sidebarSource from '@/shell/AppSidebar.vue?raw'
 import { routes } from '@/router'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 async function mountAt(path: string) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(App, { global: { plugins: [router] } })
+  const wrapper = mount(App, { global: { plugins: [router, sourcesPlugin(createMockSources())] } })
+  await flushReads()
   return { wrapper, router }
 }
 

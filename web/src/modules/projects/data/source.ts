@@ -81,6 +81,8 @@ export interface DecisionDetail {
 export interface ProjectsSummary {
   counts: ProjectsCounts
   areas: AreaRailEntry[]
+  /** Enough of each project to offer it as a target, which is what a "new task here" menu needs. */
+  projects: Array<{ id: string; title: string }>
 }
 
 export interface NewProjectInput {

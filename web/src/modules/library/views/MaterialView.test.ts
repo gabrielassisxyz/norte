@@ -1,17 +1,31 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { createMockStore, type MockStore } from '@/mock/store'
+import type { LibraryItem } from '@/mock/types'
 import { routes } from '@/router'
-import { store } from '@/mock/store'
+import type { AppSources } from '@/sources'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
+
 import MaterialView from './MaterialView.vue'
 
-async function mountAt(path: string, previousPath?: string) {
+let store: MockStore
+
+beforeEach(() => {
+  store = createMockStore()
+})
+
+async function mountAt(path: string, previousPath?: string, sources?: Partial<AppSources>) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   if (previousPath) await router.push(previousPath)
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(MaterialView, { global: { plugins: [router] } })
+  const wrapper = mount(MaterialView, {
+    global: { plugins: [router, sourcesPlugin(sources ?? createMockSources(store))] }
+  })
+  await flushReads()
   return { wrapper, router }
 }
 
@@ -85,11 +99,13 @@ describe('MaterialView', () => {
     expect(wrapper.findComponent({ name: 'SelectionToolbar' }).exists()).toBe(true)
 
     await wrapper.find('.nt-seltool-btn').trigger('click')
+    await flushReads()
     expect(wrapper.find('[data-selection-target] .nt-mark').text()).toBe('observe o padrão antes de tentar explicá-lo')
 
     await wrapper.find('[data-selection-target]').trigger('mouseup')
     const toolbar = wrapper.findComponent({ name: 'SelectionToolbar' })
     await toolbar.findAll('.nt-seltool-btn')[1].trigger('click')
+    await flushReads()
 
     expect(store.annotations.filter((annotation) => annotation.materialId === 'post-compilation')).toHaveLength(initialAnnotations + 1)
     expect(wrapper.find('.nt-panel .nt-tab.is-active').text()).toContain('Anotações')
@@ -113,10 +129,12 @@ describe('MaterialView', () => {
   it('marks the material as read and returns to the previous route', async () => {
     const item = store.libraryItems.find((candidate) => candidate.id === 'book-interpreters')!
     const previousStatus = item.status
-    const previousUnread = item.unread
     const { wrapper, router } = await mountAt('/material/livro/book-interpreters', '/biblioteca')
 
     await wrapper.find('[data-action="complete"]').trigger('click')
+    await flushReads()
+
+    // Reading it does not move it out of the list it was in.
     expect(item.status).toBe(previousStatus)
     expect(item.unread).toBe(false)
     expect(wrapper.find('[data-action="complete"]').text()).toContain('Concluído')
@@ -124,9 +142,77 @@ describe('MaterialView', () => {
     await wrapper.find('.material-back').trigger('click')
     await new Promise((resolve) => setTimeout(resolve, 0))
     expect(router.currentRoute.value.fullPath).toBe('/biblioteca')
+  })
 
-    item.status = previousStatus
-    item.unread = previousUnread
+  it('says it is loading until the material answers', async () => {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/material/post/post-compilation')
+    await router.isReady()
+    const wrapper = mount(MaterialView, {
+      global: {
+        plugins: [
+          router,
+          sourcesPlugin({
+            library: { getItem: () => new Promise<LibraryItem | null>(() => {}) } as unknown as AppSources['library'],
+            notes: { materialNotes: async () => ({ highlights: [], annotations: [] }) } as unknown as AppSources['notes'],
+            study: { materialContext: async () => null } as unknown as AppSources['study']
+          })
+        ]
+      }
+    })
+
+    expect(wrapper.get('[role="status"]').text()).toContain('Carregando o material')
+    expect(wrapper.find('.material-body').exists()).toBe(false)
+  })
+
+  it('offers a way back instead of a reader for a material that does not exist', async () => {
+    const { wrapper } = await mountAt('/material/post/post-que-nao-existe')
+
+    expect(wrapper.get('h1').text()).toBe('Material não encontrado')
+    expect(wrapper.get('a.material-state-action').attributes('href')).toBe('/biblioteca?v=tudo')
+    expect(wrapper.find('.material-body').exists()).toBe(false)
+  })
+
+  it('says why the material could not be read, and tries again when asked', async () => {
+    let attempts = 0
+    const { wrapper } = await mountAt('/material/post/post-compilation', undefined, {
+      library: {
+        getItem: async () => {
+          attempts += 1
+          if (attempts === 1) throw new Error('rede indisponível')
+          return store.libraryItems.find((candidate) => candidate.id === 'post-compilation') ?? null
+        }
+      } as unknown as AppSources['library'],
+      notes: { materialNotes: async () => ({ highlights: [], annotations: [] }) } as unknown as AppSources['notes'],
+      study: { materialContext: async () => null } as unknown as AppSources['study']
+    })
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar o material: rede indisponível')
+
+    await wrapper.get('.material-state-action').trigger('click')
+    await flushReads()
+
+    expect(wrapper.find('.reader-post').exists()).toBe(true)
+  })
+
+  it('keeps the material as it was when marking it read fails', async () => {
+    const stored = store.libraryItems.find((candidate) => candidate.id === 'post-compilation')!
+    const { wrapper } = await mountAt('/material/post/post-compilation', undefined, {
+      library: {
+        getItem: async () => stored,
+        setUnread: async () => {
+          throw new Error('conflito no servidor')
+        }
+      } as unknown as AppSources['library'],
+      notes: { materialNotes: async () => ({ highlights: [], annotations: [] }) } as unknown as AppSources['notes'],
+      study: { materialContext: async () => null } as unknown as AppSources['study']
+    })
+
+    await wrapper.get('[data-action="complete"]').trigger('click')
+    await flushReads()
+
+    expect(wrapper.get('.material-write-error').text()).toContain('Não foi possível salvar: conflito no servidor')
+    expect(wrapper.get('[data-action="complete"]').text()).toContain('Marcar como concluído')
   })
 
   it('keeps outbound links on named application routes', async () => {

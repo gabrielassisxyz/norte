@@ -143,7 +143,14 @@ export function createMockProjectsSource(store: MockStore): ProjectsSource {
     },
 
     summary(signal: AbortSignal): Promise<ProjectsSummary> {
-      return answer(() => ({ counts: counts(store.projects), areas: rail() }), signal)
+      return answer(
+        () => ({
+          counts: counts(store.projects),
+          areas: rail(),
+          projects: store.projects.map((project) => ({ id: project.id, title: project.title }))
+        }),
+        signal
+      )
     },
 
     addArea(area) {

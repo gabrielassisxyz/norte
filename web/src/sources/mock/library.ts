@@ -1,26 +1,11 @@
 import type { MockStore } from '@/mock/store'
 import type { LibraryItem, LibraryKind } from '@/mock/types'
-import type {
-  LibraryCounts,
-  LibraryList,
-  LibraryListQuery,
-  LibrarySource,
-  LibrarySummary
-} from '@/modules/library/data/source'
+import { countLibraryItems } from '@/modules/library/data/counts'
+import type { LibraryList, LibraryListQuery, LibrarySource, LibrarySummary } from '@/modules/library/data/source'
 
 import { answer, searchMatches } from './respond'
 
 const KINDS: LibraryKind[] = ['post', 'livro', 'paper', 'video', 'podcast', 'curso']
-
-export function countLibraryItems(items: LibraryItem[]): LibraryCounts {
-  return {
-    inbox: items.filter((item) => item.status === 'inbox').length,
-    depois: items.filter((item) => item.status === 'depois').length,
-    arquivo: items.filter((item) => item.status === 'arquivo').length,
-    tudo: items.length,
-    unread: items.filter((item) => item.unread).length
-  }
-}
 
 function sortItems(items: LibraryItem[], sort: LibraryListQuery['sort']): LibraryItem[] {
   if (sort === 'titulo') return [...items].sort((left, right) => left.title.localeCompare(right.title, 'pt-BR'))

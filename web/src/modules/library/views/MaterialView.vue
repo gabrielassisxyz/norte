@@ -1,28 +1,25 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import Button from '@/components/ds/Button.vue'
 import Icon from '@/components/ds/Icon.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
-import { todayIsoDate } from '@/lib/clock'
-import type { MaterialKind, LibraryItem } from '@/mock/types'
-import { store } from '@/mock/store'
+import { useAsyncAction } from '@/lib/asyncResource'
+import { formatTimeOfDay } from '@/lib/clock'
+import type { MaterialKind } from '@/mock/types'
 import { crossModuleActionAllowed } from '@/modules/mounting'
+import { useMaterialNotes } from '@/modules/notes/data/composables'
+import { useMaterialContext } from '@/modules/study/data/composables'
+import { useSources } from '@/sources'
+
+import { useLibraryItem } from '../data/composables'
 import MaterialExercises from './MaterialView/MaterialExercises.vue'
 import MaterialPanel from './MaterialView/MaterialPanel.vue'
 import MaterialReader from './MaterialView/MaterialReader.vue'
 
 type ReadingMode = 'read' | 'exercises'
 type PanelTab = 'note' | 'annotations'
-
-interface MaterialContext {
-  curriculumTitle: string
-  curriculumSlug: string
-  moduleTitle: string
-  position: number
-  total: number
-}
 
 interface PanelAnnotation {
   id: string
@@ -35,12 +32,7 @@ interface PanelAnnotation {
 
 const route = useRoute()
 const router = useRouter()
-
-const FALLBACK_TITLES: Record<MaterialKind, string> = {
-  post: 'Observações que viram hipóteses',
-  livro: 'Aprender com atenção',
-  paper: 'Como explicamos nossas próprias escolhas'
-}
+const { library, notes: notesSource } = useSources()
 
 function routeParam(value: unknown): string {
   return Array.isArray(value) ? String(value[0] ?? '') : String(value ?? '')
@@ -62,60 +54,35 @@ function defaultPanelTab(value: MaterialKind): PanelTab {
   return value === 'livro' ? 'note' : 'annotations'
 }
 
-function fallbackMaterial(kind: MaterialKind, id: string): LibraryItem {
-  return {
-    id: id || `demo-${kind}`,
-    kind,
-    title: FALLBACK_TITLES[kind],
-    author: 'Equipe Norte',
-    url: 'https://example.com/material',
-    status: 'inbox',
-    unread: true,
-    savedAt: todayIsoDate()
-  }
-}
-
 const kind = computed<MaterialKind>(() => {
   const value = routeParam(route.params.kind)
   return isMaterialKind(value) ? value : 'post'
 })
 
 const materialId = computed(() => routeParam(route.params.id))
-const storedMaterial = computed(() =>
-  store.libraryItems.find((item) => item.id === materialId.value && item.kind === kind.value)
-)
-const material = computed(() => storedMaterial.value ?? fallbackMaterial(kind.value, materialId.value))
 
-const materialContext = computed<MaterialContext | undefined>(() => {
-  for (const curriculum of store.curricula) {
-    for (const module of curriculum.modules) {
-      const position = module.materials.findIndex((entry) => entry.libraryItemId === material.value.id)
-      if (position >= 0) {
-        return {
-          curriculumTitle: curriculum.title,
-          curriculumSlug: curriculum.slug,
-          moduleTitle: module.title,
-          position: position + 1,
-          total: module.materials.length
-        }
-      }
-    }
-  }
-  return undefined
-})
+const { data: material, loading, error, refresh, apply } = useLibraryItem(materialId)
+const writing = useAsyncAction()
+
+/** Nothing has answered yet, as opposed to an answer saying the item is gone. */
+const firstLoad = computed(() => loading.value && material.value === null)
+
+/**
+ * Every way out of the library — landing on a curriculum, writing a question,
+ * making a card — is offered only while the module on the other end is mounted
+ * and reads from the same place as this item.
+ */
+const canReachStudy = computed(() => crossModuleActionAllowed('library', 'study'))
+const canReachNotes = computed(() => crossModuleActionAllowed('library', 'notes'))
+const canReachReview = computed(() => crossModuleActionAllowed('library', 'review'))
+
+const { data: materialContext } = useMaterialContext(materialId, canReachStudy)
+const { data: materialNotes, applyHighlight, applyAnnotation } = useMaterialNotes(materialId, canReachNotes)
 
 const nextMaterial = computed(() => {
-  const context = materialContext.value
-  if (!context) return undefined
-
-  const curriculum = store.curricula.find((entry) => entry.slug === context.curriculumSlug)
-  const module = curriculum?.modules.find((entry) => entry.title === context.moduleTitle)
-  const next = module?.materials[context.position]
-  if (!next) return undefined
-
-  const item = store.libraryItems.find((entry) => entry.id === next.libraryItemId)
-  if (!item || !isMaterialKind(item.kind)) return undefined
-  return item
+  const next = materialContext.value?.next
+  if (!next || !isMaterialKind(next.kind)) return undefined
+  return next as { id: string; kind: MaterialKind; title: string }
 })
 
 const mode = ref<ReadingMode>(defaultMode(kind.value))
@@ -124,7 +91,6 @@ const panelCollapsed = ref(defaultPanelCollapsed(kind.value))
 const exerciseAnswer = ref('')
 const exerciseSubmitted = ref(false)
 const highlightedQuote = ref('')
-const locallyCompleted = ref(false)
 
 watch(
   () => [route.params.kind, route.params.id],
@@ -135,25 +101,24 @@ watch(
     exerciseAnswer.value = ''
     exerciseSubmitted.value = false
     highlightedQuote.value = ''
-    locallyCompleted.value = false
   },
   { immediate: true }
 )
 
-const isComplete = computed(() => locallyCompleted.value || !material.value.unread)
+const isComplete = computed(() => material.value !== null && !material.value.unread)
 const bodyColumns = computed(() => {
   if (mode.value === 'exercises') return 'minmax(0, 1fr)'
   return panelCollapsed.value ? 'minmax(0, 1fr) 48px' : 'minmax(0, 1fr) 380px'
 })
 
 const panelAnnotations = computed<PanelAnnotation[]>(() => {
-  const materialHighlights = store.highlights.filter((highlight) => highlight.materialId === material.value.id)
-  const materialAnnotations = store.annotations.filter((annotation) => annotation.materialId === material.value.id)
+  const loaded = materialNotes.value
+  if (!loaded) return []
   const linkedAnnotationIds = new Set<string>()
   const entries: PanelAnnotation[] = []
 
-  materialHighlights.forEach((highlight, index) => {
-    const annotation = materialAnnotations.find((candidate) => candidate.highlightId === highlight.id)
+  loaded.highlights.forEach((highlight, index) => {
+    const annotation = loaded.annotations.find((candidate) => candidate.highlightId === highlight.id)
     if (annotation) linkedAnnotationIds.add(annotation.id)
     entries.push({
       id: annotation?.id ?? highlight.id,
@@ -161,18 +126,18 @@ const panelAnnotations = computed<PanelAnnotation[]>(() => {
       note: annotation?.text,
       n: index + 1,
       location: kind.value === 'livro' ? 'Capítulo atual' : 'Texto principal',
-      time: annotation?.createdAt.slice(11, 16) ?? 'agora'
+      time: annotation ? formatTimeOfDay(annotation.createdAt) : 'agora'
     })
   })
 
-  materialAnnotations
+  loaded.annotations
     .filter((annotation) => !linkedAnnotationIds.has(annotation.id))
     .forEach((annotation) => {
       entries.push({
         id: annotation.id,
         note: annotation.text,
         location: 'Sobre o material',
-        time: annotation.createdAt.slice(11, 16)
+        time: formatTimeOfDay(annotation.createdAt)
       })
     })
 
@@ -183,15 +148,6 @@ const panelTabs = computed(() => [
   { value: 'note', label: 'Nota', icon: 'note' as const },
   { value: 'annotations', label: 'Anotações', count: panelAnnotations.value.length, icon: 'comment' as const }
 ])
-
-/**
- * Every action here that leaves the library — landing on a curriculum, writing a
- * question, making a card — is offered only while the module on the other end
- * is mounted and reads from the same place as this item.
- */
-const canReachStudy = computed(() => crossModuleActionAllowed('library', 'study'))
-const canReachNotes = computed(() => crossModuleActionAllowed('library', 'notes'))
-const canReachReview = computed(() => crossModuleActionAllowed('library', 'review'))
 
 const selectionActions = computed(() => [
   ...(canReachNotes.value ? ['Destacar', 'Anotar', 'Virar pergunta'] : []),
@@ -224,25 +180,34 @@ function setMode(value: string): void {
   if (value === 'read' || value === 'exercises') mode.value = value
 }
 
-function markComplete(): void {
-  if (storedMaterial.value) store.setLibraryItemUnread(storedMaterial.value.id, false)
-  locallyCompleted.value = true
+/** Completion is the item's own `unread`, so the button shows what came back. */
+async function markComplete(): Promise<void> {
+  const current = material.value
+  if (!current) return
+  const updated = await writing.run(() => library.setUnread(current.id, false))
+  if (updated) apply(updated)
 }
 
-function handleSelectionAction(payload: { action: string; text: string }): void {
+async function handleSelectionAction(payload: { action: string; text: string }): Promise<void> {
+  const current = material.value
   const text = payload.text.trim()
-  if (!text) return
+  if (!current || !text) return
 
   if (payload.action === 'Destacar' || payload.action === 'Anotar') {
-    const highlight = store.addHighlight({ materialId: material.value.id, text })
+    const highlight = await writing.run(() => notesSource.addHighlight({ materialId: current.id, text }))
+    if (!highlight) return
+    applyHighlight(highlight)
     highlightedQuote.value = text
 
     if (payload.action === 'Anotar') {
-      store.addAnnotation({
-        materialId: material.value.id,
-        highlightId: highlight.id,
-        text: 'Revisar esta ideia antes da próxima sessão de estudo.'
-      })
+      const annotation = await writing.run(() =>
+        notesSource.addAnnotation({
+          materialId: current.id,
+          highlightId: highlight.id,
+          text: 'Revisar esta ideia antes da próxima sessão de estudo.'
+        })
+      )
+      if (annotation) applyAnnotation(annotation)
       panelTab.value = 'annotations'
       panelCollapsed.value = false
     }
@@ -250,22 +215,27 @@ function handleSelectionAction(payload: { action: string; text: string }): void 
   }
 
   if (payload.action === 'Virar pergunta') {
-    store.addQuestion({
-      materialId: material.value.id,
-      kind: 'what',
-      text: `O que este trecho muda na forma de estudar?`
-    })
-    if (canReachNotes.value) router.push({ name: 'notas', query: { tab: 'perguntas' } })
+    const question = await writing.run(() =>
+      notesSource.addQuestion({
+        materialId: current.id,
+        kind: 'what',
+        text: `O que este trecho muda na forma de estudar?`
+      })
+    )
+    if (question && canReachNotes.value) router.push({ name: 'notas', query: { tab: 'perguntas' } })
     return
   }
 
   if (payload.action === 'Criar cartão' && canReachReview.value) router.push({ name: 'revisao' })
 }
 
-function addPanelAnnotation(text: string): void {
+async function addPanelAnnotation(text: string): Promise<void> {
+  const current = material.value
   const value = text.trim()
-  if (!value) return
-  store.addAnnotation({ materialId: material.value.id, text: value })
+  if (!current || !value) return
+  const annotation = await writing.run(() => notesSource.addAnnotation({ materialId: current.id, text: value }))
+  if (!annotation) return
+  applyAnnotation(annotation)
   panelTab.value = 'annotations'
   panelCollapsed.value = false
 }
@@ -277,7 +247,16 @@ function submitExercise(): void {
 </script>
 
 <template>
-  <main class="material-view" :class="`material-view-${kind}`">
+  <main v-if="firstLoad" class="material-view material-state" role="status">
+    <p>Carregando o material…</p>
+  </main>
+
+  <main v-else-if="error" class="material-view material-state" role="alert">
+    <p>Não foi possível carregar o material: {{ error }}</p>
+    <button type="button" class="material-state-action" @click="refresh()">Tentar de novo</button>
+  </main>
+
+  <main v-else-if="material" class="material-view" :class="`material-view-${kind}`">
     <header class="material-top">
       <div class="material-top-start">
         <a class="material-back" :href="backHref" aria-label="Voltar" @click.prevent="goBack">
@@ -353,10 +332,69 @@ function submitExercise(): void {
         @add-annotation="addPanelAnnotation"
       />
     </div>
+
+    <p v-if="writing.error.value" class="material-write-error" role="alert">
+      Não foi possível salvar: {{ writing.error.value }}
+    </p>
+  </main>
+
+  <main v-else class="material-view material-state">
+    <h1>Material não encontrado</h1>
+    <p>Este material não existe mais, ou o endereço está errado.</p>
+    <RouterLink class="material-state-action" :to="{ name: 'biblioteca', query: { v: 'tudo' } }">
+      Voltar para a biblioteca
+    </RouterLink>
   </main>
 </template>
 
 <style scoped>
+.material-state {
+  display: grid;
+  align-content: center;
+  justify-items: start;
+  gap: var(--space-3);
+  padding: 0 48px;
+  grid-template-rows: none;
+  font-size: 15px;
+  line-height: 24px;
+  color: var(--muted);
+}
+
+.material-state h1 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 28px;
+  line-height: 34px;
+  color: var(--ink);
+}
+
+.material-state p {
+  margin: 0;
+}
+
+.material-state-action {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  padding: 0 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: 550 13px var(--font-display);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.material-write-error {
+  position: absolute;
+  left: 20px;
+  bottom: 16px;
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger);
+}
+
 :global(.app-shell:has(.material-view)) {
   grid-template-columns: minmax(0, 1fr);
 }

@@ -2,19 +2,26 @@ import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 
 import { formatShortDate, shiftIsoDate, todayIsoDate } from '@/lib/clock'
+import { createMockStore, type MockStore } from '@/mock/store'
 import router from '@/router'
-import { store } from '@/mock/store'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import HomeView from './HomeView.vue'
+
+let store: MockStore
 
 async function mountHome(path = '/') {
   await router.push(path)
   await router.isReady()
-  return mount(HomeView, { global: { plugins: [router] } })
+  const wrapper = mount(HomeView, { global: { plugins: [router, sourcesPlugin(createMockSources(store))] } })
+  await flushReads()
+  return wrapper
 }
 
 describe('HomeView', () => {
   beforeEach(async () => {
+    store = createMockStore()
     await router.push('/')
   })
 
@@ -39,7 +46,8 @@ describe('HomeView', () => {
 
     expect(wrapper.get('.home-review').attributes('href')).toBe('/revisao')
     expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curriculos/fundamentos-de-compiladores')
-    expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/material/post/post-compilation')
+    // The reading list arrives in the order the source sorts it: newest save first.
+    expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/material/livro/book-interpreters')
   })
 
   it('formats saved dates as today, yesterday, and a Portuguese calendar date', async () => {
@@ -62,6 +70,7 @@ describe('HomeView', () => {
 
     await wrapper.get('.nt-input').setValue('https://example.org/reading-list')
     await wrapper.get('form').trigger('submit')
+    await flushReads()
 
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     expect(store.libraryItems).toHaveLength(19)

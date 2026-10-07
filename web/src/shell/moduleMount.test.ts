@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import App from '@/App.vue'
 import { overrideModuleBacking, resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { createRouteTable } from '@/router'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 /**
  * Every mount is torn down before the mount state is reset: a wrapper left
@@ -17,7 +19,7 @@ async function mountAt(path: string) {
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(App, { global: { plugins: [router] } })
+  const wrapper = mount(App, { global: { plugins: [router, sourcesPlugin(createMockSources())] } })
   mounted.push(wrapper)
   return { wrapper, router }
 }

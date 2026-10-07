@@ -3,12 +3,16 @@ import { computed } from 'vue'
 
 import Carousel from '@/components/ds/Carousel.vue'
 import Icon from '@/components/ds/Icon.vue'
-import { store } from '@/mock/store'
 
+import { useLibraryItems } from '../data/composables'
 import { domainFor, isMaterial, materialHref } from './items'
 
+const { data: page, loading, error } = useLibraryItems({ sort: 'data' })
+
+const firstLoad = computed(() => loading.value && page.value === null)
+
 const readingItems = computed(() =>
-  store.libraryItems
+  (page.value?.items ?? [])
     .filter(isMaterial)
     .slice(0, 6)
     .map((item, index) => {
@@ -29,7 +33,10 @@ const readingItems = computed(() =>
       <h2 id="continue-reading">Continuar lendo</h2>
       <span>Começados na última semana</span>
     </div>
-    <Carousel label="Continuar lendo">
+    <p v-if="firstLoad" class="home-reading-state" role="status">Carregando as leituras…</p>
+    <p v-else-if="error" class="home-reading-state" role="alert">Não foi possível carregar as leituras: {{ error }}</p>
+    <p v-else-if="readingItems.length === 0" class="home-reading-state">Nada começado ainda.</p>
+    <Carousel v-else label="Continuar lendo">
       <RouterLink v-for="item in readingItems" :key="item.id" :to="materialHref(item)" class="home-reading-card">
         <span class="home-reading-cover">
           <Icon name="image" :size="20" />
@@ -57,6 +64,7 @@ const readingItems = computed(() =>
 
 <style scoped>
 .home-reading-head { margin-bottom: var(--space-6); }
+.home-reading-state { margin: 0; color: var(--muted); font-size: 14px; line-height: 22px; }
 .home-reading-head span { color: var(--muted); font-size: 14px; line-height: 20px; }
 .home-reading-card { display: flex; flex-direction: column; gap: var(--space-3); color: var(--ink); text-decoration: none; border-radius: var(--radius-md); }
 .home-reading-cover { position: relative; box-sizing: border-box; height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; overflow: hidden; border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--sunken); color: var(--muted); font-size: 12px; line-height: 16px; transition: border-color 120ms cubic-bezier(.2, 0, 0, 1); }

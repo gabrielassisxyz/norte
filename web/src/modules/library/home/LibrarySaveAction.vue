@@ -4,9 +4,14 @@ import { useRoute } from 'vue-router'
 
 import Button from '@/components/ds/Button.vue'
 import TextField from '@/components/ds/TextField.vue'
-import { store } from '@/mock/store'
+import { useAsyncAction } from '@/lib/asyncResource'
+import { useSources } from '@/sources'
+
+import { libraryGainedItem } from '../data/revision'
 
 const route = useRoute()
+const { library } = useSources()
+const saving = useAsyncAction()
 const saveOpen = ref(false)
 const saveUrl = ref('')
 const saveWhy = ref('')
@@ -28,7 +33,7 @@ function linkTitle(url: URL): string {
   return path.replace(/[-_]+/g, ' ').replace(/\.[a-z0-9]+$/i, '').replace(/^./, (letter) => letter.toUpperCase())
 }
 
-function saveLink(): void {
+async function saveLink(): Promise<void> {
   const value = saveUrl.value.trim()
   if (!value) {
     saveError.value = 'Informe uma URL para salvar.'
@@ -43,12 +48,24 @@ function saveLink(): void {
     return
   }
 
-  store.addSavedLink({
-    kind: 'post',
-    title: linkTitle(url),
-    author: saveWhy.value.trim() || url.hostname,
-    url: url.toString()
-  })
+  const saved = await saving.run(() =>
+    library.saveLink({
+      kind: 'post',
+      title: linkTitle(url),
+      author: saveWhy.value.trim() || url.hostname,
+      url: url.toString()
+    })
+  )
+
+  // A failed save keeps the dialog, the typed URL and the reason it failed.
+  if (!saved) {
+    saveError.value = `Não foi possível salvar: ${saving.error.value ?? 'erro desconhecido'}`
+    return
+  }
+
+  // Nothing else on this screen can be handed the new item, so the lists that
+  // are open ask again.
+  libraryGainedItem()
   saveUrl.value = ''
   saveWhy.value = ''
   closeSave()
