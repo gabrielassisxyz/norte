@@ -5,13 +5,28 @@ and a phone. The repo is a monorepo: `web/` is the Vue 3 frontend, ported from a
 prototype, and `server/` is the Go backend. One binary, `norte`, serves both the API and the
 built frontend, so there is one thing to build and one thing to install.
 
-Screens still run on mock data (`web/src/mock/`). Each module moves to real data as its
-backend bead lands.
+Screens still run on mock data. Each module moves to real data as its backend bead lands.
 
 ## Layout
 
 - `web/` — Vue 3, Vite, TypeScript, Vue Router, Vitest. Package manager: npm, pinned by
   `web/.node-version`.
+  - `src/modules/<name>/` — one folder per product, mirroring the server's module names.
+    Each one exports `routes`, `sidebar`, `homeBlocks`, `searchEntries` and a static
+    `manifest` from its `index.ts`, and keeps its own views, components and mock slice.
+    `manifest.ts` is importable on its own, so asking whether a module is on never drags
+    that module's screens into the asker's bundle.
+  - `src/modules/mounting.ts` — the mount rule and the cross-module gating rule, and the
+    only place either question is answered. A `mock`-backed module is always mounted; an
+    `api`-backed one only while `GET /api/config` lists it. An action reaching from one
+    module into another is offered only when the target is mounted **and** both read from
+    the same place, because a real UUID and a mock id cannot be joined.
+  - `src/shell/` — everything that is not a product: the sidebar, the home screen, the
+    command palette and preferences, the switched-off and server-unavailable pages, and
+    the boot that reads `/api/config` before the app's own screens appear.
+  - `src/mock/` — the shared mock seam the modules' slices feed: the types, the store and
+    the assembled data.
+  - `src/components/ds/` — the design system, used by every module and owned by none.
 - `server/` — Go, one static binary, no CGO. SQLite via `modernc.org/sqlite`, `sqlc` for
   queries, `goose` for migrations. The Go version is pinned by the `toolchain` directive in
   `server/go.mod`. **Every `go` command runs from `server/`**, which is where the module is.
