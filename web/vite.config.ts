@@ -10,5 +10,12 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url))
     }
+  },
+  server: {
+    // `npm run dev` serves the frontend but has no API; a locally running
+    // `norte serve` does. The default here matches NORTE_LISTEN's default.
+    proxy: {
+      '/api': 'http://127.0.0.1:8080'
+    }
   }
 })
