@@ -1,0 +1,59 @@
+/*
+ * The chrome a home block sits in: section spacing, the heading row, and the
+ * tabular-numeral class.
+ *
+ * It is global rather than scoped because every block is its own component, and
+ * a parent's scoped style reaches a child's root element only. Each block styles
+ * its own interior; these few rules are what makes the blocks line up with each
+ * other, so they belong to the page and not to any one block. The `home-`
+ * prefix keeps them out of everything else's way.
+ */
+
+.home-section {
+  margin-top: 64px;
+}
+
+.home-section-head {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+  margin-bottom: var(--space-2);
+}
+
+.home-section-head h2 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+}
+
+.home-see-all {
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: none;
+}
+
+.home-see-all:hover {
+  text-decoration: underline;
+}
+
+.home-list,
+.home-saves {
+  border-top: 1px solid var(--line);
+}
+
+.home-mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 560px) {
+  .home-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--space-1);
+  }
+}
