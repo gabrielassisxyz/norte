@@ -136,6 +136,34 @@ func advanceJobsTestClock(clock *clocktest.Clock, d time.Duration) {
 	}
 }
 
+// waitJobsTestRetryScheduled waits until the worker has recorded the given
+// number of failed attempts and put the job back in the queue.
+func waitJobsTestRetryScheduled(t *testing.T, database *core.Database, id string, attempts int) {
+	t.Helper()
+	waitJobsTestCondition(t, func() bool {
+		row := readJobsTestRow(t, database, id)
+		return row.status == "queued" && row.attempts == int64(attempts)
+	}, fmt.Sprintf("failure %d recorded and the retry scheduled", attempts))
+}
+
+// advanceJobsTestClockUntilCall moves the clock by at least d, then on in
+// one-second steps until the handler runs again, so a poll timer armed a moment
+// late still fires instead of waiting forever for time that never comes.
+func advanceJobsTestClockUntilCall(t *testing.T, clock *clocktest.Clock, calls <-chan jobsTestCall, d time.Duration) jobsTestCall {
+	t.Helper()
+	advanceJobsTestClock(clock, d)
+	for i := 0; i < 600; i++ {
+		select {
+		case call := <-calls:
+			return call
+		case <-time.After(5 * time.Millisecond):
+		}
+		advanceJobsTestClock(clock, time.Second)
+	}
+	t.Fatal("the handler did not run again after the clock moved past the retry")
+	return jobsTestCall{}
+}
+
 type jobsTestCall struct {
 	attempt int
 	max     int
@@ -237,11 +265,15 @@ func TestJobsThreeFailuresLeaveFailed(t *testing.T) {
 	workerDone := make(chan error, 1)
 	go func() { workerDone <- worker.Run(workerCtx) }()
 
+	// Each failure is recorded, and the worker's next poll timer armed, a
+	// moment after the handler returns. Advancing the clock before that left the
+	// retry scheduled after the new "now" with no timer due, and the test hung,
+	// so wait for the failure to land before moving time.
 	<-calls
-	advanceJobsTestClock(clock, time.Minute)
-	<-calls
-	advanceJobsTestClock(clock, 5*time.Minute)
-	<-calls
+	waitJobsTestRetryScheduled(t, database, id, 1)
+	advanceJobsTestClockUntilCall(t, clock, calls, time.Minute)
+	waitJobsTestRetryScheduled(t, database, id, 2)
+	advanceJobsTestClockUntilCall(t, clock, calls, 5*time.Minute)
 	waitJobsTestCondition(t, func() bool {
 		return readJobsTestRow(t, database, id).status == "failed"
 	}, "the third failure marking failed")
