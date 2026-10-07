@@ -1,0 +1,26 @@
+# sqlc turns the .sql files under internal/<owner>/queries into typed Go in
+# internal/<owner>/db. Nothing under a db/ directory is ever edited by hand: the
+# next `sqlc generate` erases it without warning.
+#
+# One entry per owner -- the core here, and one per module as each lands. They
+# are separate because each owner's schema is its own: a module's queries must
+# not compile against another module's tables, which is the rule that lets a
+# module be switched off.
+#
+# The schema is read from the goose migration files themselves rather than from a
+# second copy of the DDL, so the types sqlc generates cannot drift from the
+# tables that actually exist. sqlc understands goose's `-- +goose Down`
+# annotation and ignores what follows it.
+version: "2"
+sql:
+  - engine: sqlite
+    schema: internal/core/migrations
+    queries: internal/core/queries
+    gen:
+      go:
+        package: db
+        out: internal/core/db
+        sql_package: database/sql
+        emit_prepared_queries: false
+        emit_interface: false
+        emit_empty_slices: true
