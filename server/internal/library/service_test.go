@@ -151,3 +151,26 @@ func TestLibraryFTSTriggersTrackInsertUpdateDelete(t *testing.T) {
 		t.Errorf("the item id %q is not a UUID", outcome.ID)
 	}
 }
+
+// A word in the title must outrank the same word in the note: the weights only
+// mean anything if they land on the columns they were written for.
+func TestLibraryFTSRanksTitleAboveTheNote(t *testing.T) {
+	clock := libraryTestClock()
+	database, dataDir := newLibraryTestDB(t, clock)
+	service := newLibraryTestService(t, database, dataDir, clock)
+	inNote := librarySaveOne(t, service, "https://example.org/in-note", "zebra")
+	inTitle := librarySaveOne(t, service, "https://example.org/in-title", "")
+	title := "zebra"
+	if _, err := service.Patch(context.Background(), inTitle.ID, PatchInput{Title: &title}); err != nil {
+		t.Fatalf("patching the title: %v", err)
+	}
+
+	var first string
+	if err := database.Reader().QueryRow(
+		`SELECT id FROM library_fts WHERE library_fts MATCH 'zebra' ORDER BY `+libraryFTSRank+` LIMIT 1`).Scan(&first); err != nil {
+		t.Fatalf("ranking: %v", err)
+	}
+	if first != inTitle.ID {
+		t.Errorf("the note match ranked first (%s); the title match %s must outrank it", inNote.ID, inTitle.ID)
+	}
+}

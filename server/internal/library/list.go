@@ -21,10 +21,11 @@ const libraryItemColumns = `id, kind, url, canonical_url, title, title_edited, a
     content_text, content_headings, extract_status, extract_generation,
     extracted_at, extract_error, minutes, meta, created_at, updated_at`
 
-// libraryFTSRank orders full-text hits. The weights follow the FTS table's
-// column order -- title, author, why, content_headings, content_text -- and
-// rank title above headings above the note above the author above the text.
-const libraryFTSRank = `bm25(library_fts, 10.0, 2.0, 5.0, 7.0, 1.0)`
+// libraryFTSRank orders full-text hits. bm25 takes one weight per FTS column in
+// table order, the UNINDEXED id included, so the first weight is id's (0) and
+// the rest follow title, author, why, content_headings, content_text: title
+// above headings above the note above the author above the text.
+const libraryFTSRank = `bm25(library_fts, 0.0, 10.0, 2.0, 5.0, 7.0, 1.0)`
 
 // Library list sorts, and the rank pseudo-sort a text query orders by.
 const (
