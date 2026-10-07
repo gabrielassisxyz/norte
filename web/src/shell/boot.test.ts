@@ -27,7 +27,7 @@ describe('reading the configuration before the app opens', () => {
       fetchConfig: async () => {
         attempt += 1
         if (attempt < 3) throw new Error('connection refused')
-        return { modules: ['library', 'notes'] }
+        return { modules: ['library', 'notes'], timezone: 'America/Sao_Paulo' }
       },
       wait: async (milliseconds) => {
         delays.push(milliseconds)
@@ -46,7 +46,7 @@ describe('reading the configuration before the app opens', () => {
     const boot = bootUntilConfigured({
       fetchConfig: async () => {
         if (!answer) throw new Error('connection refused')
-        return { modules: [] }
+        return { modules: [], timezone: 'UTC' }
       },
       wait: async () => {
         expect(bootState.phase).toBe('unavailable')

@@ -2,6 +2,7 @@ import { reactive } from 'vue'
 import type { Router } from 'vue-router'
 
 import { coreClient } from '@/api/client'
+import { setClockTimeZone } from '@/lib/clock'
 import { setEnabledModules } from '@/modules/mounting'
 import { applyMountedModules } from '@/router'
 
@@ -29,12 +30,14 @@ export function retryDelayMs(attempts: number): number {
 
 export interface ConfigReport {
   modules: string[]
+  /** The IANA zone every date in the UI is rendered in. */
+  timezone: string
 }
 
 async function readConfig(): Promise<ConfigReport> {
   const { data, error } = await coreClient.GET('/api/config')
   if (error || !data) throw new Error('GET /api/config did not answer')
-  return { modules: data.modules }
+  return { modules: data.modules, timezone: data.timezone }
 }
 
 export interface BootDependencies {
@@ -62,6 +65,9 @@ export async function bootUntilConfigured(dependencies: BootDependencies = {}): 
     try {
       const config = await fetchConfig()
       setEnabledModules(config.modules)
+      // The calendar comes from the server, so a browser in another zone still
+      // renders the day the server is on.
+      setClockTimeZone(config.timezone)
       dependencies.mount?.(config)
       bootState.phase = 'ready'
       return config
@@ -73,10 +79,17 @@ export async function bootUntilConfigured(dependencies: BootDependencies = {}): 
   }
 }
 
-/** Boot the real application: read the config, then prune the live route table. */
-export async function bootApplication(router: Router): Promise<void> {
+/**
+ * Boot the real application: read the config, then prune the live route table.
+ *
+ * `onConfigured` runs while the phase is still `loading`, which is what lets the
+ * entry point install the data sources against a calendar the config has
+ * already set — the app's own screens do not exist yet at that point.
+ */
+export async function bootApplication(router: Router, onConfigured?: (config: ConfigReport) => void): Promise<void> {
   await bootUntilConfigured({
-    mount: () => {
+    mount: (config) => {
+      onConfigured?.(config)
       applyMountedModules(router)
     }
   })
