@@ -175,6 +175,14 @@ func newFilesGCCommand() *cobra.Command {
 				return err
 			}
 			return withDatabase(cmd.Context(), cfg.Data, func(database *core.Database) error {
+				// Every command that reads the schema brings it up to date
+				// first, the same way `serve` does. Without it, running this on
+				// a data directory that has never been migrated fails with
+				// "no such table: core_files", which says nothing about what to
+				// do next.
+				if _, err := core.MigrateCore(cmd.Context(), database.Writer()); err != nil {
+					return err
+				}
 				store := core.NewFiles(cfg.Data, database.Writer(), core.SystemClock())
 				collected, err := store.CollectGarbage(cmd.Context())
 				if err != nil {
