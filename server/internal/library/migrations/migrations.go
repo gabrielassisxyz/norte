@@ -1,6 +1,6 @@
-// Package migrations holds the library stub's SQL migrations, embedded so
-// the binary carries its own schema. The stub owns one throwaway table;
-// the real library bead adds its tables as the next migration.
+// Package migrations holds the library's SQL migrations, embedded so the
+// binary carries its own schema. The first is the stub's throwaway table; the
+// second drops it and creates the real tables.
 package migrations
 
 import "embed"
