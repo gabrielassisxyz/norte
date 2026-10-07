@@ -1,0 +1,73 @@
+#!/usr/bin/env bash
+# Fail when the toolchain versions in the repository disagree with the ones CI installs.
+#
+#   bin/check-pins [<workflow.yml>]        default: .github/workflows/ci.yml
+#
+# server/go.mod's `toolchain` directive and web/.node-version are the source of
+# truth. A GitHub workflow cannot read either one for the version it installs,
+# so the version is repeated there and this check is what keeps the copies
+# equal. Without it the gate still passes while CI silently builds under a
+# different compiler than every developer machine, which is the kind of
+# difference that only shows up as a failure nobody can reproduce locally.
+#
+# The Dockerfile is checked the same way once it exists.
+set -euo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+workflow="${1:-$repo/.github/workflows/ci.yml}"
+go_mod="$repo/server/go.mod"
+node_version_file="$repo/web/.node-version"
+dockerfile="$repo/Dockerfile"
+
+failures=0
+
+fail() {
+    printf 'check-pins: %s\n' "$1" >&2
+    failures=$((failures + 1))
+}
+
+# first_capture <regex> <file> — the first capture group of the first matching
+# line, or the empty string. Keeps every extraction below to one shape.
+first_capture() {
+    [ -f "$2" ] || { printf ''; return; }
+    sed -nE "s/$1/\1/p" "$2" | head -n 1
+}
+
+[ -f "$workflow" ] || { echo "check-pins: no workflow at $workflow" >&2; exit 1; }
+[ -f "$go_mod" ] || { echo "check-pins: no go.mod at $go_mod" >&2; exit 1; }
+[ -f "$node_version_file" ] || { echo "check-pins: no $node_version_file" >&2; exit 1; }
+
+go_pinned="$(first_capture '^[[:space:]]*toolchain[[:space:]]+go([0-9.]+).*$' "$go_mod")"
+[ -n "$go_pinned" ] || fail "server/go.mod has no toolchain directive to pin the Go version"
+
+node_pinned="$(tr -d '[:space:]' < "$node_version_file")"
+[ -n "$node_pinned" ] || fail "web/.node-version is empty"
+
+go_in_workflow="$(first_capture "^[[:space:]]*go-version:[[:space:]]*['\"]?([0-9][0-9.]*)['\"]?[[:space:]]*$" "$workflow")"
+node_in_workflow="$(first_capture "^[[:space:]]*node-version:[[:space:]]*['\"]?([0-9][0-9.]*)['\"]?[[:space:]]*$" "$workflow")"
+
+if [ -z "$go_in_workflow" ]; then
+    fail "$workflow pins no go-version; server/go.mod says $go_pinned"
+elif [ "$go_in_workflow" != "$go_pinned" ]; then
+    fail "Go version mismatch: $go_mod toolchain says $go_pinned, $workflow go-version says $go_in_workflow"
+fi
+
+if [ -z "$node_in_workflow" ]; then
+    fail "$workflow pins no node-version; web/.node-version says $node_pinned"
+elif [ "$node_in_workflow" != "$node_pinned" ]; then
+    fail "Node version mismatch: $node_version_file says $node_pinned, $workflow node-version says $node_in_workflow"
+fi
+
+if [ -f "$dockerfile" ]; then
+    go_in_dockerfile="$(first_capture '^[[:space:]]*FROM[[:space:]]+golang:([0-9][0-9.]*).*$' "$dockerfile")"
+    if [ -z "$go_in_dockerfile" ]; then
+        fail "$dockerfile has no golang: base image to read a Go version from"
+    elif [ "$go_in_dockerfile" != "$go_pinned" ]; then
+        fail "Go version mismatch: $go_mod toolchain says $go_pinned, $dockerfile says $go_in_dockerfile"
+    fi
+fi
+
+if [ "$failures" -gt 0 ]; then
+    exit 1
+fi
+printf 'check-pins: Go %s and Node %s agree across %s\n' "$go_pinned" "$node_pinned" "$(basename "$workflow")"

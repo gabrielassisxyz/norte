@@ -1,0 +1,38 @@
+name: CI
+
+# bin/ci is the whole gate: CI runs exactly what a developer runs, so a green
+# local run and a green CI run mean the same thing.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # These two versions are repeated from server/go.mod's toolchain
+      # directive and web/.node-version, because a workflow cannot read either
+      # one for the version it installs. bin/check-pins, which bin/ci runs
+      # first, fails the gate when a copy drifts.
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.6'
+          cache-dependency-path: server/go.sum
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.18.0'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - run: bin/ci
