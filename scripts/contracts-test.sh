@@ -179,6 +179,20 @@ check_command=("$repo/bin/check-generated" --root "$broken_root" --generate "$br
 expect_rejected "a generator that fails is reported as a failure, not as a clean tree" \
     "failed"
 
+# The developer's own tree, mid-change: the contract was edited, bin/generate was
+# run, and none of it is committed yet. That has to pass, which is the whole
+# reason this check reads content rather than asking git what is dirty.
+uncommitted_root="$(fixture_root uncommitted)"
+git -C "$uncommitted_root" init -q
+git -C "$uncommitted_root" add server web
+uncommitted_generator="$(fake_generator uncommitted '
+printf "// regenerated\n" >> server/gen/api/core/core.gen.go
+printf "export type Added = never\n" >> web/src/api/core.d.ts')"
+(cd "$uncommitted_root" && "$uncommitted_generator")
+quiet_again="$(fake_generator uncommitted-quiet 'exit 0')"
+check_command=("$repo/bin/check-generated" --root "$uncommitted_root" --generate "$quiet_again")
+expect_accepted "an uncommitted but correct regeneration is accepted"
+
 ### bin/generate: the pins, not PATH
 
 # A generator resolved through PATH is a generator whose version nobody chose:
@@ -215,6 +229,20 @@ else
     else
         pass "bin/generate runs the pinned generators, not the ones on PATH"
     fi
+
+    # The order is not cosmetic: the frontend type-checks against the TypeScript
+    # types, so openapi-typescript has to have run first, and `web` is last
+    # because it copies the built frontend into the server tree. The log lines
+    # are the only record of what ran when, so they are what this reads.
+    ran="$(printf '%s\n' "$generate_output" | sed -n 's/^==> \([a-z-]*\).*/\1/p' | tr '\n' ' ')"
+    case "$ran" in
+        "oapi-codegen openapi-typescript sqlc "*)
+            pass "bin/generate runs oapi-codegen, then openapi-typescript, then sqlc"
+            ;;
+        *)
+            fail "bin/generate ran its stages in the wrong order: $ran"
+            ;;
+    esac
 fi
 
 if [ "$failures" -gt 0 ]; then

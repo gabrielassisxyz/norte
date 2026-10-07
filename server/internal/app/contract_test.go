@@ -12,6 +12,7 @@ import (
 
 	"github.com/getkin/kin-openapi/openapi3"
 
+	coreapi "github.com/gabrielassisxyz/norte/server/gen/api/core"
 	"github.com/gabrielassisxyz/norte/server/internal/core"
 )
 
@@ -147,5 +148,34 @@ func TestContentTypeThatTheContractDoesNotDeclare(t *testing.T) {
 	detail := decodeErrorEnvelope(t, response, http.StatusUnsupportedMediaType)
 	if detail.Code != "unsupported_media_type" {
 		t.Errorf("code = %q, want unsupported_media_type", detail.Code)
+	}
+}
+
+// TestTheErrorEnvelopeMatchesTheContract decodes a real failure into the type
+// generated from core.yaml. It is what makes the contract's Error schema
+// load-bearing: rename a field there and the generated struct stops matching
+// what core writes, which shows up here as an empty field rather than as a
+// mismatch nobody notices until the frontend reads it.
+func TestTheErrorEnvelopeMatchesTheContract(t *testing.T) {
+	response := get(t, testRouter(t), "/api/nope")
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", response.Code)
+	}
+
+	var envelope coreapi.Error
+	if err := json.Unmarshal(response.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("body does not decode as the contract's Error: %v (%q)", err, response.Body.String())
+	}
+	if envelope.Error.Code == "" {
+		t.Errorf("code is empty, so the contract's `code` does not match what the server writes")
+	}
+	if envelope.Error.Message == "" {
+		t.Errorf("message is empty, so the contract's `message` does not match what the server writes")
+	}
+	if envelope.Error.RequestId == "" {
+		t.Errorf("request_id is empty, so the contract's `request_id` does not match what the server writes")
+	}
+	if envelope.Error.Field != nil {
+		t.Errorf("field = %q, want it absent on a failure attributable to no input", *envelope.Error.Field)
 	}
 }
