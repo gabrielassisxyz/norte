@@ -174,6 +174,11 @@ func newServeCommand() *cobra.Command {
 					ModuleDeps: deps,
 					TestRoutes: testRoutes,
 				})
+				// Serve can return without the context being cancelled (the
+				// listener failed to bind, the router failed to build), and the
+				// adapters and the worker only stop on cancellation, so cancel
+				// before waiting or a failed start hangs instead of exiting.
+				cancel()
 				workerStop()
 				workerErr := <-workerDone
 				adaptersErr := <-adaptersDone
