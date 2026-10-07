@@ -200,7 +200,9 @@ expect_accepted "an uncommitted but correct regeneration is accepted"
 # code than CI does. bin/generate therefore calls the Go generators through
 # `go tool` and openapi-typescript through `npm exec --no`, none of which
 # consults PATH. This proves it by putting a saboteur of each name first on
-# PATH: if any of them is ever reached, it leaves a marker behind.
+# PATH: if any of them is ever reached, it leaves a marker behind. Each one
+# exits 0 rather than failing, so the verdict is the marker and not an exit
+# status that could come from anywhere else in the run.
 #
 # It runs the real bin/generate, minus the frontend build, over the real tree.
 # That is deliberate -- a fixture tree would prove something about a copy -- and
@@ -213,7 +215,7 @@ for name in oapi-codegen openapi-typescript sqlc; do
     cat > "$saboteur_bin/$name" << EOF
 #!/usr/bin/env bash
 printf 'reached\n' > "$marker_dir/$name"
-exit 1
+exit 0
 EOF
     chmod +x "$saboteur_bin/$name"
 done
