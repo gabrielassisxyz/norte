@@ -63,17 +63,23 @@ export interface LibraryItemResource extends AsyncResource<LibraryItem | null> {
  * One library item. `data` is null for an item that does not exist, which the
  * screen renders as its own page — `loading` is how "not answered yet" is told
  * apart from "not there".
+ *
+ * `enabled` is for a caller in another module: an item is only readable from
+ * there while the mount rule allows that crossing, so the read is not made at
+ * all rather than made and discarded.
  */
-export function useLibraryItem(id: MaybeRefOrGetter<string>): LibraryItemResource {
+export function useLibraryItem(
+  id: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true
+): LibraryItemResource {
   const { library } = useSources()
-  const resource = useAsyncResource((signal) => library.getItem(toValue(id), signal))
+  const resource = useAsyncResource((signal) => library.getItem(toValue(id), signal), {
+    immediate: toValue(enabled)
+  })
 
-  watch(
-    () => toValue(id),
-    () => {
-      void resource.refresh()
-    }
-  )
+  watch([() => toValue(id), () => toValue(enabled)], () => {
+    if (toValue(enabled)) void resource.refresh()
+  })
 
   function apply(item: LibraryItem): void {
     resource.data.value = item

@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { todayIsoDate } from '@/lib/clock'
-import { store } from '@/mock/store'
+import { useReviewSummary } from '../data/composables'
 
-const dueCount = computed(() => store.reviewCards.filter((card) => card.dueAt <= todayIsoDate()).length)
+const { data: summary } = useReviewSummary()
+
+const dueCount = computed(() => summary.value?.due ?? 0)
 </script>
 
 <template>
