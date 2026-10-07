@@ -1,0 +1,108 @@
+#!/usr/bin/env bash
+# Fail when running the generators would change the generated code.
+#
+#   bin/check-generated [--root <dir>] [--generate <executable>] [--path <glob>]...
+#
+# Generated code is committed, so a contract or a query can be edited and the
+# result forgotten; the next person then reads types that no longer describe the
+# API. This takes a content snapshot of every generated path -- tracked or not --
+# runs the generators, and fails naming whatever the run changed.
+#
+# It is a content snapshot rather than `git status --porcelain` on purpose. A
+# developer who regenerates and has not committed yet has a legitimately dirty
+# tree, and a porcelain check calls that a failure; this one calls it clean,
+# because regenerating again changes nothing. The same snapshot also notices a
+# file that generation newly creates, which a check on tracked files cannot see.
+#
+# The options exist so the check can be pointed at a fixture: scripts/contracts-test.sh
+# runs it over a temporary root with a generator that is known to write, which is
+# how the diagnostic itself is tested without paying for a frontend build.
+set -uo pipefail
+
+repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+root="$repo"
+generate=""
+patterns=()
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --root)
+            root="$2"
+            shift 2
+            ;;
+        --generate)
+            generate="$2"
+            shift 2
+            ;;
+        --path)
+            patterns+=("$2")
+            shift 2
+            ;;
+        -h | --help)
+            sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        *)
+            echo "check-generated: unexpected argument: $1" >&2
+            exit 2
+            ;;
+    esac
+done
+
+[ -n "$generate" ] || generate="$repo/bin/generate"
+if [ "${#patterns[@]}" -eq 0 ]; then
+    # Exactly the three places a generator writes. The embedded frontend is not
+    # one of them: it is git-ignored, and its build is not reproducible byte for
+    # byte, so watching it would make every run a failure.
+    patterns=('server/gen/api' 'server/internal/*/db' 'web/src/api/*.d.ts')
+fi
+
+cd "$root" || exit 1
+
+# snapshot prints "<hash>  <path>" for every file under the watched patterns, in
+# a stable order. A pattern that matches nothing contributes nothing, which is
+# what makes a newly generated file show up as a difference.
+snapshot() {
+    local pattern path
+    for pattern in "${patterns[@]}"; do
+        # Deliberately unquoted: these are globs, and a pattern matching nothing
+        # has to vanish rather than be hashed as a literal name.
+        # shellcheck disable=SC2086
+        for path in $pattern; do
+            [ -e "$path" ] || continue
+            if [ -d "$path" ]; then
+                find "$path" -type f -print0
+            else
+                printf '%s\0' "$path"
+            fi
+        done
+    done | sort -z | xargs -0 -r sha256sum
+}
+
+work_dir="$(mktemp -d -p "${TMPDIR:-/tmp}" check-generated.XXXXXX)" || exit 1
+trap 'rm -rf "$work_dir"' EXIT
+
+snapshot > "$work_dir/before"
+
+if ! "$generate"; then
+    echo "check-generated: $generate failed, so the generated code was never compared" >&2
+    exit 1
+fi
+
+snapshot > "$work_dir/after"
+
+# Column two of sha256sum is the path. Generated paths have no spaces in them,
+# which is what lets the last field stand for the whole name here.
+changed="$(diff "$work_dir/before" "$work_dir/after" | awk '/^[<>]/ { print $NF }' | sort -u)"
+
+if [ -n "$changed" ]; then
+    echo "check-generated: generating changed these paths:" >&2
+    while IFS= read -r path; do
+        printf '  %s\n' "$path" >&2
+    done <<< "$changed"
+    echo "check-generated: the contract or query each one comes from was edited without" >&2
+    echo "check-generated: regenerating. Run bin/generate and commit what it produced." >&2
+    exit 1
+fi
+
+printf 'check-generated: the committed generated code is what %s produces\n' "$generate"

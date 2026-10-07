@@ -16,7 +16,7 @@ set -uo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo" || exit 1
 
-checks=(pins pins-test gofmt go-vet sqlc generate go-build go-test web-test)
+checks=(pins pins-test contracts contracts-test gofmt go-vet sqlc generate go-build go-test web-test)
 
 # A temporary NORTE_DATA keeps the suite off the real data directory, so a test
 # that writes cannot touch whatever is installed on the machine running the gate.
@@ -36,6 +36,17 @@ check_pins() {
 
 check_pins_test() {
     bash scripts/pins-test.sh
+}
+
+# The two rules about api/openapi/<module>.yaml that no generator checks: a file
+# only declares paths under its own module's prefix, and every object schema
+# names every field it accepts.
+check_contracts() {
+    bin/check-contracts
+}
+
+check_contracts_test() {
+    bash scripts/contracts-test.sh
 }
 
 # gofmt reports nothing and exits 0 on unformatted files, so the output is the
@@ -64,12 +75,15 @@ check_sqlc() {
     (cd server && go tool sqlc diff)
 }
 
-# bin/generate builds the frontend and copies it where Go's embed can reach it.
-# It also covers `npm run build`, which is why there is no separate check for
-# that: repeating the frontend build would double the gate's slowest step and
-# prove nothing the embed does not already need.
+# Generated code is committed, so a contract or a query can be edited and the
+# regeneration forgotten. check-generated snapshots the generated paths, runs
+# bin/generate, and fails naming whatever the run changed -- so this one check
+# both produces the frontend the binary embeds and proves the committed
+# generated code is what the generators currently write. It also covers
+# `npm run build`, which is why there is no separate check for that: repeating
+# the frontend build would double the gate's slowest step.
 check_generate() {
-    bin/generate
+    bin/check-generated
 }
 
 check_go_build() {
