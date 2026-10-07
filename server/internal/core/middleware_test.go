@@ -55,6 +55,33 @@ func TestBodyLimitRejectsADeclaredOversizedBody(t *testing.T) {
 	}
 }
 
+// A declared Content-Length over the limit has to be refused before the handler
+// runs. Asserting only the 413 would not prove that: the streaming cap returns
+// the same status after the body has already been read, so the two
+// implementations are indistinguishable from the response alone.
+func TestBodyLimitRefusesADeclaredOversizedBodyWithoutRunningTheHandler(t *testing.T) {
+	reached := false
+	handler := core.WithRequestID(core.WithBodyLimit(16,
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			reached = true
+			bodyReadingHandler().ServeHTTP(w, r)
+		})))
+
+	request := httptest.NewRequest(http.MethodPost, "/anything", bytes.NewReader(bytes.Repeat([]byte("x"), 64)))
+	if request.ContentLength != 64 {
+		t.Fatalf("ContentLength = %d, want 64: the test needs a declared length", request.ContentLength)
+	}
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, request)
+
+	if recorder.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d, want 413", recorder.Code)
+	}
+	if reached {
+		t.Error("the handler ran for a body whose declared length was already over the limit")
+	}
+}
+
 func TestBodyLimitAcceptsABodyUnderTheCap(t *testing.T) {
 	handler := core.WithRequestID(core.WithBodyLimit(16, bodyReadingHandler()))
 
