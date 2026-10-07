@@ -56,7 +56,28 @@ func NewRootCommand() *cobra.Command {
 		root.PersistentFlags().String(s.flag, "", fmt.Sprintf("%s (env %s)", flagUsage[s.name], s.env))
 	}
 	root.AddCommand(newServeCommand(), newMigrateCommand(), newVersionCommand(), newConfigCommand(), newFilesCommand(), newJobsCommand())
+	for _, module := range norteEnabledModulesForCLI() {
+		for _, cmd := range module.Commands() {
+			root.AddCommand(cmd)
+		}
+	}
 	return root
+}
+
+// norteEnabledModulesForCLI resolves the modules the current process
+// environment (and config file) enables, for command wiring only. An unknown
+// name yields no commands here; serve and migrate report it when they load
+// the same configuration for real.
+func norteEnabledModulesForCLI() []Module {
+	cfg, _, err := Load(LoadOptions{})
+	if err != nil {
+		return nil
+	}
+	modules, err := ResolveNorteModules(cfg.Modules)
+	if err != nil {
+		return nil
+	}
+	return modules
 }
 
 // loadConfigForCommand turns the flags the user actually typed into the loader's
@@ -100,32 +121,68 @@ func newServeCommand() *cobra.Command {
 
 			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGTERM, syscall.SIGINT)
 			defer stop()
+			modules, err := ResolveNorteModules(cfg.Modules)
+			if err != nil {
+				return err
+			}
 			// Migrations run before the listener opens, so no request is ever
 			// served against a schema that is one version behind the code.
+			// Core migrates first, then each module in the configured order.
 			return withDatabase(ctx, cfg.Data, func(database *core.Database) error {
-				applied, err := core.MigrateCore(ctx, database.Writer())
+				appliedCore, err := core.MigrateCore(ctx, database.Writer())
 				if err != nil {
 					return err
 				}
-				logger.Info("database ready", "path", database.Path(), "migrations_applied", applied)
+				appliedModules, err := MigrateNorteModules(ctx, database.Writer(), modules)
+				if err != nil {
+					return err
+				}
+				logger.Info("database ready", "path", database.Path(),
+					"core_applied", appliedCore, "modules_applied", appliedModules)
 				// The one in-process worker. A second process would be a second
 				// deployable for a one-user app, and heavy runtimes are created
 				// inside the handler and closed when it returns.
 				queue := core.NewJobs(database.Writer(), core.SystemClock(), logger)
+				RegisterNorteJobHandlers(queue, modules)
 				worker := core.NewJobsWorker(queue, core.SystemClock(), logger, core.NewID())
-				workerCtx, workerStop := context.WithCancel(ctx)
+				clock := core.SystemClock()
+				deps := Deps{
+					Database: database,
+					Jobs:     queue,
+					Files:    core.NewFiles(cfg.Data, database.Writer(), clock),
+					Clock:    clock,
+				}
+				serveCtx, cancel := context.WithCancel(ctx)
+				defer cancel()
+				adaptersDone := make(chan error, 1)
+				go func() {
+					err := RunNorteAdapters(serveCtx, modules)
+					if err != nil {
+						cancel()
+					}
+					adaptersDone <- err
+				}()
+				workerCtx, workerStop := context.WithCancel(serveCtx)
 				defer workerStop()
 				workerDone := make(chan error, 1)
 				go func() { workerDone <- worker.Run(workerCtx) }()
-				serveErr := Serve(ctx, RouterOptions{
+				serveErr := Serve(serveCtx, RouterOptions{
 					Config:     cfg,
 					Logger:     logger,
 					Assets:     webassets.FS(),
+					Modules:    modules,
+					ModuleDeps: deps,
 					TestRoutes: testRoutes,
 				})
+				// Serve can return without the context being cancelled (the
+				// listener failed to bind, the router failed to build), and the
+				// adapters and the worker only stop on cancellation, so cancel
+				// before waiting or a failed start hangs instead of exiting.
+				cancel()
 				workerStop()
 				workerErr := <-workerDone
-				return errors.Join(serveErr, workerErr)
+				adaptersErr := <-adaptersDone
+				return errors.Join(serveErr, workerErr, adaptersErr)
 			})
 		},
 	}
@@ -144,16 +201,36 @@ func newMigrateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			modules, err := ResolveNorteModules(cfg.Modules)
+			if err != nil {
+				return err
+			}
 			return withDatabase(cmd.Context(), cfg.Data, func(database *core.Database) error {
-				applied, err := core.MigrateCore(cmd.Context(), database.Writer())
+				appliedCore, err := core.MigrateCore(cmd.Context(), database.Writer())
 				if err != nil {
 					return err
 				}
-				if applied == 0 {
+				appliedModules, err := MigrateNorteModules(cmd.Context(), database.Writer(), modules)
+				if err != nil {
+					return err
+				}
+				appliedTotal := appliedCore
+				for _, count := range appliedModules {
+					appliedTotal += count
+				}
+				if appliedTotal == 0 {
 					fmt.Fprintf(cmd.OutOrStdout(), "%s is up to date\n", database.Path())
 					return nil
 				}
-				fmt.Fprintf(cmd.OutOrStdout(), "applied %d core migration(s) to %s\n", applied, database.Path())
+				fmt.Fprintf(cmd.OutOrStdout(), "applied %d core migration(s) to %s\n", appliedCore, database.Path())
+				names := make([]string, 0, len(appliedModules))
+				for _, module := range modules {
+					names = append(names, module.Name())
+				}
+				for _, name := range names {
+					fmt.Fprintf(cmd.OutOrStdout(), "applied %d %s migration(s) to %s\n",
+						appliedModules[name], name, database.Path())
+				}
 				return nil
 			})
 		},
