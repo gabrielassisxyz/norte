@@ -21,3 +21,8 @@ backend yet: every screen runs on mock data.
 - UI strings are Portuguese. Code, comments and commits are English.
 - Work is tracked in `br` (beads_rust): `br ready` lists what can be picked up.
 - Gate: `npm run build && npm test` in `web/` must pass before a commit.
+- Work in a worktree of your own, never in the main checkout: `bin/worktree new
+  <type>/<kebab-desc>` branches off a fresh `origin/main` into
+  `~/repositories/.worktrees/norte/<task>`; `bin/worktree rm <task>` removes it.
+- This repo ships itself: an agent opens a pull request for its work, and once the gate is
+  green and the review is done it merges that pull request itself and closes the bead.
