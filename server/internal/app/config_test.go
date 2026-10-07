@@ -230,6 +230,7 @@ func TestLoadRejectsAnUnparseableByteCount(t *testing.T) {
 }
 
 func TestConfigCommandPrintsTheReport(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
 	t.Setenv("NORTE_LLM_KEY", "topsecretvalue")
 	t.Setenv("NORTE_LISTEN", "127.0.0.1:7777")
 
@@ -248,5 +249,35 @@ func TestConfigCommandPrintsTheReport(t *testing.T) {
 	}
 	if !strings.Contains(out, "127.0.0.1:7777") || !strings.Contains(out, "(env)") {
 		t.Errorf("norte config does not report the value and its source:\n%s", out)
+	}
+}
+
+func TestSystemZoneNamesALoadableZone(t *testing.T) {
+	if got := systemZone("America/Sao_Paulo", "/nonexistent"); got != "America/Sao_Paulo" {
+		t.Errorf("from TZ: got %q", got)
+	}
+	if got := systemZone(":Europe/Lisbon", "/nonexistent"); got != "Europe/Lisbon" {
+		t.Errorf("from TZ with a leading colon: got %q", got)
+	}
+	dir := t.TempDir()
+	zone := filepath.Join(dir, "zoneinfo", "Asia", "Tokyo")
+	if err := os.MkdirAll(filepath.Dir(zone), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(zone, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(dir, "localtime")
+	if err := os.Symlink(zone, link); err != nil {
+		t.Fatal(err)
+	}
+	if got := systemZone("", link); got != "Asia/Tokyo" {
+		t.Errorf("from the localtime link: got %q", got)
+	}
+	if got := systemZone("", filepath.Join(dir, "missing")); got != "UTC" {
+		t.Errorf("fallback: got %q", got)
+	}
+	if got := systemZone("", "/etc/localtime"); got == "Local" {
+		t.Errorf("the default must never be Go's placeholder %q", got)
 	}
 }

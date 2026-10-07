@@ -11,7 +11,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -111,7 +110,7 @@ var settings = []setting{
 	},
 	{
 		name: "timezone", env: "NORTE_TIMEZONE", flag: "timezone",
-		def:   func(*LoadOptions) (string, error) { return time.Local.String(), nil },
+		def:   func(*LoadOptions) (string, error) { return systemZone(os.Getenv("TZ"), "/etc/localtime"), nil },
 		parse: func(c *Config, v string) error { c.Timezone = v; return nil },
 		show:  func(c *Config) string { return c.Timezone },
 	},
@@ -435,4 +434,19 @@ func hostOfURL(raw string) string {
 		return ""
 	}
 	return parsed.Hostname()
+}
+
+// systemZone names the machine's time zone the way NORTE_TIMEZONE spells it. Go's
+// time.Local reports itself as "Local", which is not a zone anyone can load, so
+// the name comes from $TZ or from the zoneinfo path /etc/localtime links to.
+func systemZone(tz, localtime string) string {
+	if tz = strings.TrimPrefix(tz, ":"); tz != "" {
+		return tz
+	}
+	if target, err := filepath.EvalSymlinks(localtime); err == nil {
+		if i := strings.LastIndex(target, "zoneinfo/"); i >= 0 {
+			return target[i+len("zoneinfo/"):]
+		}
+	}
+	return "UTC"
 }
