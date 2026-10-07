@@ -136,10 +136,13 @@ func TestNorteMigrateAppliesCoreFirstThenLibrary(t *testing.T) {
 		t.Fatalf("norte migrate: %v\n%s", err, out)
 	}
 	present := norteIntegrationTableSet(t, dataDir+"/norte.db")
-	for _, want := range []string{"goose_core", "goose_library", "library_meta"} {
+	for _, want := range []string{"goose_core", "goose_library", "library_items", "library_fts"} {
 		if !present[want] {
 			t.Errorf("after library migrate %s is missing; tables hold %v", want, present)
 		}
+	}
+	if present["library_meta"] {
+		t.Errorf("after library migrate the stub's library_meta survived; tables hold %v", present)
 	}
 }
 
@@ -150,7 +153,7 @@ func TestNorteMigrateEmptyCreatesNoLibraryTables(t *testing.T) {
 		t.Fatalf("norte migrate: %v\n%s", err, out)
 	}
 	present := norteIntegrationTableSet(t, dataDir+"/norte.db")
-	for _, banned := range []string{"goose_library", "library_meta"} {
+	for _, banned := range []string{"goose_library", "library_items", "library_fts", "library_meta"} {
 		if present[banned] {
 			t.Errorf("after empty migrate %s exists, want it absent", banned)
 		}
@@ -173,7 +176,7 @@ func TestNorteMigrateEmptyLeavesLibraryTablesUntouched(t *testing.T) {
 		t.Fatalf("empty norte migrate: %v\n%s", err, out)
 	}
 	present := norteIntegrationTableSet(t, dataDir+"/norte.db")
-	for _, want := range []string{"goose_library", "library_meta"} {
+	for _, want := range []string{"goose_library", "library_items", "library_fts"} {
 		if !present[want] {
 			t.Errorf("empty migrate removed %s; tables hold %v", want, present)
 		}
