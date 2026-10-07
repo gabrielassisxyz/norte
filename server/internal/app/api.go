@@ -15,12 +15,12 @@ import (
 // the same way once it exists: its own contract, its own validator built from
 // that contract, its own routes -- which is what makes switching a module off
 // a matter of not mounting it.
-func mountCoreAPI(mux *http.ServeMux) error {
+func mountCoreAPI(mux *http.ServeMux, cfg *Config) error {
 	spec, err := coreapi.GetSwagger()
 	if err != nil {
 		return fmt.Errorf("loading the embedded core contract: %w", err)
 	}
-	strict := coreapi.NewStrictHandlerWithOptions(coreHandlers{}, nil, coreapi.StrictHTTPServerOptions{
+	strict := coreapi.NewStrictHandlerWithOptions(coreHandlers{config: cfg}, nil, coreapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  writeRequestDecodeError,
 		ResponseErrorHandlerFunc: writeHandlerError,
 	})
@@ -56,8 +56,35 @@ func newContractValidator(spec *openapi3.T) func(http.Handler) http.Handler {
 // only hand-written HTTP code the core has: plain functions taking a typed
 // request and returning a typed response, with routing, decoding and
 // contract validation already done by the time one is called.
-type coreHandlers struct{}
+type coreHandlers struct {
+	config *Config
+}
 
 func (coreHandlers) GetHealth(context.Context, coreapi.GetHealthRequestObject) (coreapi.GetHealthResponseObject, error) {
 	return coreapi.GetHealth200JSONResponse{Status: coreapi.Ok}, nil
+}
+
+// GetConfig reports what is enabled: the modules in the configured order, the
+// binary version, and which optional backends were configured. The frontend
+// mounts only what is listed.
+func (h coreHandlers) GetConfig(context.Context, coreapi.GetConfigRequestObject) (coreapi.GetConfigResponseObject, error) {
+	modules := []string{}
+	if h.config != nil && h.config.Modules != nil {
+		modules = append(modules, h.config.Modules...)
+	}
+	llm := false
+	telegram := false
+	timezone := ""
+	if h.config != nil {
+		llm = h.config.LLMURL != ""
+		telegram = h.config.TelegramToken != ""
+		timezone = h.config.Timezone
+	}
+	return coreapi.GetConfig200JSONResponse{
+		Modules:  modules,
+		Version:  Version,
+		Llm:      llm,
+		Telegram: telegram,
+		Timezone: timezone,
+	}, nil
 }

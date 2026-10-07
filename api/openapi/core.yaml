@@ -20,6 +20,24 @@ info:
     under api/openapi/ and is simply not mounted when it is switched off, so a
     client discovers what exists through /api/config rather than by probing.
 paths:
+  /api/config:
+    get:
+      operationId: getConfig
+      summary: Report which modules are enabled and how this server was built
+      description: |
+        Answers from the process configuration: the enabled modules in the
+        order they were configured, the binary version, whether an LLM and
+        Telegram are configured, and the timezone dates are rendered in. The
+        frontend mounts only what is listed.
+      responses:
+        "200":
+          description: The enabled modules and the build's capabilities.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Config"
+        default:
+          $ref: "#/components/responses/Error"
   /api/health:
     get:
       operationId: getHealth
@@ -48,6 +66,33 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
   schemas:
+    Config:
+      type: object
+      additionalProperties: false
+      required:
+        - modules
+        - version
+        - llm
+        - telegram
+        - timezone
+      properties:
+        modules:
+          type: array
+          description: Enabled feature modules in the configured order.
+          items:
+            type: string
+        version:
+          type: string
+          description: The binary version `norte version` prints.
+        llm:
+          type: boolean
+          description: True when NORTE_LLM_URL is set.
+        telegram:
+          type: boolean
+          description: True when NORTE_TELEGRAM_TOKEN is set.
+        timezone:
+          type: string
+          description: The IANA timezone dates are rendered in.
     Health:
       type: object
       additionalProperties: false

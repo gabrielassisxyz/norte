@@ -35,6 +35,11 @@ type RouterOptions struct {
 	Config *Config
 	Logger *slog.Logger
 	Assets fs.FS
+	// Modules are the enabled feature modules in the configured order. Their
+	// routes land under /api/<name>/; the stub mounts none.
+	Modules []Module
+	// ModuleDeps is what each module's Register receives.
+	ModuleDeps Deps
 	// TestRoutes registers the slow route the shutdown test needs. It is off
 	// unless NORTE_TEST_ROUTES=1, and `serve` warns when it is on.
 	TestRoutes bool
@@ -45,8 +50,11 @@ type RouterOptions struct {
 // a route answers 404 to a frontend that was compiled against it.
 func NewRouter(opts RouterOptions) (http.Handler, error) {
 	mux := http.NewServeMux()
-	if err := mountCoreAPI(mux); err != nil {
+	if err := mountCoreAPI(mux, opts.Config); err != nil {
 		return nil, err
+	}
+	for _, module := range opts.Modules {
+		module.Register(NewNorteModuleRouter(mux, module.Name()), opts.ModuleDeps)
 	}
 	mux.Handle("/api/", http.HandlerFunc(handleAPINotFound))
 	mux.Handle("/", newFrontendHandler(opts.Assets))

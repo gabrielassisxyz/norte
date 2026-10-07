@@ -54,8 +54,13 @@ type Config struct {
 type LoadOptions struct {
 	// Flags holds only the flags the user actually set, keyed by flag name.
 	Flags map[string]string
-	// Env defaults to os.Getenv.
+	// Env defaults to os.Getenv. It cannot tell an explicitly empty value
+	// from an unset one; LookupEnv can, and modules need that distinction.
 	Env func(string) string
+	// LookupEnv reports whether a variable is set at all. When nil it
+	// defaults to os.LookupEnv, unless Env was supplied instead, in which
+	// case Env decides with empty meaning unset.
+	LookupEnv func(string) (string, bool)
 	// Home defaults to the user's home directory, used for ~ expansion.
 	Home string
 	// ConfigPath overrides the default config file location (--config).
@@ -82,7 +87,7 @@ var settings = []setting{
 	{
 		name: "data", env: "NORTE_DATA", flag: "data",
 		def: func(o *LoadOptions) (string, error) {
-			if xdg := o.Env("XDG_DATA_HOME"); xdg != "" {
+			if xdg, ok := o.lookupEnv("XDG_DATA_HOME"); ok && xdg != "" {
 				return filepath.Join(xdg, "norte"), nil
 			}
 			return filepath.Join(o.Home, ".local", "share", "norte"), nil
@@ -92,9 +97,16 @@ var settings = []setting{
 	},
 	{
 		name: "modules", env: "NORTE_MODULES", flag: "modules",
-		def:   func(*LoadOptions) (string, error) { return strings.Join(moduleNamesCompiledIn, ","), nil },
-		parse: func(c *Config, v string) error { c.Modules = splitList(v); return nil },
-		show:  func(c *Config) string { return strings.Join(c.Modules, ",") },
+		def: func(*LoadOptions) (string, error) { return strings.Join(CompiledNorteModuleNames(), ","), nil },
+		parse: func(c *Config, v string) error {
+			parsed, err := ParseNorteModuleNames(v, CompiledNorteModuleNames())
+			if err != nil {
+				return err
+			}
+			c.Modules = parsed
+			return nil
+		},
+		show: func(c *Config) string { return strings.Join(c.Modules, ",") },
 	},
 	{
 		name: "listen", env: "NORTE_LISTEN", flag: "listen",
@@ -164,8 +176,23 @@ var settings = []setting{
 	},
 }
 
-// moduleNamesCompiledIn lists the feature modules built into this binary. It is
-// empty until the first module bead lands.
+// lookupEnv reports the environment value and whether it is set at all. An
+// explicitly empty NORTE_MODULES means core only, which is distinct from the
+// variable being unset, so the loader has to tell the two apart.
+func (o *LoadOptions) lookupEnv(name string) (string, bool) {
+	if o.LookupEnv != nil {
+		return o.LookupEnv(name)
+	}
+	if o.Env != nil {
+		value := o.Env(name)
+		return value, value != ""
+	}
+	return os.LookupEnv(name)
+}
+
+// moduleNamesCompiledIn lists the feature modules built into this binary. It
+// is empty until the first module bead lands. Kept for the settings table's
+// history; the live list comes from the module registry.
 var moduleNamesCompiledIn = []string{}
 
 // secretFileKeys are the TOML keys whose presence makes a world- or
@@ -179,9 +206,6 @@ var pathSettings = map[string]bool{"data": true}
 // Load resolves every setting, with flag over env over file over default, and
 // returns the warnings `serve` should log.
 func Load(opts LoadOptions) (*Config, []string, error) {
-	if opts.Env == nil {
-		opts.Env = os.Getenv
-	}
 	if opts.Home == "" {
 		home, err := os.UserHomeDir()
 		if err != nil {
@@ -212,14 +236,21 @@ func Load(opts LoadOptions) (*Config, []string, error) {
 	return cfg, warnings, nil
 }
 
-// resolveSetting applies the precedence order to one setting.
+// resolveSetting applies the precedence order to one setting. Modules are the
+// one setting where an explicitly empty value is meaningful (core only), so an
+// env entry that is set, even to "", wins over the file and the default. Every
+// other setting treats "" as unset.
 func resolveSetting(s setting, opts *LoadOptions, fileValues map[string]string) (string, Source, error) {
 	if s.flag != "" {
 		if value, ok := opts.Flags[s.flag]; ok {
 			return value, SourceFlag, nil
 		}
 	}
-	if value := opts.Env(s.env); value != "" {
+	if s.name == "modules" {
+		if value, ok := opts.lookupEnv(s.env); ok {
+			return value, SourceEnv, nil
+		}
+	} else if value, ok := opts.lookupEnv(s.env); ok && value != "" {
 		return value, SourceEnv, nil
 	}
 	if value, ok := fileValues[s.name]; ok {
@@ -279,7 +310,7 @@ func configFilePath(opts *LoadOptions) string {
 	if opts.ConfigPath != "" {
 		return expandHome(opts.ConfigPath, opts.Home)
 	}
-	if xdg := opts.Env("XDG_CONFIG_HOME"); xdg != "" {
+	if xdg, ok := opts.lookupEnv("XDG_CONFIG_HOME"); ok && xdg != "" {
 		return filepath.Join(xdg, "norte", "config.toml")
 	}
 	if opts.Home == "" {
@@ -313,16 +344,6 @@ func expandHome(value, home string) string {
 		return filepath.Join(home, value[2:])
 	}
 	return value
-}
-
-func splitList(value string) []string {
-	var out []string
-	for _, part := range strings.Split(value, ",") {
-		if trimmed := strings.TrimSpace(part); trimmed != "" {
-			out = append(out, trimmed)
-		}
-	}
-	return out
 }
 
 func parseBytes(value string, target *int64) error {

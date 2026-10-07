@@ -4,6 +4,29 @@
  */
 
 export interface paths {
+    "/api/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report which modules are enabled and how this server was built
+         * @description Answers from the process configuration: the enabled modules in the
+         *     order they were configured, the binary version, whether an LLM and
+         *     Telegram are configured, and the timezone dates are rendered in. The
+         *     frontend mounts only what is listed.
+         */
+        get: operations["getConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -30,6 +53,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        Config: {
+            /** @description Enabled feature modules in the configured order. */
+            modules: string[];
+            /** @description The binary version `norte version` prints. */
+            version: string;
+            /** @description True when NORTE_LLM_URL is set. */
+            llm: boolean;
+            /** @description True when NORTE_TELEGRAM_TOKEN is set. */
+            telegram: boolean;
+            /** @description The IANA timezone dates are rendered in. */
+            timezone: string;
+        };
         Health: {
             /**
              * @description Always "ok"; a server that cannot answer does not answer at all.
@@ -83,6 +118,27 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    getConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The enabled modules and the build's capabilities. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Config"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
     getHealth: {
         parameters: {
             query?: never;
