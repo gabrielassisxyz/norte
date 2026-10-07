@@ -116,11 +116,18 @@ func (s *runningServer) log() string {
 	return "server log:\n" + string(raw)
 }
 
-// startNorteServe starts the binary on an ephemeral port and returns once the
-// server has logged the address it actually bound. Port 0 keeps the test clear
-// of whatever else is listening on this machine, and the log line is the only
-// place the chosen port is published.
+// startNorteServe starts the binary against a data directory it will not need
+// to look at.
 func startNorteServe(t *testing.T, binary string) *runningServer {
+	t.Helper()
+	return startNorteServeWithData(t, binary, t.TempDir())
+}
+
+// startNorteServeWithData starts the binary on an ephemeral port and returns
+// once the server has logged the address it actually bound. Port 0 keeps the
+// test clear of whatever else is listening on this machine, and the log line is
+// the only place the chosen port is published.
+func startNorteServeWithData(t *testing.T, binary, dataDir string) *runningServer {
 	t.Helper()
 
 	logPath := filepath.Join(t.TempDir(), "serve.log")
@@ -134,7 +141,7 @@ func startNorteServe(t *testing.T, binary string) *runningServer {
 	command.Env = append(os.Environ(),
 		"NORTE_LISTEN=127.0.0.1:0",
 		"NORTE_TEST_ROUTES=1",
-		"NORTE_DATA="+t.TempDir(),
+		"NORTE_DATA="+dataDir,
 		"XDG_CONFIG_HOME="+t.TempDir(),
 	)
 	command.Stderr = logFile

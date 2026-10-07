@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -54,7 +55,7 @@ func NewRootCommand() *cobra.Command {
 	for _, s := range flagSettings() {
 		root.PersistentFlags().String(s.flag, "", fmt.Sprintf("%s (env %s)", flagUsage[s.name], s.env))
 	}
-	root.AddCommand(newServeCommand(), newMigrateCommand(), newVersionCommand(), newConfigCommand())
+	root.AddCommand(newServeCommand(), newMigrateCommand(), newVersionCommand(), newConfigCommand(), newFilesCommand())
 	return root
 }
 
@@ -99,18 +100,28 @@ func newServeCommand() *cobra.Command {
 
 			ctx, stop := signal.NotifyContext(cmd.Context(), syscall.SIGTERM, syscall.SIGINT)
 			defer stop()
-			return Serve(ctx, RouterOptions{
-				Config:     cfg,
-				Logger:     logger,
-				Assets:     webassets.FS(),
-				TestRoutes: testRoutes,
+			// Migrations run before the listener opens, so no request is ever
+			// served against a schema that is one version behind the code.
+			return withDatabase(ctx, cfg.Data, func(database *core.Database) error {
+				applied, err := core.MigrateCore(ctx, database.Writer())
+				if err != nil {
+					return err
+				}
+				logger.Info("database ready", "path", database.Path(), "migrations_applied", applied)
+				return Serve(ctx, RouterOptions{
+					Config:     cfg,
+					Logger:     logger,
+					Assets:     webassets.FS(),
+					TestRoutes: testRoutes,
+				})
 			})
 		},
 	}
 }
 
-// newMigrateCommand exists so the deployment story is complete before the
-// database does. It applies nothing until the database bead lands.
+// newMigrateCommand creates the data directory and brings the schema up to
+// date. It is separate from `serve` so that an upgrade can be applied, and seen
+// to succeed, before anything starts answering requests.
 func newMigrateCommand() *cobra.Command {
 	return &cobra.Command{
 		Use:   "migrate",
@@ -121,10 +132,79 @@ func newMigrateCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(cmd.OutOrStdout(), "no migrations yet; the data directory is %s\n", cfg.Data)
-			return nil
+			return withDatabase(cmd.Context(), cfg.Data, func(database *core.Database) error {
+				applied, err := core.MigrateCore(cmd.Context(), database.Writer())
+				if err != nil {
+					return err
+				}
+				if applied == 0 {
+					fmt.Fprintf(cmd.OutOrStdout(), "%s is up to date\n", database.Path())
+					return nil
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "applied %d core migration(s) to %s\n", applied, database.Path())
+				return nil
+			})
 		},
 	}
+}
+
+// newFilesCommand groups the maintenance a file store needs. There is one
+// subcommand today; it is nested rather than flat because the store will grow
+// more of them and `norte gc` would not say what it collects.
+func newFilesCommand() *cobra.Command {
+	files := &cobra.Command{
+		Use:   "files",
+		Short: "Maintain the stored file blobs",
+		Args:  cobra.NoArgs,
+	}
+	files.AddCommand(newFilesGCCommand())
+	return files
+}
+
+// newFilesGCCommand deletes the blobs nothing points at. It exists as a command
+// rather than as something the server does on a timer because deleting a
+// person's files is not a thing to do silently in the background.
+func newFilesGCCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:   "gc",
+		Short: "Delete stored blobs nothing references",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, _, err := loadConfigForCommand(cmd)
+			if err != nil {
+				return err
+			}
+			return withDatabase(cmd.Context(), cfg.Data, func(database *core.Database) error {
+				store := core.NewFiles(cfg.Data, database.Writer(), core.SystemClock())
+				collected, err := store.CollectGarbage(cmd.Context())
+				if err != nil {
+					return err
+				}
+				fmt.Fprintf(cmd.OutOrStdout(), "deleted %d unreferenced blob(s), freeing %d bytes\n",
+					collected.Removed, collected.Bytes)
+				return nil
+			})
+		},
+	}
+}
+
+// withDatabase opens the database, runs fn, and closes through the core's
+// shutdown path whatever fn did -- so the write-ahead log is folded back into
+// norte.db even when the command failed, and the data directory is left as one
+// file that can be copied.
+//
+// Close runs on a context detached from ctx: on SIGTERM ctx is already
+// cancelled by the time there is anything to close, and a checkpoint on a
+// cancelled context does nothing at all.
+func withDatabase(ctx context.Context, dataDir string, fn func(*core.Database) error) (err error) {
+	database, err := core.OpenDatabase(ctx, dataDir)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		err = errors.Join(err, database.Close(context.WithoutCancel(ctx)))
+	}()
+	return fn(database)
 }
 
 func newVersionCommand() *cobra.Command {
