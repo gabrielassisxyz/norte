@@ -8,6 +8,7 @@ import PageTitle from '@/components/ds/PageTitle.vue'
 import Stat from '@/components/ds/Stat.vue'
 import { store } from '@/mock/store'
 import type { CardRating, MaterialKind, ReviewCard } from '@/mock/types'
+import { crossModuleActionAllowed } from '@/modules/mounting'
 
 const TODAY = '2026-10-03'
 const ALL_DECKS = 'all'
@@ -32,6 +33,10 @@ interface DeckRow {
 // Picking a deck snapshots its due cards into a session queue. Ratings are
 // written to the mock store straight away, so the deck list and the "left
 // today" stat drop live while the session queue itself stays stable.
+/** A way into another product is offered only while that product is mounted. */
+const canReachStudy = computed(() => crossModuleActionAllowed('review', 'study'))
+const canReachLibrary = computed(() => crossModuleActionAllowed('review', 'library'))
+
 const pickedId = ref<string | null>(null)
 const queue = ref<string[]>([])
 const position = ref(0)
@@ -139,8 +144,10 @@ function restart(): void {
   <main class="review">
     <div class="review-top">
       <nav class="crumb" aria-label="Navegação estrutural">
-        <RouterLink :to="{ name: 'estudo' }">Estudo</RouterLink>
-        <span aria-hidden="true">/</span>
+        <template v-if="canReachStudy">
+          <RouterLink :to="{ name: 'estudo' }">Estudo</RouterLink>
+          <span aria-hidden="true">/</span>
+        </template>
         <span class="crumb-current">Revisão</span>
       </nav>
       <div v-if="pickedId !== null" class="review-actions">
@@ -176,7 +183,8 @@ function restart(): void {
           <p class="review-hint">
             Espaço vira o cartão · <span class="mono">1</span> a <span class="mono">4</span> avaliam ·
             origem:
-            <RouterLink :to="sourceTo">{{ sourceItem?.title ?? 'Biblioteca' }}</RouterLink>
+            <RouterLink v-if="canReachLibrary" :to="sourceTo">{{ sourceItem?.title ?? 'Biblioteca' }}</RouterLink>
+            <span v-else>{{ sourceItem?.title ?? 'Biblioteca' }}</span>
           </p>
         </template>
 

@@ -7,6 +7,7 @@ import Icon from '@/components/ds/Icon.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import type { MaterialKind, LibraryItem } from '@/mock/types'
 import { store } from '@/mock/store'
+import { crossModuleActionAllowed } from '@/modules/mounting'
 import MaterialExercises from './MaterialView/MaterialExercises.vue'
 import MaterialPanel from './MaterialView/MaterialPanel.vue'
 import MaterialReader from './MaterialView/MaterialReader.vue'
@@ -182,8 +183,22 @@ const panelTabs = computed(() => [
   { value: 'annotations', label: 'Anotações', count: panelAnnotations.value.length, icon: 'comment' as const }
 ])
 
+/**
+ * Every action here that leaves the library — landing on a curriculum, writing a
+ * question, making a card — is offered only while the module on the other end
+ * is mounted and reads from the same place as this item.
+ */
+const canReachStudy = computed(() => crossModuleActionAllowed('library', 'study'))
+const canReachNotes = computed(() => crossModuleActionAllowed('library', 'notes'))
+const canReachReview = computed(() => crossModuleActionAllowed('library', 'review'))
+
+const selectionActions = computed(() => [
+  ...(canReachNotes.value ? ['Destacar', 'Anotar', 'Virar pergunta'] : []),
+  ...(canReachReview.value ? ['Criar cartão'] : [])
+])
+
 const backTarget = computed(() => {
-  if (materialContext.value) {
+  if (materialContext.value && canReachStudy.value) {
     return { name: 'curriculo', params: { slug: materialContext.value.curriculumSlug } }
   }
   return { name: 'biblioteca', query: { v: 'tudo' } }
@@ -242,11 +257,11 @@ function handleSelectionAction(payload: { action: string; text: string }): void 
       kind: 'what',
       text: `O que este trecho muda na forma de estudar?`
     })
-    router.push({ name: 'notas', query: { tab: 'perguntas' } })
+    if (canReachNotes.value) router.push({ name: 'notas', query: { tab: 'perguntas' } })
     return
   }
 
-  if (payload.action === 'Criar cartão') router.push({ name: 'revisao' })
+  if (payload.action === 'Criar cartão' && canReachReview.value) router.push({ name: 'revisao' })
 }
 
 function addPanelAnnotation(text: string): void {
@@ -314,6 +329,7 @@ function submitExercise(): void {
         :kind="kind"
         :material="material"
         :highlighted-quote="highlightedQuote"
+        :selection-actions="selectionActions"
         @selection-action="handleSelectionAction"
         @go-exercises="mode = 'exercises'"
       />

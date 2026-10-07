@@ -19,6 +19,12 @@ import {
   recordStreak
 } from '@/modules/study/mock/study'
 import type { Subject } from '@/mock/types'
+import { crossModuleActionAllowed } from '@/modules/mounting'
+
+/** A way into another product is offered only while that product is mounted. */
+const canReachLibrary = computed(() => crossModuleActionAllowed('study', 'library'))
+const canReachNotes = computed(() => crossModuleActionAllowed('study', 'notes'))
+const canReachReview = computed(() => crossModuleActionAllowed('study', 'review'))
 
 const TODAY = '2026-10-03'
 
@@ -97,12 +103,12 @@ function selectView(value: string): void {
             <RouterLink role="menuitem" :to="{ name: 'inicio', query: { save: '1' } }" @click="closeAdd">
               Salvar link na inbox
             </RouterLink>
-            <RouterLink role="menuitem" :to="{ name: 'notas', query: { tab: 'perguntas' } }" @click="closeAdd">
+            <RouterLink v-if="canReachNotes" role="menuitem" :to="{ name: 'notas', query: { tab: 'perguntas' } }" @click="closeAdd">
               Nova pergunta
             </RouterLink>
           </div>
         </div>
-        <RouterLink :to="{ name: 'revisao' }" class="study-review">
+        <RouterLink v-if="canReachReview" :to="{ name: 'revisao' }" class="study-review">
           <svg
             width="16"
             height="16"
@@ -161,7 +167,7 @@ function selectView(value: string): void {
         <div class="study-section-head">
           <div class="study-section-titles">
             <h2 id="study-subjects">Assuntos</h2>
-            <RouterLink :to="{ name: 'biblioteca', query: { v: 'tudo' } }" class="study-see-all">
+            <RouterLink v-if="canReachLibrary" :to="{ name: 'biblioteca', query: { v: 'tudo' } }" class="study-see-all">
               Ver na biblioteca
             </RouterLink>
           </div>

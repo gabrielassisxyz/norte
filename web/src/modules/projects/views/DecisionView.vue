@@ -7,6 +7,7 @@ import PageTitle from '@/components/ds/PageTitle.vue'
 import TextField from '@/components/ds/TextField.vue'
 import { store } from '@/mock/store'
 import type { Decision, DecisionOption, LibraryItem, MaterialKind } from '@/mock/types'
+import { crossModuleActionAllowed } from '@/modules/mounting'
 
 const props = withDefaults(defineProps<{ id?: string; preselect?: boolean }>(), {
   id: '',
@@ -91,6 +92,9 @@ const OPTION_TRADEOFFS: Record<string, Tradeoffs> = {
     reversivel: 'Sim, reagrupando os lançamentos.'
   }
 }
+
+/** The reading behind a decision lives in the library; it is linkable only while that module is mounted. */
+const canReachLibrary = computed(() => crossModuleActionAllowed('projects', 'library'))
 
 const route = useRoute()
 const decisionId = computed(() => props.id || String(route.params.id ?? ''))
@@ -440,16 +444,17 @@ watch([decisionId, () => props.preselect], resetState, { immediate: true })
           <section class="decision-section decision-references" aria-labelledby="decision-references-heading">
             <h2 id="decision-references-heading" class="decision-section-title">O que li para decidir</h2>
             <div class="decision-reference-list">
-              <RouterLink
+              <component
+                :is="canReachLibrary ? RouterLink : 'div'"
                 v-for="reference in references"
                 :key="reference.id"
                 class="decision-reference"
-                :to="{ name: 'material', params: { kind: reference.kind, id: reference.id } }"
+                :to="canReachLibrary ? { name: 'material', params: { kind: reference.kind, id: reference.id } } : undefined"
               >
                 <span class="decision-reference-kind decision-mono">{{ reference.kind }}</span>
                 <span class="decision-reference-title">{{ reference.title }}</span>
                 <span class="decision-reference-meta decision-mono">{{ reference.status === 'read' ? 'lido' : reference.savedAt.slice(5) }}</span>
-              </RouterLink>
+              </component>
             </div>
           </section>
         </div>

@@ -6,6 +6,7 @@ import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import Icon from '@/components/ds/Icon.vue'
 import { store } from '@/mock/store'
 import type { LibraryItem, LibraryKind } from '@/mock/types'
+import { crossModuleActionAllowed } from '@/modules/mounting'
 
 type LibraryView = 'inbox' | 'depois' | 'arquivo' | 'tudo'
 
@@ -187,6 +188,44 @@ function toggleRead(item: LibraryItem): void {
   }
 }
 
+/**
+ * An item can only be joined to a curriculum or turned into a task while the
+ * module that owns the other end is mounted and reads from the same place. A
+ * real id is a UUID and a mock id is a string like `saved-link-3`, so offering
+ * the action across that line would write a reference neither side resolves.
+ */
+const canLinkCurriculum = computed(() => crossModuleActionAllowed('library', 'study'))
+const canMakeTask = computed(() => crossModuleActionAllowed('library', 'projects'))
+
+type CrossAction = 'curriculo' | 'tarefa'
+
+const openAction = ref<{ itemId: string; action: CrossAction } | null>(null)
+
+function toggleAction(item: LibraryItem, action: CrossAction): void {
+  const current = openAction.value
+  openAction.value = current && current.itemId === item.id && current.action === action ? null : { itemId: item.id, action }
+}
+
+function isActionOpen(item: LibraryItem, action: CrossAction): boolean {
+  return openAction.value?.itemId === item.id && openAction.value?.action === action
+}
+
+function linkToCurriculum(item: LibraryItem, slug: string): void {
+  store.setLibraryItemCurriculum(item.id, slug)
+  openAction.value = null
+}
+
+function makeTask(item: LibraryItem, projectId: string): void {
+  store.addTask({
+    projectId,
+    title: `Ler "${item.title}"`,
+    description: item.url,
+    priority: 'P2',
+    bucket: 'next'
+  })
+  openAction.value = null
+}
+
 function curriculumTitle(item: LibraryItem): string | undefined {
   if (!item.curriculumSlug) return undefined
   return store.curricula.find((curriculum) => curriculum.slug === item.curriculumSlug)?.title
@@ -307,6 +346,54 @@ function curriculumTitle(item: LibraryItem): string | undefined {
               <path d="M3 8.5l3 3 7-7" />
             </svg>
           </button>
+          <div v-if="canLinkCurriculum" class="act-wrap">
+            <button
+              type="button"
+              class="act"
+              title="Vincular a currículo"
+              aria-label="Vincular a currículo"
+              :aria-expanded="isActionOpen(item, 'curriculo')"
+              @click="toggleAction(item, 'curriculo')"
+            >
+              <Icon name="note" :size="16" />
+            </button>
+            <div v-if="isActionOpen(item, 'curriculo')" class="act-menu" role="menu" aria-label="Currículos">
+              <button
+                v-for="curriculum in store.curricula"
+                :key="curriculum.slug"
+                type="button"
+                role="menuitem"
+                class="act-menu-row"
+                @click="linkToCurriculum(item, curriculum.slug)"
+              >
+                {{ curriculum.title }}
+              </button>
+            </div>
+          </div>
+          <div v-if="canMakeTask" class="act-wrap">
+            <button
+              type="button"
+              class="act"
+              title="Criar tarefa"
+              aria-label="Criar tarefa"
+              :aria-expanded="isActionOpen(item, 'tarefa')"
+              @click="toggleAction(item, 'tarefa')"
+            >
+              <Icon name="check" :size="16" />
+            </button>
+            <div v-if="isActionOpen(item, 'tarefa')" class="act-menu" role="menu" aria-label="Projetos">
+              <button
+                v-for="project in store.projects"
+                :key="project.id"
+                type="button"
+                role="menuitem"
+                class="act-menu-row"
+                @click="makeTask(item, project.id)"
+              >
+                {{ project.title }}
+              </button>
+            </div>
+          </div>
         </div>
       </article>
       <div v-if="visibleItems.length === 0" class="library-empty">{{ emptyText }}</div>
@@ -316,6 +403,11 @@ function curriculumTitle(item: LibraryItem): string | undefined {
 </template>
 
 <style scoped>
+.act-wrap { position: relative; }
+.act-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 20; display: grid; min-width: 220px; padding: 4px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-pop); }
+.act-menu-row { padding: 7px 10px; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--ink); font-family: var(--font-sans); font-size: 13px; text-align: left; cursor: pointer; }
+.act-menu-row:hover { background: var(--norte-soft); color: var(--norte); }
+
 .library {
   max-width: 1120px;
   margin: 0 auto;

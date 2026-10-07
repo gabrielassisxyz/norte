@@ -61,6 +61,11 @@ export function createMockStore() {
     requireItem(state.libraryItems, id, 'Library item').status = status
   }
 
+  function setLibraryItemCurriculum(id: string, curriculumSlug: string): void {
+    requireCurriculum(curriculumSlug)
+    requireItem(state.libraryItems, id, 'Library item').curriculumSlug = curriculumSlug
+  }
+
   function addSavedLink(link: SavedLink): LibraryItem {
     const item: LibraryItem = {
       id: nextId('saved-link', state.libraryItems),
@@ -207,6 +212,7 @@ export function createMockStore() {
 
   return Object.assign(state, {
     setLibraryItemStatus,
+    setLibraryItemCurriculum,
     addSavedLink,
     addQuestion,
     rateCard,

@@ -12,6 +12,8 @@ const props = defineProps<{
   kind: MaterialKind
   material: LibraryItem
   highlightedQuote?: string
+  /** The selection actions the reader is allowed to offer. */
+  selectionActions?: string[]
 }>()
 
 const emit = defineEmits<{
@@ -125,8 +127,9 @@ async function copyCitation(): Promise<void> {
               <span>{{ selectedParts.before }}</span><Mark v-if="selectedParts.quote">{{ selectedParts.quote }}</Mark><span>{{ selectedParts.after }}</span>
             </span>
             <SelectionToolbar
-              v-if="localSelection"
+              v-if="localSelection && (props.selectionActions?.length ?? 1) > 0"
               class="selection-toolbar"
+              :actions="props.selectionActions"
               @action="handleSelectionAction"
             />
           </span>
