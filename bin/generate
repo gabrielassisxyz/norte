@@ -1,48 +1,160 @@
 #!/usr/bin/env bash
-# Build the frontend and copy it where the Go binary can embed it.
+# Produce everything in the tree that is generated rather than written.
 #
-#   bin/generate
+#   bin/generate                 every stage, in order
+#   bin/generate <stage>...      only the stages named
 #
-# Go's embed cannot reach outside its own package directory, so the built
-# frontend has to be copied into server/internal/webassets/dist/. The copy is
-# swapped in atomically: a failed or interrupted build leaves the previous dist
-# in place rather than a half-written directory the next `go build` would embed.
+# The stages, and why the order is what it is:
 #
-# Later beads add the OpenAPI generators in front of this.
+#   api   the Go server interfaces and the TypeScript types, one run of
+#         oapi-codegen and then one of openapi-typescript per contract file
+#         under api/openapi/
+#   sqlc  the typed query code under server/internal/<owner>/db/
+#   web   the frontend build, copied into server/internal/webassets/dist/
+#
+# api comes first because the frontend's type check reads the TypeScript types
+# it writes, and web comes last because Go's embed cannot reach outside its own
+# package directory, so the built frontend has to be copied into the server
+# tree. That copy is swapped in atomically: a failed or interrupted build leaves
+# the previous dist in place rather than a half-written directory the next
+# `go build` would embed.
+#
+# Every generator is invoked through the pin that names its version -- the Go
+# ones through server/go.mod's tool directives, openapi-typescript through
+# web/package-lock.json. None is ever called by bare name: a bare name resolves
+# through PATH, and whatever happens to be installed there generates different
+# code than CI does, which surfaces as a diff nobody can explain.
 set -euo pipefail
 
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 web="$repo/web"
+contracts="$repo/api/openapi"
 embed_dir="$repo/server/internal/webassets/dist"
 placeholder="$embed_dir/placeholder.html"
 
 log() { printf '==> %s\n' "$*"; }
 
+stages=("$@")
+if [ "${#stages[@]}" -eq 0 ]; then
+    stages=(api sqlc web)
+fi
+for stage in "${stages[@]}"; do
+    case "$stage" in
+        api | sqlc | web) ;;
+        *)
+            echo "generate: no such stage: $stage (api, sqlc or web)" >&2
+            exit 2
+            ;;
+    esac
+done
+
+has_stage() {
+    local wanted="$1" stage
+    for stage in "${stages[@]}"; do
+        [ "$stage" = "$wanted" ] && return 0
+    done
+    return 1
+}
+
 # node_modules can exist and still be stale, but `npm ci` takes tens of seconds
 # and this script runs on every gate. package-lock.json being newer than the
 # install is the cheap signal that reinstalling is actually needed.
-if [ ! -d "$web/node_modules" ] || [ "$web/package-lock.json" -nt "$web/node_modules" ]; then
-    log "npm ci"
-    (cd "$web" && npm ci)
+ensure_node_modules() {
+    if [ ! -d "$web/node_modules" ] || [ "$web/package-lock.json" -nt "$web/node_modules" ]; then
+        log "npm ci"
+        (cd "$web" && npm ci)
+    fi
+}
+
+# module_specs prints every contract file, one per line, in a stable order.
+module_specs() {
+    local spec found=0
+    for spec in "$contracts"/*.yaml; do
+        [ -e "$spec" ] || continue
+        found=1
+        printf '%s\n' "$spec"
+    done
+    [ "$found" -eq 1 ] || {
+        echo "generate: no contract files in $contracts" >&2
+        exit 1
+    }
+}
+
+generate_api() {
+    local config_dir spec module
+    config_dir="$(mktemp -d -p "${TMPDIR:-/tmp}" norte-oapi.XXXXXX)"
+    trap 'rm -rf "$config_dir"' RETURN
+
+    while IFS= read -r spec; do
+        module="$(basename "$spec" .yaml)"
+        log "oapi-codegen $module"
+        mkdir -p "$repo/server/gen/api/$module"
+        # The generator config is written here rather than committed once per
+        # module: every module wants the same one with its own package name
+        # substituted, and a committed copy per module is a copy that drifts.
+        # embedded-spec is what lets the server validate requests against the
+        # very document its handlers were generated from.
+        cat > "$config_dir/$module.yaml" <<EOF
+package: ${module}api
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+  embedded-spec: true
+EOF
+        (cd "$repo/server" && go tool oapi-codegen \
+            -config "$config_dir/$module.yaml" \
+            -o "gen/api/$module/$module.gen.go" \
+            "../api/openapi/$module.yaml")
+    done < <(module_specs)
+
+    while IFS= read -r spec; do
+        module="$(basename "$spec" .yaml)"
+        log "openapi-typescript $module"
+        mkdir -p "$web/src/api"
+        (cd "$web" && npm exec --no -- openapi-typescript \
+            "../api/openapi/$module.yaml" -o "src/api/$module.d.ts")
+    done < <(module_specs)
+}
+
+generate_sqlc() {
+    log "sqlc generate"
+    (cd "$repo/server" && go tool sqlc generate)
+}
+
+generate_web() {
+    log "npm run build"
+    (cd "$web" && npm run build)
+
+    [ -d "$web/dist" ] || {
+        echo "generate: npm run build produced no $web/dist" >&2
+        exit 1
+    }
+    # The placeholder is the committed file that keeps the webassets package
+    # compiling in a fresh clone, so it has to survive every swap.
+    [ -f "$placeholder" ] || {
+        echo "generate: $placeholder is missing from the checkout" >&2
+        exit 1
+    }
+
+    log "embedding the frontend in server/internal/webassets/dist"
+    rm -rf "$embed_dir.new" "$embed_dir.old"
+    cp -R "$web/dist" "$embed_dir.new"
+    cp "$placeholder" "$embed_dir.new/placeholder.html"
+
+    if [ -e "$embed_dir" ]; then
+        mv "$embed_dir" "$embed_dir.old"
+    fi
+    mv "$embed_dir.new" "$embed_dir"
+    rm -rf "$embed_dir.old"
+
+    log "done: $(find "$embed_dir" -type f | wc -l) files embedded"
+}
+
+if has_stage api || has_stage web; then
+    ensure_node_modules
 fi
-
-log "npm run build"
-(cd "$web" && npm run build)
-
-[ -d "$web/dist" ] || { echo "generate: npm run build produced no $web/dist" >&2; exit 1; }
-# The placeholder is the committed file that keeps the webassets package
-# compiling in a fresh clone, so it has to survive every swap.
-[ -f "$placeholder" ] || { echo "generate: $placeholder is missing from the checkout" >&2; exit 1; }
-
-log "embedding the frontend in server/internal/webassets/dist"
-rm -rf "$embed_dir.new" "$embed_dir.old"
-cp -R "$web/dist" "$embed_dir.new"
-cp "$placeholder" "$embed_dir.new/placeholder.html"
-
-if [ -e "$embed_dir" ]; then
-    mv "$embed_dir" "$embed_dir.old"
-fi
-mv "$embed_dir.new" "$embed_dir"
-rm -rf "$embed_dir.old"
-
-log "done: $(find "$embed_dir" -type f | wc -l) files embedded"
+has_stage api && generate_api
+has_stage sqlc && generate_sqlc
+has_stage web && generate_web
+exit 0
