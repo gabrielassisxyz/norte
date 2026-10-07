@@ -16,7 +16,7 @@ set -uo pipefail
 repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$repo" || exit 1
 
-checks=(pins pins-test gofmt go-vet generate go-build go-test web-test)
+checks=(pins pins-test gofmt go-vet sqlc generate go-build go-test web-test)
 
 # A temporary NORTE_DATA keeps the suite off the real data directory, so a test
 # that writes cannot touch whatever is installed on the machine running the gate.
@@ -51,6 +51,17 @@ check_gofmt() {
 
 check_go_vet() {
     (cd server && go vet ./...)
+}
+
+# `sqlc diff` regenerates in memory and compares, so it writes nothing and the
+# verdict is whether the committed internal/*/db still matches the queries it
+# came from. Editing a generated file, or changing a query without regenerating,
+# both fail here rather than at the next unrelated `sqlc generate`. The version
+# is pinned by the tool directive in server/go.mod, so no two machines can
+# disagree about what the output should be. The first run compiles sqlc, which
+# takes about half a minute; later runs come from the build cache.
+check_sqlc() {
+    (cd server && go tool sqlc diff)
 }
 
 # bin/generate builds the frontend and copies it where Go's embed can reach it.

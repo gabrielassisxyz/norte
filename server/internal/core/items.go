@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"fmt"
 	"time"
+
+	"github.com/gabrielassisxyz/norte/server/internal/core/db"
 )
 
 // ItemRegistration is what a module tells the core about something it has just
@@ -29,9 +31,14 @@ type ItemRegistration struct {
 // registry entry is invisible to every link; a registry entry with no module row
 // renders a link to something that is not there.
 func RegisterItem(ctx context.Context, tx *sql.Tx, item ItemRegistration) error {
-	_, err := tx.ExecContext(ctx,
-		`INSERT INTO core_items (id, module, type, title, url, created_at) VALUES (?, ?, ?, ?, ?, ?)`,
-		item.ID, item.Module, item.Type, item.Title, nullableText(item.URL), FormatTime(item.CreatedAt))
+	err := db.New(tx).InsertCoreItem(ctx, db.InsertCoreItemParams{
+		ID:        item.ID,
+		Module:    item.Module,
+		Type:      item.Type,
+		Title:     item.Title,
+		Url:       nullableText(item.URL),
+		CreatedAt: FormatTime(item.CreatedAt),
+	})
 	if err != nil {
 		return fmt.Errorf("registering item %s: %w", item.ID, err)
 	}
@@ -42,8 +49,11 @@ func RegisterItem(ctx context.Context, tx *sql.Tx, item ItemRegistration) error 
 // fields a link renders can change: the module and the url identify the item,
 // and changing either would make this a different item under the same id.
 func UpdateItem(ctx context.Context, tx *sql.Tx, id, title, itemType string) error {
-	result, err := tx.ExecContext(ctx,
-		`UPDATE core_items SET title = ?, type = ? WHERE id = ?`, title, itemType, id)
+	result, err := db.New(tx).UpdateCoreItem(ctx, db.UpdateCoreItemParams{
+		Title: title,
+		Type:  itemType,
+		ID:    id,
+	})
 	if err != nil {
 		return fmt.Errorf("updating item %s: %w", id, err)
 	}
@@ -54,7 +64,7 @@ func UpdateItem(ctx context.Context, tx *sql.Tx, id, title, itemType string) err
 // every file reference it owned. The blobs those references held are left on
 // disk for `norte files gc`, which is the only thing that deletes a blob.
 func UnregisterItem(ctx context.Context, tx *sql.Tx, id string) error {
-	result, err := tx.ExecContext(ctx, `DELETE FROM core_items WHERE id = ?`, id)
+	result, err := db.New(tx).DeleteCoreItem(ctx, id)
 	if err != nil {
 		return fmt.Errorf("unregistering item %s: %w", id, err)
 	}
@@ -77,9 +87,6 @@ func requireOneRow(result sql.Result, what, id string) error {
 
 // nullableText stores an absent string as NULL, so "this item has no url" is one
 // value in the column rather than two.
-func nullableText(value string) any {
-	if value == "" {
-		return nil
-	}
-	return value
+func nullableText(value string) sql.NullString {
+	return sql.NullString{String: value, Valid: value != ""}
 }

@@ -12,6 +12,8 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+
+	"github.com/gabrielassisxyz/norte/server/internal/core/db"
 )
 
 // File reference kinds: what a blob is to the item that owns it. A snapshot is a
@@ -88,13 +90,12 @@ func (f *Files) Store(ctx context.Context, content io.Reader, mediaType string) 
 		return StoredBlob{}, err
 	}
 
-	// DO NOTHING rather than an update: the row describes bytes that cannot have
-	// changed, and created_at is what the grace period in CollectGarbage reads,
-	// so refreshing it would keep a blob alive for an hour per re-save.
-	_, err = f.writer.ExecContext(ctx,
-		`INSERT INTO core_files (hash, media_type, size, created_at) VALUES (?, ?, ?, ?)
-		 ON CONFLICT (hash) DO NOTHING`,
-		blob.Hash, mediaType, blob.Size, FormatTime(f.clock.Now()))
+	err = db.New(f.writer).InsertCoreFile(ctx, db.InsertCoreFileParams{
+		Hash:      blob.Hash,
+		MediaType: mediaType,
+		Size:      blob.Size,
+		CreatedAt: FormatTime(f.clock.Now()),
+	})
 	if err != nil {
 		return StoredBlob{}, fmt.Errorf("recording blob %s: %w", blob.Hash, err)
 	}
@@ -204,36 +205,24 @@ func (f *Files) CollectGarbage(ctx context.Context) (FilesGCResult, error) {
 // which is a comparison of instants because every timestamp Norte writes is the
 // same fixed width -- see TimeLayout.
 func (f *Files) collectable(ctx context.Context, cutoff string) ([]StoredBlob, error) {
-	rows, err := f.writer.QueryContext(ctx,
-		`SELECT hash, size FROM core_files
-		 WHERE created_at < ?
-		   AND NOT EXISTS (SELECT 1 FROM core_file_refs WHERE core_file_refs.hash = core_files.hash)
-		 ORDER BY hash`, cutoff)
+	rows, err := db.New(f.writer).ListCollectableCoreFiles(ctx, cutoff)
 	if err != nil {
 		return nil, fmt.Errorf("listing unreferenced blobs: %w", err)
 	}
-	defer rows.Close()
-
-	var collectable []StoredBlob
-	for rows.Next() {
-		var blob StoredBlob
-		if err := rows.Scan(&blob.Hash, &blob.Size); err != nil {
-			return nil, fmt.Errorf("reading an unreferenced blob: %w", err)
-		}
-		collectable = append(collectable, blob)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("listing unreferenced blobs: %w", err)
+	collectable := make([]StoredBlob, 0, len(rows))
+	for _, row := range rows {
+		collectable = append(collectable, StoredBlob{Hash: row.Hash, Size: row.Size})
 	}
 	return collectable, nil
 }
 
-// forget deletes the core_files row, repeating the no-references condition in
-// the statement so that a reference written since the listing wins.
+// forget deletes the core_files row. The statement repeats the no-references
+// condition, so a reference written since the listing wins over the collector.
 func (f *Files) forget(ctx context.Context, hash string) (bool, error) {
-	result, err := f.writer.ExecContext(ctx,
-		`DELETE FROM core_files WHERE hash = ?
-		 AND NOT EXISTS (SELECT 1 FROM core_file_refs WHERE core_file_refs.hash = ?)`, hash, hash)
+	result, err := db.New(f.writer).DeleteCollectableCoreFile(ctx, db.DeleteCollectableCoreFileParams{
+		Hash:   hash,
+		Hash_2: hash,
+	})
 	if err != nil {
 		return false, fmt.Errorf("forgetting blob %s: %w", hash, err)
 	}

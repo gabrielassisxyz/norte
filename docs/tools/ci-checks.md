@@ -14,6 +14,7 @@ for an answer one command gives in seconds.
 | `pins-test` | `bin/check-pins` actually rejects a drifted version, instead of passing because it reads nothing. | `bash scripts/pins-test.sh` |
 | `gofmt` | Every Go file is gofmt-clean. `gofmt` exits 0 on unformatted files, so the check reads its output rather than its status. | `cd server && gofmt -l .` |
 | `go-vet` | `go vet` finds nothing. | `cd server && go vet ./...` |
+| `sqlc` | The committed `server/internal/*/db/` still matches the `queries/` it was generated from, so neither a hand edit nor a changed query without a regenerate can land. Writes nothing. | `cd server && go tool sqlc diff` |
 | `generate` | The frontend builds and lands in `server/internal/webassets/dist`, which is what the binary embeds. This also covers `npm run build`. | `bin/generate` |
 | `go-build` | The `norte` binary links, with the embedded frontend in it. Needs `generate` to have run. | `cd server && go build -o norte ./cmd/norte` |
 | `go-test` | The Go suite, under a temporary `NORTE_DATA` so nothing touches the real data directory. | `cd server && NORTE_DATA="$(mktemp -d)" go test ./...` |
