@@ -175,7 +175,7 @@ func (f *norteAdapterFake) Register(_ *app.Router, _ app.Deps) {}
 
 func (f *norteAdapterFake) Commands() []*cobra.Command { return nil }
 
-func (f *norteAdapterFake) JobHandlers() map[string]core.JobHandler { return nil }
+func (f *norteAdapterFake) JobHandlers(app.Deps) map[string]core.JobHandler { return nil }
 
 func (f *norteAdapterFake) Start(ctx context.Context) error {
 	if f.startErr != nil {

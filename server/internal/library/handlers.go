@@ -177,6 +177,32 @@ func (h LibraryHandlers) PatchLibraryItem(ctx context.Context, request libraryap
 	return libraryapi.PatchLibraryItem200JSONResponse(libraryMapItem(row)), nil
 }
 
+// ExtractLibraryItem puts an item back to pending and enqueues the extraction,
+// answering 202 as soon as the job is queued. The answer never waits for the
+// text: that is the whole reason extraction is a job.
+func (h LibraryHandlers) ExtractLibraryItem(ctx context.Context, request libraryapi.ExtractLibraryItemRequestObject) (libraryapi.ExtractLibraryItemResponseObject, error) {
+	refresh := false
+	if request.Body != nil && request.Body.Refresh != nil {
+		refresh = *request.Body.Refresh
+	}
+	outcome, err := h.service.RequestExtraction(ctx, request.Id, refresh)
+	if err != nil {
+		var domain *LibraryError
+		if errors.As(err, &domain) {
+			return libraryapi.ExtractLibraryItemdefaultJSONResponse{
+				Body:       libraryErrorBody(domain, ctx),
+				StatusCode: domain.Status,
+			}, nil
+		}
+		return nil, err
+	}
+	return libraryapi.ExtractLibraryItem202JSONResponse{
+		ItemId:            outcome.ItemID,
+		JobId:             outcome.JobID,
+		ExtractGeneration: int(outcome.Generation),
+	}, nil
+}
+
 // OpenLibraryItem records that an item was opened, leaving unread alone.
 func (h LibraryHandlers) OpenLibraryItem(ctx context.Context, request libraryapi.OpenLibraryItemRequestObject) (libraryapi.OpenLibraryItemResponseObject, error) {
 	row, err := h.service.Open(ctx, request.Id)

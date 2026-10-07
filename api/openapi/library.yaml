@@ -183,6 +183,38 @@ paths:
                 $ref: "#/components/schemas/LibraryItem"
         default:
           $ref: "#/components/responses/Error"
+  /api/library/items/{id}/extract:
+    post:
+      operationId: extractLibraryItem
+      summary: Extract a saved link's article text again
+      description: |
+        Puts the item back to pending and enqueues the background extraction,
+        which is how a failed extraction is retried from the reader. The answer
+        comes back as soon as the job is queued; it never waits for the text.
+        With refresh true the page is downloaded again and the new HTML becomes
+        the item's snapshot, which is what to use when the saved snapshot is the
+        problem rather than the extraction of it.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ExtractItemRequest"
+      responses:
+        "202":
+          description: The extraction was enqueued.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExtractItemResponse"
+        default:
+          $ref: "#/components/responses/Error"
   /api/library/items/{id}/open:
     post:
       operationId: openLibraryItem
@@ -329,6 +361,33 @@ components:
         id:
           type: string
           description: The saved item, new or already there.
+    ExtractItemRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        refresh:
+          type: boolean
+          description: |
+            Download the page again instead of re-reading the stored snapshot,
+            and make the new HTML the item's snapshot.
+    ExtractItemResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - item_id
+        - job_id
+        - extract_generation
+      properties:
+        item_id:
+          type: string
+        job_id:
+          type: string
+          description: The queued job, so a failure can be found in `norte jobs list`.
+        extract_generation:
+          type: integer
+          description: |
+            The generation this retry runs under. Any run still in flight under
+            an older one is superseded and writes nothing.
     LibraryItemSummary:
       type: object
       additionalProperties: false

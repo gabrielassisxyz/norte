@@ -142,16 +142,25 @@ func newServeCommand() *cobra.Command {
 				// The one in-process worker. A second process would be a second
 				// deployable for a one-user app, and heavy runtimes are created
 				// inside the handler and closed when it returns.
-				queue := core.NewJobs(database.Writer(), core.SystemClock(), logger)
-				RegisterNorteJobHandlers(queue, modules)
-				worker := core.NewJobsWorker(queue, core.SystemClock(), logger, core.NewID())
 				clock := core.SystemClock()
+				queue := core.NewJobs(database.Writer(), clock, logger)
+				// Deps is built before the handlers are registered and before
+				// the routes are mounted, and both get the same value: an
+				// extraction a save enqueues and one a retry endpoint
+				// re-enqueues have to run against the same database, clock and
+				// event bus, and two Deps built separately could differ.
 				deps := Deps{
-					Database: database,
-					Jobs:     queue,
-					Files:    core.NewFiles(cfg.Data, database.Writer(), clock),
-					Clock:    clock,
+					Database:      database,
+					Jobs:          queue,
+					Files:         core.NewFiles(cfg.Data, database.Writer(), clock),
+					Clock:         clock,
+					Events:        core.NewEvents(),
+					Logger:        logger,
+					FetchMaxBytes: cfg.FetchMaxBytes,
+					LLMURL:        cfg.LLMURL,
 				}
+				RegisterNorteJobHandlers(queue, modules, deps)
+				worker := core.NewJobsWorker(queue, clock, logger, core.NewID())
 				serveCtx, cancel := context.WithCancel(ctx)
 				defer cancel()
 				adaptersDone := make(chan error, 1)

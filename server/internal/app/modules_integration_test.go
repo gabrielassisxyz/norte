@@ -235,14 +235,22 @@ func TestNorteModuleCommandAppearsOnlyWhenEnabled(t *testing.T) {
 	}
 }
 
+// TestNorteJobKindIsClaimedOnlyWhenEnabled proves the worker only ever touches
+// a kind an enabled module registered.
+//
+// The enabled case asserts the job left the queue rather than that it
+// succeeded: the kind under test is the library's real extraction, and an
+// extraction of an item that was never saved is a permanent failure. "failed"
+// and "queued" are what separates claimed from untouched, which is the whole
+// question here.
 func TestNorteJobKindIsClaimedOnlyWhenEnabled(t *testing.T) {
-	enabledID := norteIntegrationRunStubJob(t, "library", true)
-	if status := norteIntegrationJobStatus(t, enabledID.dir, enabledID.id); status != "done" {
-		t.Errorf("enabled stub job = %s, want done", status)
+	enabled := norteIntegrationRunModuleJob(t, "library")
+	if status := norteIntegrationJobStatus(t, enabled.dir, enabled.id); status == "queued" {
+		t.Errorf("the library job is still queued with the module enabled, so the worker never claimed it")
 	}
-	disabled := norteIntegrationRunStubJob(t, "", false)
+	disabled := norteIntegrationRunModuleJob(t, "")
 	if status := norteIntegrationJobStatus(t, disabled.dir, disabled.id); status != "queued" {
-		t.Errorf("disabled stub job = %s, want queued", status)
+		t.Errorf("disabled library job = %s, want queued", status)
 	}
 }
 
@@ -251,7 +259,7 @@ type norteIntegrationStubJob struct {
 	id  string
 }
 
-func norteIntegrationRunStubJob(t *testing.T, modules string, enabled bool) norteIntegrationStubJob {
+func norteIntegrationRunModuleJob(t *testing.T, modules string) norteIntegrationStubJob {
 	t.Helper()
 	t.Setenv("NORTE_MODULES", modules)
 	dataDir := emptyDataDirPath(t)
@@ -279,17 +287,24 @@ func norteIntegrationRunStubJob(t *testing.T, modules string, enabled bool) nort
 	if err != nil {
 		t.Fatalf("Resolve: %v", err)
 	}
-	app.RegisterNorteJobHandlers(queue, resolved)
+	app.RegisterNorteJobHandlers(queue, resolved, app.Deps{
+		Database: database,
+		Jobs:     queue,
+		Files:    core.NewFiles(dataDir, database.Writer(), clock),
+		Clock:    clock,
+		Events:   core.NewEvents(),
+	})
 
 	ctx := context.Background()
 	tx, err := database.Writer().BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatalf("beginning the enqueue transaction: %v", err)
 	}
-	id, err := queue.Enqueue(ctx, tx, "library.stub", "{}", "")
+	id, err := queue.Enqueue(ctx, tx, "library.extract",
+		`{"item_id":"missing","generation":1,"refresh":false}`, "")
 	if err != nil {
 		_ = tx.Rollback()
-		t.Fatalf("enqueueing the stub job: %v", err)
+		t.Fatalf("enqueueing the library job: %v", err)
 	}
 	if err := tx.Commit(); err != nil {
 		t.Fatalf("committing the enqueue: %v", err)
@@ -308,7 +323,6 @@ func norteIntegrationRunStubJob(t *testing.T, modules string, enabled bool) nort
 	case <-time.After(5 * time.Second):
 		t.Fatal("the worker did not stop")
 	}
-	_ = enabled
 	return norteIntegrationStubJob{dir: dataDir, id: id}
 }
 
