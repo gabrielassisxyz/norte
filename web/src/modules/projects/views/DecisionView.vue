@@ -5,6 +5,7 @@ import { RouterLink, useRoute } from 'vue-router'
 import Icon from '@/components/ds/Icon.vue'
 import PageTitle from '@/components/ds/PageTitle.vue'
 import TextField from '@/components/ds/TextField.vue'
+import { daysBetweenIsoDates, formatShortDate, shiftIsoDate, todayIsoDate } from '@/lib/clock'
 import { store } from '@/mock/store'
 import type { Decision, DecisionOption, LibraryItem, MaterialKind } from '@/mock/types'
 import { crossModuleActionAllowed } from '@/modules/mounting'
@@ -24,9 +25,8 @@ interface Tradeoffs {
 }
 
 const OTHER_CHOICE = 'other'
-const MOCK_TODAY = '2026-10-03'
-const DEFAULT_DUE_DATE = '2026-10-10'
-const MONTHS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+/** A decision with no date of its own is asked for within the week. */
+const DEFAULT_DUE_DAYS = 7
 
 const LEAN_OPTION_BY_DECISION: Record<string, string> = {
   'decision-backup-media': 'option-drive',
@@ -133,8 +133,8 @@ const canDecide = computed(
     selectedChoice.value !== null &&
     (selectedChoice.value !== OTHER_CHOICE || reasoning.value.trim().length > 0)
 )
-const dueDate = computed(() => decision.value?.postponedUntil ?? DEFAULT_DUE_DATE)
-const dueText = computed(() => `até ${formatDate(dueDate.value)} · ${daysRemaining(dueDate.value)} dias`)
+const dueDate = computed(() => decision.value?.postponedUntil ?? shiftIsoDate(todayIsoDate(), DEFAULT_DUE_DAYS))
+const dueText = computed(() => `até ${formatShortDate(dueDate.value)} · ${daysRemaining(dueDate.value)} dias`)
 const statusText = computed(() => (isDecided.value ? `Decidida hoje: ${selectedLabel.value}` : 'Pendente'))
 const domain = computed(() => area.value?.title ?? 'Projetos')
 const blockedCountText = computed(() => `${blockedTasks.value.length} ${blockedTasks.value.length === 1 ? 'tarefa' : 'tarefas'}`)
@@ -163,21 +163,8 @@ function isReadableMaterial(item: LibraryItem): item is LibraryItem & { kind: Ma
   return item.kind === 'post' || item.kind === 'livro' || item.kind === 'paper'
 }
 
-function formatDate(value: string): string {
-  const [, month, day] = value.split('-').map(Number)
-  return `${day} ${MONTHS[month - 1] ?? ''}`.trim()
-}
-
 function daysRemaining(value: string): number {
-  const start = Date.parse(`${MOCK_TODAY}T00:00:00Z`)
-  const end = Date.parse(`${value}T00:00:00Z`)
-  return Math.max(0, Math.round((end - start) / 86_400_000) + 1)
-}
-
-function addDays(value: string, amount: number): string {
-  const date = new Date(`${value}T00:00:00Z`)
-  date.setUTCDate(date.getUTCDate() + amount)
-  return date.toISOString().slice(0, 10)
+  return Math.max(0, daysBetweenIsoDates(todayIsoDate(), value) + 1)
 }
 
 function taskTarget(taskId: string): { name: 'tarefa'; params: { id: string } } {
@@ -248,7 +235,7 @@ function decide(): void {
 function postpone(): void {
   const current = decision.value
   if (!current || isDecided.value) return
-  store.postponeDecision(current.id, addDays(dueDate.value, 7))
+  store.postponeDecision(current.id, shiftIsoDate(dueDate.value, DEFAULT_DUE_DAYS))
   selectedChoice.value = null
   locallyDecided.value = false
 }
@@ -453,7 +440,7 @@ watch([decisionId, () => props.preselect], resetState, { immediate: true })
               >
                 <span class="decision-reference-kind decision-mono">{{ reference.kind }}</span>
                 <span class="decision-reference-title">{{ reference.title }}</span>
-                <span class="decision-reference-meta decision-mono">{{ reference.status === 'read' ? 'lido' : reference.savedAt.slice(5) }}</span>
+                <span class="decision-reference-meta decision-mono">{{ reference.unread ? formatShortDate(reference.savedAt) : 'lido' }}</span>
               </component>
             </div>
           </section>
@@ -469,9 +456,9 @@ watch([decisionId, () => props.preselect], resetState, { immediate: true })
             <span class="decision-key">domínio</span>
             <span class="decision-meta-value">{{ domain }}</span>
             <span class="decision-key">prazo</span>
-            <span class="decision-meta-value decision-mono">{{ formatDate(dueDate) }}</span>
+            <span class="decision-meta-value decision-mono">{{ formatShortDate(dueDate) }}</span>
             <span class="decision-key">aberta em</span>
-            <span class="decision-meta-value decision-mono">03 out</span>
+            <span class="decision-meta-value decision-mono">{{ decision ? formatShortDate(decision.createdAt) : '—' }}</span>
             <span class="decision-key">tendência</span>
             <span class="decision-meta-value">{{ decision.options.find((option) => option.id === leanOptionId)?.title ?? '—' }}</span>
           </div>
@@ -497,7 +484,7 @@ watch([decisionId, () => props.preselect], resetState, { immediate: true })
               class="decision-related"
               :to="decisionTarget(other.id)"
             >
-              {{ other.title }} <span class="decision-related-due decision-mono">{{ other.postponedUntil ? formatDate(other.postponedUntil) : 'sem prazo' }}</span>
+              {{ other.title }} <span class="decision-related-due decision-mono">{{ other.postponedUntil ? formatShortDate(other.postponedUntil) : 'sem prazo' }}</span>
             </RouterLink>
             <RouterLink
               v-if="project"

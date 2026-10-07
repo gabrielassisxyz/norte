@@ -165,7 +165,7 @@ function archiveTitle(item: LibraryItem): string {
 }
 
 function readTitle(item: LibraryItem): string {
-  return item.status === 'read' ? 'Marcar como não lido' : 'Marcar como lido'
+  return item.unread ? 'Marcar como lido' : 'Marcar como não lido'
 }
 
 function toggleLater(item: LibraryItem): void {
@@ -177,15 +177,7 @@ function toggleArchive(item: LibraryItem): void {
 }
 
 function toggleRead(item: LibraryItem): void {
-  const entry = store.libraryItems.find((candidate) => candidate.id === item.id)
-  if (!entry) return
-  if (entry.status === 'read') {
-    store.setLibraryItemStatus(item.id, 'inbox')
-    entry.unread = true
-  } else {
-    store.setLibraryItemStatus(item.id, 'read')
-    entry.unread = false
-  }
+  store.setLibraryItemUnread(item.id, !item.unread)
 }
 
 /**

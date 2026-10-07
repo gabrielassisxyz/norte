@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { todayIsoDate } from '@/lib/clock'
 import router from '@/router'
 import { store } from '@/mock/store'
 import { completedThisMonth, currentStreak, hoursInWindow } from '@/modules/study/mock/study'
@@ -43,7 +44,7 @@ describe('StudyHomeView', () => {
     expect(stats[3].text()).toContain(`Concluídos em`)
     expect(stats[3].text()).toContain(String(completedThisMonth(store.studyDays).total))
     expect(wrapper.find('.study-review').text()).toContain(
-      String(store.reviewCards.filter((card) => card.dueAt <= '2026-10-03').length)
+      String(store.reviewCards.filter((card) => card.dueAt <= todayIsoDate()).length)
     )
     expect(hoursInWindow(store.studyDays)).toBeGreaterThan(0)
   })

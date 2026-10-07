@@ -1,9 +1,9 @@
-import { libraryItems } from '@/modules/library/mock/items'
-import { annotations, highlights, notesReferencedItems, questions } from '@/modules/notes/mock/notes'
-import { areas, decisions, projects, sessions, tasks } from '@/modules/projects/mock/life'
-import { reviewCards, reviewDecks, reviewReferencedItems } from '@/modules/review/mock/cards'
-import { curricula, studyReferencedItems } from '@/modules/study/mock/curricula'
-import { studyDays, subjects } from '@/modules/study/mock/study'
+import { buildLibraryItems } from '@/modules/library/mock/items'
+import { buildAnnotations, buildHighlights, buildNotesReferencedItems, buildQuestions } from '@/modules/notes/mock/notes'
+import { areas, buildDecisions, buildSessions, projects, tasks } from '@/modules/projects/mock/life'
+import { buildReviewCards, buildReviewReferencedItems, reviewDecks } from '@/modules/review/mock/cards'
+import { buildStudyReferencedItems, curricula } from '@/modules/study/mock/curricula'
+import { buildStudyDays, subjects } from '@/modules/study/mock/study'
 
 import type { LibraryItem, MockData } from './types'
 
@@ -26,19 +26,31 @@ function mergeLibraryItems(...slices: LibraryItem[][]): LibraryItem[] {
   return merged
 }
 
-export const initialMockData: MockData = {
-  libraryItems: mergeLibraryItems(libraryItems, studyReferencedItems, reviewReferencedItems, notesReferencedItems),
-  curricula,
-  reviewDecks,
-  reviewCards,
-  highlights,
-  annotations,
-  questions,
-  areas,
-  projects,
-  decisions,
-  tasks,
-  sessions,
-  subjects,
-  studyDays
+/**
+ * Every mock record, dated against one day: the caller passes the day the app
+ * is on, so a screen that says "ontem" means yesterday rather than the day this
+ * file was written.
+ */
+export function buildMockData(today: string): MockData {
+  return {
+    libraryItems: mergeLibraryItems(
+      buildLibraryItems(today),
+      buildStudyReferencedItems(today),
+      buildReviewReferencedItems(today),
+      buildNotesReferencedItems(today)
+    ),
+    curricula,
+    reviewDecks,
+    reviewCards: buildReviewCards(today),
+    highlights: buildHighlights(today),
+    annotations: buildAnnotations(today),
+    questions: buildQuestions(today),
+    areas,
+    projects,
+    decisions: buildDecisions(today),
+    tasks,
+    sessions: buildSessions(today),
+    subjects,
+    studyDays: buildStudyDays(today)
+  }
 }

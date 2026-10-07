@@ -3,7 +3,9 @@ import { computed } from 'vue'
 
 import { store } from '@/mock/store'
 
-import { domainFor, formatRelativeDate, isMaterial, LIBRARY_KIND_LABELS, LIBRARY_TODAY, materialHref, minutesFor } from './items'
+import { formatRelativeDay, todayIsoDate } from '@/lib/clock'
+
+import { domainFor, isMaterial, LIBRARY_KIND_LABELS, materialHref, minutesFor } from './items'
 
 const recentItems = computed(() => store.libraryItems.filter((item) => item.status === 'inbox').slice(0, 5))
 </script>
@@ -36,7 +38,7 @@ const recentItems = computed(() => store.libraryItems.filter((item) => item.stat
             <span>{{ LIBRARY_KIND_LABELS[item.kind] }}</span>
           </span>
         </span>
-        <span class="home-save-date">{{ formatRelativeDate(item.savedAt, LIBRARY_TODAY) }}</span>
+        <span class="home-save-date">{{ formatRelativeDay(item.savedAt, todayIsoDate()) }}</span>
       </RouterLink>
     </div>
   </section>

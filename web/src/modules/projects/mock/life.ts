@@ -1,3 +1,4 @@
+import { daysAhead, timestampDaysAgo } from '@/mock/relative'
 import type { Area, Decision, Project, Session, Task } from '@/mock/types'
 
 export const areas: Area[] = [
@@ -35,14 +36,19 @@ export const tasks: Task[] = [
   { id: 'task-review-format', projectId: 'project-notas-estudo', title: 'Testar formato de revisão', description: 'Experimentar uma sequência curta de cartões.', priority: 'P2', bucket: 'next', completed: false, steps: [{ id: 'step-format-1', title: 'Separar cinco cartões', completed: false }] }
 ]
 
-export const decisions: Decision[] = [
-  { id: 'decision-backup-media', projectId: 'project-servidor-caseiro', title: 'Escolher mídia para a cópia externa', context: 'A cópia deve poder sair da casa de tempos em tempos.', status: 'open', options: [{ id: 'option-drive', title: 'Disco portátil', rationale: 'Fácil de transportar e revisar.' }, { id: 'option-cloud', title: 'Armazenamento remoto', rationale: 'Disponível sem deslocamento.' }], blockedTaskIds: ['task-backup'] },
-  { id: 'decision-garden-layout', projectId: 'project-horta', title: 'Definir o arranjo dos vasos', context: 'A luz muda ao longo da varanda.', status: 'postponed', options: [{ id: 'option-row', title: 'Uma fileira', rationale: 'Facilita a rega.' }, { id: 'option-groups', title: 'Grupos por necessidade', rationale: 'Aproxima plantas semelhantes.' }], blockedTaskIds: ['task-sementes'], postponedUntil: '2026-10-12' },
-  { id: 'decision-parser-shape', projectId: 'project-estudo-compiladores', title: 'Escolher a forma da árvore sintática', context: 'Os exercícios precisam de uma estrutura explícita.', status: 'decided', options: [{ id: 'option-objects', title: 'Objetos discriminados', rationale: 'Mantém cada nó simples.' }, { id: 'option-classes', title: 'Classes por nó', rationale: 'Encapsula comportamento futuro.' }], selectedOptionId: 'option-objects', blockedTaskIds: ['task-parser', 'task-errors'] },
-  { id: 'decision-budget-period', projectId: 'project-orcamento', title: 'Escolher o período de acompanhamento', context: 'O registro deve ser leve o suficiente para continuar.', status: 'open', options: [{ id: 'option-month', title: 'Mês calendário', rationale: 'Combina com contas recorrentes.' }, { id: 'option-payday', title: 'Entre pagamentos', rationale: 'Acompanha a entrada de dinheiro.' }], blockedTaskIds: ['task-categories'] }
-]
+/** The dated records are relative to the clock; the rest of this slice is not dated at all. */
+export function buildDecisions(today: string): Decision[] {
+  return [
+    { id: 'decision-backup-media', projectId: 'project-servidor-caseiro', title: 'Escolher mídia para a cópia externa', context: 'A cópia deve poder sair da casa de tempos em tempos.', createdAt: timestampDaysAgo(today, 6, 9), status: 'open', options: [{ id: 'option-drive', title: 'Disco portátil', rationale: 'Fácil de transportar e revisar.' }, { id: 'option-cloud', title: 'Armazenamento remoto', rationale: 'Disponível sem deslocamento.' }], blockedTaskIds: ['task-backup'] },
+    { id: 'decision-garden-layout', projectId: 'project-horta', title: 'Definir o arranjo dos vasos', context: 'A luz muda ao longo da varanda.', createdAt: timestampDaysAgo(today, 9, 9), status: 'postponed', options: [{ id: 'option-row', title: 'Uma fileira', rationale: 'Facilita a rega.' }, { id: 'option-groups', title: 'Grupos por necessidade', rationale: 'Aproxima plantas semelhantes.' }], blockedTaskIds: ['task-sementes'], postponedUntil: daysAhead(today, 9) },
+    { id: 'decision-parser-shape', projectId: 'project-estudo-compiladores', title: 'Escolher a forma da árvore sintática', context: 'Os exercícios precisam de uma estrutura explícita.', createdAt: timestampDaysAgo(today, 12, 9), status: 'decided', options: [{ id: 'option-objects', title: 'Objetos discriminados', rationale: 'Mantém cada nó simples.' }, { id: 'option-classes', title: 'Classes por nó', rationale: 'Encapsula comportamento futuro.' }], selectedOptionId: 'option-objects', blockedTaskIds: ['task-parser', 'task-errors'] },
+    { id: 'decision-budget-period', projectId: 'project-orcamento', title: 'Escolher o período de acompanhamento', context: 'O registro deve ser leve o suficiente para continuar.', createdAt: timestampDaysAgo(today, 4, 9), status: 'open', options: [{ id: 'option-month', title: 'Mês calendário', rationale: 'Combina com contas recorrentes.' }, { id: 'option-payday', title: 'Entre pagamentos', rationale: 'Acompanha a entrada de dinheiro.' }], blockedTaskIds: ['task-categories'] }
+  ]
+}
 
-export const sessions: Session[] = [
-  { id: 'session-1', projectId: 'project-estudo-compiladores', taskId: 'task-parser', startedAt: '2026-10-01T19:00:00Z', durationMinutes: 45, summary: 'Listei expressões que precisam de parênteses.' },
-  { id: 'session-2', projectId: 'project-horta', taskId: 'task-sementes', startedAt: '2026-10-01T16:00:00Z', durationMinutes: 20, summary: 'Medi a área disponível.' }
-]
+export function buildSessions(today: string): Session[] {
+  return [
+    { id: 'session-1', projectId: 'project-estudo-compiladores', taskId: 'task-parser', startedAt: timestampDaysAgo(today, 2, 19), durationMinutes: 45, summary: 'Listei expressões que precisam de parênteses.' },
+    { id: 'session-2', projectId: 'project-horta', taskId: 'task-sementes', startedAt: timestampDaysAgo(today, 2, 16), durationMinutes: 20, summary: 'Medi a área disponível.' }
+  ]
+}

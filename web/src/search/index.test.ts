@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
-import { initialMockData } from '@/mock/data'
+import { buildMockData } from '@/mock/data'
+
+const mockData = buildMockData('2026-10-03')
 
 import { createSearchIndex, filterSearchIndex, groupSearchResults, type SearchEntry } from './index'
 
 describe('search index', () => {
   it('builds routes and mock items with targets that resolve in the application', () => {
-    const index = createSearchIndex(initialMockData)
+    const index = createSearchIndex(mockData)
 
     expect(index.find((entry) => entry.title === 'Biblioteca')?.to).toEqual({ name: 'biblioteca' })
     expect(index.find((entry) => entry.title === 'Mapas de símbolos em compiladores pequenos')?.to).toEqual({
@@ -41,7 +43,7 @@ describe('search index', () => {
   })
 
   it('matches Portuguese accents across the title, subtitle, kind and keywords', () => {
-    const index = createSearchIndex(initialMockData)
+    const index = createSearchIndex(mockData)
 
     expect(filterSearchIndex(index, 'decisao').some((entry) => entry.kind === 'decisão')).toBe(true)
     expect(filterSearchIndex(index, 'flashcards').some((entry) => entry.title === 'Revisão')).toBe(true)
@@ -49,7 +51,7 @@ describe('search index', () => {
   })
 
   it('keeps matching results in their product groups', () => {
-    const grouped = groupSearchResults(filterSearchIndex(createSearchIndex(initialMockData), 'horta'))
+    const grouped = groupSearchResults(filterSearchIndex(createSearchIndex(mockData), 'horta'))
 
     expect(grouped.map((group) => group.label)).toEqual(['Estudo', 'Projetos', 'Biblioteca'])
     expect(grouped.flatMap((group) => group.items).every((entry) => ['Biblioteca', 'Estudo', 'Projetos'].includes(entry.group))).toBe(true)

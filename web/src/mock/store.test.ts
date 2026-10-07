@@ -1,7 +1,22 @@
 import { isReactive } from 'vue'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createMockStore } from './store'
+
+/**
+ * The store dates its data and its own writes from the clock, so the clock is
+ * fixed here; the dates below are then the dates this day implies.
+ */
+const TODAY = '2026-10-03'
+
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
 
 describe('mock data integrity', () => {
   it('provides the promised amount of data', () => {
@@ -12,7 +27,7 @@ describe('mock data integrity', () => {
     expect(store.curricula).toHaveLength(9)
     expect(store.curricula.filter((curriculum) => curriculum.status === 'active')).toHaveLength(2)
     expect(store.reviewDecks).toHaveLength(3)
-    expect(store.reviewCards.filter((card) => card.dueAt === '2026-10-03')).toHaveLength(24)
+    expect(store.reviewCards.filter((card) => card.dueAt === TODAY)).toHaveLength(24)
     expect(store.areas).toHaveLength(6)
     expect(store.projects).toHaveLength(8)
     expect(store.decisions).toHaveLength(4)
@@ -93,7 +108,8 @@ describe('mock store mutations', () => {
 
     expect(store.questions).toHaveLength(initialQuestions + 1)
     expect(store.questions[0]).toEqual(question)
-    expect(store.reviewCards.find((card) => card.id === 'card-comp-1')).toMatchObject({ lastRating: 'good', dueAt: '2026-10-17' })
+    // "good" is the third interval the deck offers, six days out.
+    expect(store.reviewCards.find((card) => card.id === 'card-comp-1')).toMatchObject({ lastRating: 'good', dueAt: '2026-10-09' })
     expect(store.reviewCards.find((card) => card.id === 'card-comp-2')?.dueAt).toBe(originalDueDate)
   })
 
@@ -106,6 +122,31 @@ describe('mock store mutations', () => {
     expect(store.decisions.find((decision) => decision.id === 'decision-backup-media')).toMatchObject({ status: 'decided', selectedOptionId: 'option-drive' })
     expect(store.decisions.find((decision) => decision.id === 'decision-budget-period')).toMatchObject({ status: 'postponed', postponedUntil: '2026-11-01' })
     expect(store.decisions.find((decision) => decision.id === 'decision-parser-shape')?.selectedOptionId).toBe('option-objects')
+  })
+
+  it('records a choice of its own only with the reason behind it', () => {
+    const store = createMockStore()
+
+    expect(() => store.decideDecision('decision-backup-media', 'other')).toThrow(/needs a reason/)
+
+    const decided = store.decideDecision('decision-backup-media', 'other', '  Esperar o disco atual falhar.  ')
+    expect(decided).toMatchObject({ status: 'decided', selectedOptionId: 'other', reasoning: 'Esperar o disco atual falhar.' })
+
+    // Choosing a recorded option again drops the reason that belonged to "other".
+    expect(store.decideDecision('decision-backup-media', 'option-drive').reasoning).toBeUndefined()
+  })
+
+  it('marks an item read without moving it out of its list', () => {
+    const store = createMockStore()
+    const item = store.libraryItems.find((candidate) => candidate.id === 'post-compilation')!
+
+    const read = store.setLibraryItemUnread(item.id, false)
+    expect(read).toMatchObject({ status: 'inbox', unread: false, read_at: '2026-10-03T12:00:00.000Z' })
+
+    const unread = store.setLibraryItemUnread(item.id, true)
+    expect(unread.status).toBe('inbox')
+    expect(unread.unread).toBe(true)
+    expect(unread.read_at).toBeUndefined()
   })
 
   it('toggles a task step and completion independently', () => {

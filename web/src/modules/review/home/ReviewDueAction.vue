@@ -1,12 +1,10 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import { todayIsoDate } from '@/lib/clock'
 import { store } from '@/mock/store'
 
-/** The day the mock cards are due against; the next bead replaces it with the clock. */
-const REVIEW_TODAY = '2026-10-03'
-
-const dueCount = computed(() => store.reviewCards.filter((card) => card.dueAt <= REVIEW_TODAY).length)
+const dueCount = computed(() => store.reviewCards.filter((card) => card.dueAt <= todayIsoDate()).length)
 </script>
 
 <template>

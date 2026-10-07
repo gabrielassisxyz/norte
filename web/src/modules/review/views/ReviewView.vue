@@ -6,11 +6,11 @@ import Button from '@/components/ds/Button.vue'
 import Flashcard from '@/components/ds/Flashcard.vue'
 import PageTitle from '@/components/ds/PageTitle.vue'
 import Stat from '@/components/ds/Stat.vue'
+import { todayIsoDate } from '@/lib/clock'
 import { store } from '@/mock/store'
 import type { CardRating, MaterialKind, ReviewCard } from '@/mock/types'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 
-const TODAY = '2026-10-03'
 const ALL_DECKS = 'all'
 const INTERVALS: [string, string, string, string] = ['10 min', '2 d', '6 d', '14 d']
 const MATERIAL_KINDS = new Set<MaterialKind>(['post', 'livro', 'paper'])
@@ -44,7 +44,7 @@ const ratings = ref<SessionRating[]>([])
 
 function dueCards(deckId: string): ReviewCard[] {
   return store.reviewCards.filter(
-    (card) => card.dueAt <= TODAY && (deckId === ALL_DECKS || card.deckId === deckId)
+    (card) => card.dueAt <= todayIsoDate() && (deckId === ALL_DECKS || card.deckId === deckId)
   )
 }
 
@@ -82,7 +82,7 @@ const currentCard = computed<ReviewCard | undefined>(() => {
 
 const finished = computed(() => pickedId.value !== null && currentCard.value === undefined)
 
-const leftToday = computed(() => store.reviewCards.filter((card) => card.dueAt <= TODAY).length)
+const leftToday = computed(() => store.reviewCards.filter((card) => card.dueAt <= todayIsoDate()).length)
 
 const doneCount = computed(() => ratings.value.length)
 

@@ -64,7 +64,7 @@ describe('LibraryView', () => {
 
     expect(wrapper.find('h1').text()).toBe('Biblioteca')
     expect(wrapper.find('.nt-seg').exists()).toBe(true)
-    expect(segCounts(wrapper)).toEqual({ Inbox: 6, Depois: 4, Arquivo: 4, Tudo: 18 })
+    expect(segCounts(wrapper)).toEqual({ Inbox: 6, Depois: 4, Arquivo: 8, Tudo: 18 })
     expect(wrapper.findAll('article.item')).toHaveLength(6)
     expect(wrapper.find('.library-count').text()).toBe('6 itens')
   })
@@ -140,26 +140,25 @@ describe('LibraryView', () => {
     await wrapper.findAll('article.item')[0].find('button[aria-label="Arquivar"]').trigger('click')
     await settleFor(() => !titles(wrapper).includes(first))
 
-    expect(segCounts(wrapper)).toMatchObject({ Inbox: 5, Arquivo: 5 })
+    expect(segCounts(wrapper)).toMatchObject({ Inbox: 5, Arquivo: 9 })
 
     await router.push({ query: { v: 'arquivo' } })
     await settleFor(() => titles(wrapper).includes(first))
     expect(titles(wrapper)).toContain(first)
   })
 
-  it('marks an item read so it leaves the view and stays in Tudo', async () => {
-    const { wrapper, router } = await mountAt('/biblioteca')
+  it('marks an item read without moving it out of the list it is in', async () => {
+    const { wrapper } = await mountAt('/biblioteca')
     const first = titles(wrapper)[0]
 
     await wrapper.findAll('article.item')[0].find('button[aria-label="Marcar como lido"]').trigger('click')
-    await settleFor(() => !titles(wrapper).includes(first))
+    await settleFor(() => wrapper.findAll('article.item')[0].find('.item-dot').exists() === false)
 
-    const stored = store.libraryItems.find((item) => item.title === first)
-    expect(stored).toMatchObject({ status: 'read', unread: false })
-
-    await router.push({ query: { v: 'tudo' } })
-    await settleFor(() => titles(wrapper).includes(first))
+    // Reading is an event: the item keeps its place in the Inbox and only the
+    // unread mark goes away.
     expect(titles(wrapper)).toContain(first)
+    expect(segCounts(wrapper)).toMatchObject({ Inbox: 6, Tudo: 18 })
+    expect(store.libraryItems.find((item) => item.title === first)).toMatchObject({ status: 'inbox', unread: false })
   })
 
   it('filters to unread items with Só não lidos', async () => {

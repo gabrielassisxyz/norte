@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import Button from '@/components/ds/Button.vue'
 import Icon from '@/components/ds/Icon.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
+import { todayIsoDate } from '@/lib/clock'
 import type { MaterialKind, LibraryItem } from '@/mock/types'
 import { store } from '@/mock/store'
 import { crossModuleActionAllowed } from '@/modules/mounting'
@@ -70,7 +71,7 @@ function fallbackMaterial(kind: MaterialKind, id: string): LibraryItem {
     url: 'https://example.com/material',
     status: 'inbox',
     unread: true,
-    savedAt: '2026-10-03'
+    savedAt: todayIsoDate()
   }
 }
 
@@ -139,7 +140,7 @@ watch(
   { immediate: true }
 )
 
-const isComplete = computed(() => locallyCompleted.value || material.value.status === 'read')
+const isComplete = computed(() => locallyCompleted.value || !material.value.unread)
 const bodyColumns = computed(() => {
   if (mode.value === 'exercises') return 'minmax(0, 1fr)'
   return panelCollapsed.value ? 'minmax(0, 1fr) 48px' : 'minmax(0, 1fr) 380px'
@@ -224,10 +225,7 @@ function setMode(value: string): void {
 }
 
 function markComplete(): void {
-  if (storedMaterial.value) {
-    store.setLibraryItemStatus(storedMaterial.value.id, 'read')
-    storedMaterial.value.unread = false
-  }
+  if (storedMaterial.value) store.setLibraryItemUnread(storedMaterial.value.id, false)
   locallyCompleted.value = true
 }
 

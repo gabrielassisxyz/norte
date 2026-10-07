@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { shiftIsoDate, todayIsoDate } from '@/lib/clock'
 import { routes } from '@/router'
 import { createMockStore, store } from '@/mock/store'
 import DecisionView from './DecisionView.vue'
@@ -82,7 +83,7 @@ describe('decision view', () => {
   it('adds exactly seven days when postponing', async () => {
     const { wrapper } = await mountDecision('decision-backup-media')
     const decision = store.decisions.find((candidate) => candidate.id === 'decision-backup-media')!
-    const currentDue = decision.postponedUntil ?? '2026-10-10'
+    const currentDue = decision.postponedUntil ?? shiftIsoDate(todayIsoDate(), 7)
     const postponeButton = wrapper.findAll('button').find((button) => button.text() === 'Adiar uma semana')!
 
     await postponeButton.trigger('click')

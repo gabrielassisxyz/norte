@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest'
 
-import { initialMockData } from '@/mock/data'
+import { buildMockData } from '@/mock/data'
+
+const mockData = buildMockData('2026-10-03')
 
 import * as library from './library'
 import * as notes from './notes'
@@ -45,7 +47,7 @@ describe('what every module has to export', () => {
 
   it('answers the search with entries only for its own screens', () => {
     for (const module of norteModules) {
-      const entries = module.searchEntries(initialMockData)
+      const entries = module.searchEntries(mockData)
       expect(entries.length, `${module.manifest.name} search entries`).toBeGreaterThan(0)
     }
   })

@@ -57,10 +57,11 @@ describe('curriculum screen', () => {
 
     const rows = wrapper.findAll('.nt-mat')
     expect(rows.length).toBeGreaterThan(2)
-    // post-garden is read, paper-compost archived, book-garden the first required one still waiting.
+    // post-garden and paper-compost have both been read; book-garden is the
+    // first required one still waiting.
     expect(rows[0].classes()).toContain('is-done')
     expect(rows[1].classes()).toContain('is-current')
-    expect(rows[2].classes()).toContain('is-skipped')
+    expect(rows[2].classes()).toContain('is-done')
     expect(rows[0].find('.nt-mat-type').text()).toBe('O · Post')
     expect(rows[2].find('.nt-mat-type').text()).toBe('P · Paper · opcional')
   })

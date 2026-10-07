@@ -1,15 +1,10 @@
+import { compactIsoDate } from '@/lib/clock'
+import { daysAgo } from '@/mock/relative'
 import type { StudyDay, Subject } from '@/mock/types'
 
-export const STUDY_TODAY = '2026-10-03'
 export const STUDY_DAY_COUNT = 182
 
 export const WEEKLY_FOCUS = 'Foco da semana: fechar Léxico e sintaxe e manter a revisão em dia.'
-
-/** "sábado, 3 de outubro" -> "Sábado, 3 de outubro", like the prototype title. */
-export function formatStudyDate(date: Date): string {
-  const text = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(date)
-  return text.replace(/^./, (letter) => letter.toLocaleUpperCase('pt-BR'))
-}
 
 /** Subjects grouping library material across curricula (neutral invented data). */
 export const subjects: Subject[] = [
@@ -81,17 +76,13 @@ export const subjects: Subject[] = [
   }
 ]
 
-function isoDate(base: Date, back: number): string {
-  const date = new Date(base.getTime() - back * 24 * 60 * 60 * 1000)
-  return date.toISOString().slice(0, 10)
-}
-
-// Deterministic activity for the last 26 weeks: an LCG picks a study volume,
-// then two stretches are pinned so the band tells a streak story — a record
-// run in the middle and the current run ending with today still open.
-function buildStudyDays(): StudyDay[] {
-  const base = new Date(`${STUDY_TODAY}T00:00:00Z`)
-  let seed = 20261003
+// Deterministic activity for the last 26 weeks, ending on the day the app is
+// opened: an LCG picks a study volume, then two stretches are pinned so the
+// band tells a streak story — a record run in the middle and the current run
+// ending with today still open. The seed is the day itself, so the band is
+// stable for as long as the day is.
+export function buildStudyDays(today: string): StudyDay[] {
+  let seed = Number(compactIsoDate(today))
   const random = (): number => {
     seed = (seed * 1103515245 + 12345) % 2147483648
     return seed / 2147483648
@@ -102,7 +93,7 @@ function buildStudyDays(): StudyDay[] {
     const roll = random()
     const minutes = roll < 0.25 ? 0 : roll < 0.5 ? 15 : roll < 0.7 ? 40 : roll < 0.9 ? 75 : 130
     days.push({
-      date: isoDate(base, STUDY_DAY_COUNT - 1 - index),
+      date: daysAgo(today, STUDY_DAY_COUNT - 1 - index),
       minutes,
       completed: minutes > 0 && index % 3 === 0 ? 1 : 0
     })
@@ -128,8 +119,6 @@ function buildStudyDays(): StudyDay[] {
 
   return days
 }
-
-export const studyDays: StudyDay[] = buildStudyDays()
 
 export function isActiveDay(day: StudyDay): boolean {
   return day.minutes > 0

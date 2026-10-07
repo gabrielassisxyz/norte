@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { initialMockData } from '@/mock/data'
+import { buildMockData } from '@/mock/data'
+
+const mockData = buildMockData('2026-10-03')
 
 import { buildCurriculumView } from './curriculum'
 
-const { curricula, libraryItems } = initialMockData
+const { curricula, libraryItems } = mockData
 
 describe('curriculum view model', () => {
   it('marks at most one material as the current one across the whole curriculum', () => {

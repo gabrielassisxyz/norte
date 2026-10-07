@@ -1,6 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { beforeEach, describe, expect, it } from 'vitest'
 
+import { formatShortDate, shiftIsoDate, todayIsoDate } from '@/lib/clock'
 import router from '@/router'
 import { store } from '@/mock/store'
 
@@ -47,7 +48,8 @@ describe('HomeView', () => {
 
     expect(dates).toContain('hoje')
     expect(dates).toContain('ontem')
-    expect(dates).toContain('29 set')
+    // The oldest of the five recent saves sits four days back.
+    expect(dates).toContain(formatShortDate(shiftIsoDate(todayIsoDate(), -4)))
   })
 
   it('opens the save dialog from the URL, rejects an empty URL, and saves to inbox first', async () => {

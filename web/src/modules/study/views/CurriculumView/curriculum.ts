@@ -75,10 +75,10 @@ function pad(n: number): string {
   return n < 10 ? `0${n}` : String(n)
 }
 
-/** A material is done once its library item is read, and skipped once it is archived. */
+/** A material is done once its library item has been read, and skipped once it is archived unread. */
 function libraryStatus(item: LibraryItem | undefined): MaterialStatus | undefined {
   if (!item) return undefined
-  if (item.status === 'read') return 'done'
+  if (!item.unread) return 'done'
   if (item.status === 'arquivo') return 'skipped'
   return undefined
 }

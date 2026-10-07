@@ -117,7 +117,7 @@ describe('MaterialView', () => {
     const { wrapper, router } = await mountAt('/material/livro/book-interpreters', '/biblioteca')
 
     await wrapper.find('[data-action="complete"]').trigger('click')
-    expect(item.status).toBe('read')
+    expect(item.status).toBe(previousStatus)
     expect(item.unread).toBe(false)
     expect(wrapper.find('[data-action="complete"]').text()).toContain('Concluído')
 

@@ -9,11 +9,11 @@ import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import Stat from '@/components/ds/Stat.vue'
 import StreakGrid from '@/components/ds/StreakGrid.vue'
 import { store } from '@/mock/store'
+import { formatLongWeekdayDate, formatMonthName, todayIsoDate } from '@/lib/clock'
 import {
   WEEKLY_FOCUS,
   completedThisMonth,
   currentStreak,
-  formatStudyDate,
   hoursInWindow,
   levelForMinutes,
   recordStreak
@@ -25,8 +25,6 @@ import { crossModuleActionAllowed } from '@/modules/mounting'
 const canReachLibrary = computed(() => crossModuleActionAllowed('study', 'library'))
 const canReachNotes = computed(() => crossModuleActionAllowed('study', 'notes'))
 const canReachReview = computed(() => crossModuleActionAllowed('study', 'review'))
-
-const TODAY = '2026-10-03'
 
 type SubjectsView = 'capas' | 'tabela'
 
@@ -49,7 +47,7 @@ function formatSignedHours(value: number): string {
   return `${sign}${formatHours(Math.abs(value))} h vs. anterior`
 }
 
-const title = formatStudyDate(new Date())
+const title = computed(() => formatLongWeekdayDate(todayIsoDate()))
 const addOpen = ref(false)
 const subjectsView = ref<SubjectsView>('capas')
 
@@ -59,12 +57,11 @@ const record = computed(() => recordStreak(store.studyDays))
 const weekHours = computed(() => hoursInWindow(store.studyDays))
 const previousWeekHours = computed(() => hoursInWindow(store.studyDays.slice(0, store.studyDays.length - 7)))
 const weekDelta = computed(() => weekHours.value - previousWeekHours.value)
-const dueCount = computed(() => store.reviewCards.filter((card) => card.dueAt <= TODAY).length)
+const dueCount = computed(() => store.reviewCards.filter((card) => card.dueAt <= todayIsoDate()).length)
 const monthly = computed(() => completedThisMonth(store.studyDays))
 const monthLabel = computed(() => {
   const last = store.studyDays[store.studyDays.length - 1]
-  if (last === undefined) return ''
-  return new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'UTC' }).format(new Date(`${last.date}T00:00:00Z`))
+  return last === undefined ? '' : formatMonthName(last.date)
 })
 
 function subjectTotal(subject: Subject): number {

@@ -7,10 +7,14 @@ import {
   currentStreak,
   hoursInWindow,
   levelForMinutes,
+  buildStudyDays,
   recordStreak,
-  studyDays,
   subjects
 } from './study'
+
+/** The day the band is built against; the seed is the day, so this fixes the story. */
+const TODAY = '2026-10-03'
+const studyDays = buildStudyDays(TODAY)
 
 const day = (date: string, minutes: number, completed = 0): StudyDay => ({ date, minutes, completed })
 
@@ -62,7 +66,7 @@ describe('study volume helpers', () => {
 })
 
 describe('study mock data', () => {
-  it('covers 182 days ending on the mock today with six subjects', () => {
+  it('covers 182 days ending on the day it was built for, with six subjects', () => {
     expect(studyDays).toHaveLength(STUDY_DAY_COUNT)
     expect(studyDays[0].date).toBe('2026-04-05')
     expect(studyDays[STUDY_DAY_COUNT - 1].date).toBe('2026-10-03')
