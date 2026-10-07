@@ -9,3 +9,8 @@ design/prototypes/
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Local-only notes, plans and exports
+local/
+docs/backend-plan.md
+docs/reviews/
