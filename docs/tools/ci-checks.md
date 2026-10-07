@@ -20,6 +20,7 @@ for an answer one command gives in seconds.
 | `generate` | Running the generators changes none of the committed generated code, and the frontend builds and lands in `server/internal/webassets/dist`, which is what the binary embeds. This also covers `npm run build`. | `bin/check-generated` |
 | `go-build` | The `norte` binary links, with the embedded frontend in it. Needs `generate` to have run. | `cd server && go build -o norte ./cmd/norte` |
 | `go-test` | The Go suite, under a temporary `NORTE_DATA` so nothing touches the real data directory. | `cd server && NORTE_DATA="$(mktemp -d)" go test ./...` |
+| `go-test-race` | Two worker loops against one database never run one job twice, under the race detector. | `cd server && go test -race ./internal/core -run TestWorkersDoNotDoubleClaim -count=1` |
 | `web-test` | The Vitest suite. Needs `web/node_modules`, which `bin/generate` installs. | `cd web && npm test` |
 
 `bin/ci --list` prints the names, and `bin/ci <name>...` runs only the ones
