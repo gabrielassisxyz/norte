@@ -1,0 +1,614 @@
+# The library module's contract: saving links, listing them by view, counts,
+# detail, patch and the "opened" call.
+#
+# Both the Go server interfaces and the TypeScript types come from this file --
+# `bin/generate` runs the generators -- so changing what the API accepts or
+# returns means changing the contract first. The generated interface then turns
+# a missing handler into a compile error, and a handler can only exist for a
+# route named here.
+#
+# A path in this file must sit under /api/library/. Every object schema pins
+# additionalProperties to false, so a request carrying a field the contract
+# never named is rejected instead of being silently dropped. `bin/check-contracts`
+# is what enforces both.
+openapi: 3.0.3
+info:
+  title: Norte library API
+  version: 0.1.0
+  description: |
+    The library is where saved links live: one save puts a link in the inbox
+    with the note about why it was kept, saving the same link twice keeps one
+    copy, and the list, counts and search read it back by view, kind, unread
+    state and full text.
+paths:
+  /api/library/items:
+    post:
+      operationId: saveLibraryItem
+      summary: Save a link to the library
+      description: |
+        Stores the HTML snapshot when one came with the request, then records
+        the item, its registry row, its file reference, its links and its
+        extraction job in one transaction. A save whose canonical URL already
+        exists answers 200 with the existing id and applies the new note,
+        selection and links instead of creating a second copy. The source of a
+        save is decided by the adapter, never by the request: a request without
+        a source is recorded as coming from Norte's own dialog, and the only
+        source a request may carry is the browser extension's.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveItemRequest"
+      responses:
+        "201":
+          description: The save created an item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveItemResponse"
+        "200":
+          description: The canonical URL was already saved; the existing item, updated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SaveItemResponse"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      operationId: listLibraryItems
+      summary: List saved links
+      description: |
+        Summaries, never the extracted HTML or text. Every sort is a total
+        order with the id breaking ties. The cursor encodes the sort position
+        and a hash of the filters, and a cursor presented with different
+        filters or sort is refused. With q the order is the full-text rank,
+        then id, and an explicit sort together with q is refused.
+      parameters:
+        - name: view
+          in: query
+          description: Which shelf to read; tudo is every status.
+          schema:
+            $ref: "#/components/schemas/LibraryView"
+            default: inbox
+        - name: tipo
+          in: query
+          description: Keep only this kind.
+          schema:
+            $ref: "#/components/schemas/ItemKind"
+        - name: unread
+          in: query
+          description: Keep only unread items, or only read ones.
+          schema:
+            type: boolean
+        - name: sort
+          in: query
+          description: |
+            The order. last_opened_desc lists only items that have been
+            opened, newest-opened first, and is what the home's "continuar
+            lendo" block reads.
+          schema:
+            $ref: "#/components/schemas/LibrarySort"
+            default: saved_desc
+        - name: q
+          in: query
+          description: Full-text query over the title, the note and the extracted text.
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          description: The next_cursor of the previous page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: How many summaries a page holds.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: One page of summaries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItemList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/counts:
+    get:
+      operationId: getLibraryCounts
+      summary: Count the library by view, kind and unread state
+      description: |
+        Every count the library screen shows, in one query, so a list call
+        never recomputes them.
+      responses:
+        "200":
+          description: The counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryCounts"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/items/{id}:
+    get:
+      operationId: getLibraryItem
+      summary: Read one saved link in full
+      description: |
+        The whole record, including the extracted text when extraction has
+        produced it. A read never writes.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The item.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItem"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: patchLibraryItem
+      summary: Change a saved link
+      description: |
+        Only the fields present are applied. Setting unread records or clears
+        the read event; retitling marks the title as the person's own and
+        follows the registry row; retyping follows the registry type.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchItemRequest"
+      responses:
+        "200":
+          description: The item after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItem"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/items/{id}/open:
+    post:
+      operationId: openLibraryItem
+      summary: Record that a saved link was opened
+      description: |
+        Sets when the item was last opened. Opening is not reading: unread is
+        left exactly as it was.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The item after the opening was recorded.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryItem"
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  responses:
+    Error:
+      description: |
+        Every failure in one envelope, whether it came from validating the
+        request against this contract or from the domain behind it.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    ItemKind:
+      type: string
+      description: What the saved link is. A save always starts as a post; only a patch retypes.
+      enum:
+        - post
+        - livro
+        - paper
+        - video
+        - podcast
+        - newsletter
+        - curso
+    ItemStatus:
+      type: string
+      description: Which shelf the item sits on.
+      enum:
+        - inbox
+        - depois
+        - arquivo
+    ItemSource:
+      type: string
+      description: Where the save came from.
+      enum:
+        - app
+        - extension
+        - cli
+        - telegram
+        - import
+    LibraryView:
+      type: string
+      description: Which shelf a list reads; tudo is every status.
+      enum:
+        - inbox
+        - depois
+        - arquivo
+        - tudo
+    LibrarySort:
+      type: string
+      description: The order a list comes back in.
+      enum:
+        - saved_desc
+        - saved_asc
+        - title
+        - last_opened_desc
+    ExtractStatus:
+      type: string
+      description: Where the background extraction of this item stands.
+      enum:
+        - pending
+        - done
+        - failed
+    TextSelection:
+      type: object
+      additionalProperties: false
+      description: The passage selected when the link was saved, if any.
+      properties:
+        exact:
+          type: string
+        prefix:
+          type: string
+        suffix:
+          type: string
+    ReadPosition:
+      type: object
+      additionalProperties: false
+      description: Where the person stopped reading.
+      properties:
+        v:
+          type: integer
+        anchor:
+          type: string
+        percent:
+          type: number
+    SaveItemRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          description: The saved page's address, absolute and http or https.
+        title:
+          type: string
+          description: The tab title, used until extraction gives a better one.
+        html:
+          type: string
+          description: The page's HTML snapshot, when the saver captured one.
+        selection:
+          $ref: "#/components/schemas/TextSelection"
+        why:
+          type: string
+          description: Why this link was worth keeping.
+        link_to:
+          type: array
+          description: Registry ids this item is about; unknown ids refuse the save.
+          items:
+            type: string
+        source:
+          type: string
+          description: |
+            The only source a request may carry is the browser extension's;
+            anything else is refused, and an absent source is Norte's own dialog.
+          enum:
+            - extension
+    SaveItemResponse:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: The saved item, new or already there.
+    LibraryItemSummary:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - kind
+        - url
+        - canonical_url
+        - title
+        - title_edited
+        - status
+        - unread
+        - saved_at
+        - source
+        - extract_status
+        - extract_generation
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/ItemKind"
+        url:
+          type: string
+        canonical_url:
+          type: string
+        title:
+          type: string
+        title_edited:
+          type: boolean
+          description: True once the person overrode the extracted title.
+        author:
+          type: string
+        site:
+          type: string
+        published_at:
+          type: string
+        lead_image:
+          type: string
+        why:
+          type: string
+        selection:
+          $ref: "#/components/schemas/TextSelection"
+        status:
+          $ref: "#/components/schemas/ItemStatus"
+        unread:
+          type: boolean
+        saved_at:
+          type: string
+        read_at:
+          type: string
+        last_opened_at:
+          type: string
+        read_position:
+          $ref: "#/components/schemas/ReadPosition"
+        source:
+          $ref: "#/components/schemas/ItemSource"
+        html_hash:
+          type: string
+          description: The snapshot blob in the file store, when one was captured.
+        content_headings:
+          type: string
+        extract_status:
+          $ref: "#/components/schemas/ExtractStatus"
+        extract_generation:
+          type: integer
+          description: |
+            Bumped by every save that enqueues a new extraction, so the worker
+            can tell a superseded job from the current one.
+        extracted_at:
+          type: string
+        extract_error:
+          type: string
+        minutes:
+          type: integer
+        created_at:
+          type: string
+        updated_at:
+          type: string
+    LibraryItem:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - kind
+        - url
+        - canonical_url
+        - title
+        - title_edited
+        - status
+        - unread
+        - saved_at
+        - source
+        - extract_status
+        - extract_generation
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/ItemKind"
+        url:
+          type: string
+        canonical_url:
+          type: string
+        title:
+          type: string
+        title_edited:
+          type: boolean
+          description: True once the person overrode the extracted title.
+        author:
+          type: string
+        site:
+          type: string
+        published_at:
+          type: string
+        lead_image:
+          type: string
+        why:
+          type: string
+        selection:
+          $ref: "#/components/schemas/TextSelection"
+        status:
+          $ref: "#/components/schemas/ItemStatus"
+        unread:
+          type: boolean
+        saved_at:
+          type: string
+        read_at:
+          type: string
+        last_opened_at:
+          type: string
+        read_position:
+          $ref: "#/components/schemas/ReadPosition"
+        source:
+          $ref: "#/components/schemas/ItemSource"
+        html_hash:
+          type: string
+          description: The snapshot blob in the file store, when one was captured.
+        content_html:
+          type: string
+        content_text:
+          type: string
+        content_headings:
+          type: string
+        extract_status:
+          $ref: "#/components/schemas/ExtractStatus"
+        extract_generation:
+          type: integer
+          description: |
+            Bumped by every save that enqueues a new extraction, so the worker
+            can tell a superseded job from the current one.
+        extracted_at:
+          type: string
+        extract_error:
+          type: string
+        minutes:
+          type: integer
+        created_at:
+          type: string
+        updated_at:
+          type: string
+    LibraryItemList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/LibraryItemSummary"
+        next_cursor:
+          type: string
+          description: The cursor for the following page, absent on the last one.
+    LibraryCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - views
+        - kinds
+        - unread
+      properties:
+        views:
+          type: object
+          additionalProperties: false
+          required:
+            - inbox
+            - depois
+            - arquivo
+            - tudo
+          properties:
+            inbox:
+              type: integer
+            depois:
+              type: integer
+            arquivo:
+              type: integer
+            tudo:
+              type: integer
+        kinds:
+          type: object
+          additionalProperties: false
+          required:
+            - post
+            - livro
+            - paper
+            - video
+            - podcast
+            - newsletter
+            - curso
+          properties:
+            post:
+              type: integer
+            livro:
+              type: integer
+            paper:
+              type: integer
+            video:
+              type: integer
+            podcast:
+              type: integer
+            newsletter:
+              type: integer
+            curso:
+              type: integer
+        unread:
+          type: integer
+          description: Items still unread, over every view.
+    PatchItemRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        status:
+          $ref: "#/components/schemas/ItemStatus"
+        unread:
+          type: boolean
+        why:
+          type: string
+        kind:
+          $ref: "#/components/schemas/ItemKind"
+        title:
+          type: string
+        read_position:
+          $ref: "#/components/schemas/ReadPosition"
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - request_id
+      properties:
+        code:
+          type: string
+          description: |
+            Stable, machine-readable reason. The frontend branches on this;
+            the message is for a person.
+          example: invalid_request
+        message:
+          type: string
+          description: What went wrong, in one sentence, safe to show.
+        field:
+          type: string
+          description: |
+            The input the failure is attributable to, when it is attributable
+            to exactly one. Absent otherwise.
+          example: kind
+        request_id:
+          type: string
+          description: |
+            The X-Request-Id of the request that failed, so an error a person
+            reports can be matched to the log line that recorded it.

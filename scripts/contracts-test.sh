@@ -238,8 +238,9 @@ else
     # are the only record of what ran when, so they are what this reads.
     # Only the three generators are ordered here. `npm ci` logs a stage of its
     # own when node_modules is missing, which is every CI run and no warm
-    # checkout, so counting it made this pass locally and fail in CI.
-    ran="$(printf '%s\n' "$generate_output" | sed -n 's/^==> \(oapi-codegen\|openapi-typescript\|sqlc\)\b.*/\1/p' | tr '\n' ' ')"
+    # checkout, so counting it made this pass locally and fail in CI. Each
+    # generator runs once per contract file, so repeats collapse to one stage.
+    ran="$(printf '%s\n' "$generate_output" | sed -n 's/^==> \(oapi-codegen\|openapi-typescript\|sqlc\)\b.*/\1/p' | uniq | tr '\n' ' ')"
     case "$ran" in
         "oapi-codegen openapi-typescript sqlc "*)
             pass "bin/generate runs oapi-codegen, then openapi-typescript, then sqlc"

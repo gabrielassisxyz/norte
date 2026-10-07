@@ -24,3 +24,14 @@ sql:
         emit_prepared_queries: false
         emit_interface: false
         emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/library/migrations
+    queries: internal/library/queries
+    gen:
+      go:
+        package: db
+        out: internal/library/db
+        sql_package: database/sql
+        emit_prepared_queries: false
+        emit_interface: false
+        emit_empty_slices: true
