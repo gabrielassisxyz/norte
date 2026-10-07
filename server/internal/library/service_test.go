@@ -167,7 +167,7 @@ func TestLibraryFTSRanksTitleAboveTheNote(t *testing.T) {
 
 	var first string
 	if err := database.Reader().QueryRow(
-		`SELECT id FROM library_fts WHERE library_fts MATCH 'zebra' ORDER BY `+libraryFTSRank+` LIMIT 1`).Scan(&first); err != nil {
+		`SELECT id FROM library_fts WHERE library_fts MATCH 'zebra' ORDER BY ` + libraryFTSRank + ` LIMIT 1`).Scan(&first); err != nil {
 		t.Fatalf("ranking: %v", err)
 	}
 	if first != inTitle.ID {
