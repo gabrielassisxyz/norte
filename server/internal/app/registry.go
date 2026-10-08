@@ -245,6 +245,16 @@ func NorteFocusProviders(modules []Module) []core.FocusProvider {
 	return providers
 }
 
+// norteModuleNames lists the enabled modules by name, which is what the core
+// restricts a subject's counts to.
+func norteModuleNames(modules []Module) []string {
+	names := make([]string, 0, len(modules))
+	for _, module := range modules {
+		names = append(names, module.Name())
+	}
+	return names
+}
+
 // NorteSearchProviders exposes the enabled search providers in the configured
 // order. The endpoint merging them arrives in a later bead.
 func NorteSearchProviders(modules []Module) []core.SearchProvider {

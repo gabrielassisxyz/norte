@@ -105,6 +105,21 @@ SELECT * FROM core_links WHERE id = ?;
 SELECT * FROM core_links WHERE src_id = ? AND dst_id = ? AND kind = ?;
 
 -- Accept or reject a suggestion. The status is the caller's; decided_at is set
--- either way, because rejecting is a decision as much as accepting is.
+-- either way, because rejecting is a decision as much as accepting is. Only a
+-- suggestion can be decided: a confirmed link is a person's own assertion, and
+-- a rejected one their recorded refusal, and neither is the model's to overturn.
 -- name: DecideCoreLink :execresult
-UPDATE core_links SET status = ?, decided_at = ? WHERE id = ?;
+UPDATE core_links SET status = ?, decided_at = ? WHERE id = ? AND status = 'suggested';
+
+-- A link with both of its ends from the registry, in one read. The link
+-- screens render every row with its two ends, so reading them one registry
+-- row at a time costs two extra queries per link on screen.
+-- name: GetCoreLinkResolved :one
+SELECT
+    sqlc.embed(core_links),
+    sqlc.embed(src),
+    sqlc.embed(dst)
+FROM core_links
+JOIN core_items AS src ON src.id = core_links.src_id
+JOIN core_items AS dst ON dst.id = core_links.dst_id
+WHERE core_links.id = ?;

@@ -39,6 +39,14 @@ type subjectsTestEnv struct {
 // NORTE_DATA: the config is loaded from an explicit map and a temporary home.
 func newSubjectsTestEnv(t *testing.T) *subjectsTestEnv {
 	t.Helper()
+	return newSubjectsTestEnvWith(t, library.NewLibraryModule())
+}
+
+// newSubjectsTestEnvWith is the same server with the library module replaced by
+// the one given, which is how a test makes a module report focus targets the
+// real library never does. The module must still be named "library".
+func newSubjectsTestEnvWith(t *testing.T, libraryModule app.Module) *subjectsTestEnv {
+	t.Helper()
 	dataDir := t.TempDir()
 	clock := clocktest.New(subjectsFixedInstant)
 	database, err := core.OpenDatabase(context.Background(), dataDir)
@@ -53,7 +61,7 @@ func newSubjectsTestEnv(t *testing.T) *subjectsTestEnv {
 	if _, err := core.MigrateCore(context.Background(), database.Writer()); err != nil {
 		t.Fatalf("applying the core migrations: %v", err)
 	}
-	modules := []app.Module{library.NewLibraryModule()}
+	modules := []app.Module{libraryModule}
 	if _, err := app.MigrateNorteModules(context.Background(), database.Writer(), modules); err != nil {
 		t.Fatalf("applying the library migrations: %v", err)
 	}

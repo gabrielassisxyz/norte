@@ -111,11 +111,15 @@ func (s *LinkAPI) Create(ctx context.Context, srcID, dstID, kind string) (LinkRe
 	if err != nil {
 		return LinkRecord{}, fmt.Errorf("reading the link that was just confirmed: %w", err)
 	}
-	return s.resolve(ctx, row)
+	return s.resolve(ctx, row.ID)
 }
 
-// Decide accepts or rejects a link. A rejected row stays as the record that
-// the pair was rejected, so the same suggestion does not come back.
+// Decide accepts or rejects a suggestion. A rejected row stays as the record
+// that the pair was rejected, so the same suggestion does not come back.
+//
+// Only a suggested link can be decided. A confirmed one may be a person's own
+// assertion and a rejected one their recorded refusal, so deciding either again
+// is a 409 rather than a silent overwrite of what they decided.
 func (s *LinkAPI) Decide(ctx context.Context, id, decision string) (LinkRecord, error) {
 	var status string
 	switch decision {
@@ -136,13 +140,23 @@ func (s *LinkAPI) Decide(ctx context.Context, id, decision string) (LinkRecord, 
 		return LinkRecord{}, fmt.Errorf("deciding the link %s: %w", id, err)
 	}
 	if err := requireOneRow(result, "link", id); err != nil {
-		return LinkRecord{}, apiNotFound("link", id)
+		return LinkRecord{}, s.explainUndecidable(ctx, id)
 	}
-	row, err := db.New(s.database.Reader()).GetCoreLink(ctx, id)
+	return s.resolve(ctx, id)
+}
+
+// explainUndecidable says why a decision changed no row: there is no such
+// link, or there is one that is not a suggestion any more.
+func (s *LinkAPI) explainUndecidable(ctx context.Context, id string) error {
+	row, err := db.New(s.database.Writer()).GetCoreLink(ctx, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return apiNotFound("link", id)
+	}
 	if err != nil {
-		return LinkRecord{}, fmt.Errorf("reading the decided link %s: %w", id, err)
+		return fmt.Errorf("reading the link %s that was not decided: %w", id, err)
 	}
-	return s.resolve(ctx, row)
+	return apiConflict("not_suggested",
+		fmt.Sprintf("the link %s is %s, and only a suggestion can be decided", id, row.Status), "id")
 }
 
 // List reads one page of links, newest first with the id breaking ties.
@@ -178,44 +192,57 @@ func (s *LinkAPI) List(ctx context.Context, in LinkListInput) (LinkPage, error) 
 	where := []string{}
 	args := []any{}
 	if in.SrcID != "" {
-		where = append(where, "src_id = ?")
+		where = append(where, "core_links.src_id = ?")
 		args = append(args, in.SrcID)
 	}
 	if in.DstID != "" {
-		where = append(where, "dst_id = ?")
+		where = append(where, "core_links.dst_id = ?")
 		args = append(args, in.DstID)
 	}
 	if in.Kind != "" {
-		where = append(where, "kind = ?")
+		where = append(where, "core_links.kind = ?")
 		args = append(args, in.Kind)
 	}
 	if in.Status != "" {
-		where = append(where, "status = ?")
+		where = append(where, "core_links.status = ?")
 		args = append(args, in.Status)
 	}
 	if in.Cursor != "" {
-		where = append(where, "(created_at < ? OR (created_at = ? AND id < ?))")
+		where = append(where, "(core_links.created_at < ? OR (core_links.created_at = ? AND core_links.id < ?))")
 		args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
 	}
-	query := "SELECT id, src_id, dst_id, kind, source, status, confidence, created_at, decided_at FROM core_links"
+	// Both ends come back in the same read: the page renders each link with
+	// its two registry rows, and one lookup per end per row is up to 400
+	// round trips for a page of 200.
+	query := "SELECT" +
+		" core_links.id, core_links.src_id, core_links.dst_id, core_links.kind, core_links.source," +
+		" core_links.status, core_links.confidence, core_links.created_at, core_links.decided_at," +
+		" src.id, src.module, src.type, src.title, src.url, src.created_at," +
+		" dst.id, dst.module, dst.type, dst.title, dst.url, dst.created_at" +
+		" FROM core_links" +
+		" JOIN core_items AS src ON src.id = core_links.src_id" +
+		" JOIN core_items AS dst ON dst.id = core_links.dst_id"
 	if len(where) > 0 {
 		query += " WHERE " + strings.Join(where, " AND ")
 	}
-	query += fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT %d", limit+1)
+	query += fmt.Sprintf(" ORDER BY core_links.created_at DESC, core_links.id DESC LIMIT %d", limit+1)
 
 	rows, err := s.database.Reader().QueryContext(ctx, query, args...)
 	if err != nil {
 		return LinkPage{}, fmt.Errorf("listing the links: %w", err)
 	}
 	defer rows.Close()
-	found := []db.CoreLink{}
+	found := []LinkRecord{}
 	for rows.Next() {
-		var row db.CoreLink
+		var record LinkRecord
+		row, src, dst := &record.Row, &record.Src, &record.Dst
 		if err := rows.Scan(&row.ID, &row.SrcID, &row.DstID, &row.Kind, &row.Source,
-			&row.Status, &row.Confidence, &row.CreatedAt, &row.DecidedAt); err != nil {
+			&row.Status, &row.Confidence, &row.CreatedAt, &row.DecidedAt,
+			&src.ID, &src.Module, &src.Type, &src.Title, &src.Url, &src.CreatedAt,
+			&dst.ID, &dst.Module, &dst.Type, &dst.Title, &dst.Url, &dst.CreatedAt); err != nil {
 			return LinkPage{}, fmt.Errorf("scanning a link row: %w", err)
 		}
-		found = append(found, row)
+		found = append(found, record)
 	}
 	if err := rows.Err(); err != nil {
 		return LinkPage{}, fmt.Errorf("listing the links: %w", err)
@@ -223,7 +250,7 @@ func (s *LinkAPI) List(ctx context.Context, in LinkListInput) (LinkPage, error) 
 
 	page := LinkPage{Items: []LinkRecord{}}
 	if len(found) > limit {
-		last := found[limit-1]
+		last := found[limit-1].Row
 		page.NextCursor = encodeLinkCursor(linkCursor{
 			FilterHash: filterHash,
 			CreatedAt:  last.CreatedAt,
@@ -231,28 +258,17 @@ func (s *LinkAPI) List(ctx context.Context, in LinkListInput) (LinkPage, error) 
 		})
 		found = found[:limit]
 	}
-	for _, row := range found {
-		record, err := s.resolve(ctx, row)
-		if err != nil {
-			return LinkPage{}, err
-		}
-		page.Items = append(page.Items, record)
-	}
+	page.Items = append(page.Items, found...)
 	return page, nil
 }
 
-// resolve reads both ends of a link out of the registry.
-func (s *LinkAPI) resolve(ctx context.Context, row db.CoreLink) (LinkRecord, error) {
-	queries := db.New(s.database.Reader())
-	src, err := queries.GetCoreItem(ctx, row.SrcID)
+// resolve reads a link and both of its ends out of the registry in one query.
+func (s *LinkAPI) resolve(ctx context.Context, id string) (LinkRecord, error) {
+	resolved, err := db.New(s.database.Reader()).GetCoreLinkResolved(ctx, id)
 	if err != nil {
-		return LinkRecord{}, fmt.Errorf("reading the source of link %s: %w", row.ID, err)
+		return LinkRecord{}, fmt.Errorf("reading the link %s with its ends: %w", id, err)
 	}
-	dst, err := queries.GetCoreItem(ctx, row.DstID)
-	if err != nil {
-		return LinkRecord{}, fmt.Errorf("reading the target of link %s: %w", row.ID, err)
-	}
-	return LinkRecord{Row: row, Src: src, Dst: dst}, nil
+	return LinkRecord{Row: resolved.CoreLink, Src: resolved.CoreItem, Dst: resolved.CoreItem_2}, nil
 }
 
 func (s *LinkAPI) inWriteTx(ctx context.Context, fn func(*sql.Tx) error) error {

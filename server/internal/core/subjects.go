@@ -62,12 +62,38 @@ type SubjectListInput struct {
 type Subjects struct {
 	database *Database
 	clock    Clock
+	// enabled is the modules whose items are counted, or nil to count every
+	// module. The registry holds rows for modules that have since been
+	// switched off, and a count that included them would promise items the
+	// screen cannot list.
+	enabled []string
 }
 
 // NewSubjects wires the service over the database and the clock the rest of
 // the process runs on.
 func NewSubjects(database *Database, clock Clock) *Subjects {
 	return &Subjects{database: database, clock: clock}
+}
+
+// CountingModules limits the per-kind counts to items of the named modules.
+// The core's own items always count, because the core is never switched off.
+func (s *Subjects) CountingModules(modules []string) *Subjects {
+	s.enabled = append([]string{SubjectItemModule}, modules...)
+	return s
+}
+
+// moduleFilter is the clause and arguments restricting a count to the enabled
+// modules, or nothing when every module counts.
+func (s *Subjects) moduleFilter() (string, []any) {
+	if s.enabled == nil {
+		return "", nil
+	}
+	args := make([]any, 0, len(s.enabled))
+	for _, module := range s.enabled {
+		args = append(args, module)
+	}
+	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(args)), ",")
+	return " AND core_items.module IN (" + placeholders + ")", args
 }
 
 // Create registers a subject and its registry row in one transaction. A name
@@ -427,14 +453,15 @@ func (s *Subjects) withCountsForAll(ctx context.Context, rows []db.CoreSubject) 
 	}
 	placeholders := strings.TrimSuffix(strings.Repeat("?,", len(ids)), ",")
 
+	moduleClause, moduleArgs := s.moduleFilter()
 	byType, err := s.database.Reader().QueryContext(ctx,
 		`SELECT core_links.dst_id, core_items.module, core_items.type, COUNT(*)
          FROM core_links
          JOIN core_items ON core_items.id = core_links.src_id
          WHERE core_links.dst_id IN (`+placeholders+`)
-           AND core_links.kind = 'about' AND core_links.status = 'confirmed'
+           AND core_links.kind = 'about' AND core_links.status = 'confirmed'`+moduleClause+`
          GROUP BY core_links.dst_id, core_items.module, core_items.type
-         ORDER BY core_items.module, core_items.type`, ids...)
+         ORDER BY core_items.module, core_items.type`, append(append([]any{}, ids...), moduleArgs...)...)
 	if err != nil {
 		return nil, fmt.Errorf("counting what is linked to the subjects: %w", err)
 	}

@@ -138,7 +138,7 @@ func withSubjects(cmd *cobra.Command, fn func(*core.Subjects) error) error {
 		if _, err := core.MigrateCore(ctx, database.Writer()); err != nil {
 			return err
 		}
-		return fn(core.NewSubjects(database, core.SystemClock()))
+		return fn(core.NewSubjects(database, core.SystemClock()).CountingModules(cfg.Modules))
 	})
 }
 

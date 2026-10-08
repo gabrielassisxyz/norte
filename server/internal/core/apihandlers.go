@@ -27,11 +27,11 @@ type APIHandlers struct {
 // this process has none -- a test mounting the router to check the contract,
 // for instance -- and every endpoint here then answers 503 rather than
 // panicking inside a query.
-func NewAPIHandlers(database *Database, clock Clock, providers []FocusProvider) APIHandlers {
+func NewAPIHandlers(database *Database, clock Clock, providers []FocusProvider, enabledModules []string) APIHandlers {
 	if database == nil {
 		return APIHandlers{}
 	}
-	subjects := NewSubjects(database, clock)
+	subjects := NewSubjects(database, clock).CountingModules(enabledModules)
 	return APIHandlers{
 		subjects: subjects,
 		focus:    NewFocusAPI(subjects, providers),

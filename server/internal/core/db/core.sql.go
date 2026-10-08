@@ -105,7 +105,7 @@ func (q *Queries) CountCoreSubjectItemsByType(ctx context.Context, dstID string)
 }
 
 const decideCoreLink = `-- name: DecideCoreLink :execresult
-UPDATE core_links SET status = ?, decided_at = ? WHERE id = ?
+UPDATE core_links SET status = ?, decided_at = ? WHERE id = ? AND status = 'suggested'
 `
 
 type DecideCoreLinkParams struct {
@@ -115,7 +115,9 @@ type DecideCoreLinkParams struct {
 }
 
 // Accept or reject a suggestion. The status is the caller's; decided_at is set
-// either way, because rejecting is a decision as much as accepting is.
+// either way, because rejecting is a decision as much as accepting is. Only a
+// suggestion can be decided: a confirmed link is a person's own assertion, and
+// a rejected one their recorded refusal, and neither is the model's to overturn.
 func (q *Queries) DecideCoreLink(ctx context.Context, arg DecideCoreLinkParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, decideCoreLink, arg.Status, arg.DecidedAt, arg.ID)
 }
@@ -214,6 +216,55 @@ func (q *Queries) GetCoreLinkByTriple(ctx context.Context, arg GetCoreLinkByTrip
 		&i.Confidence,
 		&i.CreatedAt,
 		&i.DecidedAt,
+	)
+	return i, err
+}
+
+const getCoreLinkResolved = `-- name: GetCoreLinkResolved :one
+SELECT
+    core_links.id, core_links.src_id, core_links.dst_id, core_links.kind, core_links.source, core_links.status, core_links.confidence, core_links.created_at, core_links.decided_at,
+    src.id, src.module, src.type, src.title, src.url, src.created_at,
+    dst.id, dst.module, dst.type, dst.title, dst.url, dst.created_at
+FROM core_links
+JOIN core_items AS src ON src.id = core_links.src_id
+JOIN core_items AS dst ON dst.id = core_links.dst_id
+WHERE core_links.id = ?
+`
+
+type GetCoreLinkResolvedRow struct {
+	CoreLink   CoreLink
+	CoreItem   CoreItem
+	CoreItem_2 CoreItem
+}
+
+// A link with both of its ends from the registry, in one read. The link
+// screens render every row with its two ends, so reading them one registry
+// row at a time costs two extra queries per link on screen.
+func (q *Queries) GetCoreLinkResolved(ctx context.Context, id string) (GetCoreLinkResolvedRow, error) {
+	row := q.db.QueryRowContext(ctx, getCoreLinkResolved, id)
+	var i GetCoreLinkResolvedRow
+	err := row.Scan(
+		&i.CoreLink.ID,
+		&i.CoreLink.SrcID,
+		&i.CoreLink.DstID,
+		&i.CoreLink.Kind,
+		&i.CoreLink.Source,
+		&i.CoreLink.Status,
+		&i.CoreLink.Confidence,
+		&i.CoreLink.CreatedAt,
+		&i.CoreLink.DecidedAt,
+		&i.CoreItem.ID,
+		&i.CoreItem.Module,
+		&i.CoreItem.Type,
+		&i.CoreItem.Title,
+		&i.CoreItem.Url,
+		&i.CoreItem.CreatedAt,
+		&i.CoreItem_2.ID,
+		&i.CoreItem_2.Module,
+		&i.CoreItem_2.Type,
+		&i.CoreItem_2.Title,
+		&i.CoreItem_2.Url,
+		&i.CoreItem_2.CreatedAt,
 	)
 	return i, err
 }

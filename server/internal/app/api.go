@@ -28,7 +28,8 @@ func mountCoreAPI(mux *http.ServeMux, opts RouterOptions) error {
 	handlers := coreHandlers{
 		config: opts.Config,
 		APIHandlers: core.NewAPIHandlers(
-			opts.ModuleDeps.Database, opts.ModuleDeps.Clock, NorteFocusProviders(opts.Modules)),
+			opts.ModuleDeps.Database, opts.ModuleDeps.Clock, NorteFocusProviders(opts.Modules),
+			norteModuleNames(opts.Modules)),
 	}
 	strict := coreapi.NewStrictHandlerWithOptions(handlers, nil, coreapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  writeRequestDecodeError,
