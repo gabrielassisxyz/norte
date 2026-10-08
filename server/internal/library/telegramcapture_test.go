@@ -3,6 +3,7 @@ package library
 import (
 	"bytes"
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
 	"sync"
@@ -39,6 +40,9 @@ type libraryTelegramHarness struct {
 	fake     *telegramtest.Server
 	settings telegram.Settings
 	logs     *libraryLockedBuffer
+	// pollerStore replaces the store the poller writes through, so a test can
+	// make a save fail. Nil means the real one.
+	pollerStore telegram.Store
 }
 
 // libraryLockedBuffer is a log sink the poller goroutine writes while the test
@@ -108,7 +112,11 @@ func newLibraryTelegramHarness(t *testing.T) *libraryTelegramHarness {
 func (h *libraryTelegramHarness) startPoller() (stop func()) {
 	h.t.Helper()
 	logger := slog.New(slog.NewTextHandler(h.logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	adapter := telegram.NewAdapter(h.settings, h.store, h.clock, logger)
+	var store telegram.Store = h.store
+	if h.pollerStore != nil {
+		store = h.pollerStore
+	}
+	adapter := telegram.NewAdapter(h.settings, store, h.clock, logger)
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
 	go func() { done <- adapter.Run(ctx) }()
@@ -768,5 +776,67 @@ func TestEveryPollAsksForASmallBatch(t *testing.T) {
 		if limit != "20" {
 			t.Errorf("a poll sent limit=%q, want 20", limit)
 		}
+	}
+}
+
+// libraryFailingSaveStore refuses to save a link whose URL contains "poison",
+// the way a database that keeps failing on one message would.
+type libraryFailingSaveStore struct {
+	telegram.Store
+	mu       sync.Mutex
+	attempts int
+}
+
+func (s *libraryFailingSaveStore) SaveLink(ctx context.Context, capture telegram.Capture) error {
+	if strings.Contains(capture.URL, "poison") {
+		s.mu.Lock()
+		s.attempts++
+		s.mu.Unlock()
+		return errors.New("the database is unhappy")
+	}
+	return s.Store.SaveLink(ctx, capture)
+}
+
+func (s *libraryFailingSaveStore) count() int {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.attempts
+}
+
+// TestAnUpdateThatKeepsFailingIsSkippedAfterFiveTries: a save that never
+// succeeds must not hold the cursor, and the message behind it, forever.
+func TestAnUpdateThatKeepsFailingIsSkippedAfterFiveTries(t *testing.T) {
+	harness := newLibraryTelegramHarness(t)
+	failing := &libraryFailingSaveStore{Store: harness.store}
+	harness.pollerStore = failing
+	stop := harness.startPoller()
+	defer stop()
+
+	harness.fake.Deliver(telegramtest.Update{
+		UpdateID: 5, ChatID: libraryTelegramTestChat, MessageID: 1,
+		Text: "https://ortaessays.example/poison",
+	})
+	harness.fake.Deliver(telegramtest.Update{
+		UpdateID: 6, ChatID: libraryTelegramTestChat, MessageID: 2,
+		Text: "https://ortaessays.example/fine",
+	})
+	// The backoff runs on the injected clock, so time is moved until the
+	// sixth poll asks past the poisoned update.
+	harness.waitFor("moved past the poisoned update", func() bool {
+		harness.clock.Advance(10 * time.Second)
+		return harness.cursor() >= 6 && harness.itemCount() == 1
+	})
+	if got := failing.count(); got != 5 {
+		t.Errorf("the poisoned update was tried %d times, want 5", got)
+	}
+	if item := harness.onlyItem(); item.Url != "https://ortaessays.example/fine" {
+		t.Errorf("the saved item is %q, want the message behind the poisoned one", item.Url)
+	}
+	logs := harness.logs.String()
+	if !strings.Contains(logs, "is skipped") || !strings.Contains(logs, "update_id=5") {
+		t.Errorf("the skip was not logged with the update id:\n%s", logs)
+	}
+	if strings.Contains(logs, libraryTelegramTestToken) || strings.Contains(logs, "poison") {
+		t.Errorf("the skip line carries the token or the message:\n%s", logs)
 	}
 }

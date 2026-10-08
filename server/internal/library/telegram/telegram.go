@@ -37,6 +37,10 @@ const DefaultAPIBase = "https://api.telegram.org"
 const (
 	pollTimeout  = 30 * time.Second
 	errorBackoff = 5 * time.Second
+	// maxSaveFailures is how many times in a row one update may fail to be
+	// recorded before it is given up on. Without it a failure that never
+	// clears holds the cursor, and every message behind it, forever.
+	maxSaveFailures = 5
 )
 
 // Settings is what the adapter needs from the configuration, already
@@ -135,13 +139,17 @@ func NewAdapter(settings Settings, store Store, clock core.Clock, logger *slog.L
 // memory: that is what makes a restart continue where the last committed save
 // left off. An update whose save fails does not move the offset and stops the
 // batch, so the next poll offers it again in order rather than leaving a hole
-// behind it.
+// behind it -- until the same update has failed maxSaveFailures times in a
+// row, when it is logged and skipped so one poisoned message cannot hold the
+// rest of the chat.
 func (a *Adapter) Run(ctx context.Context) error {
 	cursor, err := a.store.UpdateOffset(ctx)
 	if err != nil {
 		return fmt.Errorf("reading the Telegram update cursor: %w", err)
 	}
 	a.logger.Info("telegram adapter started", "chat_id", a.settings.ChatID, "offset", cursor+1)
+	var failingID int64
+	failures := 0
 	for {
 		if ctx.Err() != nil {
 			return nil
@@ -165,8 +173,20 @@ func (a *Adapter) Run(ctx context.Context) error {
 				}
 				a.logger.Error("a Telegram update could not be recorded",
 					"update_id", update.UpdateID, "err", err.Error())
-				stalled = true
-				break
+				if update.UpdateID != failingID {
+					failingID, failures = update.UpdateID, 0
+				}
+				failures++
+				if failures < maxSaveFailures {
+					stalled = true
+					break
+				}
+				a.logger.Error("a Telegram update failed too many times in a row and is skipped",
+					"update_id", update.UpdateID, "failures", failures)
+				failingID, failures = 0, 0
+				// Best effort: the in-memory cursor moves either way, and a
+				// restart that re-offers the update starts the count again.
+				_ = a.store.SkipUpdate(ctx, update.UpdateID)
 			}
 			cursor = update.UpdateID
 		}
