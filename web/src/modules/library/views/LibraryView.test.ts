@@ -59,7 +59,11 @@ function titles(wrapper: VueWrapper): string[] {
 function segCounts(wrapper: VueWrapper): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const button of wrapper.findAll('.nt-seg-btn')) {
-    counts[button.find('span').text()] = Number(button.find('.nt-seg-count').text())
+    // The screen carries a second segmented control, for the order, whose
+    // options are not counted; only the shelves answer this question.
+    const count = button.find('.nt-seg-count')
+    if (!count.exists()) continue
+    counts[button.find('span').text()] = Number(count.text())
   }
   return counts
 }
@@ -169,7 +173,7 @@ describe('LibraryView over the API', () => {
     expect(titles(wrapper)).toEqual(['Um paper guardado'])
 
     await wrapper.get('#library-search').setValue('')
-    await wrapper.findAll('.ghost')[0].trigger('click')
+    await wrapper.get('.library-sort').trigger('click')
     await flushReads()
 
     expect(lastQuery(library)).toMatchObject({ sort: 'title' })
@@ -427,5 +431,104 @@ describe('LibraryView superseding a read it no longer needs', () => {
     await flushReads()
 
     expect(signals[0].aborted).toBe(true)
+  })
+})
+
+describe('LibraryView ranked by the focus', () => {
+  /** The order button carrying a label, which is not the shelf control. */
+  function orderingButton(wrapper: VueWrapper, label: string) {
+    const found = wrapper
+      .findAll('.library-ordering .nt-seg-btn')
+      .find((button) => button.text().includes(label))
+    if (!found) throw new Error(`no order option labelled ${label}`)
+    return found
+  }
+
+  /** Items the fake ranks: the score it means is stated on `why`. */
+  function focusShelf(): LibraryItemRecord[] {
+    return [
+      libraryRecord({
+        id: 'sem-foco',
+        title: 'Guardado sem assunto',
+        status: 'inbox',
+        unread: true,
+        saved_at: `${TODAY}T11:00:00Z`
+      }),
+      libraryRecord({
+        id: 'no-foco',
+        title: 'Ligado ao foco de agora',
+        status: 'arquivo',
+        unread: true,
+        why: 'focus:1',
+        saved_at: '2026-09-20T10:00:00Z'
+      })
+    ]
+  }
+
+  it('reads the date order first and asks for view=now only once it is chosen', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper } = await mountAt('/biblioteca', library)
+
+    expect(library.calls.list).toHaveLength(1)
+    expect(library.calls.list[0].view).toBe('inbox')
+    expect(library.calls.list.some((query) => query.view === 'now')).toBe(false)
+
+    await orderingButton(wrapper, 'O que ler agora').trigger('click')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+    // The ranked view carries its own order: the three parameters the server
+    // refuses alongside it must not be sent.
+    expect(lastQuery(library)?.sort).toBeUndefined()
+    expect(lastQuery(library)?.q).toBeUndefined()
+    expect(lastQuery(library)?.unread).toBeNull()
+    // Ranked above the newer item, and from another shelf than the one open.
+    expect(titles(wrapper)).toEqual(['Ligado ao foco de agora', 'Guardado sem assunto'])
+
+    await orderingButton(wrapper, 'Por data').trigger('click')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ view: 'inbox' })
+  })
+
+  it('hides the search, the sort and the unread filter while the ranking is on', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper } = await mountAt('/biblioteca', library)
+
+    expect(wrapper.find('#library-search').exists()).toBe(true)
+    await orderingButton(wrapper, 'O que ler agora').trigger('click')
+    await flushReads()
+
+    expect(wrapper.find('#library-search').exists()).toBe(false)
+    expect(wrapper.find('.library-sort').exists()).toBe(false)
+  })
+
+  it('draws away from the focus and opens the item the server picked', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library)
+    // The navigation itself is asserted on the call rather than on the route
+    // that follows: the reader's component is loaded lazily, so the route
+    // settles on the module loader's schedule and not on this test's.
+    const pushed = vi.spyOn(router, 'push')
+
+    await wrapper.get('.library-surprise').trigger('click')
+    await flushReads()
+
+    expect(library.calls.draw).toEqual([{ away_from_focus: true }])
+    expect(pushed).toHaveBeenCalledWith({ name: 'leitor', params: { id: 'sem-foco' } })
+  })
+
+  it('says there is nothing to read when the draw comes back empty', async () => {
+    const library = fakeLibrarySource(focusShelf(), {
+      drawItems: async () => []
+    } as Partial<LibrarySource>)
+    const { wrapper, router } = await mountAt('/biblioteca', library)
+    const pushed = vi.spyOn(router, 'push')
+
+    await wrapper.get('.library-surprise').trigger('click')
+    await flushReads()
+
+    expect(wrapper.find('.library-nothing').text()).toBe('Nada para ler')
+    expect(pushed).not.toHaveBeenCalled()
   })
 })

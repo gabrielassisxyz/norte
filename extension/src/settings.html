@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-BR">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Configurar Norte</title><link rel="stylesheet" href="style.css"></head>
+<body>
+<header><strong>Norte</strong></header>
+<main>
+<h1>Conectar ao servidor</h1>
+<p>Use o endereço do Norte no seu computador ou na sua rede.</p>
+<form id="settings-form">
+<label for="origin">Endereço do servidor</label>
+<input id="origin" type="url" required placeholder="http://127.0.0.1:8080">
+<button type="submit" id="connect">Conectar</button>
+</form>
+<p id="status" role="status" aria-live="polite"></p>
+</main>
+<script type="module" src="settings-page.js"></script>
+</body>
+</html>
