@@ -27,6 +27,7 @@ for an answer one command gives in seconds.
 | `extension-firefox` | `web-ext lint`, then temporary Firefox installation and background startup; prints a skip reason if Firefox is absent, unless `NORTE_REQUIRE_FIREFOX=1` is set (CI sets it), which turns the skip into a failure. | `bin/ci extension-firefox` |
 | `web-e2e-csp` | The app under the policy the server sends: an article whose image comes from a local HTTPS listener renders, a style written at runtime applies, and an injected inline script is blocked with a `securitypolicyviolation` reported. Needs `generate` and `go-build`. | `cd web && npx playwright test e2e/csp.spec.ts` |
 | `web-e2e-phone` | The first delivery walked at 390x844 with touch and no mouse, plus the same actions at 1440x900. Needs `generate` and `go-build`. | `cd web && npx playwright test e2e/phone-walk.spec.ts` |
+| `web-e2e-anchoring` | A passage selected four code points into a paragraph is highlighted from the reader, stored `anchored` at the offset the test counts for itself, and marked in the article: the context a browser hands the reader crosses the paragraph break with no whitespace in it, which only a real selection against a real extraction produces. Needs `generate` and `go-build`. | `cd web && npx playwright test e2e/highlight-anchoring.spec.ts` |
 
 `bin/ci --list` prints the names, and `bin/ci <name>...` runs only the ones
 given. Every check runs even after one fails, so a single red run names all the
@@ -57,7 +58,7 @@ Within `web-test`, one file reruns on its own:
 
     cd web && npx vitest run src/theme.test.ts
 
-The two `web-e2e-*` checks drive a real `norte serve` on a temporary
+The `web-e2e-*` checks drive a real `norte serve` on a temporary
 `NORTE_DATA`, started by the suite itself, against the binary the `go-build`
 check wrote to `server/norte`. Running one of them before `bin/generate` and
 that build have run fails saying so. Each also runs `npx playwright install
