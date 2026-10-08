@@ -3,6 +3,7 @@ package library
 import (
 	"fmt"
 	"net/url"
+	"sort"
 	"strings"
 )
 
@@ -42,20 +43,59 @@ func ValidateItemURL(raw string) (*url.URL, error) {
 }
 
 // CanonicalizeItemURL returns the dedupe key for a validated URL: the tracking
-// parameters and the fragment removed, the host lowercased. Two saves of one
+// parameters and the fragment removed, the host lowercased, the scheme's
+// default port dropped and an empty path set to "/". Two saves of one
 // page through different trackers or scrolled to different anchors are one
 // item because they canonicalize to one key, and the UNIQUE index on the
-// column is what concurrent saves resolve through.
+// column is what concurrent saves resolve through. The query is split on "&"
+// and each pair's raw text is kept, so a pair containing ";" survives, where
+// url.ParseQuery would silently drop it; only tracking keys are removed and
+// the survivors are sorted.
 func CanonicalizeItemURL(parsed *url.URL) string {
 	trimmed := *parsed
-	trimmed.Host = strings.ToLower(trimmed.Host)
-	query := trimmed.Query()
-	for name := range query {
-		if strings.HasPrefix(strings.ToLower(name), "utm_") || libraryTrackingParams[strings.ToLower(name)] {
-			query.Del(name)
-		}
+	trimmed.Scheme = strings.ToLower(trimmed.Scheme)
+	hostname := strings.ToLower(trimmed.Hostname())
+	port := trimmed.Port()
+	if (trimmed.Scheme == "http" && port == "80") || (trimmed.Scheme == "https" && port == "443") {
+		port = ""
 	}
-	trimmed.RawQuery = query.Encode()
+	host := hostname
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	if port != "" {
+		host = host + ":" + port
+	}
+	trimmed.Host = host
+	if trimmed.Path == "" {
+		trimmed.Path = "/"
+	}
+	rawQuery := trimmed.RawQuery
+	if rawQuery == "" {
+		trimmed.RawQuery = ""
+	} else {
+		kept := make([]string, 0, strings.Count(rawQuery, "&")+1)
+		for _, pair := range strings.Split(rawQuery, "&") {
+			if pair == "" {
+				continue
+			}
+			key := pair
+			if idx := strings.IndexByte(pair, '='); idx >= 0 {
+				key = pair[:idx]
+			}
+			decodedKey := key
+			if unescaped, err := url.QueryUnescape(key); err == nil {
+				decodedKey = unescaped
+			}
+			lowered := strings.ToLower(decodedKey)
+			if strings.HasPrefix(lowered, "utm_") || libraryTrackingParams[lowered] {
+				continue
+			}
+			kept = append(kept, pair)
+		}
+		sort.Strings(kept)
+		trimmed.RawQuery = strings.Join(kept, "&")
+	}
 	trimmed.Fragment = ""
 	trimmed.RawFragment = ""
 	return trimmed.String()
