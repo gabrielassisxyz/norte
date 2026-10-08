@@ -7,6 +7,8 @@ import { createRouteTable, routes } from '@/router'
 import type { AppSources } from '@/sources'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
+import { coreLink, fakeCoreSource, registryItem } from '@/shell/data/testing'
+
 import { libraryGainedItem } from '../data/revision'
 import type { LibraryItemList, LibraryItemRecord, LibrarySource } from '../data/source'
 import { fakeLibrarySource, libraryRecord, type FakeLibrarySource } from '../data/testing'
@@ -39,13 +41,24 @@ function companionSources(): Partial<AppSources> {
   }
 }
 
-async function mountAt(path: string, library: Partial<AppSources['library']>) {
+async function mountAt(
+  path: string,
+  library: Partial<AppSources['library']>,
+  core?: AppSources['core']
+) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
   const wrapper = mount(LibraryView, {
     global: {
-      plugins: [router, sourcesPlugin({ ...companionSources(), library: library as AppSources['library'] })]
+      plugins: [
+        router,
+        sourcesPlugin({
+          ...companionSources(),
+          library: library as AppSources['library'],
+          ...(core ? { core } : {})
+        })
+      ]
     }
   })
   await flushReads()
@@ -56,6 +69,11 @@ function titles(wrapper: VueWrapper): string[] {
   return wrapper.findAll('.item-title').map((node) => node.text())
 }
 
+/**
+ * The counted tabs and their counts. A tab with no count is left out rather
+ * than reported as zero: the review queue is one, and "0 sugestões" is a
+ * different claim from "nobody counts the suggestions".
+ */
 function segCounts(wrapper: VueWrapper): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const button of wrapper.findAll('.nt-seg-btn')) {
@@ -432,6 +450,47 @@ describe('LibraryView superseding a read it no longer needs', () => {
 
     expect(signals[0].aborted).toBe(true)
   })
+
+  it('offers the review queue as a tab, and reads no shelf while it is on screen', async () => {
+    const library = fakeLibrarySource(shelf())
+    const core = fakeCoreSource({
+      links: [
+        coreLink({
+          id: 'link-sugerido',
+          status: 'suggested',
+          source: 'llm',
+          confidence: 0.8,
+          src: registryItem({ id: 'item-consenso', title: 'Notas sobre consenso' }),
+          dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Sistemas distribuídos' })
+        })
+      ]
+    })
+    const { wrapper } = await mountAt('/biblioteca?v=sugestoes', library, core)
+
+    // The tab is selected, the shelf was never asked for, and the queue is on
+    // screen instead of the item list.
+    expect(wrapper.get('[aria-selected="true"]').text()).toContain('Sugestões')
+    expect(library.calls.list).toHaveLength(0)
+    expect(wrapper.find('.library-list').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Notas sobre consenso')
+    // The queue carries no count, because the only number this screen could
+    // print is the size of the first page.
+    expect(segCounts(wrapper)).toEqual({ Inbox: 1, Depois: 1, Arquivo: 1, Tudo: 3 })
+  })
+
+  it('reads the shelf when the person leaves the review queue', async () => {
+    const library = fakeLibrarySource(shelf())
+    const core = fakeCoreSource({})
+    const { wrapper, router } = await mountAt('/biblioteca?v=sugestoes', library, core)
+
+    expect(library.calls.list).toHaveLength(0)
+
+    await router.push('/biblioteca?v=tudo')
+    await flushReads()
+
+    expect(lastQuery(library)?.view).toBe('tudo')
+    expect(titles(wrapper)).toHaveLength(3)
+  })
 })
 
 describe('LibraryView ranked by the focus', () => {
@@ -530,5 +589,63 @@ describe('LibraryView ranked by the focus', () => {
 
     expect(wrapper.find('.library-nothing').text()).toBe('Nada para ler')
     expect(pushed).not.toHaveBeenCalled()
+  })
+})
+
+describe('LibraryView with the review queue and the focus ranking together', () => {
+  function tabLabelled(wrapper: VueWrapper, label: string) {
+    return wrapper.findAll('.nt-seg-btn').find((button) => button.text().includes(label))
+  }
+
+  it('keeps the order control and the draw on the shelves, off the review queue', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    expect(wrapper.find('.library-ordering').exists()).toBe(true)
+    expect(wrapper.find('.library-surprise').exists()).toBe(true)
+
+    await router.push('/biblioteca?v=sugestoes')
+    await flushReads()
+
+    expect(wrapper.find('.library-ordering').exists()).toBe(false)
+    expect(wrapper.find('.library-surprise').exists()).toBe(false)
+    expect(wrapper.find('#library-search').exists()).toBe(false)
+  })
+
+  it('shows the tabs on the review queue though the ranking was on, and ranks again on the way back', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    await tabLabelled(wrapper, 'O que ler agora')!.trigger('click')
+    await flushReads()
+    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+    expect(tabLabelled(wrapper, 'Sugestões')).toBeUndefined()
+
+    // Reached from outside the hidden control, as the sidebar would.
+    await router.push('/biblioteca?v=sugestoes')
+    await flushReads()
+
+    // The order control is not on this screen, so the tabs are the only way off it.
+    expect(wrapper.get('[aria-selected="true"]').text()).toContain('Sugestões')
+    expect(wrapper.text()).not.toContain('primeiro o que está ligado ao foco')
+
+    await router.push('/biblioteca?v=inbox')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+  })
+
+  it('drops the unread notice on the review queue', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    await wrapper.get('[aria-label="Só não lidos"]').trigger('click')
+    await flushReads()
+    expect(wrapper.text()).toContain('Mostrando só não lidos')
+
+    await router.push('/biblioteca?v=sugestoes')
+    await flushReads()
+
+    expect(wrapper.text()).not.toContain('Mostrando só não lidos')
   })
 })

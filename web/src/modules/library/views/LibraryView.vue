@@ -15,6 +15,7 @@ import { useSources } from '@/sources'
 
 import { useLibraryCounts, useLibraryItems } from '../data/composables'
 import { libraryItemChanged } from '../data/revision'
+import LibrarySuggestions from './LibrarySuggestions.vue'
 import type {
   LibraryItemSummary,
   LibraryKind,
@@ -31,6 +32,17 @@ const VIEW_LABELS: Record<LibraryShelf, string> = {
   arquivo: 'Arquivo',
   tudo: 'Tudo'
 }
+
+/**
+ * The review queue's tab, which is addressed like a shelf and is not one.
+ *
+ * It shares the `v` parameter with the shelves because it is one more thing the
+ * Biblioteca shows, and a person switching to it and back expects the browser's
+ * own back button to do that. It is not a `LibraryShelf`: no library list is
+ * read for it, and sending `v=sugestoes` to `/api/library/items` would be
+ * asking the server for a shelf that does not exist.
+ */
+const SUGGESTIONS_TAB = 'sugestoes'
 
 /**
  * The spellings the `tipo` query parameter accepts.
@@ -90,6 +102,22 @@ const sort = ref<LibrarySort>('saved_desc')
 const unreadOnly = ref(false)
 const search = ref('')
 
+/** The `v` parameter as it was written, whether or not it names anything. */
+const requestedTab = computed<string>(() => {
+  const raw = route.query.v
+  const value = Array.isArray(raw) ? raw[0] : raw
+  return typeof value === 'string' ? value : ''
+})
+
+const showSuggestions = computed(() => requestedTab.value === SUGGESTIONS_TAB)
+
+/** Which tab the control shows as selected, the queue included. */
+const activeTab = computed<string>(() => (showSuggestions.value ? SUGGESTIONS_TAB : activeView.value))
+
+const activeView = computed<LibraryShelf>(() =>
+  (VIEWS as string[]).includes(requestedTab.value) ? (requestedTab.value as LibraryShelf) : 'inbox'
+)
+
 /**
  * How the list is read: by the date each item was saved, or ranked by how
  * closely it relates to what the person is focused on.
@@ -107,17 +135,14 @@ const ORDERING_OPTIONS: Array<{ value: LibraryOrdering; label: string }> = [
 ]
 
 const ordering = ref<LibraryOrdering>('data')
-const focusRanked = computed(() => ordering.value === 'agora')
+// The review queue is not a list of shelf items, so the ranking does not apply
+// to it: an ordering chosen on a shelf waits there instead of hiding the tabs
+// on a screen whose own tools no longer include the control that would undo it.
+const focusRanked = computed(() => ordering.value === 'agora' && !showSuggestions.value)
 
 function setOrdering(value: string): void {
   if (value === 'data' || value === 'agora') ordering.value = value
 }
-
-const activeView = computed<LibraryShelf>(() => {
-  const raw = route.query.v
-  const value = Array.isArray(raw) ? raw[0] : raw
-  return typeof value === 'string' && (VIEWS as string[]).includes(value) ? (value as LibraryShelf) : 'inbox'
-})
 
 /** The requested type filter, or null for every kind. */
 const activeKind = computed<LibraryKind | null>(() => {
@@ -153,15 +178,28 @@ const query = computed<LibraryListQuery>(() => {
   }
 })
 
-const { data: page, loading, error, refresh, hasMore, loadingMore, loadMoreError, loadMore, applyItem } = useLibraryItems(query)
+// The shelf is not read while the review queue is on screen: the list is not
+// rendered then, and asking for a page nothing displays is a request paid for
+// twice over -- once on the way out and again when the person comes back.
+const { data: page, loading, error, refresh, hasMore, loadingMore, loadMoreError, loadMore, applyItem } =
+  useLibraryItems(query, () => !showSuggestions.value)
 const { data: counts } = useLibraryCounts()
 const writing = useAsyncAction()
 
 const items = computed<LibraryItemSummary[]>(() => page.value?.items ?? [])
 
-const segOptions = computed(() =>
-  VIEWS.map((view) => ({ value: view, label: VIEW_LABELS[view], count: counts.value?.views[view] ?? 0 }))
-)
+/**
+ * The tabs, the shelves counted and the queue not.
+ *
+ * The queue carries no count on purpose. The only number this screen could
+ * print is how many suggestions the first page happens to hold, and labelling
+ * that as the size of the queue would be wrong on the second page; there is no
+ * endpoint that counts links, and inventing one is not this bead's.
+ */
+const segOptions = computed(() => [
+  ...VIEWS.map((view) => ({ value: view, label: VIEW_LABELS[view], count: counts.value?.views[view] ?? 0 })),
+  { value: SUGGESTIONS_TAB, label: 'Sugestões' }
+])
 
 /** Nothing has arrived yet, as opposed to nothing matching what was asked. */
 const firstLoad = computed(() => loading.value && page.value === null)
@@ -187,7 +225,7 @@ const countText = computed(() => `${items.value.length} ${items.value.length ===
 const sortLabel = computed(() => (sort.value === 'title' ? 'Título' : 'Data salva'))
 
 function setView(view: string): void {
-  if ((VIEWS as string[]).includes(view)) {
+  if ((VIEWS as string[]).includes(view) || view === SUGGESTIONS_TAB) {
     void router.push({ query: { ...route.query, v: view } })
   }
 }
@@ -348,12 +386,12 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
         <SegmentedControl
           v-if="!focusRanked"
           :options="segOptions"
-          :model-value="activeView"
+          :model-value="activeTab"
           label="Estado"
           @change="setView"
         />
       </div>
-      <div class="library-tools">
+      <div v-if="!showSuggestions" class="library-tools">
         <SegmentedControl
           class="library-ordering"
           :options="ORDERING_OPTIONS"
@@ -410,7 +448,7 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
       </div>
     </div>
 
-    <div v-if="unreadOnly && !focusRanked" class="library-unread">
+    <div v-if="unreadOnly && !showSuggestions && !focusRanked" class="library-unread">
       Mostrando só não lidos
       <button type="button" class="ghost ghost-clear" @click="unreadOnly = false">Limpar</button>
     </div>
@@ -433,7 +471,9 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
       <button type="button" class="ghost ghost-clear" @click="writing.clear()">Fechar</button>
     </p>
 
-    <div v-if="firstLoad" class="library-loading" role="status">Carregando a biblioteca…</div>
+    <LibrarySuggestions v-if="showSuggestions" />
+
+    <div v-else-if="firstLoad" class="library-loading" role="status">Carregando a biblioteca…</div>
 
     <div v-else-if="error" class="library-error" role="alert">
       <p>Não foi possível carregar a biblioteca: {{ error }}</p>
@@ -554,7 +594,7 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
       <div v-if="items.length === 0" class="library-empty">{{ emptyText }}</div>
     </div>
 
-    <div v-if="!firstLoad && !error" class="library-foot">
+    <div v-if="!showSuggestions && !firstLoad && !error" class="library-foot">
       <button
         v-if="hasMore"
         type="button"
