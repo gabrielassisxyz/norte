@@ -105,10 +105,18 @@ function schedulePoll(): void {
   }, delay)
 }
 
+/**
+ * The status alone, not the record that carries it.
+ *
+ * Every poll replaces the held record with a new object, so a watcher over the
+ * record — or over a tuple built fresh each time — fires on each answer even
+ * when nothing changed, and each of those would schedule another ask on top of
+ * the one the poll itself chained. Watching the string means this runs when the
+ * extraction actually moves.
+ */
 watch(
-  () => [itemId.value, item.value?.extract_status] as const,
-  ([, status], previous) => {
-    if (previous && previous[0] !== itemId.value) pollAttempt = 0
+  () => item.value?.extract_status,
+  (status) => {
     if (status === 'pending') {
       if (pollTimer === null) schedulePoll()
       return
@@ -241,6 +249,9 @@ watch(itemId, () => {
   restoring = false
   pendingPosition = null
   clearPositionTimer()
+  // A new item is a new extraction to wait for, from the first short delay.
+  pollAttempt = 0
+  stopPolling()
 })
 
 onBeforeUnmount(clearPositionTimer)
