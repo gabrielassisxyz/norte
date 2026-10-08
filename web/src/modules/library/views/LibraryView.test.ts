@@ -591,3 +591,61 @@ describe('LibraryView ranked by the focus', () => {
     expect(pushed).not.toHaveBeenCalled()
   })
 })
+
+describe('LibraryView with the review queue and the focus ranking together', () => {
+  function tabLabelled(wrapper: VueWrapper, label: string) {
+    return wrapper.findAll('.nt-seg-btn').find((button) => button.text().includes(label))
+  }
+
+  it('keeps the order control and the draw on the shelves, off the review queue', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    expect(wrapper.find('.library-ordering').exists()).toBe(true)
+    expect(wrapper.find('.library-surprise').exists()).toBe(true)
+
+    await router.push('/biblioteca?v=sugestoes')
+    await flushReads()
+
+    expect(wrapper.find('.library-ordering').exists()).toBe(false)
+    expect(wrapper.find('.library-surprise').exists()).toBe(false)
+    expect(wrapper.find('#library-search').exists()).toBe(false)
+  })
+
+  it('shows the tabs on the review queue though the ranking was on, and ranks again on the way back', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    await tabLabelled(wrapper, 'O que ler agora')!.trigger('click')
+    await flushReads()
+    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+    expect(tabLabelled(wrapper, 'Sugestões')).toBeUndefined()
+
+    // Reached from outside the hidden control, as the sidebar would.
+    await router.push('/biblioteca?v=sugestoes')
+    await flushReads()
+
+    // The order control is not on this screen, so the tabs are the only way off it.
+    expect(wrapper.get('[aria-selected="true"]').text()).toContain('Sugestões')
+    expect(wrapper.text()).not.toContain('primeiro o que está ligado ao foco')
+
+    await router.push('/biblioteca?v=inbox')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+  })
+
+  it('drops the unread notice on the review queue', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    await wrapper.get('[aria-label="Só não lidos"]').trigger('click')
+    await flushReads()
+    expect(wrapper.text()).toContain('Mostrando só não lidos')
+
+    await router.push('/biblioteca?v=sugestoes')
+    await flushReads()
+
+    expect(wrapper.text()).not.toContain('Mostrando só não lidos')
+  })
+})
