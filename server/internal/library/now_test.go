@@ -99,9 +99,12 @@ func libraryInsertLink(t *testing.T, database *core.Database, clock core.Clock,
 	}
 }
 
-// newLibraryFocusFixture saves v, w, z, y, x in that order -- so x is the
-// newest and v the oldest -- and links each the way the bead's first criterion
-// describes.
+// newLibraryFocusFixture saves v, w, z, y, x in that order -- ids ascending,
+// which the draw tests rely on -- then back-dates saved_at so that w is the
+// newest and x the oldest. That puts the saved order (w v z y x) well away
+// from the score order (x y z w v), which is what lets the ranking tests
+// fail when the score stops mattering. Each item is linked the way the bead's
+// first criterion describes.
 func newLibraryFocusFixture(t *testing.T, clock *clocktest.Clock) libraryFocusFixture {
 	t.Helper()
 	database, dataDir := newLibraryTestDB(t, clock)
@@ -117,6 +120,14 @@ func newLibraryFocusFixture(t *testing.T, clock *clocktest.Clock) libraryFocusFi
 		clock.Advance(time.Minute)
 		fixture.ids[letter] = librarySaveOne(t, fixture.service,
 			fmt.Sprintf("https://example.org/focus-%s", letter), "").ID
+	}
+	for minute, letter := range []string{"x", "y", "z", "v", "w"} {
+		if _, err := database.Writer().ExecContext(context.Background(),
+			"UPDATE library_items SET saved_at = ? WHERE id = ?",
+			core.FormatTime(libraryFixedInstant.Add(time.Duration(minute+1)*time.Minute)),
+			fixture.ids[letter]); err != nil {
+			t.Fatalf("back-dating %s: %v", letter, err)
+		}
 	}
 	confidence := 0.8
 	libraryInsertLink(t, database, clock, fixture.ids["x"], fixture.subjectA, core.LinkStatusConfirmed, nil)
