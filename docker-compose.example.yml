@@ -14,6 +14,21 @@ services:
   norte:
     build: .
     image: norte:latest
+    # Optional settings that hold secrets or per-install addresses go in a
+    # file next to this one, not in this file, e.g. a `norte.env` with the
+    # entries below (one KEY=value per line, no quotes), then uncomment:
+    #
+    # env_file: norte.env
+    #
+    #   NORTE_TELEGRAM_TOKEN=   Telegram bot token; /api/config reports whether
+    #                           it is set. A secret: it has no command-line flag.
+    #   NORTE_TELEGRAM_CHAT=    Telegram chat identifier the bot uses.
+    #   NORTE_LLM_URL=          URL of the language-model service; /api/config
+    #                           reports whether it is set.
+    #   NORTE_LLM_MODEL=        Model name sent to that service.
+    #   NORTE_LLM_KEY=          Key for that service. A secret, no flag either.
+    #   NORTE_PUBLIC_URL=       Exact origin the browser uses when it is not
+    #                           localhost (see the Tailscale example below).
     environment:
       # Comma-separated feature modules to enable. Only the modules listed
       # here are mounted: /api/config reports exactly these, and the frontend
@@ -40,6 +55,10 @@ services:
 
 volumes:
   norte-data:
+    # An explicit name, so the volume is called norte-data whatever the compose
+    # project is named. Without it compose creates <project>_norte-data and the
+    # backup command at the bottom would archive an empty, new volume.
+    name: norte-data
 
 # Phone over Tailscale (commented second example). The phone cannot reach
 # 127.0.0.1 on this machine, so bind the container to this machine's Tailscale
