@@ -89,7 +89,7 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
 </script>
 
 <template>
-  <div v-if="allowed" class="notes-highlight-action">
+  <div v-if="allowed" class="notes-highlight-action" :class="{ 'is-pinned': liveSelection }">
     <div v-if="liveSelection || phone" class="notes-selection-bar" role="group" aria-label="Trecho selecionado">
       <blockquote v-if="liveSelection" class="notes-selection-quote">{{ liveSelection.exact }}</blockquote>
       <Button
@@ -114,13 +114,12 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
 
 <style scoped>
 .notes-highlight-action { margin-top: var(--space-4); }
-/* Inside the reader's bar the box is the bar's own cell, so it brings no frame. */
-@media (max-width: 900px) {
-  .notes-highlight-action { margin-top: 0; }
-  .notes-selection-bar { padding: 0; border: 0; background: transparent; }
-  .notes-selection-quote { display: none; }
-  .notes-selection-bar :deep(.nt-btn) { flex: 1; min-width: 0; height: 40px; justify-content: center; }
-}
+/*
+  With a passage selected the box stays at the foot of the reader's scroll area
+  instead of after the article, so on a long text the person does not have to
+  scroll to the end to highlight what they have just selected.
+*/
+.notes-highlight-action.is-pinned { position: sticky; bottom: 0; z-index: 5; }
 .notes-selection-bar {
   display: flex;
   align-items: center;
@@ -140,4 +139,16 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
 }
 .notes-highlight-notice { margin: var(--space-2) 0 0; color: var(--ink-2); font-size: 13px; line-height: 20px; }
 .notes-highlight-error { margin: var(--space-2) 0 0; color: var(--danger); font-size: 13px; line-height: 20px; }
+/*
+  Inside the reader's bar the box is the bar's own cell, so it brings no frame.
+  It comes after the base rules because the query adds no specificity: before
+  them, the base border, padding and background won.
+*/
+@media (max-width: 900px) {
+  .notes-highlight-action { margin-top: 0; }
+  .notes-highlight-action.is-pinned { position: static; }
+  .notes-selection-bar { padding: 0; border: 0; background: transparent; }
+  .notes-selection-quote { display: none; }
+  .notes-selection-bar :deep(.nt-btn) { flex: 1; min-width: 0; height: 40px; justify-content: center; }
+}
 </style>

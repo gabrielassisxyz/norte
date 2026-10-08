@@ -130,6 +130,16 @@ onBeforeUnmount(() => {
   padding: 20px 48px 112px;
 }
 
+/*
+  A bare route is a full-height screen of its own (the reader, a material), so it
+  brings its own spacing. The padding above made it 100vh tall inside a box that
+  started 20px down, which pushed its bottom edge, and anything pinned to it,
+  out of the window.
+*/
+.app-shell.is-bare .app-content {
+  padding: 0;
+}
+
 @media (max-width: 900px) {
   .app-shell,
   .app-shell.is-collapsed,

@@ -7,16 +7,22 @@
  */
 export const PASSAGE = 'Uma frase que aparece uma única vez neste texto.'
 
-export function articleHtml(options: { imageSrc?: string } = {}): string {
+export function articleHtml(options: { imageSrc?: string; title?: string; fillerParagraphs?: number } = {}): string {
+  const title = options.title ?? 'Ler no telefone'
+  const filler = Array.from(
+    { length: options.fillerParagraphs ?? 0 },
+    (_, index) =>
+      `<p>Parágrafo de enchimento ${index + 1}, só para dar altura à página: o texto segue por mais algumas linhas para que a leitura precise rolar até o fim.</p>`
+  ).join('\n      ')
   const image = options.imageSrc
     ? `<figure><img src="${options.imageSrc}" alt="Um ponto" width="8" height="8" /><figcaption>Uma figura servida de fora.</figcaption></figure>`
     : ''
   return `<!doctype html>
 <html lang="pt-BR">
-  <head><title>Ler no telefone</title></head>
+  <head><title>${title}</title></head>
   <body>
     <article>
-      <h1>Ler no telefone</h1>
+      <h1>${title}</h1>
       <p>Primeiro parágrafo do texto, com frases suficientes para que a extração
       encontre um corpo de artigo e não apenas um fragmento de navegação.</p>
       <p style="line-height: 1.6">${PASSAGE} Depois dela o texto continua, para
@@ -26,6 +32,7 @@ export function articleHtml(options: { imageSrc?: string } = {}): string {
       <p>Mais um parágrafo, porque um artigo de um parágrafo não é um artigo e a
       extração trata textos curtos de outro jeito.</p>
       <p>E um último parágrafo, para que a página tenha altura e a leitura role.</p>
+      ${filler}
     </article>
   </body>
 </html>`

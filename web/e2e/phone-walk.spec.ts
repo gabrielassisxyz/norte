@@ -28,16 +28,25 @@ interface NotesPage<T> {
 
 test.beforeAll(async () => {
   server = await startNorte()
-  article = await seedArticle(server.baseURL, {
-    url: 'https://exemplo.invalid/ler-no-telefone',
-    title: 'Ler no telefone',
-    html: articleHtml()
-  })
 })
 
 test.afterAll(async () => {
   await server?.stop()
 })
+
+/**
+ * An article of the test's own, so no test depends on what another one did to
+ * the library: each passes alone as well as in the suite. The titles differ and
+ * none is a prefix of another, because a row is found by its title.
+ */
+async function seed(title: string, options: { fillerParagraphs?: number } = {}): Promise<SeededArticle> {
+  article = await seedArticle(server.baseURL, {
+    url: `https://exemplo.invalid/${encodeURIComponent(title)}`,
+    title,
+    html: articleHtml({ title, ...options })
+  })
+  return article
+}
 
 function item(): Promise<LibraryItem> {
   return api<LibraryItem>(server.baseURL, `/api/library/items/${article.id}`)
@@ -58,6 +67,7 @@ test.describe('at 390x844, with touch and no mouse', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
 
   test('walks the first delivery with a thumb', async ({ page }) => {
+    await seed('Percurso com o polegar')
     await boot(page, '/')
 
     // --- the drawer ------------------------------------------------------
@@ -81,6 +91,21 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect(row.locator('[role="group"][aria-label="Ações"]')).toHaveCount(0)
 
     await tap(row.locator('[data-action="mais"]'))
+    // Revealed by the tap itself, not by what it leaves behind: iOS Safari does
+    // not focus a button on tap, and Chromium keeps the row hovered after one,
+    // re-applying it when the layout changes. So drop both until neither holds
+    // for a while, and only then read what is computed.
+    const revealed = row.locator('[role="group"][aria-label="Ações"]')
+    await expect(async () => {
+      await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
+      await page.mouse.move(0, 0)
+      await page.waitForTimeout(300)
+      expect(await row.evaluate((node) => node.matches(':hover, :focus-within'))).toBe(false)
+    }).toPass()
+    // The group fades, so a value read mid-fade says nothing about where it ends.
+    await revealed.evaluate((node) => Promise.all(node.getAnimations().map((animation) => animation.finished)))
+    await expect(revealed).toHaveCSS('opacity', '1')
+    await expect(revealed).toHaveCSS('pointer-events', 'auto')
     await tap(row.locator('button[aria-label="Depois"]'))
     await expect.poll(async () => (await item()).status).toBe('depois')
 
@@ -98,6 +123,11 @@ test.describe('at 390x844, with touch and no mouse', () => {
     // --- a touch selection, highlighted from the bar -----------------------
     const destacar = bar.locator('[data-action="destacar"]')
     await expect(destacar).toBeDisabled()
+    // The bar's cell brings no frame of its own on a phone.
+    const cell = bar.locator('.notes-selection-bar')
+    await expect(cell).toHaveCSS('border-top-width', '0px')
+    await expect(cell).toHaveCSS('padding-top', '0px')
+    await expect(cell).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
     await selectPassage(page, PASSAGE)
     await expect(destacar).toBeEnabled()
     await tap(destacar)
@@ -154,6 +184,19 @@ test.describe('at 390x844, with touch and no mouse', () => {
   })
 
   test('reaches the Notas screen and its tabs by tap', async ({ page }) => {
+    const own = await seed('Notas no telefone')
+    const highlight = await api<{ id: string }>(server.baseURL, '/api/notes/highlights', {
+      method: 'POST',
+      body: JSON.stringify({ item_id: own.id, exact: PASSAGE })
+    })
+    await api(server.baseURL, '/api/notes/annotations', {
+      method: 'POST',
+      body: JSON.stringify({ item_id: own.id, highlight_id: highlight.id, text: 'Vale reler isto.' })
+    })
+    await api(server.baseURL, '/api/notes/questions', {
+      method: 'POST',
+      body: JSON.stringify({ item_id: own.id, text: 'O que isso muda na prática?' })
+    })
     await boot(page, '/')
 
     await tap(page.locator('[data-action="abrir-navegacao"]'))
@@ -161,15 +204,15 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await tap(drawer.locator('a.app-line-link', { hasText: 'Notas' }))
     await expect(page).toHaveURL(/\/notas$/)
 
-    // Every tab of the screen is a control a thumb can reach; the walk above
-    // wrote a highlight, an annotation and a question, so each tab has a row.
-    for (const [tab, section] of [
-      ['Highlights', 'Lista de highlights'],
-      ['Anotações', 'Lista de anotações'],
-      ['Perguntas', 'Lista de perguntas']
+    // Every tab of the screen is a control a thumb can reach; the test seeded
+    // a highlight, an annotation and a question, so each tab has a row.
+    for (const [tab, section, text] of [
+      ['Highlights', 'Lista de highlights', PASSAGE],
+      ['Anotações', 'Lista de anotações', 'Vale reler isto.'],
+      ['Perguntas', 'Lista de perguntas', 'O que isso muda na prática?']
     ] as const) {
       await tap(page.locator('.nt-seg-btn', { hasText: tab }))
-      await expect(page.locator(`[aria-label="${section}"]`)).toBeVisible()
+      await expect(page.locator(`[aria-label="${section}"]`)).toContainText(text)
     }
   })
 })
@@ -178,6 +221,12 @@ test.describe('at 1440x900, unchanged', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
   test('keeps the sidebar, the header actions and the hover reveal', async ({ page }) => {
+    const own = await seed('Tela larga')
+    // The test below marks it "não lido", which only offers itself once it is read.
+    await api(server.baseURL, `/api/library/items/${own.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ unread: false })
+    })
     await boot(page, '/biblioteca?v=tudo')
 
     // The sidebar is the layout, not a drawer over it, and there is no menu.
@@ -195,7 +244,7 @@ test.describe('at 1440x900, unchanged', () => {
     await actions.locator('button[aria-label="Marcar como não lido"]').click()
     await expect.poll(async () => (await item()).unread).toBe(true)
 
-    await page.locator('.item-title').first().click()
+    await row.locator('.item-title').click()
     await expect(page).toHaveURL(new RegExp(`/biblioteca/${article.id}$`))
     // The reader's own actions are in the header, and the phone's bar and sheet
     // are not rendered at all.
@@ -209,6 +258,37 @@ test.describe('at 1440x900, unchanged', () => {
     // not render: a two-track grid with one item used to put it in track one.
     const width = await page.locator('main.reader').evaluate((node) => node.getBoundingClientRect().width)
     expect(width).toBeGreaterThan(1000)
+  })
+})
+
+test.describe('at 1440x900, on a long article', () => {
+  test.use({ viewport: { width: 1440, height: 900 } })
+
+  test('keeps Destacar in view once a passage near the top is selected', async ({ page }) => {
+    const own = await seed('Texto longo na tela larga', { fillerParagraphs: 80 })
+    await boot(page, `/biblioteca/${own.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    const scroller = page.locator('.reader-scroll')
+    const overflow = await scroller.evaluate((node) => node.scrollHeight - node.clientHeight)
+    // Without this the check below would pass for any placement of the bar.
+    expect(overflow).toBeGreaterThan(2000)
+
+    await selectPassage(page, PASSAGE)
+    const destacar = page.locator('.notes-selection-bar [data-action="destacar"]')
+    await expect(destacar).toBeEnabled()
+    await expect(destacar).toBeInViewport({ ratio: 1 })
+
+    await destacar.click()
+    await expect
+      .poll(async () => {
+        const page_ = await api<NotesPage<{ exact: string }>>(
+          server.baseURL,
+          `/api/notes/highlights?item_id=${own.id}`
+        )
+        return page_.items.map((highlight) => highlight.exact)
+      })
+      .toEqual([PASSAGE])
   })
 })
 
