@@ -15,6 +15,13 @@ import { markPassage } from './passageMarking'
  * Highlighting what the person has selected in the article, and marking in the
  * text what is already highlighted.
  *
+ * It fills the reader's `bottom-actions` slot, which is the bar across the
+ * bottom on a phone and the place under the article it has always been
+ * otherwise. In the bar the control is there before anything is selected, so
+ * that "Destacar" is a visible action rather than something that appears if you
+ * happen to have selected the right thing first; under the article it stays
+ * what it was, a box that shows up with the passage in it.
+ *
  * The marking is redone on every render rather than once. `content_html` is
  * inserted with `v-html`, so a re-extraction replaces the whole subtree and
  * every wrapper this put in the text is gone with it; `renderedAt` is what says
@@ -82,19 +89,19 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
 </script>
 
 <template>
-  <div v-if="allowed" class="notes-highlight-action">
-    <div v-if="liveSelection" class="notes-selection-bar" role="group" aria-label="Trecho selecionado">
-      <blockquote class="notes-selection-quote">{{ liveSelection.exact }}</blockquote>
+  <div v-if="allowed" class="notes-highlight-action" :class="{ 'is-pinned': liveSelection }">
+    <div v-if="liveSelection || phone" class="notes-selection-bar" role="group" aria-label="Trecho selecionado">
+      <blockquote v-if="liveSelection" class="notes-selection-quote">{{ liveSelection.exact }}</blockquote>
       <Button
         data-action="destacar"
         variant="primary"
         size="sm"
-        :disabled="writing.pending.value"
+        :disabled="!liveSelection || writing.pending.value"
         @click="highlightSelection"
       >
         Destacar
       </Button>
-      <Button variant="secondary" size="sm" @click="clearSelection">Cancelar</Button>
+      <Button v-if="liveSelection" variant="secondary" size="sm" @click="clearSelection">Cancelar</Button>
     </div>
     <p v-if="keptWithoutPosition" class="notes-highlight-notice" role="status" data-notes-ambiguous>
       trecho repetido: destaque guardado sem posição
@@ -107,6 +114,12 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
 
 <style scoped>
 .notes-highlight-action { margin-top: var(--space-4); }
+/*
+  With a passage selected the box stays at the foot of the reader's scroll area
+  instead of after the article, so on a long text the person does not have to
+  scroll to the end to highlight what they have just selected.
+*/
+.notes-highlight-action.is-pinned { position: sticky; bottom: 0; z-index: 5; }
 .notes-selection-bar {
   display: flex;
   align-items: center;
@@ -126,4 +139,16 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
 }
 .notes-highlight-notice { margin: var(--space-2) 0 0; color: var(--ink-2); font-size: 13px; line-height: 20px; }
 .notes-highlight-error { margin: var(--space-2) 0 0; color: var(--danger); font-size: 13px; line-height: 20px; }
+/*
+  Inside the reader's bar the box is the bar's own cell, so it brings no frame.
+  It comes after the base rules because the query adds no specificity: before
+  them, the base border, padding and background won.
+*/
+@media (max-width: 900px) {
+  .notes-highlight-action { margin-top: 0; }
+  .notes-highlight-action.is-pinned { position: static; }
+  .notes-selection-bar { padding: 0; border: 0; background: transparent; }
+  .notes-selection-quote { display: none; }
+  .notes-selection-bar :deep(.nt-btn) { flex: 1; min-width: 0; height: 40px; justify-content: center; }
+}
 </style>

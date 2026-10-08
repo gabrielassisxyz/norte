@@ -6,6 +6,7 @@ import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import Icon from '@/components/ds/Icon.vue'
 import { useAsyncAction } from '@/lib/asyncResource'
 import { formatShortDate } from '@/lib/clock'
+import { usePhoneViewport } from '@/lib/phoneViewport'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 import { useProjectsSummary } from '@/modules/projects/data/composables'
 import { coreLinksChanged } from '@/shell/data/revision'
@@ -97,6 +98,7 @@ const KIND_LABELS: Record<LibraryKind, string> = {
 const route = useRoute()
 const router = useRouter()
 const { library, core, projects: projectsSource } = useSources()
+const phone = usePhoneViewport()
 
 const sort = ref<LibrarySort>('saved_desc')
 const unreadOnly = ref(false)
@@ -376,6 +378,31 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
   // carries them, so every list of subjects asks again.
   coreLinksChanged()
 }
+
+/**
+ * Which row has its actions open, on a viewport with no hover to reveal them.
+ *
+ * A phone has no pointer that can be over a row, so the actions are not there
+ * until a tap on the row's "more" button puts them there -- and they are
+ * genuinely absent rather than transparent, because an invisible control that
+ * still answers a tap is worse than no control at all.
+ */
+const openRowMenu = ref<string | null>(null)
+
+function rowActionsShown(item: LibraryItemSummary): boolean {
+  return !phone.value || openRowMenu.value === item.id
+}
+
+function toggleRowMenu(item: LibraryItemSummary): void {
+  const closing = openRowMenu.value === item.id
+  openRowMenu.value = closing ? null : item.id
+  // The two menus inside the group hang off the row's actions; closing the
+  // group has to take them with it or they come back open on the next tap.
+  if (closing) {
+    openAction.value = null
+    openSubjectPicker.value = null
+  }
+}
 </script>
 
 <template>
@@ -481,7 +508,13 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
     </div>
 
     <div v-else class="library-list">
-      <article v-for="item in items" :key="item.id" class="item" @click="openItem(item, $event)">
+      <article
+        v-for="item in items"
+        :key="item.id"
+        class="item"
+        :class="{ 'is-menu-open': openRowMenu === item.id }"
+        @click="openItem(item, $event)"
+      >
         <div class="item-thumb" aria-hidden="true">
           <Icon name="note" :size="18" />
           <span v-if="item.unread" class="item-dot" role="img" aria-label="Não lido" />
@@ -496,7 +529,29 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
           </div>
         </div>
         <span class="mono item-date">{{ formatShortDate(item.saved_at) }}</span>
-        <div class="actions" role="group" aria-label="Ações">
+        <button
+          v-if="phone"
+          type="button"
+          class="act item-more"
+          data-action="mais"
+          :title="`Ações de ${item.title}`"
+          :aria-label="`Ações de ${item.title}`"
+          :aria-expanded="openRowMenu === item.id"
+          @click="toggleRowMenu(item)"
+        >
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="currentColor"
+            aria-hidden="true"
+          >
+            <circle cx="8" cy="3.5" r="1.3" />
+            <circle cx="8" cy="8" r="1.3" />
+            <circle cx="8" cy="12.5" r="1.3" />
+          </svg>
+        </button>
+        <div v-if="rowActionsShown(item)" class="actions" role="group" aria-label="Ações">
           <button type="button" class="act" :title="laterTitle(item)" :aria-label="laterTitle(item)" @click="toggleLater(item)">
             <svg
               width="16"
@@ -956,7 +1011,7 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
 
 @media (max-width: 900px) {
   .item {
-    grid-template-columns: 48px minmax(0, 1fr);
+    grid-template-columns: 48px minmax(0, 1fr) 40px;
   }
 
   .item-date {
@@ -966,6 +1021,24 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
   .item-thumb {
     width: 48px;
     height: 48px;
+  }
+
+  .item-more {
+    width: 40px;
+    height: 40px;
+    justify-self: end;
+  }
+
+  /*
+    Tapped open, not hovered open: the group is a popover under the button it
+    came from, and hover plays no part in it because there is no pointer to
+    hover with.
+  */
+  .actions {
+    top: 56px;
+    z-index: 25;
+    opacity: 1;
+    pointer-events: auto;
   }
 }
 </style>

@@ -4,6 +4,7 @@ import type { SearchEntry } from '@/search'
 
 import { registerReaderSlot } from '../library/readerSlots'
 import type { ModuleSidebar, NorteModule, SidebarRow } from '../types'
+import ReaderBottomActions from './components/ReaderBottomActions.vue'
 import ReaderHighlightAction from './components/ReaderHighlightAction.vue'
 import ReaderNotesPanel from './components/ReaderNotesPanel.vue'
 import ReaderSelectionAction from './components/ReaderSelectionAction.vue'
@@ -41,6 +42,12 @@ export const routes = [
  * leaves the reader with its own text and nothing else. The components
  * themselves check the crossing, because the shell imports every module's
  * `index.ts` to build its route table whether that module is mounted or not.
+ *
+ * Highlighting and the two ways into the sheet go in `bottom-actions`, which
+ * the reader renders in its bottom bar on a phone and under the article on a
+ * wide screen. The panel stays in `notes`, which is the sheet's contents on a
+ * phone and the same place under the article otherwise -- so the order on a
+ * wide screen is what it was when both were one slot.
  */
 registerReaderSlot({
   id: 'notes-selection-action',
@@ -50,9 +57,15 @@ registerReaderSlot({
 })
 registerReaderSlot({
   id: 'notes-highlight-action',
-  name: 'notes',
+  name: 'bottom-actions',
   order: 10,
   component: ReaderHighlightAction
+})
+registerReaderSlot({
+  id: 'notes-bottom-actions',
+  name: 'bottom-actions',
+  order: 20,
+  component: ReaderBottomActions
 })
 registerReaderSlot({
   id: 'notes-panel',

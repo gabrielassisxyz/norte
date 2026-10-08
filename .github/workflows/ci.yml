@@ -39,6 +39,14 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
 
+      # Chromium is a few hundred MB; the browser suites would download it on
+      # every run. The key is the lockfile because it pins the Playwright
+      # version, and the version decides which browser build is wanted.
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('web/package-lock.json') }}
+
       - run: bin/ci
 
   # The shipped artefact: one scratch image serving the app. It builds the

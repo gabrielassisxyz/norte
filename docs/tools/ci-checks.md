@@ -25,6 +25,8 @@ for an answer one command gives in seconds.
 | `extension-test` | Extension unit tests, permission-free release build and ZIP. Needs `extension/node_modules`, which the check installs when it is missing. | `bin/ci extension-test` |
 | `extension-e2e` | Loaded Chromium extension against a cookie-protected fixture and a real temporary Norte server, including extraction and reader display. Builds the server binary, but not the frontend: run `bin/generate web` first when the reader changed. Downloads Chromium into ignored extension artifacts only if no system browser is available. | `bin/ci extension-e2e` |
 | `extension-firefox` | `web-ext lint`, then temporary Firefox installation and background startup; prints a skip reason if Firefox is absent, unless `NORTE_REQUIRE_FIREFOX=1` is set (CI sets it), which turns the skip into a failure. | `bin/ci extension-firefox` |
+| `web-e2e-csp` | The app under the policy the server sends: an article whose image comes from a local HTTPS listener renders, a style written at runtime applies, and an injected inline script is blocked with a `securitypolicyviolation` reported. Needs `generate` and `go-build`. | `cd web && npx playwright test e2e/csp.spec.ts` |
+| `web-e2e-phone` | The first delivery walked at 390x844 with touch and no mouse, plus the same actions at 1440x900. Needs `generate` and `go-build`. | `cd web && npx playwright test e2e/phone-walk.spec.ts` |
 
 `bin/ci --list` prints the names, and `bin/ci <name>...` runs only the ones
 given. Every check runs even after one fails, so a single red run names all the
@@ -45,6 +47,14 @@ skips both.
 Within `web-test`, one file reruns on its own:
 
     cd web && npx vitest run src/theme.test.ts
+
+The two `web-e2e-*` checks drive a real `norte serve` on a temporary
+`NORTE_DATA`, started by the suite itself, against the binary the `go-build`
+check wrote to `server/norte`. Running one of them before `bin/generate` and
+that build have run fails saying so. Each also runs `npx playwright install
+chromium`, which is a no-op once the pinned browser is on the machine;
+`web-e2e-csp` additionally needs `openssl`, which it uses to make the
+throwaway certificate its local HTTPS listener presents.
 
 Within `generate`, one stage reruns on its own, which is the fast way back after
 editing a contract or a query:

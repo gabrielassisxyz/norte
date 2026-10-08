@@ -20,7 +20,7 @@ cd "$repo" || exit 1
 # check that regenerates the tree: contracts-test runs the real bin/generate, and
 # placed earlier it rewrote stale generated files before the freshness snapshot
 # was taken, letting a contract edited without regeneration pass the gate.
-checks=(pins pins-test contracts sqlc generate contracts-test gofmt go-vet go-build go-test go-test-race web-test extension-test extension-e2e extension-firefox)
+checks=(pins pins-test contracts sqlc generate contracts-test gofmt go-vet go-build go-test go-test-race web-test extension-test extension-e2e extension-firefox web-e2e-csp web-e2e-phone)
 
 # A temporary NORTE_DATA keeps the suite off the real data directory, so a test
 # that writes cannot touch whatever is installed on the machine running the gate.
@@ -144,6 +144,29 @@ check_extension_e2e() {
 check_extension_firefox() {
     ensure_extension_dependencies || return
     (cd extension && npm run test:firefox)
+}
+
+# The two browser suites. They drive the binary go-build produced, serving the
+# frontend generate built, so both have to have run first -- which is why they
+# are last in the list.
+#
+# The browser is fetched here rather than by a step in the workflow, because
+# .github/workflows/ci.yml runs exactly `bin/ci` and that is worth keeping: a
+# green local run and a green CI run then mean the same thing. The download is
+# idempotent and costs nothing once the version pinned by web/package-lock.json
+# is on the machine.
+norte_playwright_browser() {
+    (cd web && npx --no-install playwright install chromium)
+}
+
+check_web_e2e_csp() {
+    norte_playwright_browser || return 1
+    (cd web && npx --no-install playwright test e2e/csp.spec.ts)
+}
+
+check_web_e2e_phone() {
+    norte_playwright_browser || return 1
+    (cd web && npx --no-install playwright test e2e/phone-walk.spec.ts)
 }
 
 # run_check <name> — run one check, announce the verdict, return its status.
