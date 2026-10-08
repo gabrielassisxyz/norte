@@ -61,12 +61,20 @@ func (*NotesModule) JobHandlers(deps app.Deps) map[string]core.JobHandler {
 // registered, which is why an item re-extracted while notes is switched off
 // keeps the passage it had -- a deliberate gap, written down in the bead.
 func (*NotesModule) Start(ctx context.Context, deps app.Deps) error {
-	if deps.Events != nil {
-		deps.Events.Subscribe(notesLibraryItemExtractedEvent,
-			newNotesReanchorFromDeps(deps).OnItemExtracted)
-	}
+	notesSubscribeToExtractions(deps)
 	<-ctx.Done()
 	return nil
+}
+
+// notesSubscribeToExtractions is the subscription itself, separate from the
+// blocking Start so a test can wire the reaction the way production does
+// without running an adapter it then has to shut down.
+func notesSubscribeToExtractions(deps app.Deps) {
+	if deps.Events == nil {
+		return
+	}
+	deps.Events.Subscribe(notesLibraryItemExtractedEvent,
+		newNotesReanchorFromDeps(deps).OnItemExtracted)
 }
 
 // Text reports no readable text: the items this module owns are question sets,

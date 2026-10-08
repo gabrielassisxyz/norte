@@ -164,19 +164,27 @@ func notesDistance(offset, hint int) int {
 // code points before it than the client captured, and an extraction that
 // dropped a leading paragraph leaves fewer still; demanding the whole stored
 // prefix would orphan a highlight whose own words never moved.
+//
+// The space between the context and the passage is dropped on both sides,
+// because normalising a stored prefix strips the trailing whitespace the client
+// captured while the text keeps the space that separates the two. Comparing
+// them with that space still in place would fail every passage that does not
+// begin a paragraph.
 func notesTailMatches(before, want []rune) bool {
-	overlap := min(len(before), len(want))
+	trimmed := []rune(strings.TrimRight(string(before), " "))
+	overlap := min(len(trimmed), len(want))
 	if overlap == 0 {
 		return true
 	}
-	return string(before[len(before)-overlap:]) == string(want[len(want)-overlap:])
+	return string(trimmed[len(trimmed)-overlap:]) == string(want[len(want)-overlap:])
 }
 
 // notesHeadMatches is notesTailMatches for what comes immediately after.
 func notesHeadMatches(after, want []rune) bool {
-	overlap := min(len(after), len(want))
+	trimmed := []rune(strings.TrimLeft(string(after), " "))
+	overlap := min(len(trimmed), len(want))
 	if overlap == 0 {
 		return true
 	}
-	return string(after[:overlap]) == string(want[:overlap])
+	return string(trimmed[:overlap]) == string(want[:overlap])
 }
