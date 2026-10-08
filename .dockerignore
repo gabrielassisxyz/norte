@@ -19,3 +19,5 @@ docs/reviews/
 docs/backend-plan.md
 *.local
 .DS_Store
+# The browser extension ships separately and its node_modules is large.
+extension/
