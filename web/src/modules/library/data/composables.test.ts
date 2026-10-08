@@ -63,6 +63,26 @@ describe('useLibraryItems over a paginated list', () => {
     expect(library.calls.list).toHaveLength(asked)
   })
 
+  it('repeats no row when a page overlaps the one before it', async () => {
+    // A row saved between two asks shifts the window, so the server can answer
+    // the second page with a row the first page already carried.
+    const records = manyRecords(60)
+    const library = fakeLibrarySource(records, {
+      listItems: async (query) => {
+        const from = query.cursor ? Number(query.cursor) : 0
+        const page = records.slice(from === 0 ? 0 : from - 5, (from === 0 ? 0 : from - 5) + 50)
+        return { items: page, next_cursor: from === 0 ? '50' : null }
+      }
+    })
+    const items = await hold(library, () => useLibraryItems({ view: 'tudo' }))
+
+    await items.loadMore()
+    const loaded = items.data.value?.items ?? []
+
+    expect(loaded).toHaveLength(60)
+    expect(new Set(loaded.map((item) => item.id)).size).toBe(60)
+  })
+
   it('asks for the first page again, not for a cursor, when the query changes', async () => {
     const library = fakeLibrarySource(manyRecords(120))
     const query: Ref<LibraryListQuery> = ref({ view: 'tudo' })

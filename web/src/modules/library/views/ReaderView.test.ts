@@ -226,8 +226,11 @@ describe('the reader and the place reading stopped', () => {
     vi.useFakeTimers()
     HEADING_OFFSETS['uma-secao'] = 400
     HEADING_OFFSETS['outra-secao'] = 1200
+    // The percent is deliberately nowhere near the heading's offset: with the
+    // two agreeing, a reader that ignored the anchor would land on the same
+    // pixel and the case would pass for the wrong reason.
     const library = fakeLibrarySource([
-      record({ read_position: { v: 1, anchor: 'outra-secao', percent: 0.8 } })
+      record({ read_position: { v: 1, anchor: 'outra-secao', percent: 0.2 } })
     ])
     const { wrapper } = await mountReader(library)
     const view = scroller(wrapper)
@@ -288,6 +291,23 @@ describe('the reader and the place reading stopped', () => {
     await flushPromises()
     expect(positionPatches(library)).toHaveLength(2)
     expect(positionPatches(library)[1].patch.read_position).toMatchObject({ anchor: 'outra-secao' })
+  })
+
+  it('writes no position after the reader is gone', async () => {
+    vi.useFakeTimers()
+    const library = fakeLibrarySource([record()])
+    const { wrapper } = await mountReader(library)
+    const view = scroller(wrapper)
+    await vi.advanceTimersByTimeAsync(10)
+
+    for (const top of [200, 400, 600]) view.scrollTo(top)
+    wrapper.unmount()
+    await vi.advanceTimersByTimeAsync(5000)
+    await flushPromises()
+
+    // One scroll per pending write would be bad enough; a write that lands
+    // after the reader is gone belongs to a screen nobody is looking at.
+    expect(positionPatches(library)).toEqual([])
   })
 })
 
