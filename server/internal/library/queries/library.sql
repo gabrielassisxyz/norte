@@ -93,15 +93,16 @@ WHERE id = ?;
 
 -- The extraction's last attempt, or a permanent failure: the reason stays on
 -- the row so the library screen can show it with a retry button.
--- name: MarkLibraryExtractionFailed :exec
+-- name: MarkLibraryExtractionFailed :execrows
 UPDATE library_items
 SET extract_status = 'failed', extract_error = ?, updated_at = ?
-WHERE id = ?;
+WHERE id = ? AND extract_generation = ?;
 
 -- An attempt that will be retried records why it failed without giving up the
 -- pending state, which is what the screen reads as "still working".
--- name: RecordLibraryExtractionError :exec
-UPDATE library_items SET extract_error = ?, updated_at = ? WHERE id = ?;
+-- name: RecordLibraryExtractionError :execrows
+UPDATE library_items SET extract_error = ?, updated_at = ?
+WHERE id = ? AND extract_generation = ?;
 
 -- A retry asked for from the API or the command line. The generation advances
 -- so the new job gets a dedupe key of its own and any run still in flight is

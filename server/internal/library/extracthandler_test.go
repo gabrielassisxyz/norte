@@ -550,6 +550,63 @@ func TestOnlyTheCurrentGenerationLands(t *testing.T) {
 	}
 }
 
+// TestASupersededRunThatFailsWritesNothing is the failure-side twin of the test
+// above: a run that lost its generation must not mark the newer one failed or
+// announce a failure to someone the newer run is about to answer.
+func TestASupersededRunThatFailsWritesNothing(t *testing.T) {
+	harness := newLibraryExtractHarness(t, libraryHarnessOptions{})
+	const pageURL = "https://ortaessays.example/essays/notes-you-will-read-again"
+	empty := []byte(`<!doctype html><html><head><title>x</title></head><body></body></html>`)
+	id := harness.save(pageURL, empty)
+
+	reached := make(chan struct{})
+	released := make(chan struct{})
+	harness.extraction.afterSnapshot = func() {
+		close(reached)
+		<-released
+	}
+	staleDone := make(chan error, 1)
+	go func() { staleDone <- harness.run(id, 1, false, core.JobsMaxAttempts) }()
+	<-reached
+	harness.extraction.afterSnapshot = nil
+
+	second, _ := os.ReadFile("testdata/pages/essay.html")
+	if sameID := harness.save(pageURL, second); sameID != id {
+		t.Fatalf("the duplicate save created %s instead of folding into %s", sameID, id)
+	}
+	if err := harness.run(id, 2, false, 1); err != nil {
+		t.Fatalf("generation 2 failed: %v", err)
+	}
+	// Added after generation 2 finished, so the only thing that could enqueue
+	// a reply for it is the stale run's failure path.
+	harness.setMeta(id, map[string]any{"telegram_messages": []any{
+		map[string]any{"chat_id": 4242, "message_id": 21},
+	}})
+	done := harness.item(id)
+	if done.ExtractStatus != "done" {
+		t.Fatalf("extract_status = %q after generation 2, want done", done.ExtractStatus)
+	}
+
+	close(released)
+	if err := <-staleDone; err != nil {
+		t.Fatalf("the superseded run returned an error instead of succeeding quietly: %v", err)
+	}
+
+	final := harness.item(id)
+	if final.ExtractStatus != "done" {
+		t.Errorf("extract_status = %q, the stale failure overwrote the newer result", final.ExtractStatus)
+	}
+	if final.ExtractError.Valid {
+		t.Errorf("extract_error = %q, the stale failure wrote a reason", final.ExtractError.String)
+	}
+	if final.ContentHtml.String != done.ContentHtml.String {
+		t.Error("the stale failure disturbed content_html")
+	}
+	if got := harness.countJobs(LibraryNotifyTelegramJobKind); got != 0 {
+		t.Errorf("%d notify_telegram jobs were enqueued by a superseded run, want 0", got)
+	}
+}
+
 // TestAnEditedTitleSurvivesExtraction keeps the person's own words and puts the
 // extractor's where the screen can offer it without overwriting anything.
 func TestAnEditedTitleSurvivesExtraction(t *testing.T) {

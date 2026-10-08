@@ -140,7 +140,7 @@ func (e *LibraryExtraction) Handle(ctx context.Context, job core.Job) error {
 
 	snapshot, err := e.resolveSnapshot(ctx, item, payload)
 	if err != nil {
-		return e.recordFailure(ctx, job, item, err)
+		return e.recordFailure(ctx, job, item, payload.Generation, err)
 	}
 	if e.afterSnapshot != nil {
 		e.afterSnapshot()
@@ -148,17 +148,17 @@ func (e *LibraryExtraction) Handle(ctx context.Context, job core.Job) error {
 
 	pageURL, err := url.Parse(item.Url)
 	if err != nil {
-		return e.recordFailure(ctx, job, item, core.Permanent(
+		return e.recordFailure(ctx, job, item, payload.Generation, core.Permanent(
 			fmt.Errorf("reading the item's address: %w", err)))
 	}
 	extracted, err := libraryExtractPage(snapshot.html, pageURL)
 	if err != nil {
-		return e.recordFailure(ctx, job, item, err)
+		return e.recordFailure(ctx, job, item, payload.Generation, err)
 	}
 
 	superseded, err := e.writeExtraction(ctx, item, payload, snapshot, extracted)
 	if err != nil {
-		return e.recordFailure(ctx, job, item, err)
+		return e.recordFailure(ctx, job, item, payload.Generation, err)
 	}
 	if superseded {
 		// A newer generation installed its own snapshot while this run was
@@ -365,6 +365,7 @@ func (e *LibraryExtraction) recordFailure(
 	ctx context.Context,
 	job core.Job,
 	item db.LibraryItem,
+	generation int64,
 	handlerErr error,
 ) error {
 	terminal := core.IsPermanent(handlerErr) || job.Attempt >= job.MaxAttempts
@@ -379,13 +380,18 @@ func (e *LibraryExtraction) recordFailure(
 	stamp := core.FormatTime(e.clock.Now())
 
 	if !terminal {
-		if err := db.New(e.database.Writer()).RecordLibraryExtractionError(writeCtx,
+		recorded, err := db.New(e.database.Writer()).RecordLibraryExtractionError(writeCtx,
 			db.RecordLibraryExtractionErrorParams{
-				ExtractError: sql.NullString{String: redacted, Valid: true},
-				UpdatedAt:    stamp,
-				ID:           item.ID,
-			}); err != nil {
+				ExtractError:      sql.NullString{String: redacted, Valid: true},
+				UpdatedAt:         stamp,
+				ID:                item.ID,
+				ExtractGeneration: generation,
+			})
+		if err != nil {
 			return errors.Join(handlerErr, fmt.Errorf("recording the extraction error: %w", err))
+		}
+		if recorded == 0 {
+			return nil
 		}
 		return handlerErr
 	}
@@ -395,12 +401,19 @@ func (e *LibraryExtraction) recordFailure(
 		return errors.Join(handlerErr, fmt.Errorf("beginning the failure transaction: %w", err))
 	}
 	defer func() { _ = tx.Rollback() }()
-	if err := db.New(tx).MarkLibraryExtractionFailed(writeCtx, db.MarkLibraryExtractionFailedParams{
-		ExtractError: sql.NullString{String: redacted, Valid: true},
-		UpdatedAt:    stamp,
-		ID:           item.ID,
-	}); err != nil {
+	marked, err := db.New(tx).MarkLibraryExtractionFailed(writeCtx, db.MarkLibraryExtractionFailedParams{
+		ExtractError:      sql.NullString{String: redacted, Valid: true},
+		UpdatedAt:         stamp,
+		ID:                item.ID,
+		ExtractGeneration: generation,
+	})
+	if err != nil {
 		return errors.Join(handlerErr, fmt.Errorf("marking the extraction of %s failed: %w", item.ID, err))
+	}
+	if marked == 0 {
+		// A newer generation owns the item; its job reports its own outcome,
+		// and retrying this one could only repeat the stale write.
+		return nil
 	}
 	if err := e.enqueueTelegramReplies(writeCtx, tx, item.ID, libraryDecodeMeta(item.Meta)); err != nil {
 		return errors.Join(handlerErr, err)

@@ -270,23 +270,32 @@ func (q *Queries) InsertLibraryItem(ctx context.Context, arg InsertLibraryItemPa
 	return err
 }
 
-const markLibraryExtractionFailed = `-- name: MarkLibraryExtractionFailed :exec
+const markLibraryExtractionFailed = `-- name: MarkLibraryExtractionFailed :execrows
 UPDATE library_items
 SET extract_status = 'failed', extract_error = ?, updated_at = ?
-WHERE id = ?
+WHERE id = ? AND extract_generation = ?
 `
 
 type MarkLibraryExtractionFailedParams struct {
-	ExtractError sql.NullString
-	UpdatedAt    string
-	ID           string
+	ExtractError      sql.NullString
+	UpdatedAt         string
+	ID                string
+	ExtractGeneration int64
 }
 
 // The extraction's last attempt, or a permanent failure: the reason stays on
 // the row so the library screen can show it with a retry button.
-func (q *Queries) MarkLibraryExtractionFailed(ctx context.Context, arg MarkLibraryExtractionFailedParams) error {
-	_, err := q.db.ExecContext(ctx, markLibraryExtractionFailed, arg.ExtractError, arg.UpdatedAt, arg.ID)
-	return err
+func (q *Queries) MarkLibraryExtractionFailed(ctx context.Context, arg MarkLibraryExtractionFailedParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, markLibraryExtractionFailed,
+		arg.ExtractError,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.ExtractGeneration,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const markLibraryItemOpened = `-- name: MarkLibraryItemOpened :execresult
@@ -304,21 +313,31 @@ func (q *Queries) MarkLibraryItemOpened(ctx context.Context, arg MarkLibraryItem
 	return q.db.ExecContext(ctx, markLibraryItemOpened, arg.LastOpenedAt, arg.UpdatedAt, arg.ID)
 }
 
-const recordLibraryExtractionError = `-- name: RecordLibraryExtractionError :exec
-UPDATE library_items SET extract_error = ?, updated_at = ? WHERE id = ?
+const recordLibraryExtractionError = `-- name: RecordLibraryExtractionError :execrows
+UPDATE library_items SET extract_error = ?, updated_at = ?
+WHERE id = ? AND extract_generation = ?
 `
 
 type RecordLibraryExtractionErrorParams struct {
-	ExtractError sql.NullString
-	UpdatedAt    string
-	ID           string
+	ExtractError      sql.NullString
+	UpdatedAt         string
+	ID                string
+	ExtractGeneration int64
 }
 
 // An attempt that will be retried records why it failed without giving up the
 // pending state, which is what the screen reads as "still working".
-func (q *Queries) RecordLibraryExtractionError(ctx context.Context, arg RecordLibraryExtractionErrorParams) error {
-	_, err := q.db.ExecContext(ctx, recordLibraryExtractionError, arg.ExtractError, arg.UpdatedAt, arg.ID)
-	return err
+func (q *Queries) RecordLibraryExtractionError(ctx context.Context, arg RecordLibraryExtractionErrorParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, recordLibraryExtractionError,
+		arg.ExtractError,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.ExtractGeneration,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const replaceLibrarySnapshot = `-- name: ReplaceLibrarySnapshot :exec
