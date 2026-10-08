@@ -9,31 +9,47 @@
 FROM golang:1.26.6 AS build
 
 # Node 24.18.0 for the frontend build, from the official tarball, so this
-# stage keeps exactly one FROM and still pins the version.
+# stage keeps exactly one FROM and still pins the version. The tarball is
+# checked against the SHASUMS256.txt nodejs.org publishes for that release
+# before it is unpacked. TARGETARCH is set by the builder; Node names the two
+# architectures x64 and arm64.
 ARG NODE_VERSION=24.18.0
-RUN apt-get update \
+ARG TARGETARCH
+RUN case "${TARGETARCH:-amd64}" in \
+        amd64) node_arch=x64 ;; \
+        arm64) node_arch=arm64 ;; \
+        *) echo "unsupported TARGETARCH '${TARGETARCH}'" >&2; exit 1 ;; \
+    esac \
+    && apt-get update \
     && apt-get install -y --no-install-recommends ca-certificates curl xz-utils \
     && rm -rf /var/lib/apt/lists/* \
-    && curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz \
-    && tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1 \
-    && rm /tmp/node.tar.xz \
+    && node_tar="node-v${NODE_VERSION}-linux-${node_arch}.tar.xz" \
+    && cd /tmp \
+    && curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/${node_tar}" \
+    && curl -fsSLO "https://nodejs.org/dist/v${NODE_VERSION}/SHASUMS256.txt" \
+    && grep " ${node_tar}\$" SHASUMS256.txt | sha256sum -c - \
+    && tar -xJf "${node_tar}" -C /usr/local --strip-components=1 \
+    && rm "${node_tar}" SHASUMS256.txt \
     && node --version \
     && npm --version
 
 WORKDIR /src
 COPY . .
 RUN bin/generate
-RUN cd server && CGO_ENABLED=0 go build -o /out/norte ./cmd/norte
+ARG VERSION=dev
+RUN cd server && CGO_ENABLED=0 go build -trimpath \
+    -ldflags "-s -w -X github.com/gabrielassisxyz/norte/server/internal/app.Version=${VERSION}" \
+    -o /out/norte ./cmd/norte
 
 # scratch has no shell, so the data directory is prepared here with the
 # ownership the server runs as. A named volume initialised from it keeps that
 # ownership on first start, which is what makes the first start succeed.
-RUN mkdir -p /out/data && chown 65532:65532 /out/data
+RUN mkdir -p -m 0700 /out/data && chown 65532:65532 /out/data
 
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /out/norte /norte
-COPY --from=build --chown=65532:65532 /out/data /data
+COPY --from=build --chown=65532:65532 --chmod=0700 /out/data /data
 USER 65532
 ENV NORTE_LISTEN=0.0.0.0:8080 NORTE_DATA=/data
 EXPOSE 8080
