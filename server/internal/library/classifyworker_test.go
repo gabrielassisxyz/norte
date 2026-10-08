@@ -62,7 +62,11 @@ func TestASavedLinkGetsASuggestionWithinOneWorkerCycle(t *testing.T) {
 				close(suggested)
 				return
 			}
-			time.Sleep(2 * time.Millisecond)
+			select {
+			case <-workerCtx.Done():
+				return
+			case <-time.After(2 * time.Millisecond):
+			}
 		}
 	}()
 	libraryNudgeUntil(t, harness.clock, suggested, "suggested a destination for the saved link")

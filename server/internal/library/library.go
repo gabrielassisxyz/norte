@@ -120,7 +120,7 @@ func newLibraryExtractionFromDeps(deps app.Deps) *LibraryExtraction {
 		Events:        deps.Events,
 		Logger:        deps.Logger,
 		Fetcher:       newLibraryFetcher(LibraryFetchOptions{MaxBytes: deps.FetchMaxBytes}),
-		LLMConfigured: deps.LLMURL != "",
+		LLMConfigured: deps.LLM.Configured(),
 	})
 }
 
