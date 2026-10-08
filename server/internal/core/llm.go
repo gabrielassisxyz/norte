@@ -73,12 +73,8 @@ func NewLLM(rawURL, model, key string) *LLM {
 	if trimmed == "" {
 		return &LLM{}
 	}
-	endpoint := strings.TrimSuffix(trimmed, "/")
-	if !strings.HasSuffix(endpoint, llmChatCompletionsPath) {
-		endpoint += llmChatCompletionsPath
-	}
 	return &LLM{
-		endpoint: endpoint,
+		endpoint: llmEndpoint(trimmed),
 		model:    model,
 		key:      key,
 		// No overall timeout on the client: the per-attempt deadline is a
@@ -86,6 +82,24 @@ func NewLLM(rawURL, model, key string) *LLM {
 		client:  &http.Client{},
 		timeout: llmTimeout,
 	}
+}
+
+// llmEndpoint appends the chat path to the URL's path, not to the raw string,
+// so a query token (`?key=...`) stays a query instead of swallowing the path.
+func llmEndpoint(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		endpoint := strings.TrimSuffix(raw, "/")
+		if !strings.HasSuffix(endpoint, llmChatCompletionsPath) {
+			endpoint += llmChatCompletionsPath
+		}
+		return endpoint
+	}
+	u.Path = strings.TrimSuffix(u.Path, "/")
+	if !strings.HasSuffix(u.Path, llmChatCompletionsPath) {
+		u.Path += llmChatCompletionsPath
+	}
+	return u.String()
 }
 
 // Configured reports whether this process has an LLM to ask. It is how a

@@ -85,3 +85,20 @@ func TestATimeoutThenASuccessAnswers(t *testing.T) {
 		t.Errorf("answer %s after %d requests", answer, hits.Load())
 	}
 }
+
+// TestTheChatPathGoesBeforeTheQuery: a token passed as a query parameter must
+// stay a query parameter, not become part of the path.
+func TestTheChatPathGoesBeforeTheQuery(t *testing.T) {
+	cases := map[string]string{
+		"http://h/v1":                      "http://h/v1/chat/completions",
+		"http://h/v1/":                     "http://h/v1/chat/completions",
+		"http://h/v1/chat/completions":     "http://h/v1/chat/completions",
+		"http://h/v1?key=S":                "http://h/v1/chat/completions?key=S",
+		"http://h/v1/chat/completions?k=S": "http://h/v1/chat/completions?k=S",
+	}
+	for raw, want := range cases {
+		if got := NewLLM(raw, "m", "").endpoint; got != want {
+			t.Errorf("NewLLM(%q).endpoint = %q, want %q", raw, got, want)
+		}
+	}
+}
