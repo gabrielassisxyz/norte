@@ -36,7 +36,13 @@ func testRouter(t *testing.T) http.Handler {
 // get sends a request through the router with an allowed Host.
 func get(t *testing.T, handler http.Handler, path string) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequest(http.MethodGet, path, nil)
+	return send(t, handler, http.MethodGet, path)
+}
+
+// send is get for a method the route does not answer.
+func send(t *testing.T, handler http.Handler, method, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	request := httptest.NewRequest(method, path, nil)
 	request.Host = "localhost:8080"
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
@@ -136,5 +142,40 @@ func TestTestOnlyRoutesAreAbsentUnlessAskedFor(t *testing.T) {
 	response := get(t, testRouter(t), "/api/test/hold?ms=0")
 	if response.Code != http.StatusNotFound {
 		t.Fatalf("/api/test/hold = %d, want 404 when test routes are off", response.Code)
+	}
+}
+
+// TestAKnownAPIPathWithAnUnansweredMethodIs405 separates the two ways an
+// /api/ request can match nothing. Both used to answer 404 "no such
+// endpoint", because the /api/ fallback matches every method and
+// http.ServeMux answers 405 only when no pattern matches at all.
+func TestAKnownAPIPathWithAnUnansweredMethodIs405(t *testing.T) {
+	handler := testRouter(t)
+
+	wrongMethod := send(t, handler, http.MethodDelete, "/api/config")
+	if wrongMethod.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("DELETE /api/config = %d, want 405 (body %q)", wrongMethod.Code, wrongMethod.Body.String())
+	}
+	var decoded core.ErrorBody
+	if err := json.Unmarshal(wrongMethod.Body.Bytes(), &decoded); err != nil {
+		t.Fatalf("body is not the error shape: %v (%q)", err, wrongMethod.Body.String())
+	}
+	if decoded.Error.Code != "method_not_allowed" {
+		t.Errorf("code = %q, want method_not_allowed", decoded.Error.Code)
+	}
+	// RFC 9110 section 15.5.6: without Allow a client learns the method was
+	// wrong and nothing about which one to use.
+	allow := wrongMethod.Header().Get("Allow")
+	if !strings.Contains(allow, http.MethodGet) {
+		t.Errorf("Allow = %q, want it to name GET", allow)
+	}
+
+	// An unknown path stays a 404 whichever method asks for it: there is no
+	// endpoint there to have the wrong method for.
+	for _, method := range []string{http.MethodGet, http.MethodDelete} {
+		unknown := send(t, handler, method, "/api/nope")
+		if unknown.Code != http.StatusNotFound {
+			t.Errorf("%s /api/nope = %d, want 404 (body %q)", method, unknown.Code, unknown.Body.String())
+		}
 	}
 }

@@ -38,7 +38,7 @@ func (*NotesModule) Migrations() fs.FS { return migrations.FS }
 
 // Register mounts the notes routes under /api/notes/.
 func (*NotesModule) Register(router *app.Router, deps app.Deps) {
-	mountNotesAPI(router, NotesHandlers{service: newNotesServiceFromDeps(deps)})
+	mountNotesAPI(router, deps.Logger, NotesHandlers{service: newNotesServiceFromDeps(deps)})
 }
 
 // Commands returns nothing: a note is written while reading, not from a shell.

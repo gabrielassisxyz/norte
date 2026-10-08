@@ -60,6 +60,40 @@ func WithPanicRecovery(logger *slog.Logger, next http.Handler) http.Handler {
 	})
 }
 
+// WithCanonicalMediaType lowercases the type and subtype of Content-Type
+// before any contract validation sees it. A media type is case-insensitive
+// (RFC 9110 section 8.3.1), but the validator looks the header up in the
+// contract's content map by plain string equality, so "Application/JSON" would
+// otherwise be refused as a media type the contract never declared. The
+// parameters are forwarded exactly as sent, because a multipart boundary is
+// case-sensitive.
+func WithCanonicalMediaType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw := r.Header.Get("Content-Type")
+		canonical := canonicalMediaType(raw)
+		if raw == "" || canonical == raw {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// A copy rather than a mutation: the header map belongs to the request
+		// the outer middleware is still holding, and the access log reads from
+		// it after this handler returns.
+		forwarded := *r
+		forwarded.Header = r.Header.Clone()
+		forwarded.Header.Set("Content-Type", canonical)
+		next.ServeHTTP(w, &forwarded)
+	})
+}
+
+func canonicalMediaType(value string) string {
+	mediaType, parameters, hasParameters := strings.Cut(value, ";")
+	lowered := strings.ToLower(strings.TrimSpace(mediaType))
+	if !hasParameters {
+		return lowered
+	}
+	return lowered + ";" + parameters
+}
+
 // WithHostAllowlist rejects requests whose Host is not one this server answers
 // for. Norte has no authentication, so without this check a page in the user's
 // browser could reach the server over DNS rebinding.

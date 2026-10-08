@@ -2,6 +2,7 @@ package core
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 )
 
@@ -41,4 +42,36 @@ func writeJSONErrorField(w http.ResponseWriter, r *http.Request, status int, cod
 		Field:     field,
 		RequestID: RequestIDFromContext(r.Context()),
 	}})
+}
+
+// NewInternalErrorResponder builds the handler a generated strict server calls
+// when a module's handler returned an error it had no response for. The cause
+// is logged and the body carries only the generic message, so the request id
+// both of them quote is the only thing that ties a reported failure to the
+// line that recorded it.
+func NewInternalErrorResponder(logger *slog.Logger) func(http.ResponseWriter, *http.Request, error) {
+	return func(w http.ResponseWriter, r *http.Request, err error) {
+		WriteInternalError(logger, w, r, err)
+	}
+}
+
+// WriteInternalError logs the cause of a failure the client is deliberately
+// told nothing about, then answers the generic envelope.
+func WriteInternalError(logger *slog.Logger, w http.ResponseWriter, r *http.Request, err error) {
+	if logger == nil {
+		// A handler reached without a logger is still a handler that failed,
+		// and a 500 nobody can explain is the defect this exists to close.
+		logger = slog.Default()
+	}
+	cause := "the handler reported no error"
+	if err != nil {
+		cause = err.Error()
+	}
+	logger.ErrorContext(r.Context(), "internal error serving request",
+		slog.String("method", r.Method),
+		slog.String("path", r.URL.Path),
+		slog.String("request_id", RequestIDFromContext(r.Context())),
+		slog.String("error", cause),
+	)
+	WriteJSONError(w, r, http.StatusInternalServerError, "internal", "internal error")
 }

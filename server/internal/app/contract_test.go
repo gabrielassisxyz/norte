@@ -60,6 +60,7 @@ func testOnlyHandler(t *testing.T) http.Handler {
 
 	mux := http.NewServeMux()
 	mux.Handle("POST "+testOnlyRoute, newContractValidator(spec)(accepted))
+	mux.Handle("GET "+testOnlyRoute, newContractValidator(spec)(accepted))
 	return withStandardMiddleware(RouterOptions{
 		Config: cfg,
 		Logger: slog.New(slog.NewJSONHandler(io.Discard, nil)),
@@ -69,9 +70,23 @@ func testOnlyHandler(t *testing.T) http.Handler {
 // postTestNote sends one request at the test-only route with an allowed Host.
 func postTestNote(t *testing.T, contentType, body string) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequest(http.MethodPost, testOnlyRoute, strings.NewReader(body))
+	return sendTestNote(t, http.MethodPost, testOnlyRoute, contentType, body)
+}
+
+// sendTestNote is postTestNote for the cases that need another method, another
+// query string, or no body at all. An empty contentType sends no Content-Type
+// header, which is not the same request as one that sends an empty value.
+func sendTestNote(t *testing.T, method, target, contentType, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	var reader io.Reader
+	if body != "" {
+		reader = strings.NewReader(body)
+	}
+	request := httptest.NewRequest(method, target, reader)
 	request.Host = "localhost:8080"
-	request.Header.Set("Content-Type", contentType)
+	if contentType != "" {
+		request.Header.Set("Content-Type", contentType)
+	}
 	recorder := httptest.NewRecorder()
 	testOnlyHandler(t).ServeHTTP(recorder, request)
 	return recorder
@@ -177,5 +192,110 @@ func TestTheErrorEnvelopeMatchesTheContract(t *testing.T) {
 	}
 	if envelope.Error.Field != nil {
 		t.Errorf("field = %q, want it absent on a failure attributable to no input", *envelope.Error.Field)
+	}
+}
+
+// TestAValidationErrorNamesTheInputItIsAbout walks the contract rejections
+// whose envelope was missing the input it was attributable to, or whose
+// message was built by concatenating an empty half. Every case goes through
+// the real validator rather than a hand-made error value, because the field is
+// read out of three different places on the validator's own error and which
+// one is populated is exactly what a hand-made value would get to decide.
+func TestAValidationErrorNamesTheInputItIsAbout(t *testing.T) {
+	cases := []struct {
+		name        string
+		method      string
+		target      string
+		contentType string
+		body        string
+		wantStatus  int
+		wantCode    string
+		wantField   string
+		wantMessage string
+	}{
+		{
+			name:        "a query parameter below its minimum",
+			method:      http.MethodGet,
+			target:      testOnlyRoute + "?limit=0",
+			wantStatus:  http.StatusBadRequest,
+			wantCode:    "invalid_request",
+			wantField:   "limit",
+			wantMessage: "number must be at least 1",
+		},
+		{
+			name:        "a query parameter outside its enum",
+			method:      http.MethodGet,
+			target:      testOnlyRoute + "?kind=sketch",
+			wantStatus:  http.StatusBadRequest,
+			wantCode:    "invalid_request",
+			wantField:   "kind",
+			wantMessage: `value is not one of the allowed values ["note","quote"]`,
+		},
+		{
+			name:        "a body property the contract never named",
+			method:      http.MethodPost,
+			target:      testOnlyRoute,
+			contentType: "application/json",
+			body:        `{"title":"a","kind":"note","extra":1}`,
+			wantStatus:  http.StatusBadRequest,
+			wantCode:    "invalid_request",
+			wantField:   "extra",
+			wantMessage: `property "extra" is unsupported`,
+		},
+		{
+			name:        "a body property the contract declares",
+			method:      http.MethodPost,
+			target:      testOnlyRoute,
+			contentType: "application/json",
+			body:        `{"title":"a","kind":"sketch"}`,
+			wantStatus:  http.StatusBadRequest,
+			wantCode:    "invalid_request",
+			wantField:   "kind",
+			wantMessage: `kind: value is not one of the allowed values ["note","quote"]`,
+		},
+		{
+			name:        "no body at all where one is required",
+			method:      http.MethodPost,
+			target:      testOnlyRoute,
+			contentType: "application/json",
+			wantStatus:  http.StatusBadRequest,
+			wantCode:    "invalid_request",
+			wantField:   "",
+			wantMessage: "request body is required",
+		},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			response := sendTestNote(t, testCase.method, testCase.target, testCase.contentType, testCase.body)
+			detail := decodeErrorEnvelope(t, response, testCase.wantStatus)
+			if detail.Code != testCase.wantCode {
+				t.Errorf("code = %q, want %q", detail.Code, testCase.wantCode)
+			}
+			if detail.Field != testCase.wantField {
+				t.Errorf("field = %q, want %q", detail.Field, testCase.wantField)
+			}
+			if detail.Message != testCase.wantMessage {
+				t.Errorf("message = %q, want %q", detail.Message, testCase.wantMessage)
+			}
+		})
+	}
+}
+
+// TestAMediaTypeIsMatchedWithoutRegardToCase pins RFC 9110 section 8.3.1: the
+// type and subtype are case-insensitive, and the contract declares them in
+// lower case, so a client that capitalises them is sending the media type the
+// contract named.
+func TestAMediaTypeIsMatchedWithoutRegardToCase(t *testing.T) {
+	for _, contentType := range []string{
+		"Application/JSON",
+		"APPLICATION/JSON; charset=UTF-8",
+		"application/json",
+	} {
+		response := postTestNote(t, contentType, `{"title":"a","kind":"note"}`)
+		if response.Code != http.StatusCreated {
+			t.Errorf("Content-Type %q: status = %d, want 201 (body %q)",
+				contentType, response.Code, response.Body.String())
+		}
 	}
 }
