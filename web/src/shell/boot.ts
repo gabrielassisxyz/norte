@@ -95,6 +95,14 @@ export async function bootApplication(router: Router, onConfigured?: (config: Co
   })
   // The first navigation resolved against the unpruned table, so re-resolve it
   // now that a switched-off module's address answers with its own page.
+  //
+  // Waiting for it first is what makes a deep link work. The route's component
+  // is a dynamic import, so the initial navigation is still fetching its chunk
+  // while /api/config -- one request to the same host -- has already answered;
+  // the current route is then still the start location, whose path is "/", and
+  // replacing that threw the address away. Opening a link to an article landed
+  // on the home screen.
+  await router.isReady()
   await router.replace(router.currentRoute.value.fullPath)
 }
 

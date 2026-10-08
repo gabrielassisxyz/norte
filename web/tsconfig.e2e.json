@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "composite": true,
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.e2e.tsbuildinfo",
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    // The suites run in Node, and the bodies they hand to page.evaluate run in
+    // Chromium, so both libraries are in scope here and in neither of the other
+    // two configs -- which is why this is a config of its own rather than a
+    // widened tsconfig.node.json, where DOM would hide a mistake in vite.config.
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node"]
+  },
+  "include": ["playwright.config.ts", "e2e/**/*.ts"]
+}

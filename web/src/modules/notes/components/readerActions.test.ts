@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { libraryRecord } from '@/modules/library/data/testing'
 import type { LibraryItemRecord } from '@/modules/library/data/source'
 import { fakeLibrarySource } from '@/modules/library/data/testing'
+import { readerSlotProps } from '@/modules/library/readerSlotsTesting'
 import ReaderView from '@/modules/library/views/ReaderView.vue'
 import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { routes } from '@/router'
@@ -99,15 +100,7 @@ async function markedArticle(html: string, highlights: Array<Parameters<typeof h
     highlights: highlights.map((overrides) => highlightRecord({ item_id: 'item-1', ...overrides }))
   })
   mount(ReaderHighlightAction, {
-    props: {
-      itemId: 'item-1',
-      savedSelection: null,
-      liveSelection: null,
-      clearSelection: () => {},
-      articleRoot: root,
-      renderedAt: 1,
-      scrollToPassage: () => {}
-    },
+    props: readerSlotProps({ articleRoot: root }),
     global: { plugins: [sourcesPlugin({ notes })] }
   })
   await flushReads()
@@ -236,15 +229,7 @@ describe("the reader's notes actions", () => {
       highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'O trecho marcado.' })]
     })
     const wrapper = mount(ReaderHighlightAction, {
-      props: {
-        itemId: 'item-1',
-        savedSelection: null,
-        liveSelection: null,
-        clearSelection: () => {},
-        articleRoot: root,
-        renderedAt: 1,
-        scrollToPassage: () => {}
-      },
+      props: readerSlotProps({ articleRoot: root }),
       global: { plugins: [sourcesPlugin({ notes })] }
     })
     await flushReads()

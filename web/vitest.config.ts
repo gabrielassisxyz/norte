@@ -12,6 +12,10 @@ export default defineConfig({
     }
   },
   test: {
-    environment: 'jsdom'
+    environment: 'jsdom',
+    // The browser suites live under e2e/ and are Playwright's. Vitest's default
+    // include would pick their *.spec.ts up and run them in jsdom, where there
+    // is no browser to drive and no server to drive it against.
+    exclude: ['e2e/**', 'node_modules/**', 'dist/**']
   }
 })

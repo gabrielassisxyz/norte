@@ -1,18 +1,21 @@
 <script setup lang="ts">
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import Button from '@/components/ds/Button.vue'
 import Icon from '@/components/ds/Icon.vue'
 import { useAsyncAction } from '@/lib/asyncResource'
 import { formatShortDate } from '@/lib/clock'
+import { usePhoneViewport } from '@/lib/phoneViewport'
 import { useSources } from '@/sources'
 
 import ArticleContent from '../components/ArticleContent.vue'
 import { useLibraryItem } from '../data/composables'
 import { libraryItemChanged } from '../data/revision'
-import { readerSlotEntries, type ReaderLiveSelection } from '../readerSlots'
+import { readerSlotEntries, type ReaderLiveSelection, type ReaderNotesRequest } from '../readerSlots'
 import { parseHeadings, type LibraryStatus, type ReadPosition } from '../data/source'
+import ReaderActionBar from './ReaderActionBar.vue'
+import ReaderNotesSheet from './ReaderNotesSheet.vue'
 
 /**
  * How often the reader asks again while the text is still being extracted.
@@ -34,6 +37,18 @@ const STEADY_POLL_MS = 10_000
  */
 const POSITION_DEBOUNCE_MS = 2000
 
+/**
+ * How long a selection has to hold still before the reader reads it.
+ *
+ * A touch selection is the reason this exists: dragging a handle fires
+ * `selectionchange` on every movement, and reading the range on each one makes
+ * the highlight control flicker through every passage the finger passed over.
+ * It is also the guard that makes tapping that control work at all, because the
+ * tap collapses the selection and the pending read would otherwise clear the
+ * passage out from under the handler.
+ */
+const SELECTION_SETTLE_MS = 200
+
 const STATUS_ACTIONS: Array<{ status: LibraryStatus; label: string }> = [
   { status: 'inbox', label: 'Inbox' },
   { status: 'depois', label: 'Depois' },
@@ -42,6 +57,7 @@ const STATUS_ACTIONS: Array<{ status: LibraryStatus; label: string }> = [
 
 const route = useRoute()
 const { library } = useSources()
+const phone = usePhoneViewport()
 
 const itemId = computed(() => (Array.isArray(route.params.id) ? route.params.id[0] : route.params.id) ?? '')
 
@@ -367,6 +383,71 @@ function clearSelection(): void {
 }
 
 /**
+ * Reading the selection from `selectionchange` as well as from a mouse.
+ *
+ * A long press and the handles that follow it do not produce a `mouseup`, which
+ * was all the reader listened to, so a passage selected by touch was invisible
+ * to the highlight control. `selectionchange` is the one event every way of
+ * selecting fires, and it is on the document rather than on the article because
+ * the browser only offers it there.
+ */
+let selectionTimer: ReturnType<typeof setTimeout> | null = null
+
+function clearSelectionTimer(): void {
+  if (selectionTimer === null) return
+  clearTimeout(selectionTimer)
+  selectionTimer = null
+}
+
+function handleSelectionChange(): void {
+  clearSelectionTimer()
+  selectionTimer = setTimeout(() => {
+    selectionTimer = null
+    readSelection()
+  }, SELECTION_SETTLE_MS)
+}
+
+onMounted(() => document.addEventListener('selectionchange', handleSelectionChange))
+onBeforeUnmount(() => {
+  document.removeEventListener('selectionchange', handleSelectionChange)
+  clearSelectionTimer()
+})
+
+/* ------------------------------------------------------------ phone sheet */
+
+const sheetOpen = ref(false)
+const notesSection = ref<ReaderNotesRequest | null>(null)
+let notesAsks = 0
+
+/**
+ * Show the sheet, carrying the caller's own name for the part of it to show.
+ *
+ * The reader never reads that name: it belongs to whatever fills the `notes`
+ * slot, and passing it through unexamined is what keeps the library from
+ * learning another module's vocabulary.
+ */
+function openNotes(section?: string): void {
+  sheetOpen.value = true
+  if (section === undefined) return
+  notesAsks += 1
+  notesSection.value = { section, nth: notesAsks }
+}
+
+function closeNotes(): void {
+  sheetOpen.value = false
+}
+
+function handleReaderKeydown(event: KeyboardEvent): void {
+  if (event.key === 'Escape' && sheetOpen.value) closeNotes()
+}
+
+onMounted(() => window.addEventListener('keydown', handleReaderKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', handleReaderKeydown))
+
+// A reader left for another item starts with its sheet shut.
+watch(itemId, closeNotes)
+
+/**
  * Put a passage in view.
  *
  * It measures with the same rectangles the reading position does, because
@@ -388,6 +469,7 @@ function scrollToPassage(exact: string): void {
 
 const selectionSlots = computed(() => readerSlotEntries('selection-actions'))
 const notesSlots = computed(() => readerSlotEntries('notes'))
+const bottomSlots = computed(() => readerSlotEntries('bottom-actions'))
 
 const slotProps = computed(() => ({
   itemId: itemId.value,
@@ -396,7 +478,10 @@ const slotProps = computed(() => ({
   clearSelection,
   articleRoot: articleRoot.value,
   renderedAt: renderedAt.value,
-  scrollToPassage
+  scrollToPassage,
+  phone: phone.value,
+  openNotes,
+  notesSection: notesSection.value
 }))
 
 async function retryExtraction(): Promise<void> {
@@ -430,7 +515,7 @@ async function retryExtraction(): Promise<void> {
         <Icon name="arrowLeft" />
         <span>Biblioteca</span>
       </RouterLink>
-      <div class="reader-top-actions">
+      <div v-if="!phone" class="reader-top-actions">
         <button
           v-for="action in STATUS_ACTIONS"
           :key="action.status"
@@ -504,9 +589,34 @@ async function retryExtraction(): Promise<void> {
 
         <ArticleContent v-else :html="articleHtml" @rendered="handleArticleRendered" />
 
-        <component :is="entry.component" v-for="entry in notesSlots" :key="entry.id" v-bind="slotProps" />
+        <template v-if="!phone">
+          <component :is="entry.component" v-for="entry in bottomSlots" :key="entry.id" v-bind="slotProps" />
+          <component :is="entry.component" v-for="entry in notesSlots" :key="entry.id" v-bind="slotProps" />
+        </template>
       </div>
     </div>
+
+    <!--
+      On a phone the same two slots are rendered somewhere else, not twice: the
+      sheet holds what a wide screen puts under the article, and the bar holds
+      the actions. The sheet keeps its contents mounted while shut, because they
+      are what marks the highlighted passages in the text behind it.
+    -->
+    <template v-if="phone">
+      <ReaderNotesSheet :open="sheetOpen" @close="closeNotes">
+        <component :is="entry.component" v-for="entry in notesSlots" :key="entry.id" v-bind="slotProps" />
+      </ReaderNotesSheet>
+      <ReaderActionBar
+        :status="item.status"
+        :unread="item.unread"
+        :statuses="STATUS_ACTIONS"
+        :busy="writing.pending.value"
+        @toggle-read="toggleRead"
+        @move="moveTo"
+      >
+        <component :is="entry.component" v-for="entry in bottomSlots" :key="entry.id" v-bind="slotProps" />
+      </ReaderActionBar>
+    </template>
   </main>
 </template>
 
@@ -597,6 +707,13 @@ async function retryExtraction(): Promise<void> {
 .reader-scroll { flex: 1; min-height: 0; overflow-y: auto; }
 
 .reader-column { max-width: 72ch; margin: 0 auto; padding: 40px 24px 96px; }
+
+/* Room under the text for the bar and the sheet, which float over the column. */
+@media (max-width: 900px) {
+  .reader-column { padding: 20px 16px 180px; }
+  .reader-top { padding: 10px 16px; }
+  .reader-title { font-size: 26px; line-height: 32px; }
+}
 
 .reader-meta {
   display: flex;

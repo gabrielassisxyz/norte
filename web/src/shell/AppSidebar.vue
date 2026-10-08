@@ -452,9 +452,14 @@ const isInicio = computed(() => route.name === 'inicio')
 }
 
 
+/*
+  Below the phone breakpoint the sidebar is the drawer's panel: the shell puts
+  it off-canvas and slides it in, so this width is the panel's width and the
+  sidebar itself has nothing to hide.
+*/
 @media (max-width: 900px) {
   .app-sidebar {
-    display: none;
+    width: min(84vw, 300px);
   }
 }
 </style>
