@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,7 +38,26 @@ type libraryTelegramHarness struct {
 	store    *libraryTelegramStore
 	fake     *telegramtest.Server
 	settings telegram.Settings
-	logs     *bytes.Buffer
+	logs     *libraryLockedBuffer
+}
+
+// libraryLockedBuffer is a log sink the poller goroutine writes while the test
+// goroutine reads it.
+type libraryLockedBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *libraryLockedBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *libraryLockedBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 func newLibraryTelegramHarness(t *testing.T) *libraryTelegramHarness {
@@ -47,7 +67,7 @@ func newLibraryTelegramHarness(t *testing.T) *libraryTelegramHarness {
 	fake := telegramtest.New()
 	t.Cleanup(fake.Close)
 
-	logs := &bytes.Buffer{}
+	logs := &libraryLockedBuffer{}
 	logger := slog.New(slog.NewTextHandler(logs, &slog.HandlerOptions{Level: slog.LevelDebug}))
 	jobs := core.NewJobs(database.Writer(), clock, logger)
 	deps := app.Deps{
