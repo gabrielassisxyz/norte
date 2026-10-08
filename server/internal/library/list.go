@@ -223,7 +223,7 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		// The join's placeholders sit in FROM, ahead of every WHERE
 		// placeholder, so its arguments have to be bound first.
 		join, joinArgs := libraryFocusScoreJoin(focusTargets)
-		selectCols += ", " + libraryFocusScoreColumn + " AS score"
+		selectCols += ", " + libraryFocusScoreRounded + " AS score"
 		from += join
 		args = append(args, joinArgs...)
 	}
@@ -330,8 +330,8 @@ func libraryCursorPredicate(sort string, cursor libraryCursor) (string, []any) {
 		// Three levels deep because the now order is three columns, and a
 		// page boundary inside a run of equal scores has to continue by the
 		// saved date rather than restarting the run.
-		score := "(" + libraryFocusScoreColumn + ")"
-		return "(" + score + " < ? OR (" + score + " = ? AND (library_items.saved_at < ?" +
+		score := libraryFocusScoreRounded
+		return "(" + score + " < ROUND(?, 9) OR (" + score + " = ROUND(?, 9) AND (library_items.saved_at < ?" +
 				" OR (library_items.saved_at = ? AND library_items.id < ?))))",
 			[]any{cursor.Rank, cursor.Rank, cursor.Primary, cursor.Primary, cursor.ID}
 	default:

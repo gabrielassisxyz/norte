@@ -37,11 +37,18 @@ const libraryFocusTargetsSentinel = ""
 // ORDER BY and not in WHERE, and the cursor predicate needs it in WHERE.
 const libraryFocusScoreColumn = "COALESCE(library_focus_score.score, 0.0)"
 
+// libraryFocusScoreRounded is the score the list compares and orders by. A
+// score is a sum of floats, and a cursor carries it through JSON, so equality
+// on the raw value could miss by a last bit and re-serve or skip a row at a
+// page boundary; nine places is far below any weight difference and makes
+// the select, the ORDER BY and the cursor agree exactly.
+const libraryFocusScoreRounded = "ROUND(" + libraryFocusScoreColumn + ", 9)"
+
 // libraryNowOrderBy orders the now view: the score first, then the saved order
 // among equal scores, then the id. Items nothing in focus points at score 0
 // and so follow the scored ones, in saved order, which is the default list
 // they would have been in anyway.
-const libraryNowOrderBy = libraryFocusScoreColumn +
+const libraryNowOrderBy = libraryFocusScoreRounded +
 	" DESC, library_items.saved_at DESC, library_items.id DESC"
 
 // libraryFocusLinkWeight is what one link contributes to the score, as SQL.
