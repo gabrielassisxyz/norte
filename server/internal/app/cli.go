@@ -162,6 +162,8 @@ func newServeCommand() *cobra.Command {
 					TelegramToken: cfg.TelegramToken,
 					TelegramChat:  cfg.TelegramChat,
 					PublicURL:     cfg.PublicURL,
+					Focus: core.NewFocusAPI(core.NewSubjects(database, clock),
+						NorteFocusProviders(modules)),
 				}
 				RegisterNorteJobHandlers(queue, modules, deps)
 				worker := core.NewJobsWorker(queue, clock, logger, core.NewID())

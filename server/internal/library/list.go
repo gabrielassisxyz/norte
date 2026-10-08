@@ -138,7 +138,7 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		view = "inbox"
 	}
 	switch view {
-	case "inbox", "depois", "arquivo", "tudo":
+	case "inbox", "depois", "arquivo", "tudo", LibraryViewNow:
 	default:
 		return ListResult{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown view %q", view), "view")
 	}
@@ -165,6 +165,25 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		return ListResult{}, libraryBadRequest("invalid_request", "the page holds at most 200 items", "limit")
 	}
 	effectiveSort := sort
+	// The now view is not a shelf and not a sort the caller may choose: it
+	// reads every status, keeps only what is unread, and orders by the focus
+	// score. Normalising unread here rather than only in the WHERE is what
+	// makes a cursor issued with no unread parameter continue a list asked
+	// for with unread=true -- the same page, so the same filter hash.
+	var focusTargets []string
+	if view == LibraryViewNow {
+		if err := libraryRefuseNowConflicts(in); err != nil {
+			return ListResult{}, err
+		}
+		unread := true
+		in.Unread = &unread
+		effectiveSort = librarySortNow
+		targets, err := s.libraryFocusTargets(ctx)
+		if err != nil {
+			return ListResult{}, err
+		}
+		focusTargets = targets
+	}
 	var match string
 	if in.Query != "" {
 		effectiveSort = librarySortRank
@@ -200,7 +219,15 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		where = append(where, "library_fts MATCH ?")
 		args = append(args, match)
 	}
-	if view != "tudo" {
+	if effectiveSort == librarySortNow {
+		// The join's placeholders sit in FROM, ahead of every WHERE
+		// placeholder, so its arguments have to be bound first.
+		join, joinArgs := libraryFocusScoreJoin(focusTargets)
+		selectCols += ", " + libraryFocusScoreColumn + " AS score"
+		from += join
+		args = append(args, joinArgs...)
+	}
+	if view != "tudo" && view != LibraryViewNow {
 		where = append(where, "library_items.status = ?")
 		args = append(args, view)
 	}
@@ -239,7 +266,7 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 	items := []db.LibraryItem{}
 	ranks := []float64{}
 	for rows.Next() {
-		row, rank, err := libraryScanListRow(rows, in.Query != "")
+		row, rank, err := libraryScanListRow(rows, in.Query != "" || effectiveSort == librarySortNow)
 		if err != nil {
 			return ListResult{}, err
 		}
@@ -275,6 +302,8 @@ func libraryOrderBy(sort string) string {
 		return "library_items.last_opened_at DESC, library_items.id DESC"
 	case librarySortRank:
 		return "rank ASC, library_items.id ASC"
+	case librarySortNow:
+		return libraryNowOrderBy
 	default:
 		return "library_items.saved_at DESC, library_items.id DESC"
 	}
@@ -297,6 +326,14 @@ func libraryCursorPredicate(sort string, cursor libraryCursor) (string, []any) {
 		rank := "(" + libraryFTSRank + ")"
 		return "(" + rank + " > ? OR (" + rank + " = ? AND library_items.id > ?))",
 			[]any{cursor.Rank, cursor.Rank, cursor.ID}
+	case librarySortNow:
+		// Three levels deep because the now order is three columns, and a
+		// page boundary inside a run of equal scores has to continue by the
+		// saved date rather than restarting the run.
+		score := "(" + libraryFocusScoreColumn + ")"
+		return "(" + score + " < ? OR (" + score + " = ? AND (library_items.saved_at < ?" +
+				" OR (library_items.saved_at = ? AND library_items.id < ?))))",
+			[]any{cursor.Rank, cursor.Rank, cursor.Primary, cursor.Primary, cursor.ID}
 	default:
 		return "(library_items.saved_at < ? OR (library_items.saved_at = ? AND library_items.id < ?))",
 			[]any{cursor.Primary, cursor.Primary, cursor.ID}
@@ -316,12 +353,18 @@ func libraryCursorFor(sort, filterHash string, row db.LibraryItem, rank float64)
 	case librarySortRank:
 		cursor.Rank = rank
 		cursor.HasRank = true
+	case librarySortNow:
+		cursor.Primary = row.SavedAt
+		cursor.Rank = rank
+		cursor.HasRank = true
 	}
 	return cursor
 }
 
 // libraryScanListRow scans one list row in libraryItemColumns order, plus the
-// rank when the query searched.
+// one float column a query may add: the full-text rank when the query
+// searched, or the focus score under view=now. Only one of the two is ever
+// selected, because the list refuses q together with that view.
 func libraryScanListRow(rows *sql.Rows, withRank bool) (db.LibraryItem, float64, error) {
 	var row db.LibraryItem
 	var rank float64

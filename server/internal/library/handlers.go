@@ -119,6 +119,33 @@ func (h LibraryHandlers) ListLibraryItems(ctx context.Context, request libraryap
 	return libraryapi.ListLibraryItems200JSONResponse(list), nil
 }
 
+// DrawLibraryItems answers the serendipity button: unread items drawn at
+// random, weighted away from the focus unless the call asked for a uniform
+// draw. An absent away_from_focus means the weighted draw, which is what the
+// button is for.
+func (h LibraryHandlers) DrawLibraryItems(ctx context.Context, request libraryapi.DrawLibraryItemsRequestObject) (libraryapi.DrawLibraryItemsResponseObject, error) {
+	in := DrawInput{AwayFromFocus: true, N: request.Params.N, Seed: request.Params.Seed}
+	if request.Params.AwayFromFocus != nil {
+		in.AwayFromFocus = *request.Params.AwayFromFocus
+	}
+	result, err := h.service.Draw(ctx, in)
+	if err != nil {
+		var domain *LibraryError
+		if errors.As(err, &domain) {
+			return libraryapi.DrawLibraryItemsdefaultJSONResponse{
+				Body:       libraryErrorBody(domain, ctx),
+				StatusCode: domain.Status,
+			}, nil
+		}
+		return nil, err
+	}
+	items := make([]libraryapi.LibraryItemSummary, 0, len(result.Items))
+	for _, row := range result.Items {
+		items = append(items, libraryMapSummary(row))
+	}
+	return libraryapi.DrawLibraryItems200JSONResponse{Items: items}, nil
+}
+
 // GetLibraryCounts answers every library count in one query.
 func (h LibraryHandlers) GetLibraryCounts(ctx context.Context, _ libraryapi.GetLibraryCountsRequestObject) (libraryapi.GetLibraryCountsResponseObject, error) {
 	counts, err := h.service.Counts(ctx)
