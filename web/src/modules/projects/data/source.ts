@@ -39,6 +39,7 @@ export interface AreaRailEntry {
   id: string
   title: string
   projects: number
+  archived: boolean
 }
 
 export interface AreaDetail {
@@ -120,7 +121,8 @@ export interface ProjectsSource {
   updateArea(id: string, updates: { title: string; intention: string }): Promise<Area>
   archiveArea(id: string): Promise<Area>
   unarchiveArea(id: string): Promise<Area>
-  addProject(project: NewProjectInput): Promise<Project>
+  /** Answers with the row, counted, which is what a list is holding. */
+  addProject(project: NewProjectInput): Promise<ProjectRow>
   addTask(task: NewTaskInput): Promise<Task>
   addSession(session: NewSessionInput): Promise<Session>
   updateTask(id: string, updates: { title: string; description: string }): Promise<Task>

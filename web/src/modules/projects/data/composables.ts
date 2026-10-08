@@ -42,20 +42,27 @@ export function useProjectsOverview(): ProjectsOverviewResource {
   return { ...resource, prependProject, applyArea }
 }
 
+/**
+ * Each detail read takes an `enabled` flag, because two of these screens double
+ * as the empty "new" form: there is no id to read then, and reading would
+ * answer "not found" for an address that is not meant to exist.
+ */
 export interface AreaResource extends AsyncResource<AreaDetail | null> {
   applyArea: (area: Area) => void
 }
 
-export function useArea(id: MaybeRefOrGetter<string>): AreaResource {
+export function useArea(
+  id: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true
+): AreaResource {
   const { projects } = useSources()
-  const resource = useAsyncResource((signal) => projects.getArea(toValue(id), signal))
+  const resource = useAsyncResource((signal) => projects.getArea(toValue(id), signal), {
+    immediate: toValue(enabled)
+  })
 
-  watch(
-    () => toValue(id),
-    () => {
-      void resource.refresh()
-    }
-  )
+  watch([() => toValue(id), () => toValue(enabled)], () => {
+    if (toValue(enabled)) void resource.refresh()
+  })
 
   function applyArea(area: Area): void {
     const detail = resource.data.value
@@ -71,16 +78,18 @@ export interface ProjectResource extends AsyncResource<ProjectDetail | null> {
   countSession: () => void
 }
 
-export function useProject(id: MaybeRefOrGetter<string>): ProjectResource {
+export function useProject(
+  id: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true
+): ProjectResource {
   const { projects } = useSources()
-  const resource = useAsyncResource((signal) => projects.getProject(toValue(id), signal))
+  const resource = useAsyncResource((signal) => projects.getProject(toValue(id), signal), {
+    immediate: toValue(enabled)
+  })
 
-  watch(
-    () => toValue(id),
-    () => {
-      void resource.refresh()
-    }
-  )
+  watch([() => toValue(id), () => toValue(enabled)], () => {
+    if (toValue(enabled)) void resource.refresh()
+  })
 
   function applyTask(task: Task): void {
     const detail = resource.data.value
@@ -106,16 +115,18 @@ export interface TaskResource extends AsyncResource<TaskDetail | null> {
   refreshSessions: () => Promise<void>
 }
 
-export function useTask(id: MaybeRefOrGetter<string>): TaskResource {
+export function useTask(
+  id: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true
+): TaskResource {
   const { projects } = useSources()
-  const resource = useAsyncResource((signal) => projects.getTask(toValue(id), signal))
+  const resource = useAsyncResource((signal) => projects.getTask(toValue(id), signal), {
+    immediate: toValue(enabled)
+  })
 
-  watch(
-    () => toValue(id),
-    () => {
-      void resource.refresh()
-    }
-  )
+  watch([() => toValue(id), () => toValue(enabled)], () => {
+    if (toValue(enabled)) void resource.refresh()
+  })
 
   function applyTask(task: Task): void {
     const detail = resource.data.value
@@ -130,16 +141,18 @@ export interface DecisionResource extends AsyncResource<DecisionDetail | null> {
   applyDecision: (decision: Decision) => void
 }
 
-export function useDecision(id: MaybeRefOrGetter<string>): DecisionResource {
+export function useDecision(
+  id: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true
+): DecisionResource {
   const { projects } = useSources()
-  const resource = useAsyncResource((signal) => projects.getDecision(toValue(id), signal))
+  const resource = useAsyncResource((signal) => projects.getDecision(toValue(id), signal), {
+    immediate: toValue(enabled)
+  })
 
-  watch(
-    () => toValue(id),
-    () => {
-      void resource.refresh()
-    }
-  )
+  watch([() => toValue(id), () => toValue(enabled)], () => {
+    if (toValue(enabled)) void resource.refresh()
+  })
 
   function applyDecision(decision: Decision): void {
     const detail = resource.data.value

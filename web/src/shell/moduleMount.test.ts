@@ -21,6 +21,9 @@ async function mountAt(path: string) {
   await router.isReady()
   const wrapper = mount(App, { global: { plugins: [router, sourcesPlugin(createMockSources())] } })
   mounted.push(wrapper)
+  // A detail screen titles itself from its own read, so there is no heading to
+  // assert on until that read has answered.
+  await flushReads()
   return { wrapper, router }
 }
 

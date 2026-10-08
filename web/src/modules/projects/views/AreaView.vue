@@ -7,8 +7,11 @@ import Icon from '@/components/ds/Icon.vue'
 import PageTitle from '@/components/ds/PageTitle.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import TextField from '@/components/ds/TextField.vue'
-import { store } from '@/mock/store'
+import { useAsyncAction } from '@/lib/asyncResource'
 import type { Bucket, ProjectStatus } from '@/mock/types'
+import { useSources } from '@/sources'
+
+import { useArea } from '../data/composables'
 
 const props = defineProps<{ id: string }>()
 
@@ -39,62 +42,65 @@ const BUCKET_LABELS: Record<Bucket, string> = {
 }
 
 const router = useRouter()
+const { projects: projectsSource } = useSources()
 
 const isNew = computed(() => props.id === NEW_AREA_ID)
-const area = computed(() => store.areas.find((candidate) => candidate.id === props.id))
+
+// The empty form has no area to read, and reading would answer "not found".
+const { data: detail, loading, error, refresh, applyArea } = useArea(
+  () => props.id,
+  () => !isNew.value
+)
+const writing = useAsyncAction()
+
+const firstLoad = computed(() => !isNew.value && loading.value && detail.value === null)
+const area = computed(() => detail.value?.area)
 
 const editing = ref(isNew.value)
-const editTitle = ref(area.value?.title ?? '')
-const editIntention = ref(area.value?.intention ?? '')
+const editTitle = ref('')
+const editIntention = ref('')
 const projectFilter = ref<ProjectFilter>('todos')
 
 watch(
   () => props.id,
   () => {
     editing.value = isNew.value
-    editTitle.value = area.value?.title ?? ''
-    editIntention.value = area.value?.intention ?? ''
     projectFilter.value = 'todos'
   }
 )
 
-const areaProjects = computed(() =>
-  store.projects.filter((project) => project.areaId === props.id)
-)
-const projectIds = computed(() => areaProjects.value.map((project) => project.id))
-const areaTasks = computed(() => store.tasks.filter((task) => projectIds.value.includes(task.projectId)))
-const areaDecisions = computed(() =>
-  store.decisions.filter((decision) => projectIds.value.includes(decision.projectId))
-)
-const areaSessions = computed(() =>
-  [...store.sessions]
-    .filter((session) => projectIds.value.includes(session.projectId))
-    .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
+// The form fills in from the answer, which may arrive after the screen does.
+watch(
+  area,
+  (current) => {
+    editTitle.value = current?.title ?? ''
+    editIntention.value = current?.intention ?? ''
+  },
+  { immediate: true }
 )
 
+const areaProjects = computed(() => detail.value?.projects ?? [])
+const areaTasks = computed(() => detail.value?.tasks ?? [])
+const areaDecisions = computed(() => detail.value?.decisions ?? [])
+/** Already newest first: the order is the source's, not this screen's. */
+const areaSessions = computed(() => detail.value?.sessions ?? [])
+
 const openTasks = computed(() => areaTasks.value.filter((task) => !task.completed))
-const pendingDecisions = computed(() =>
-  areaDecisions.value.filter((decision) => decision.status !== 'decided')
-)
+const pendingDecisions = computed(() => areaDecisions.value.filter((decision) => decision.status !== 'decided'))
 const openBugCount = computed(() =>
   areaProjects.value.reduce((total, project) => total + project.bugs.filter((bug) => !bug.resolved).length, 0)
 )
-const activeProjects = computed(() =>
-  areaProjects.value.filter((project) => project.status === 'active')
-)
-const pausedCount = computed(
-  () => areaProjects.value.filter((project) => project.status === 'paused').length
-)
+const activeProjects = computed(() => areaProjects.value.filter((project) => project.status === 'active'))
+const pausedCount = computed(() => areaProjects.value.filter((project) => project.status === 'paused').length)
 
 function projectTitle(projectId: string): string {
   return areaProjects.value.find((project) => project.id === projectId)?.title ?? projectId
 }
 
 const projectRows = computed(() => {
-  const visible =
-    projectFilter.value === 'ativos' ? activeProjects.value : areaProjects.value
+  const visible = projectFilter.value === 'ativos' ? activeProjects.value : areaProjects.value
   return visible.map((project) => {
-    const open = store.tasks.filter((task) => task.projectId === project.id && !task.completed)
+    const open = areaTasks.value.filter((task) => task.projectId === project.id && !task.completed)
     const bugs = project.bugs.filter((bug) => !bug.resolved)
     const counts = [`${open.length} tarefas`]
     if (bugs.length > 0) counts.push(`${bugs.length} bugs`)
@@ -117,16 +123,12 @@ const projectFilterOptions = computed(() => [
 ])
 
 const railAreas = computed(() =>
-  store.areas
+  (detail.value?.rail ?? [])
     .filter((candidate) => !candidate.archived || candidate.id === props.id)
-    .map((candidate) => ({
-      id: candidate.id,
-      label: candidate.title,
-      count: store.projects.filter((project) => project.areaId === candidate.id).length
-    }))
+    .map((candidate) => ({ id: candidate.id, label: candidate.title, count: candidate.projects }))
 )
 
-const archivedCount = computed(() => store.areas.filter((candidate) => candidate.archived).length)
+const archivedCount = computed(() => detail.value?.archivedCount ?? 0)
 
 const editHeading = computed(() => (isNew.value ? 'Nova área' : 'Editar área'))
 const canSave = computed(() => editTitle.value.trim().length > 0 && editIntention.value.trim().length > 0)
@@ -137,18 +139,28 @@ function toggleEdit(): void {
   editIntention.value = area.value?.intention ?? ''
 }
 
-function save(): void {
+/**
+ * Saving awaits the source and then shows the area it answered with. A failure
+ * keeps the form open with what was typed and the reason above it.
+ */
+async function save(): Promise<void> {
   if (!canSave.value) return
   const title = editTitle.value.trim()
   const intention = editIntention.value.trim()
+
   if (isNew.value) {
-    const created = store.addArea({ title, intention })
+    const created = await writing.run(() => projectsSource.addArea({ title, intention }))
+    if (!created) return
     editing.value = false
     void router.push({ name: 'area', params: { id: created.id } })
     return
   }
-  if (!area.value) return
-  store.updateArea(area.value.id, { title, intention })
+
+  const current = area.value
+  if (!current) return
+  const updated = await writing.run(() => projectsSource.updateArea(current.id, { title, intention }))
+  if (!updated) return
+  applyArea(updated)
   editing.value = false
 }
 
@@ -162,20 +174,34 @@ function cancel(): void {
   editing.value = false
 }
 
-function archive(): void {
-  if (!area.value) return
-  store.archiveArea(area.value.id)
+async function archive(): Promise<void> {
+  const current = area.value
+  if (!current) return
+  const updated = await writing.run(() => projectsSource.archiveArea(current.id))
+  if (!updated) return
+  applyArea(updated)
   editing.value = false
 }
 
-function unarchive(): void {
-  if (!area.value) return
-  store.unarchiveArea(area.value.id)
+async function unarchive(): Promise<void> {
+  const current = area.value
+  if (!current) return
+  const updated = await writing.run(() => projectsSource.unarchiveArea(current.id))
+  if (updated) applyArea(updated)
 }
 </script>
 
 <template>
-  <main v-if="area || isNew" class="area">
+  <main v-if="firstLoad" class="area area-missing" role="status">
+    <p>Carregando a área…</p>
+  </main>
+
+  <main v-else-if="error" class="area area-missing" role="alert">
+    <p>Não foi possível carregar a área: {{ error }}</p>
+    <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+  </main>
+
+  <main v-else-if="area || isNew" class="area">
     <div class="area-top">
       <nav class="crumb" aria-label="Navegação estrutural">
         <RouterLink :to="{ name: 'projetos' }">Projetos</RouterLink>
@@ -198,6 +224,10 @@ function unarchive(): void {
         </RouterLink>
       </div>
     </div>
+
+    <p v-if="writing.error.value" class="area-write-error" role="alert">
+      Não foi possível salvar: {{ writing.error.value }}
+    </p>
 
     <div class="area-page">
       <div class="area-main">
@@ -1025,6 +1055,13 @@ function unarchive(): void {
 
 .area-link-archived {
   margin-top: 8px;
+}
+
+.area-write-error {
+  margin: var(--space-4) 0 0;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .area-missing {

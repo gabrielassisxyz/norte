@@ -20,16 +20,22 @@ export interface LibraryItemsResource extends AsyncResource<LibraryList> {
  *
  * A changed query supersedes the request in flight rather than racing it, which
  * is what keeps a fast typist from seeing the results of a search they have
- * already moved past.
+ * already moved past. `enabled` is for a caller in another module, which may
+ * only read the library while the mount rule allows that crossing.
  */
-export function useLibraryItems(query: MaybeRefOrGetter<LibraryListQuery> = {}): LibraryItemsResource {
+export function useLibraryItems(
+  query: MaybeRefOrGetter<LibraryListQuery> = {},
+  enabled: MaybeRefOrGetter<boolean> = true
+): LibraryItemsResource {
   const { library } = useSources()
-  const resource = useAsyncResource((signal) => library.listItems(toValue(query), signal))
+  const resource = useAsyncResource((signal) => library.listItems(toValue(query), signal), {
+    immediate: toValue(enabled)
+  })
 
   watch(
-    [() => toValue(query), libraryRevision],
+    [() => toValue(query), libraryRevision, () => toValue(enabled)],
     () => {
-      void resource.refresh()
+      if (toValue(enabled)) void resource.refresh()
     },
     { deep: true }
   )

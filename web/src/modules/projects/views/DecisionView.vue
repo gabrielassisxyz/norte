@@ -5,10 +5,14 @@ import { RouterLink, useRoute } from 'vue-router'
 import Icon from '@/components/ds/Icon.vue'
 import PageTitle from '@/components/ds/PageTitle.vue'
 import TextField from '@/components/ds/TextField.vue'
+import { useAsyncAction } from '@/lib/asyncResource'
 import { daysBetweenIsoDates, formatShortDate, shiftIsoDate, todayIsoDate } from '@/lib/clock'
-import { store } from '@/mock/store'
-import type { Decision, DecisionOption, LibraryItem, MaterialKind } from '@/mock/types'
+import type { DecisionOption, LibraryItem, MaterialKind } from '@/mock/types'
+import { useLibraryItems } from '@/modules/library/data/composables'
 import { crossModuleActionAllowed } from '@/modules/mounting'
+import { useSources } from '@/sources'
+
+import { useDecision } from '../data/composables'
 
 const props = withDefaults(defineProps<{ id?: string; preselect?: boolean }>(), {
   id: '',
@@ -16,7 +20,6 @@ const props = withDefaults(defineProps<{ id?: string; preselect?: boolean }>(), 
 })
 
 type Choice = string | null
-type DecisionWithReasoning = Decision & { reasoning?: string }
 interface Tradeoffs {
   software: string
   uso: string
@@ -97,16 +100,19 @@ const OPTION_TRADEOFFS: Record<string, Tradeoffs> = {
 const canReachLibrary = computed(() => crossModuleActionAllowed('projects', 'library'))
 
 const route = useRoute()
+const { projects: projectsSource } = useSources()
+
 const decisionId = computed(() => props.id || String(route.params.id ?? ''))
-const decision = computed(() => store.decisions.find((candidate) => candidate.id === decisionId.value))
-const project = computed(() => store.projects.find((candidate) => candidate.id === decision.value?.projectId))
-const area = computed(() => store.areas.find((candidate) => candidate.id === project.value?.areaId))
-const projectDecisions = computed(() =>
-  store.decisions.filter((candidate) => candidate.projectId === decision.value?.projectId)
-)
-const blockedTasks = computed(() =>
-  store.tasks.filter((task) => decision.value?.blockedTaskIds.includes(task.id) ?? false)
-)
+const { data: detail, loading, error, refresh, applyDecision } = useDecision(decisionId)
+const writing = useAsyncAction()
+
+const firstLoad = computed(() => loading.value && detail.value === null)
+const decision = computed(() => detail.value?.decision)
+const project = computed(() => detail.value?.project)
+const area = computed(() => detail.value?.area)
+const relatedDecisions = computed(() => detail.value?.related ?? [])
+const blockedTasks = computed(() => detail.value?.blockedTasks ?? [])
+const decidedCount = computed(() => detail.value?.decidedCount ?? 0)
 const leanOptionId = computed(() => {
   const current = decision.value
   if (!current) return undefined
@@ -147,17 +153,18 @@ const contextParagraphs = computed(() => {
     : 'Registrar a escolha deixa o próximo passo visível para o projeto.'
   return [current.context, followUp]
 })
+/** The reading behind a decision is the library's, read only while that crossing is allowed. */
+const { data: libraryPage } = useLibraryItems({}, canReachLibrary)
+
 const references = computed(() => {
   const current = decision.value
   if (!current) return []
-  const readable = store.libraryItems.filter(isReadableMaterial)
+  const readable = (libraryPage.value?.items ?? []).filter(isReadableMaterial)
   const ids = REFERENCE_IDS_BY_DECISION[current.id] ?? readable.slice(0, 3).map((item) => item.id)
   return ids
     .map((id) => readable.find((item) => item.id === id))
     .filter((item): item is LibraryItem & { kind: MaterialKind } => item !== undefined)
 })
-const relatedDecisions = computed(() => projectDecisions.value.filter((candidate) => candidate.id !== decision.value?.id))
-const decidedCount = computed(() => projectDecisions.value.filter((candidate) => candidate.status === 'decided').length)
 
 function isReadableMaterial(item: LibraryItem): item is LibraryItem & { kind: MaterialKind } {
   return item.kind === 'post' || item.kind === 'livro' || item.kind === 'paper'
@@ -187,7 +194,7 @@ function optionTradeoffs(option: DecisionOption): Tradeoffs {
 }
 
 function resetState(): void {
-  const current = decision.value as DecisionWithReasoning | undefined
+  const current = decision.value
   if (!current) {
     selectedChoice.value = null
     reasoning.value = ''
@@ -216,26 +223,38 @@ function chooseOther(): void {
   locallyDecided.value = false
 }
 
-function decide(): void {
-  const current = decision.value as DecisionWithReasoning | undefined
+/**
+ * The choice is recorded by the source, and the screen then shows the decision
+ * it answered with. "Outra" travels as the reason behind it, which is the only
+ * thing that distinguishes it from a choice of a recorded option.
+ */
+async function decide(): Promise<void> {
+  const current = decision.value
   const choice = selectedChoice.value
   if (!current || choice === null || !canDecide.value) return
 
-  if (choice === OTHER_CHOICE) {
-    current.reasoning = reasoning.value.trim()
-    current.status = 'decided'
-    current.selectedOptionId = OTHER_CHOICE
-    delete current.postponedUntil
-  } else {
-    store.decideDecision(current.id, choice)
-  }
+  const decided = await writing.run(() =>
+    projectsSource.decideDecision(
+      current.id,
+      choice,
+      choice === OTHER_CHOICE ? reasoning.value.trim() : undefined
+    )
+  )
+  if (!decided) return
+
+  applyDecision(decided)
   locallyDecided.value = true
 }
 
-function postpone(): void {
+async function postpone(): Promise<void> {
   const current = decision.value
   if (!current || isDecided.value) return
-  store.postponeDecision(current.id, shiftIsoDate(dueDate.value, DEFAULT_DUE_DAYS))
+  const postponed = await writing.run(() =>
+    projectsSource.postponeDecision(current.id, shiftIsoDate(dueDate.value, DEFAULT_DUE_DAYS))
+  )
+  if (!postponed) return
+
+  applyDecision(postponed)
   selectedChoice.value = null
   locallyDecided.value = false
 }
@@ -257,26 +276,49 @@ function cancelEditing(): void {
   editing.value = false
 }
 
-function saveEditing(): void {
+async function saveEditing(): Promise<void> {
   const current = decision.value
   const title = editTitle.value.trim()
   if (!current || !title) return
-  current.title = title
-  current.context = editContext.value.trim()
+  const updated = await writing.run(() =>
+    projectsSource.updateDecision(current.id, { title, context: editContext.value.trim() })
+  )
+  if (!updated) return
+
+  applyDecision(updated)
   editing.value = false
 }
 
-watch([decisionId, () => props.preselect], resetState, { immediate: true })
+/**
+ * The screen's own state is derived from the decision the source holds, so it
+ * is re-derived whenever that answer changes — on arrival, on a route change,
+ * and after a write. That is what makes the choice on screen the one that came
+ * back rather than the one that was sent.
+ */
+watch([decision, decisionId, () => props.preselect], resetState, { immediate: true })
 </script>
 
 <template>
   <main class="decision-view">
-    <div v-if="!decision" class="decision-inner decision-missing">
+    <div v-if="firstLoad" class="decision-inner decision-missing" role="status">
+      <p>Carregando a decisão…</p>
+    </div>
+
+    <div v-else-if="error" class="decision-inner decision-missing" role="alert">
+      <p>Não foi possível carregar a decisão: {{ error }}</p>
+      <button type="button" class="decision-back" @click="refresh()">Tentar de novo</button>
+    </div>
+
+    <div v-else-if="!decision" class="decision-inner decision-missing">
       <PageTitle title="Decisão não encontrada" objective="Nenhuma decisão responde por este endereço." />
       <RouterLink class="decision-back" to="/projetos">Ver projetos</RouterLink>
     </div>
 
     <div v-else class="decision-inner">
+      <p v-if="writing.error.value" class="decision-write-error" role="alert">
+        Não foi possível salvar: {{ writing.error.value }}
+      </p>
+
       <div class="decision-top">
         <nav class="decision-crumbs" aria-label="Caminho">
           <RouterLink class="decision-crumb" to="/projetos">Projetos</RouterLink>
@@ -504,6 +546,13 @@ watch([decisionId, () => props.preselect], resetState, { immediate: true })
 .decision-inner {
   max-width: 1120px;
   margin: 0 auto;
+}
+
+.decision-write-error {
+  margin: 0 0 var(--space-4);
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .decision-missing {

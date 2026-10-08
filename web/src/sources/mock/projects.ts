@@ -52,7 +52,8 @@ export function createMockProjectsSource(store: MockStore): ProjectsSource {
     return store.areas.map((area) => ({
       id: area.id,
       title: area.title,
-      projects: store.projects.filter((project) => project.areaId === area.id).length
+      projects: store.projects.filter((project) => project.areaId === area.id).length,
+      archived: area.archived
     }))
   }
 
@@ -170,7 +171,7 @@ export function createMockProjectsSource(store: MockStore): ProjectsSource {
     },
 
     addProject(project) {
-      return answer(() => store.addProject(project))
+      return answer(() => row(store.addProject(project)))
     },
 
     addTask(task) {
