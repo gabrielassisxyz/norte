@@ -1,6 +1,6 @@
 import { mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import App from '@/App.vue'
 import AppSidebar from '@/shell/AppSidebar.vue'
@@ -37,11 +37,20 @@ async function clickAndSettle(link: DOMWrapper<Element>, router: Router, expecte
 
 describe('app shell', () => {
   it('renders the screen title inside the shell with its main regions', async () => {
-    const { wrapper } = await mountAt('/')
+    // The home titles itself from the clock, so naming the title means fixing
+    // the day. Only this case does: the others navigate, and navigation here is
+    // waited out on the real clock.
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-10-03T12:00:00Z'))
+    try {
+      const { wrapper } = await mountAt('/')
 
-    expect(wrapper.find('.app-sidebar').exists()).toBe(true)
-    expect(wrapper.find('.app-content main').exists()).toBe(true)
-    expect(wrapper.find('.app-content h1').text()).toBe('Sábado, 3 de outubro')
+      expect(wrapper.find('.app-sidebar').exists()).toBe(true)
+      expect(wrapper.find('.app-content main').exists()).toBe(true)
+      expect(wrapper.find('.app-content h1').text()).toBe('Sábado, 3 de outubro')
+    } finally {
+      vi.useRealTimers()
+    }
   })
 
   it('names every screen on its own route', async () => {

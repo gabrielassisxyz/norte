@@ -8,8 +8,9 @@ import { computed } from 'vue'
 const plantedToday = '2026-10-03'
 const plantedSeed = 20261003
 const plantedDue = computed(() => '2026-10-10')
+const plantedTitle = 'Sábado, 3 de outubro'
 </script>
 
 <template>
-  <p>{{ plantedToday }} · {{ plantedSeed }} · {{ plantedDue }}</p>
+  <p>{{ plantedToday }} · {{ plantedSeed }} · {{ plantedDue }} · {{ plantedTitle }}</p>
 </template>

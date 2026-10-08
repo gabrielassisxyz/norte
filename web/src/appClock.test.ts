@@ -37,6 +37,15 @@ const LEGACY_DATE_SYMBOLS = ['TODAY', 'MOCK_TODAY', 'STUDY_TODAY', 'DEFAULT_DUE_
 const ISO_DATE_LITERAL = /['"`]\d{4}-\d{2}-\d{2}/
 const COMPACT_DATE_LITERAL = /(?<![\d.])20\d{6}(?![\d.])/
 
+/**
+ * A day written out in Portuguese, which is how the home screen used to title
+ * itself. It is a date as surely as `2026-10-03` is, and it reads as copy, so
+ * nothing but a scan would ever notice it going stale.
+ */
+const WEEKDAYS = 'segunda|terça|quarta|quinta|sexta|sábado|domingo'
+const MONTHS = 'janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro'
+const WRITTEN_DAY_LITERAL = new RegExp(`['"\`](?:${WEEKDAYS})[^'"\`]*\\bde (?:${MONTHS})`, 'i')
+
 function isProduction(path: string): boolean {
   return !path.includes('.test.') && !path.includes('.fixture.')
 }
@@ -64,6 +73,8 @@ function dateLiteralsIn(source: string): string[] {
     if (iso) found.push(iso[0].slice(1))
     const compact = COMPACT_DATE_LITERAL.exec(line)
     if (compact) found.push(compact[0])
+    const written = WRITTEN_DAY_LITERAL.exec(line)
+    if (written) found.push(written[0].slice(1))
   }
   return found
 }
@@ -108,11 +119,17 @@ describe('the scan itself rejects a planted date', () => {
     const planted = FIXTURES['./__fixtures__/viewDueDate.fixture.vue']
 
     expect(planted, 'the planted fixture is missing').toBeTypeOf('string')
-    expect(dateLiteralsIn(planted)).toEqual(['2026-10-03', '20261003', '2026-10-10'])
+    expect(dateLiteralsIn(planted)).toEqual([
+      '2026-10-03',
+      '20261003',
+      '2026-10-10',
+      'Sábado, 3 de outubro'
+    ])
   })
 
   it('leaves a format string and a parser alone', () => {
     expect(dateLiteralsIn("const mask = 'YYYY-MM-DD'")).toEqual([])
+    expect(dateLiteralsIn("const weekday = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' })")).toEqual([])
     expect(dateLiteralsIn('const ISO = /^(\\d{4})-(\\d{2})-(\\d{2})/')).toEqual([])
     expect(dateLiteralsIn('const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000')).toEqual([])
   })

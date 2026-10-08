@@ -2,11 +2,14 @@
 import { computed, ref } from 'vue'
 
 import PageTitle from '@/components/ds/PageTitle.vue'
+import { formatLongWeekdayDate, todayIsoDate } from '@/lib/clock'
 
 import { homeBlocks } from './composition'
 import './home.css'
 
 const searchQuery = ref('')
+/** The day the server is on, which is the only day this screen is about. */
+const title = computed(() => formatLongWeekdayDate(todayIsoDate()))
 const actionBlocks = computed(() => homeBlocks('actions'))
 const mainBlocks = computed(() => homeBlocks('main'))
 </script>
@@ -28,7 +31,7 @@ const mainBlocks = computed(() => homeBlocks('main'))
 
       <PageTitle
         class="home-title"
-        title="Sábado, 3 de outubro"
+        :title="title"
         objective="Escolha uma coisa importante para estudar e reserve um espaço para continuar lendo."
       />
 

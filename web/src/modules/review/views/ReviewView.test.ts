@@ -293,3 +293,40 @@ describe('review view', () => {
     expect(statValues(wrapper)[0]).toContain('24')
   })
 })
+
+/**
+ * The due list is the clock's, not the seed's: a card becomes due because the
+ * day moved, and a fixed queue read on two days has to answer differently.
+ */
+describe('review view against the calendar', () => {
+  const DECK = { id: 'deck-linguagens', title: 'Construção de linguagens', curriculumSlug: 'c', description: 'd' }
+
+  function queueDueOn(dates: string[]): Partial<AppSources> {
+    const items = dates.map((dueAt, position) => ({
+      id: `card-${position}`,
+      deckId: DECK.id,
+      front: `Frente ${position}`,
+      back: `Verso ${position}`,
+      sourceLibraryItemId: 'post-compilation',
+      dueAt
+    }))
+    const page: ReviewQueuePage = {
+      items,
+      next_cursor: null,
+      counts: { cards: items.length, due: 0, decks: 1 },
+      decks: [DECK]
+    }
+    return reviewWith({ listCards: async () => page })
+  }
+
+  it('moves a card into the due list when the day it is due arrives', async () => {
+    const sources = queueDueOn(['2026-10-03', '2026-10-04', '2026-10-05'])
+
+    const { wrapper: onThird } = await mountReview('/revisao', sources)
+    expect(deckButton(onThird, 'Tudo de hoje').text()).toContain('1 / 3')
+
+    vi.setSystemTime(new Date('2026-10-04T12:00:00Z'))
+    const { wrapper: onFourth } = await mountReview('/revisao', sources)
+    expect(deckButton(onFourth, 'Tudo de hoje').text()).toContain('2 / 3')
+  })
+})
