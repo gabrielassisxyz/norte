@@ -6,8 +6,9 @@
 --
 -- The column keeps its name and its bm25 weight; only the value the triggers
 -- put in it changes, to the heading titles joined by spaces. json_valid guards
--- the NULL and the garbage cases, because json_each raises on input it cannot
--- parse and a trigger that raises would make an item impossible to save.
+-- the NULL and the garbage cases, and only object elements are read, because
+-- json_extract raises on an element it cannot address and a trigger that
+-- raises would make an item impossible to save.
 --
 -- The rebuild at the end is what corrects rows written before this migration:
 -- library_fts is derived data in full, so deleting it and reinserting from
@@ -24,7 +25,7 @@ CREATE TRIGGER library_items_fts_insert AFTER INSERT ON library_items BEGIN
     VALUES (new.id, new.title, new.author, new.why,
             CASE WHEN json_valid(new.content_headings)
                  THEN (SELECT group_concat(json_extract(value, '$.text'), ' ')
-                         FROM json_each(new.content_headings))
+                         FROM json_each(new.content_headings) WHERE type = 'object')
                  END,
             new.content_text);
 END;
@@ -38,7 +39,7 @@ CREATE TRIGGER library_items_fts_update AFTER UPDATE ON library_items BEGIN
         why = new.why,
         content_headings = CASE WHEN json_valid(new.content_headings)
                  THEN (SELECT group_concat(json_extract(value, '$.text'), ' ')
-                         FROM json_each(new.content_headings))
+                         FROM json_each(new.content_headings) WHERE type = 'object')
                  END,
         content_text = new.content_text
     WHERE id = old.id;
@@ -51,7 +52,7 @@ INSERT INTO library_fts (id, title, author, why, content_headings, content_text)
 SELECT id, title, author, why,
        CASE WHEN json_valid(content_headings)
             THEN (SELECT group_concat(json_extract(value, '$.text'), ' ')
-                    FROM json_each(library_items.content_headings))
+                    FROM json_each(library_items.content_headings) WHERE type = 'object')
             END,
        content_text
   FROM library_items;
