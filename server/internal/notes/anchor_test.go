@@ -56,6 +56,15 @@ func TestAnchoringAPassageAgainstAText(t *testing.T) {
 			ambiguous: true,
 		},
 		{
+			name:     "two occurrences with identical prefix anchor on the matching suffix",
+			text:     "Igual: a mesma frase. primeiro fim. Igual: a mesma frase. segundo fim.",
+			exact:    "a mesma frase.",
+			prefix:   "Igual: ",
+			suffix:   " segundo fim.",
+			want:     NotesAnchored,
+			wantHint: 43,
+		},
+		{
 			name:      "the hint does not break a tie between identical occurrences",
 			text:      "Igual: a mesma frase. fim. Igual: a mesma frase. fim.",
 			exact:     "a mesma frase.",
