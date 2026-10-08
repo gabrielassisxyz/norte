@@ -9,6 +9,7 @@ import router from '@/router'
 import type { AppSources } from '@/sources'
 import { appSourcesWithLibrary, flushReads, shellLibraryRecords, sourcesPlugin } from '@/sources/testing'
 
+import { fakeCoreSource, subjectRecord } from './data/testing'
 import HomeView from './HomeView.vue'
 
 /** The day the mock data is built against, so a date on screen is a known date. */
@@ -25,9 +26,10 @@ async function mountWith(sources: Partial<AppSources>, path = '/'): Promise<VueW
 }
 
 let library: ReturnType<typeof fakeLibrarySource>
+let core: ReturnType<typeof fakeCoreSource>
 
 function mountHome(path = '/'): Promise<VueWrapper> {
-  return mountWith(appSourcesWithLibrary({ store, library }), path)
+  return mountWith(appSourcesWithLibrary({ store, library, core }), path)
 }
 
 describe('HomeView', () => {
@@ -37,6 +39,9 @@ describe('HomeView', () => {
     setClockTimeZone('UTC')
     store = createMockStore()
     library = fakeLibrarySource(shellLibraryRecords())
+    // One subject in focus, which is what the save dialog's picker offers
+    // before anything is typed into it.
+    core = fakeCoreSource({ subjects: [subjectRecord({ id: 'subject-k8s', name: 'Kubernetes', focus: true })] })
     // The library reads the API, so its bands are on the home only while the
     // server says the module is there.
     setEnabledModules(['library'])
@@ -103,6 +108,39 @@ describe('HomeView', () => {
     expect(wrapper.findAll('.home-save-title').map((node) => node.text())).toContain(
       'https://example.org/reading-list'
     )
+  })
+
+  it('saves a link about the subject chosen in the dialog, in one call', async () => {
+    const wrapper = await mountHome('/?save=1')
+
+    await wrapper.get('.nt-input').setValue('https://example.org/pods')
+    // The picker offers the focus before anything is typed, which is the one
+    // subject seeded here.
+    await wrapper.get('[role="option"]').trigger('click')
+    expect(wrapper.get('.save-chosen').text()).toContain('Kubernetes')
+
+    await wrapper.get('form').trigger('submit')
+    await flushReads()
+
+    // The links travel with the save rather than as a second call, so the item
+    // and its links land in one transaction.
+    expect(library.calls.save).toEqual([
+      { url: 'https://example.org/pods', link_to: ['subject-k8s'] }
+    ])
+  })
+
+  it('drops a chosen subject again before the save', async () => {
+    const wrapper = await mountHome('/?save=1')
+
+    await wrapper.get('.nt-input').setValue('https://example.org/pods')
+    await wrapper.get('[role="option"]').trigger('click')
+    await wrapper.get('.save-chip').trigger('click')
+    expect(wrapper.find('.save-chosen').exists()).toBe(false)
+
+    await wrapper.get('form').trigger('submit')
+    await flushReads()
+
+    expect(library.calls.save).toEqual([{ url: 'https://example.org/pods' }])
   })
 
   it('opens the save dialog from its button', async () => {

@@ -29,15 +29,11 @@ export function useSidebar(): ModuleSidebar {
 
   function studyRows(): SidebarRow[] {
     return [
-      { id: 'curriculos', label: 'Currículos', to: { name: 'estudo' }, count: summary.value?.counts.curricula ?? 0 },
-      // There is no standalone subject entity yet; each curriculum module reads
-      // as one subject on the Estudo home screen, which is what the count says.
-      {
-        id: 'assuntos',
-        label: 'Assuntos',
-        to: { name: 'estudo', hash: '#assuntos' },
-        count: summary.value?.counts.modules ?? 0
-      }
+      { id: 'curriculos', label: 'Currículos', to: { name: 'estudo' }, count: summary.value?.counts.curricula ?? 0 }
+      // Assuntos is no longer a row here. Subjects are the core's and have
+      // their own pages, so the shell lists them as a top-level section; a
+      // second entry under Estudo would point at a screen that only shows the
+      // ones this module happens to be holding.
     ]
   }
 

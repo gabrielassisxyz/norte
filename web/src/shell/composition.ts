@@ -11,6 +11,8 @@ import type {
   SidebarShortcutGroup
 } from '@/modules/types'
 
+import { useSubjects } from './data/composables'
+
 /** The mounted modules, in registry order. */
 export function mountedModules(): NorteModule[] {
   return norteModules.filter((module) => isModuleMounted(module.manifest.name))
@@ -90,4 +92,49 @@ export function homeBlocks(region: HomeBlock['region'], modules: NorteModule[] =
     .flatMap((module) => module.homeBlocks)
     .filter((block) => block.region === region)
     .sort((left, right) => left.order - right.order)
+}
+
+/**
+ * A top-level sidebar block the shell owns rather than a module.
+ *
+ * It carries no `to` of its own, which is the one way it differs from a
+ * module's section: a module's line is a screen you can open, while this is a
+ * grouping of addresses with no index page behind it. Subjects are the case —
+ * every subject has a page, the set of them does not.
+ */
+export interface ShellSidebarSection {
+  id: string
+  label: string
+  order: number
+  count: () => number | undefined
+  rows: () => SidebarRow[]
+}
+
+/**
+ * The shell's own sidebar blocks: the subjects, which belong to the core and
+ * so are there whatever modules the server lists.
+ *
+ * It calls a composable, so it belongs in the setup of the component that
+ * renders the sidebar and nowhere else.
+ */
+export function useShellSidebarSections(): ShellSidebarSection[] {
+  const { data: page } = useSubjects()
+
+  return [
+    {
+      id: 'assuntos',
+      label: 'Assuntos',
+      // Ahead of every product: a subject is what the other lines are filed
+      // under, and the core is on before any of them.
+      order: 5,
+      count: () => page.value?.items.length,
+      rows: () =>
+        (page.value?.items ?? []).map<SidebarRow>((subject) => ({
+          id: `assunto-${subject.slug}`,
+          label: subject.name,
+          to: { name: 'assunto', params: { slug: subject.slug } },
+          count: subject.counts.total
+        }))
+    }
+  ]
 }

@@ -8,6 +8,7 @@ import { createRouteTable } from '@/router'
 import { appSourcesWithLibrary, flushReads, sourcesPlugin } from '@/sources/testing'
 
 import AppSidebar from './AppSidebar.vue'
+import { fakeCoreSource, subjectRecord } from './data/testing'
 
 const mounted: Array<{ unmount: () => void }> = []
 
@@ -26,14 +27,30 @@ function switchOff(...names: ModuleName[]): void {
   setEnabledModules(['library'])
 }
 
-async function mountSidebar() {
+/** The subjects the core answers with, which the shell lists on its own. */
+function sidebarSubjects() {
+  return [
+    subjectRecord({
+      name: 'Escrita',
+      slug: 'escrita',
+      counts: { total: 2, by_type: [{ module: 'library', type: 'post', count: 2 }] }
+    }),
+    subjectRecord({ name: 'Kubernetes', slug: 'kubernetes' })
+  ]
+}
+
+async function mountSidebar(subjects = sidebarSubjects()) {
   // The library is `api`-backed in its own manifest, so a sidebar with a
   // library line is a sidebar mounted against a server that lists it.
   if (!enabledModuleNames().includes('library')) setEnabledModules([...enabledModuleNames(), 'library'])
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
   await router.push('/')
   await router.isReady()
-  const wrapper = mount(AppSidebar, { global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary())] } })
+  const wrapper = mount(AppSidebar, {
+    global: {
+      plugins: [router, sourcesPlugin(appSourcesWithLibrary({ core: fakeCoreSource({ subjects }) }))]
+    }
+  })
   mounted.push(wrapper)
   // Every row and every count is a module's own read, so there is no sidebar to
   // assert on until those reads have answered.
@@ -94,5 +111,63 @@ describe('Revisão in the sidebar', () => {
     expect(labels).toContain('Notas')
     // And the Estudo shortcut group goes with its module.
     expect(wrapper.get('nav[aria-label="Atalhos"]').text()).not.toContain('Currículos')
+  })
+})
+
+describe('Assuntos in the sidebar', () => {
+  it('is a top-level section listing every subject, each at its own page', async () => {
+    const wrapper = await mountSidebar()
+
+    expect(topLevelLabels(wrapper)).toContain('Assuntos')
+    // It starts expanded: it is a grouping with no index page behind it, so
+    // collapsed it says nothing at all.
+    const rows = wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub')
+    const subjects = rows.filter((row) => row.attributes('href')?.startsWith('/assuntos/'))
+    expect(subjects.map((row) => row.attributes('href'))).toEqual(['/assuntos/escrita', '/assuntos/kubernetes'])
+    expect(subjects[0]!.text()).toContain('Escrita')
+    // The count is what the subject has linked to it, straight from the read.
+    expect(subjects[0]!.text()).toContain('2')
+  })
+
+  it('is there whatever the server lists, because the core is not a module', async () => {
+    switchOff('study', 'review', 'notes', 'projects')
+    const wrapper = await mountSidebar()
+
+    expect(topLevelLabels(wrapper)).toContain('Assuntos')
+    expect(wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub')
+      .some((row) => row.attributes('href') === '/assuntos/escrita')).toBe(true)
+  })
+
+  it('says the vocabulary is empty rather than showing an empty block', async () => {
+    const wrapper = await mountSidebar([])
+
+    expect(topLevelLabels(wrapper)).toContain('Assuntos')
+    expect(wrapper.get('nav[aria-label="Principal"]').text()).toContain('Nenhum assunto ainda')
+  })
+
+  it('replaces the Assuntos row that used to sit under Estudo', async () => {
+    const wrapper = await mountSidebar()
+
+    await expand(wrapper, 'Estudo')
+    const estudoRows = wrapper
+      .findAll('nav[aria-label="Principal"] .app-children .app-sub')
+      .filter((row) => row.attributes('href')?.startsWith('/estudo'))
+      .map((row) => row.text().replace(/\d+$/, '').trim())
+    expect(estudoRows).toEqual(['Currículos'])
+  })
+})
+
+describe('the Listas group', () => {
+  it('is not rendered while Estudo is mock-backed', async () => {
+    const wrapper = await mountSidebar()
+
+    await expand(wrapper, 'Biblioteca')
+    // An `api`-backed library item cannot point at a mock curriculum, so there
+    // is nothing a Listas group could list; it returns with the study delivery,
+    // fed by `material_of` links.
+    const heads = wrapper.findAll('nav[aria-label="Principal"] .app-head').map((head) => head.text())
+    expect(heads).toContain('Tipos')
+    expect(heads).not.toContain('Listas')
+    expect(wrapper.get('nav[aria-label="Principal"]').text()).not.toContain('Listas')
   })
 })

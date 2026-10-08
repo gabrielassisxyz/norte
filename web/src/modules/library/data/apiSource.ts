@@ -107,7 +107,11 @@ export function createApiLibrarySource(): LibrarySource {
 
     async saveLink(link: NewSavedLink): Promise<LibraryItemRecord> {
       const answered = await libraryClient.POST('/api/library/items', {
-        body: { url: link.url, ...(link.why?.trim() ? { why: link.why.trim() } : {}) }
+        body: {
+          url: link.url,
+          ...(link.why?.trim() ? { why: link.why.trim() } : {}),
+          ...(link.link_to?.length ? { link_to: link.link_to } : {})
+        }
       })
       const saved = unwrap(answered as Answered<{ id: string }>)
       // The save answers with an id; the dialog has to show the item, and the

@@ -15,11 +15,21 @@ declare module 'vue-router' {
 }
 
 /**
- * The routes that exist whichever modules are on: the home screen, and in
- * development the design-system gallery.
+ * The routes that exist whichever modules are on: the home screen, the subject
+ * screen, and in development the design-system gallery.
+ *
+ * The subject screen is here rather than in a module because subjects belong
+ * to the core: they are the one linkable thing no module owns, and switching
+ * every module off must not take the vocabulary with it.
  */
 export const shellRoutes: RouteRecordRaw[] = [
-  { path: '/', name: 'inicio', component: () => import('@/shell/HomeView.vue'), meta: { title: 'Início' } }
+  { path: '/', name: 'inicio', component: () => import('@/shell/HomeView.vue'), meta: { title: 'Início' } },
+  {
+    path: '/assuntos/:slug',
+    name: 'assunto',
+    component: () => import('@/shell/SubjectView.vue'),
+    meta: { title: 'Assunto' }
+  }
 ]
 
 if (import.meta.env.DEV) {

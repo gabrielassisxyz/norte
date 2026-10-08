@@ -4,6 +4,7 @@ import { createApiLibrarySource } from './modules/library/data/apiSource'
 import router from './router'
 import AppRoot from './shell/AppRoot.vue'
 import { bootApplication } from './shell/boot'
+import { createApiCoreSource } from './shell/data/apiSource'
 import { installSources } from './sources'
 import { createMockSources } from './sources/mock'
 import { applyStoredTheme } from './theme'
@@ -25,6 +26,12 @@ app.mount('#app')
 // The library is the one module reading the real server; the rest still read the
 // mock. Naming it here, rather than hiding it inside the mock bundle, is what
 // keeps the line between what is wired and what is not visible in one place.
+// The core is not in that list at all: it is always on, so its source is never
+// a mock and never conditional.
 void bootApplication(router, () => {
-  installSources(app, { ...createMockSources(), library: createApiLibrarySource() })
+  installSources(app, {
+    ...createMockSources(),
+    core: createApiCoreSource(),
+    library: createApiLibrarySource()
+  })
 })
