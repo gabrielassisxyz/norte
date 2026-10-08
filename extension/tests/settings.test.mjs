@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile, mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
 import { serverOrigin, originPattern, configureServer, configuredOrigin } from '../src/settings.js';
 import { buildExtension } from '../build.mjs';
@@ -30,7 +31,7 @@ test('manifest and exact optional origin grant', async () => {
 });
 
 test('shipped and test builds have isolated host permissions', async () => {
-  const root = await mkdtemp(resolve('dist-test-'));
+  const root = await mkdtemp(resolve(tmpdir(), 'norte-ext-test-'));
   try {
     const production = await buildExtension({ output: resolve(root, 'production') });
     const fixture = await buildExtension({ output: resolve(root, 'fixture'), testOrigin: 'http://127.0.0.1:48123' });
@@ -67,4 +68,15 @@ test('settings rejects invalid URLs before requesting permission and persists on
     await configureServer(value, api, async () => ({ status: 200 }));
     assert.deepEqual(api.writes, [{ serverOrigin: 'http://host:8080' }]);
   }
+});
+
+test('the server origin lives in storage.local and never in storage.sync', async () => {
+  const local = [], sync = [], store = {};
+  const api = { permissions: { request: async () => true, contains: async () => true },
+    storage: { local: { get: async () => ({ ...store }), set: async (value) => { local.push(value); Object.assign(store, value); } },
+      sync: { get: async () => assert.fail('sync read'), set: async (value) => sync.push(value) } } };
+  await configureServer('http://host:8080', api, async () => ({ status: 200 }));
+  assert.deepEqual(local, [{ serverOrigin: 'http://host:8080' }]);
+  assert.deepEqual(sync, []);
+  assert.equal(await configuredOrigin(api), 'http://host:8080');
 });
