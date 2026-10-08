@@ -1,6 +1,7 @@
 import { createApp } from 'vue'
 
 import { createApiLibrarySource } from './modules/library/data/apiSource'
+import { createApiNotesSource } from './modules/notes/data/apiSource'
 import router from './router'
 import AppRoot from './shell/AppRoot.vue'
 import { bootApplication } from './shell/boot'
@@ -23,15 +24,16 @@ app.mount('#app')
 // The sources are installed from inside that boot, once the config has named the
 // time zone, because the mock dates its records against the day it is built on.
 //
-// The library is the one module reading the real server; the rest still read the
-// mock. Naming it here, rather than hiding it inside the mock bundle, is what
-// keeps the line between what is wired and what is not visible in one place.
-// The core is not in that list at all: it is always on, so its source is never
-// a mock and never conditional.
+// The library and the notes are the modules reading the real server; the rest
+// still read the mock. Naming them here, rather than hiding them inside the mock
+// bundle, is what keeps the line between what is wired and what is not visible
+// in one place. The core is not in that list at all: it is always on, so its
+// source is never a mock and never conditional.
 void bootApplication(router, () => {
   installSources(app, {
     ...createMockSources(),
     core: createApiCoreSource(),
-    library: createApiLibrarySource()
+    library: createApiLibrarySource(),
+    notes: createApiNotesSource()
   })
 })

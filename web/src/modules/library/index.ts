@@ -4,7 +4,7 @@ import type { SearchEntry } from '@/search'
 
 import type { ModuleSidebar, NorteModule, SidebarLink, SidebarRow } from '../types'
 import { useLibraryCounts, useLibraryItems } from './data/composables'
-import type { LibraryKind, LibraryViewName } from './data/source'
+import type { LibraryKind, LibraryShelf } from './data/source'
 import LibraryReadingBlock from './home/LibraryReadingBlock.vue'
 import LibrarySaveAction from './home/LibrarySaveAction.vue'
 import LibrarySavesBlock from './home/LibrarySavesBlock.vue'
@@ -35,7 +35,7 @@ const KIND_ORDER: LibraryKind[] = ['post', 'livro', 'paper', 'video', 'podcast',
 export function useSidebar(): ModuleSidebar {
   const { data: counts } = useLibraryCounts()
 
-  function viewCount(view: LibraryViewName): number {
+  function viewCount(view: LibraryShelf): number {
     return counts.value?.views[view] ?? 0
   }
 

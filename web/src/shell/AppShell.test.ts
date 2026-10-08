@@ -14,9 +14,9 @@ afterEach(() => {
 })
 
 async function mountAt(path: string) {
-  // The library is `api`-backed, so a shell with a library line in it is a
-  // shell mounted against a server that lists the module.
-  setEnabledModules(['library'])
+  // The library and the notes are both `api`-backed, so a shell with their
+  // lines in it is a shell mounted against a server that lists them.
+  setEnabledModules(['library', 'notes'])
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
@@ -106,7 +106,7 @@ describe('app shell', () => {
 
     for (const [label, target] of Object.entries(targets)) {
       expect(
-        ['inicio', 'biblioteca', 'notas', 'revisao', 'estudo', 'area', 'projetos'],
+        ['inicio', 'biblioteca', 'notas', 'notas-conjuntos', 'revisao', 'estudo', 'area', 'projetos'],
         `sidebar entry "${label}" points at an unknown route`
       ).toContain(target.name)
     }

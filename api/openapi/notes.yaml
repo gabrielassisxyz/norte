@@ -1,0 +1,809 @@
+# The notes module's contract: highlights anchored by their text, margin
+# annotations, the one freeform note an item carries, questions, and the
+# question sets a topic's six prompts produce.
+#
+# Both the Go server interfaces and the TypeScript types come from this file --
+# `bin/generate` runs the generators -- so changing what the API accepts or
+# returns means changing the contract first.
+#
+# A path in this file must sit under /api/notes/. Every object schema pins
+# additionalProperties to false, so a request carrying a field the contract
+# never named is rejected instead of being silently dropped.
+# `bin/check-contracts` is what enforces both.
+openapi: 3.0.3
+info:
+  title: Norte notes API
+  version: 0.1.0
+  description: |
+    Notes are what reading leaves behind: a highlighted passage, a note in the
+    margin, one note for the whole text, and the questions a reading raises.
+
+    A note points at an item by its registry id and carries no foreign key to
+    the module that owns it, so a highlight outlives the library being switched
+    off: it still shows its own text, and its source title comes from the
+    registry rather than from the owning module's table.
+
+    A highlight is anchored by text, never by an offset. The passage is stored
+    with the 32 code points around it, and a re-extraction searches for that
+    passage again: a unique context match stays anchored, and zero or several
+    indistinguishable matches make it orphaned rather than silently moving it.
+paths:
+  /api/notes/highlights:
+    post:
+      operationId: createNoteHighlight
+      summary: Highlight a passage of an item's text
+      description: |
+        The client sends the passage and the text around it, never an offset: an
+        offset into the browser's DOM has no relation to the extracted text the
+        server anchors against. The server normalises all three, searches the
+        item's text, and answers with the highlight it stored -- `anchored` on a
+        unique context match, `orphaned` when the passage is missing or appears
+        more than once with indistinguishable context.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewHighlight"
+      responses:
+        "201":
+          description: The highlight was stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Highlight"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      operationId: listNoteHighlights
+      summary: List highlights
+      description: |
+        Newest first, with the id breaking ties, which is the total order the
+        cursor continues. Each row carries its source item's title, read from
+        the registry, so the screen needs no call into the owning module.
+      parameters:
+        - $ref: "#/components/parameters/ItemFilter"
+        - $ref: "#/components/parameters/TextFilter"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page of highlights.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HighlightList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notes/highlights/{id}:
+    delete:
+      operationId: deleteNoteHighlight
+      summary: Delete a highlight
+      description: |
+        The annotations hanging on the highlight go with it, which is what the
+        foreign key's cascade says; a question written from one of those
+        annotations keeps its text and loses the reference.
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+      responses:
+        "204":
+          description: The highlight is gone.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notes/annotations:
+    post:
+      operationId: createNoteAnnotation
+      summary: Write a note in the margin
+      description: |
+        With a highlight id the annotation hangs on that passage; without one it
+        is a loose note on the item.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewAnnotation"
+      responses:
+        "201":
+          description: The annotation was stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      operationId: listNoteAnnotations
+      summary: List annotations
+      parameters:
+        - $ref: "#/components/parameters/ItemFilter"
+        - $ref: "#/components/parameters/TextFilter"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page of annotations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnnotationList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notes/annotations/{id}:
+    patch:
+      operationId: updateNoteAnnotation
+      summary: Rewrite an annotation
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AnnotationPatch"
+      responses:
+        "200":
+          description: The annotation after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Annotation"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteNoteAnnotation
+      summary: Delete an annotation
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+      responses:
+        "204":
+          description: The annotation is gone.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notes/items/{item_id}/note:
+    get:
+      operationId: getNoteItemNote
+      summary: Read the one freeform note an item carries
+      description: |
+        An item that has never been annotated answers with an empty text rather
+        than 404: the reader's "Nota" tab is a place to write, and a missing
+        note is an empty one.
+      parameters:
+        - $ref: "#/components/parameters/PathItemID"
+      responses:
+        "200":
+          description: The note, empty when none was written.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemNote"
+        default:
+          $ref: "#/components/responses/Error"
+    put:
+      operationId: putNoteItemNote
+      summary: Write the one freeform note an item carries
+      description: |
+        Replaces whatever was there. An empty text deletes the note, so the tab
+        does not leave a blank row behind.
+      parameters:
+        - $ref: "#/components/parameters/PathItemID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ItemNoteBody"
+      responses:
+        "200":
+          description: The note after the write.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemNote"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notes/questions:
+    post:
+      operationId: createNoteQuestion
+      summary: Write a question
+      description: |
+        A single question carries no kind. A kind is set only for a question
+        written from one of a set's six prompts, and the database refuses any
+        value outside that list.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewQuestion"
+      responses:
+        "201":
+          description: The question was stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      operationId: listNoteQuestions
+      summary: List questions
+      parameters:
+        - $ref: "#/components/parameters/ItemFilter"
+        - name: set_id
+          in: query
+          description: Keep only the questions of this set.
+          schema:
+            type: string
+        - name: status
+          in: query
+          description: Keep only questions in this state.
+          schema:
+            $ref: "#/components/schemas/QuestionStatus"
+        - $ref: "#/components/parameters/TextFilter"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page of questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notes/questions/{id}:
+    patch:
+      operationId: updateNoteQuestion
+      summary: Change a question's text, answer or state
+      description: Only the fields present are applied.
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionPatch"
+      responses:
+        "200":
+          description: The question after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notes/question-sets:
+    post:
+      operationId: createNoteQuestionSet
+      summary: Open a question set on a topic
+      description: |
+        The set stores only the prompts the person actually wrote something
+        into: six empty boxes are six questions nobody asked. The set is
+        registered in the item registry as a `question_set`, so a subject can be
+        linked to it later.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewQuestionSet"
+      responses:
+        "201":
+          description: The set and the questions it stored.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionSetDetail"
+        default:
+          $ref: "#/components/responses/Error"
+    get:
+      operationId: listNoteQuestionSets
+      summary: List question sets
+      parameters:
+        - $ref: "#/components/parameters/TextFilter"
+        - $ref: "#/components/parameters/Cursor"
+        - $ref: "#/components/parameters/Limit"
+      responses:
+        "200":
+          description: One page of sets.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionSetList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notes/question-sets/{id}:
+    get:
+      operationId: getNoteQuestionSet
+      summary: Read one question set with its questions
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+      responses:
+        "200":
+          description: The set.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/QuestionSetDetail"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/notes/counts:
+    get:
+      operationId: getNoteCounts
+      summary: Count the notes by kind
+      description: |
+        What the sidebar and the Notas tabs print. It is one query rather than
+        three list calls, so a screen showing the counts never pages a list it
+        does not render.
+      responses:
+        "200":
+          description: The counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NoteCounts"
+        default:
+          $ref: "#/components/responses/Error"
+components:
+  parameters:
+    PathID:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+    PathItemID:
+      name: item_id
+      in: path
+      required: true
+      schema:
+        type: string
+    ItemFilter:
+      name: item_id
+      in: query
+      description: Keep only the notes of this item.
+      schema:
+        type: string
+    TextFilter:
+      name: q
+      in: query
+      description: |
+        Keep only the rows whose own text, or whose source item's title,
+        contains this. The match is case-insensitive and is a substring rather
+        than a word query: the filter is a screen's narrowing box, not a search.
+      schema:
+        type: string
+    Cursor:
+      name: cursor
+      in: query
+      description: The next_cursor of the previous page.
+      schema:
+        type: string
+    Limit:
+      name: limit
+      in: query
+      description: How many rows a page holds.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 200
+        default: 50
+  responses:
+    Error:
+      description: |
+        Every failure in one envelope, whether it came from validating the
+        request against this contract or from the domain behind it.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    HighlightStatus:
+      type: string
+      description: |
+        Whether the passage was found in the item's current text. An orphaned
+        highlight is listed as lost rather than hidden: its text is still the
+        thing the person marked.
+      enum:
+        - anchored
+        - orphaned
+    QuestionKind:
+      type: string
+      description: |
+        Which of a set's six prompts the question came from. A question written
+        on its own has none.
+      enum:
+        - what
+        - why
+        - who
+        - when
+        - where
+        - how
+    QuestionStatus:
+      type: string
+      description: Where the question stands.
+      enum:
+        - open
+        - answered
+        - dropped
+    NoteSource:
+      type: object
+      additionalProperties: false
+      description: |
+        The item a note sits on, as the registry holds it. It is here so a note
+        row renders its origin with the owning module switched off.
+      required:
+        - id
+        - module
+        - type
+        - title
+      properties:
+        id:
+          type: string
+        module:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+    NewHighlight:
+      type: object
+      additionalProperties: false
+      required:
+        - item_id
+        - exact
+      properties:
+        item_id:
+          type: string
+          description: The registry id of the item the passage belongs to.
+        exact:
+          type: string
+          description: The selected passage.
+        prefix:
+          type: string
+          description: The 32 code points before the passage, as the client saw them.
+        suffix:
+          type: string
+          description: The 32 code points after the passage, as the client saw them.
+    Highlight:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - item_id
+        - exact
+        - prefix
+        - suffix
+        - position_hint
+        - status
+        - created_at
+      properties:
+        id:
+          type: string
+        item_id:
+          type: string
+        section_ref:
+          type: string
+          description: The page or section a PDF or EPUB highlight sits on; null for an article.
+        location_label:
+          type: string
+          description: How that page is shown to the person; null for an article.
+        exact:
+          type: string
+        prefix:
+          type: string
+        suffix:
+          type: string
+        position_hint:
+          type: integer
+          description: |
+            The code-point offset of the passage in the item's text when the
+            highlight was anchored. It only orders the search for the passage;
+            it never chooses between two matches on its own.
+        status:
+          $ref: "#/components/schemas/HighlightStatus"
+        ambiguous:
+          type: boolean
+          description: |
+            True when the passage was stored orphaned because the text held
+            several occurrences with indistinguishable context, as opposed to
+            none at all. The reader says which of the two happened.
+        created_at:
+          type: string
+        source:
+          $ref: "#/components/schemas/NoteSource"
+    HighlightList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Highlight"
+        next_cursor:
+          type: string
+    NewAnnotation:
+      type: object
+      additionalProperties: false
+      required:
+        - item_id
+        - text
+      properties:
+        item_id:
+          type: string
+        highlight_id:
+          type: string
+          description: The highlight this note hangs on, when it hangs on one.
+        text:
+          type: string
+    AnnotationPatch:
+      type: object
+      additionalProperties: false
+      required:
+        - text
+      properties:
+        text:
+          type: string
+    Annotation:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - item_id
+        - text
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        item_id:
+          type: string
+        highlight_id:
+          type: string
+        quote:
+          type: string
+          description: The highlighted passage this note hangs on, when it hangs on one.
+        text:
+          type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+        source:
+          $ref: "#/components/schemas/NoteSource"
+    AnnotationList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Annotation"
+        next_cursor:
+          type: string
+    ItemNoteBody:
+      type: object
+      additionalProperties: false
+      required:
+        - text
+      properties:
+        text:
+          type: string
+    ItemNote:
+      type: object
+      additionalProperties: false
+      required:
+        - item_id
+        - text
+      properties:
+        id:
+          type: string
+          description: Absent while the item has no note yet.
+        item_id:
+          type: string
+        text:
+          type: string
+        created_at:
+          type: string
+        updated_at:
+          type: string
+    NewQuestion:
+      type: object
+      additionalProperties: false
+      required:
+        - text
+      properties:
+        item_id:
+          type: string
+          description: The item the question came out of, when it came out of one.
+        annotation_id:
+          type: string
+          description: The margin note the question was turned into, when it was.
+        set_id:
+          type: string
+          description: The set this question belongs to.
+        kind:
+          $ref: "#/components/schemas/QuestionKind"
+        text:
+          type: string
+    QuestionPatch:
+      type: object
+      additionalProperties: false
+      properties:
+        text:
+          type: string
+        answer:
+          type: string
+        status:
+          $ref: "#/components/schemas/QuestionStatus"
+    Question:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - text
+        - status
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+        item_id:
+          type: string
+        annotation_id:
+          type: string
+        set_id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/QuestionKind"
+        text:
+          type: string
+        answer:
+          type: string
+        status:
+          $ref: "#/components/schemas/QuestionStatus"
+        created_at:
+          type: string
+        updated_at:
+          type: string
+        source:
+          $ref: "#/components/schemas/NoteSource"
+    QuestionList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+        next_cursor:
+          type: string
+    QuestionSetPrompt:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - text
+      properties:
+        kind:
+          $ref: "#/components/schemas/QuestionKind"
+        text:
+          type: string
+          description: |
+            What the person wrote into that prompt. A prompt left blank is not
+            sent, and one sent blank stores no question.
+    NewQuestionSet:
+      type: object
+      additionalProperties: false
+      required:
+        - topic
+      properties:
+        topic:
+          type: string
+        questions:
+          type: array
+          description: The prompts the person filled in, at most one per kind.
+          items:
+            $ref: "#/components/schemas/QuestionSetPrompt"
+    QuestionSet:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - topic
+        - question_count
+        - created_at
+      properties:
+        id:
+          type: string
+        topic:
+          type: string
+        question_count:
+          type: integer
+        created_at:
+          type: string
+    QuestionSetDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - topic
+        - question_count
+        - created_at
+        - questions
+      properties:
+        id:
+          type: string
+        topic:
+          type: string
+        question_count:
+          type: integer
+        created_at:
+          type: string
+        questions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Question"
+    QuestionSetList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/QuestionSet"
+        next_cursor:
+          type: string
+    NoteCounts:
+      type: object
+      additionalProperties: false
+      required:
+        - highlights
+        - anotacoes
+        - perguntas
+        - conjuntos
+      properties:
+        highlights:
+          type: integer
+        anotacoes:
+          type: integer
+        perguntas:
+          type: integer
+        conjuntos:
+          type: integer
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required:
+        - code
+        - message
+        - request_id
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+        field:
+          type: string
+        request_id:
+          type: string
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+        - error
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"

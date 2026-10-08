@@ -172,6 +172,27 @@ func (q *Queries) GetCoreItem(ctx context.Context, id string) (CoreItem, error) 
 	return i, err
 }
 
+const getCoreItemByID = `-- name: GetCoreItemByID :one
+SELECT id, module, type, title, url, created_at FROM core_items WHERE id = ?
+`
+
+// The registry row behind one id, which is how a module renders an item it does
+// not own: the title and the type are here, so a note shows where it came from
+// with the owning module switched off.
+func (q *Queries) GetCoreItemByID(ctx context.Context, id string) (CoreItem, error) {
+	row := q.db.QueryRowContext(ctx, getCoreItemByID, id)
+	var i CoreItem
+	err := row.Scan(
+		&i.ID,
+		&i.Module,
+		&i.Type,
+		&i.Title,
+		&i.Url,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCoreLink = `-- name: GetCoreLink :one
 SELECT id, src_id, dst_id, kind, source, status, confidence, created_at, decided_at FROM core_links WHERE id = ?
 `
