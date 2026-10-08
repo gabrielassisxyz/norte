@@ -8,6 +8,9 @@ import { useAsyncAction } from '@/lib/asyncResource'
 import { formatShortDate } from '@/lib/clock'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 import { useProjectsSummary } from '@/modules/projects/data/composables'
+import { coreLinksChanged } from '@/shell/data/revision'
+import type { Subject } from '@/shell/data/source'
+import SubjectPicker from '@/shell/SubjectPicker.vue'
 import { useSources } from '@/sources'
 
 import { useLibraryCounts, useLibraryItems } from '../data/composables'
@@ -81,7 +84,7 @@ const KIND_LABELS: Record<LibraryKind, string> = {
 
 const route = useRoute()
 const router = useRouter()
-const { library, projects: projectsSource } = useSources()
+const { library, core, projects: projectsSource } = useSources()
 
 const sort = ref<LibrarySort>('saved_desc')
 const unreadOnly = ref(false)
@@ -248,6 +251,34 @@ async function makeTask(item: LibraryItemSummary, projectId: string): Promise<vo
   )
   openAction.value = null
 }
+
+/**
+ * Which item's subject picker is open.
+ *
+ * Unlike the task action this one is never gated by `crossModuleActionAllowed`:
+ * a subject belongs to the core, which is always on and always reads from the
+ * same place the library does, so there is no crossing to withhold.
+ */
+const openSubjectPicker = ref<string | null>(null)
+
+function toggleSubjectPicker(item: LibraryItemSummary): void {
+  openSubjectPicker.value = openSubjectPicker.value === item.id ? null : item.id
+}
+
+/**
+ * Link the item to the chosen subject.
+ *
+ * The item is the source and the subject the target, which is the direction
+ * `about` is read in: the panel on a subject's page lists what points at it.
+ */
+async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promise<void> {
+  const linked = await writing.run(() => core.createLink(item.id, subject.id))
+  if (!linked) return
+  openSubjectPicker.value = null
+  // Nothing on this screen holds the subject counts, and no write response
+  // carries them, so every list of subjects asks again.
+  coreLinksChanged()
+}
 </script>
 
 <template>
@@ -383,6 +414,21 @@ async function makeTask(item: LibraryItemSummary, projectId: string): Promise<vo
               <path d="M3 8.5l3 3 7-7" />
             </svg>
           </button>
+          <div class="act-wrap">
+            <button
+              type="button"
+              class="act"
+              title="Ligar a um assunto"
+              aria-label="Ligar a um assunto"
+              :aria-expanded="openSubjectPicker === item.id"
+              @click="toggleSubjectPicker(item)"
+            >
+              <Icon name="plus" :size="16" />
+            </button>
+            <div v-if="openSubjectPicker === item.id" class="act-menu act-menu-wide" aria-label="Assuntos">
+              <SubjectPicker label="Assunto" @select="linkToSubject(item, $event)" />
+            </div>
+          </div>
           <div v-if="canMakeTask" class="act-wrap">
             <button
               type="button"
@@ -435,6 +481,7 @@ async function makeTask(item: LibraryItemSummary, projectId: string): Promise<vo
 .act-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 20; display: grid; min-width: 220px; padding: 4px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-pop); }
 .act-menu-row { padding: 7px 10px; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--ink); font-family: var(--font-sans); font-size: 13px; text-align: left; cursor: pointer; }
 .act-menu-row:hover { background: var(--norte-soft); color: var(--norte); }
+.act-menu-wide { width: 280px; padding: 10px; }
 
 .library {
   max-width: 1120px;

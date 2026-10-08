@@ -50,10 +50,18 @@ export interface LibraryItemList {
   next_cursor: string | null
 }
 
-/** What the save dialog sends: the address, and optionally why it was kept. */
+/**
+ * What the save dialog sends: the address, optionally why it was kept, and the
+ * registry ids it is about.
+ *
+ * `link_to` is the contract's own field name and the links are created by the
+ * save itself, in its transaction. A dialog that saved first and linked after
+ * would leave an unlinked item behind whenever the second call failed.
+ */
 export interface NewSavedLink {
   url: string
   why?: string
+  link_to?: string[]
 }
 
 /**

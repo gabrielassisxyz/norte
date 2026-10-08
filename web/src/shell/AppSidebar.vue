@@ -5,7 +5,14 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import Icon from '@/components/ds/Icon.vue'
 import type { SidebarHead, SidebarLink, SidebarRow } from '@/modules/types'
 
-import { sectionRows, sidebarShortcuts, sidebarTree, useModuleSidebars, type SidebarTree } from './composition'
+import {
+  sectionRows,
+  sidebarShortcuts,
+  sidebarTree,
+  useModuleSidebars,
+  useShellSidebarSections,
+  type SidebarTree
+} from './composition'
 
 withDefaults(defineProps<{ collapsed?: boolean }>(), { collapsed: false })
 
@@ -27,7 +34,16 @@ const route = useRoute()
 const sidebars = useModuleSidebars()
 const trees = computed<SidebarTree[]>(() => sidebarTree(sidebars))
 const shortcutGroups = computed(() => sidebarShortcuts(sidebars))
-const expanded = ref<Record<string, boolean>>({})
+/**
+ * The shell's own blocks, which are not any module's and so are not in the
+ * tree: subjects belong to the core and are there whatever the server lists.
+ * They start expanded, because a grouping with no index page behind it is
+ * useless collapsed.
+ */
+const shellSections = useShellSidebarSections()
+const expanded = ref<Record<string, boolean>>(
+  Object.fromEntries(shellSections.map((section) => [section.id, true]))
+)
 
 function isHead(row: SidebarRow): row is SidebarHead {
   return (row as SidebarHead).head === true
@@ -96,6 +112,44 @@ const isInicio = computed(() => route.name === 'inicio')
 
     <nav v-if="!collapsed" aria-label="Principal" class="app-nav">
       <RouterLink :to="{ name: 'inicio' }" class="app-item" :class="{ 'is-active': isInicio }">Início</RouterLink>
+
+      <template v-for="section in shellSections" :key="section.id">
+        <div class="app-line">
+          <span class="app-item app-line-link app-group">
+            <span class="app-label">{{ section.label }}</span>
+            <span v-if="section.count() !== undefined" class="app-count">{{ section.count() }}</span>
+          </span>
+          <button
+            type="button"
+            class="app-chevron"
+            :class="{ 'is-open': expanded[section.id] }"
+            :aria-expanded="Boolean(expanded[section.id])"
+            :aria-label="`Expandir ${section.label}`"
+            @click="toggleSection(section.id)"
+          >
+            <Icon name="chevronDown" :size="14" />
+          </button>
+        </div>
+        <div v-if="expanded[section.id]" class="app-children">
+          <template v-for="row in section.rows()" :key="isHead(row) ? row.label : row.id">
+            <div v-if="isHead(row)" class="app-head">{{ row.label }}</div>
+            <RouterLink v-else :to="row.to" class="app-item app-sub" :class="{ 'is-active': isActive(row) }">
+              <span class="app-label">{{ row.label }}</span>
+              <span v-if="row.count !== undefined" class="app-count">{{ row.count }}</span>
+            </RouterLink>
+          </template>
+          <div v-if="section.rows().length === 0" class="app-empty">Nenhum assunto ainda</div>
+          <button
+            v-if="section.hasMore()"
+            type="button"
+            class="app-item app-sub app-button"
+            :disabled="section.loadingMore()"
+            @click="section.loadMore()"
+          >
+            <span class="app-label">{{ section.loadingMore() ? 'Carregando…' : 'Carregar mais' }}</span>
+          </button>
+        </div>
+      </template>
 
       <template v-for="tree in trees" :key="tree.section.id">
         <div class="app-line">
@@ -275,6 +329,26 @@ const isInicio = computed(() => route.name === 'inicio')
 .app-line-link {
   flex: 1;
   min-width: 0;
+}
+
+.app-group {
+  flex: 1;
+  min-width: 0;
+  color: var(--muted);
+  cursor: default;
+}
+
+.app-group:hover {
+  background: transparent;
+  color: var(--muted);
+}
+
+.app-empty {
+  padding: 4px 10px 4px 24px;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .app-sub {

@@ -11,6 +11,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -18,7 +19,26 @@ import (
 	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for DecideLinkRequestDecision.
+const (
+	Accept DecideLinkRequestDecision = "accept"
+	Reject DecideLinkRequestDecision = "reject"
+)
+
+// Valid indicates whether the value is a known member of the DecideLinkRequestDecision enum.
+func (e DecideLinkRequestDecision) Valid() bool {
+	switch e {
+	case Accept:
+		return true
+	case Reject:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for HealthStatus.
 const (
@@ -29,6 +49,69 @@ const (
 func (e HealthStatus) Valid() bool {
 	switch e {
 	case Ok:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LinkKind.
+const (
+	About       LinkKind = "about"
+	Blocks      LinkKind = "blocks"
+	DerivedFrom LinkKind = "derived_from"
+	MaterialOf  LinkKind = "material_of"
+)
+
+// Valid indicates whether the value is a known member of the LinkKind enum.
+func (e LinkKind) Valid() bool {
+	switch e {
+	case About:
+		return true
+	case Blocks:
+		return true
+	case DerivedFrom:
+		return true
+	case MaterialOf:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LinkSource.
+const (
+	Llm    LinkSource = "llm"
+	Manual LinkSource = "manual"
+)
+
+// Valid indicates whether the value is a known member of the LinkSource enum.
+func (e LinkSource) Valid() bool {
+	switch e {
+	case Llm:
+		return true
+	case Manual:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LinkStatus.
+const (
+	Confirmed LinkStatus = "confirmed"
+	Rejected  LinkStatus = "rejected"
+	Suggested LinkStatus = "suggested"
+)
+
+// Valid indicates whether the value is a known member of the LinkStatus enum.
+func (e LinkStatus) Valid() bool {
+	switch e {
+	case Confirmed:
+		return true
+	case Rejected:
+		return true
+	case Suggested:
 		return true
 	default:
 		return false
@@ -52,6 +135,32 @@ type Config struct {
 	// Version The binary version `norte version` prints.
 	Version string `json:"version"`
 }
+
+// CreateLinkRequest defines model for CreateLinkRequest.
+type CreateLinkRequest struct {
+	DstId string `json:"dst_id"`
+
+	// Kind What a link asserts about the pair it joins.
+	Kind  *LinkKind `json:"kind,omitempty"`
+	SrcId string    `json:"src_id"`
+}
+
+// CreateSubjectRequest defines model for CreateSubjectRequest.
+type CreateSubjectRequest struct {
+	// Focus Mark it as a current focus straight away.
+	Focus *bool `json:"focus,omitempty"`
+
+	// Name The subject as a person writes it; the slug is derived from it.
+	Name string `json:"name"`
+}
+
+// DecideLinkRequest defines model for DecideLinkRequest.
+type DecideLinkRequest struct {
+	Decision DecideLinkRequestDecision `json:"decision"`
+}
+
+// DecideLinkRequestDecision defines model for DecideLinkRequest.Decision.
+type DecideLinkRequestDecision string
 
 // Error defines model for Error.
 type Error struct {
@@ -82,6 +191,24 @@ type ErrorDetail struct {
 	RequestId string `json:"request_id"`
 }
 
+// Focus What the person is working on now: the subjects they flagged, and what
+// each enabled module reports as in progress.
+type Focus struct {
+	Subjects []Subject `json:"subjects"`
+
+	// Targets One entry per thing a module considers in progress.
+	Targets []FocusTarget `json:"targets"`
+}
+
+// FocusTarget defines model for FocusTarget.
+type FocusTarget struct {
+	Id    string `json:"id"`
+	Title string `json:"title"`
+
+	// Type The item type, as the owning module spells it.
+	Type string `json:"type"`
+}
+
 // Health defines model for Health.
 type Health struct {
 	// Status Always "ok"; a server that cannot answer does not answer at all.
@@ -91,11 +218,197 @@ type Health struct {
 // HealthStatus Always "ok"; a server that cannot answer does not answer at all.
 type HealthStatus string
 
+// Link defines model for Link.
+type Link struct {
+	// Confidence The model's confidence, present only on a suggestion it made.
+	Confidence *float32 `json:"confidence,omitempty"`
+	CreatedAt  string   `json:"created_at"`
+
+	// DecidedAt When a person decided this link; absent while it is only suggested.
+	DecidedAt *string `json:"decided_at,omitempty"`
+
+	// Dst One end of a link, as the item registry holds it: only what is needed
+	// to open the thing, never what is needed to read it.
+	Dst RegistryItem `json:"dst"`
+	Id  string       `json:"id"`
+
+	// Kind What a link asserts about the pair it joins.
+	Kind LinkKind `json:"kind"`
+
+	// Source Who proposed the link.
+	Source LinkSource `json:"source"`
+
+	// Src One end of a link, as the item registry holds it: only what is needed
+	// to open the thing, never what is needed to read it.
+	Src RegistryItem `json:"src"`
+
+	// Status Where the link stands.
+	Status LinkStatus `json:"status"`
+}
+
+// LinkKind What a link asserts about the pair it joins.
+type LinkKind string
+
+// LinkList defines model for LinkList.
+type LinkList struct {
+	Items []Link `json:"items"`
+
+	// NextCursor The cursor for the following page, absent on the last one.
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// LinkSource Who proposed the link.
+type LinkSource string
+
+// LinkStatus Where the link stands.
+type LinkStatus string
+
+// PatchSubjectRequest defines model for PatchSubjectRequest.
+type PatchSubjectRequest struct {
+	Focus *bool   `json:"focus,omitempty"`
+	Name  *string `json:"name,omitempty"`
+}
+
+// RegistryItem One end of a link, as the item registry holds it: only what is needed
+// to open the thing, never what is needed to read it.
+type RegistryItem struct {
+	Id     string  `json:"id"`
+	Module string  `json:"module"`
+	Title  string  `json:"title"`
+	Type   string  `json:"type"`
+	Url    *string `json:"url,omitempty"`
+}
+
+// Subject One entry of the stable vocabulary the library groups by.
+type Subject struct {
+	// Counts What is linked to this subject by a confirmed `about` link, counted per
+	// item type. The types are not enumerated here: they belong to whichever
+	// modules this binary was built with, and the core does not know them.
+	Counts    SubjectCounts `json:"counts"`
+	CreatedAt string        `json:"created_at"`
+
+	// Focus Whether this subject is one the person is working on now.
+	Focus bool   `json:"focus"`
+	Id    string `json:"id"`
+
+	// LinkCount Links touching this subject in either direction, whatever their
+	// status. It is what the delete confirmation names, so it counts
+	// every row the cascade would remove and not only the confirmed ones.
+	LinkCount int    `json:"link_count"`
+	Name      string `json:"name"`
+
+	// Slug Derived from the name; unique across subjects.
+	Slug string `json:"slug"`
+}
+
+// SubjectCounts What is linked to this subject by a confirmed `about` link, counted per
+// item type. The types are not enumerated here: they belong to whichever
+// modules this binary was built with, and the core does not know them.
+type SubjectCounts struct {
+	// ByType One entry per type that has at least one item, ordered by type.
+	ByType []SubjectTypeCount `json:"by_type"`
+	Total  int                `json:"total"`
+}
+
+// SubjectList defines model for SubjectList.
+type SubjectList struct {
+	Items []Subject `json:"items"`
+
+	// NextCursor The cursor for the following page, absent on the last one.
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+
+// SubjectTypeCount defines model for SubjectTypeCount.
+type SubjectTypeCount struct {
+	Count int `json:"count"`
+
+	// Module The module owning the counted items.
+	Module string `json:"module"`
+
+	// Type The item type, as that module spells it.
+	Type string `json:"type"`
+}
+
+// ListCoreLinksParams defines parameters for ListCoreLinks.
+type ListCoreLinksParams struct {
+	// SrcId Keep only links out of this item.
+	SrcId *string `form:"src_id,omitempty" json:"src_id,omitempty"`
+
+	// DstId Keep only links into this item.
+	DstId *string `form:"dst_id,omitempty" json:"dst_id,omitempty"`
+
+	// Kind Keep only links of this kind.
+	Kind *LinkKind `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// Status Keep only links in this state.
+	Status *LinkStatus `form:"status,omitempty" json:"status,omitempty"`
+
+	// Cursor The next_cursor of the previous page.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit How many links a page holds.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// ListCoreSubjectsParams defines parameters for ListCoreSubjects.
+type ListCoreSubjectsParams struct {
+	// Q Match the name or an alias, ignoring accents and case.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Cursor The next_cursor of the previous page.
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+
+	// Limit How many subjects a page holds.
+	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// CreateCoreLinkJSONRequestBody defines body for CreateCoreLink for application/json ContentType.
+type CreateCoreLinkJSONRequestBody = CreateLinkRequest
+
+// DecideCoreLinkJSONRequestBody defines body for DecideCoreLink for application/json ContentType.
+type DecideCoreLinkJSONRequestBody = DecideLinkRequest
+
+// CreateCoreSubjectJSONRequestBody defines body for CreateCoreSubject for application/json ContentType.
+type CreateCoreSubjectJSONRequestBody = CreateSubjectRequest
+
+// PatchCoreSubjectJSONRequestBody defines body for PatchCoreSubject for application/json ContentType.
+type PatchCoreSubjectJSONRequestBody = PatchSubjectRequest
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 	// GetConfig Report which modules are enabled and how this server was built
 	// (GET /api/config)
 	GetConfig(w http.ResponseWriter, r *http.Request)
+	// GetCoreFocus Report what the person is working on now
+	// (GET /api/core/focus)
+	GetCoreFocus(w http.ResponseWriter, r *http.Request)
+	// ListCoreLinks List links between items
+	// (GET /api/core/links)
+	ListCoreLinks(w http.ResponseWriter, r *http.Request, params ListCoreLinksParams)
+	// CreateCoreLink Assert that a link holds
+	// (POST /api/core/links)
+	CreateCoreLink(w http.ResponseWriter, r *http.Request)
+	// DecideCoreLink Accept or reject a suggested link
+	// (POST /api/core/links/{id}/decide)
+	DecideCoreLink(w http.ResponseWriter, r *http.Request, id string)
+	// ListCoreSubjects List subjects, optionally matching a search
+	// (GET /api/core/subjects)
+	ListCoreSubjects(w http.ResponseWriter, r *http.Request, params ListCoreSubjectsParams)
+	// CreateCoreSubject Create a subject
+	// (POST /api/core/subjects)
+	CreateCoreSubject(w http.ResponseWriter, r *http.Request)
+	// GetCoreSubjectBySlug Read one subject by its slug
+	// (GET /api/core/subjects/by-slug/{slug})
+	GetCoreSubjectBySlug(w http.ResponseWriter, r *http.Request, slug string)
+	// DeleteCoreSubject Delete a subject and everything linking to it
+	// (DELETE /api/core/subjects/{id})
+	DeleteCoreSubject(w http.ResponseWriter, r *http.Request, id string)
+	// GetCoreSubject Read one subject, with what is linked to it
+	// (GET /api/core/subjects/{id})
+	GetCoreSubject(w http.ResponseWriter, r *http.Request, id string)
+	// PatchCoreSubject Rename a subject or set whether it is a current focus
+	// (PATCH /api/core/subjects/{id})
+	PatchCoreSubject(w http.ResponseWriter, r *http.Request, id string)
 	// GetHealth Report that this server is serving
 	// (GET /api/health)
 	GetHealth(w http.ResponseWriter, r *http.Request)
@@ -115,6 +428,335 @@ func (siw *ServerInterfaceWrapper) GetConfig(w http.ResponseWriter, r *http.Requ
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetConfig(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCoreFocus operation middleware
+func (siw *ServerInterfaceWrapper) GetCoreFocus(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCoreFocus(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListCoreLinks operation middleware
+func (siw *ServerInterfaceWrapper) ListCoreLinks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListCoreLinksParams
+
+	// ------------- Optional query parameter "src_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "src_id", r.URL.Query(), &params.SrcId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "src_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "src_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "dst_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "dst_id", r.URL.Query(), &params.DstId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "dst_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "dst_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCoreLinks(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateCoreLink operation middleware
+func (siw *ServerInterfaceWrapper) CreateCoreLink(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateCoreLink(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DecideCoreLink operation middleware
+func (siw *ServerInterfaceWrapper) DecideCoreLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DecideCoreLink(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListCoreSubjects operation middleware
+func (siw *ServerInterfaceWrapper) ListCoreSubjects(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListCoreSubjectsParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCoreSubjects(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateCoreSubject operation middleware
+func (siw *ServerInterfaceWrapper) CreateCoreSubject(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateCoreSubject(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCoreSubjectBySlug operation middleware
+func (siw *ServerInterfaceWrapper) GetCoreSubjectBySlug(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCoreSubjectBySlug(w, r, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteCoreSubject operation middleware
+func (siw *ServerInterfaceWrapper) DeleteCoreSubject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteCoreSubject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCoreSubject operation middleware
+func (siw *ServerInterfaceWrapper) GetCoreSubject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCoreSubject(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchCoreSubject operation middleware
+func (siw *ServerInterfaceWrapper) PatchCoreSubject(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchCoreSubject(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -260,6 +902,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/config", wrapper.GetConfig)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/health", wrapper.GetHealth)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/core/subjects", wrapper.ListCoreSubjects)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/core/subjects", wrapper.CreateCoreSubject)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/core/subjects/{id}", wrapper.DeleteCoreSubject)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/core/subjects/{id}", wrapper.GetCoreSubject)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/core/subjects/{id}", wrapper.PatchCoreSubject)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/core/subjects/by-slug/{slug}", wrapper.GetCoreSubjectBySlug)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/core/focus", wrapper.GetCoreFocus)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/core/links", wrapper.ListCoreLinks)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/core/links", wrapper.CreateCoreLink)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/core/links/{id}/decide", wrapper.DecideCoreLink)
 
 	return m
 }
@@ -293,6 +945,391 @@ type GetConfigdefaultJSONResponse struct {
 }
 
 func (response GetConfigdefaultJSONResponse) VisitGetConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCoreFocusRequestObject struct {
+}
+
+type GetCoreFocusResponseObject interface {
+	VisitGetCoreFocusResponse(w http.ResponseWriter) error
+}
+
+type GetCoreFocus200JSONResponse Focus
+
+func (response GetCoreFocus200JSONResponse) VisitGetCoreFocusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCoreFocusdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetCoreFocusdefaultJSONResponse) VisitGetCoreFocusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCoreLinksRequestObject struct {
+	Params ListCoreLinksParams
+}
+
+type ListCoreLinksResponseObject interface {
+	VisitListCoreLinksResponse(w http.ResponseWriter) error
+}
+
+type ListCoreLinks200JSONResponse LinkList
+
+func (response ListCoreLinks200JSONResponse) VisitListCoreLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCoreLinksdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListCoreLinksdefaultJSONResponse) VisitListCoreLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCoreLinkRequestObject struct {
+	Body *CreateCoreLinkJSONRequestBody
+}
+
+type CreateCoreLinkResponseObject interface {
+	VisitCreateCoreLinkResponse(w http.ResponseWriter) error
+}
+
+type CreateCoreLink201JSONResponse Link
+
+func (response CreateCoreLink201JSONResponse) VisitCreateCoreLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCoreLinkdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateCoreLinkdefaultJSONResponse) VisitCreateCoreLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideCoreLinkRequestObject struct {
+	Id   string `json:"id"`
+	Body *DecideCoreLinkJSONRequestBody
+}
+
+type DecideCoreLinkResponseObject interface {
+	VisitDecideCoreLinkResponse(w http.ResponseWriter) error
+}
+
+type DecideCoreLink200JSONResponse Link
+
+func (response DecideCoreLink200JSONResponse) VisitDecideCoreLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DecideCoreLinkdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DecideCoreLinkdefaultJSONResponse) VisitDecideCoreLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCoreSubjectsRequestObject struct {
+	Params ListCoreSubjectsParams
+}
+
+type ListCoreSubjectsResponseObject interface {
+	VisitListCoreSubjectsResponse(w http.ResponseWriter) error
+}
+
+type ListCoreSubjects200JSONResponse SubjectList
+
+func (response ListCoreSubjects200JSONResponse) VisitListCoreSubjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCoreSubjectsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListCoreSubjectsdefaultJSONResponse) VisitListCoreSubjectsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCoreSubjectRequestObject struct {
+	Body *CreateCoreSubjectJSONRequestBody
+}
+
+type CreateCoreSubjectResponseObject interface {
+	VisitCreateCoreSubjectResponse(w http.ResponseWriter) error
+}
+
+type CreateCoreSubject201JSONResponse Subject
+
+func (response CreateCoreSubject201JSONResponse) VisitCreateCoreSubjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateCoreSubjectdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response CreateCoreSubjectdefaultJSONResponse) VisitCreateCoreSubjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCoreSubjectBySlugRequestObject struct {
+	Slug string `json:"slug"`
+}
+
+type GetCoreSubjectBySlugResponseObject interface {
+	VisitGetCoreSubjectBySlugResponse(w http.ResponseWriter) error
+}
+
+type GetCoreSubjectBySlug200JSONResponse Subject
+
+func (response GetCoreSubjectBySlug200JSONResponse) VisitGetCoreSubjectBySlugResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCoreSubjectBySlugdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetCoreSubjectBySlugdefaultJSONResponse) VisitGetCoreSubjectBySlugResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteCoreSubjectRequestObject struct {
+	Id string `json:"id"`
+}
+
+type DeleteCoreSubjectResponseObject interface {
+	VisitDeleteCoreSubjectResponse(w http.ResponseWriter) error
+}
+
+type DeleteCoreSubject204Response struct {
+}
+
+func (response DeleteCoreSubject204Response) VisitDeleteCoreSubjectResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteCoreSubjectdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteCoreSubjectdefaultJSONResponse) VisitDeleteCoreSubjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCoreSubjectRequestObject struct {
+	Id string `json:"id"`
+}
+
+type GetCoreSubjectResponseObject interface {
+	VisitGetCoreSubjectResponse(w http.ResponseWriter) error
+}
+
+type GetCoreSubject200JSONResponse Subject
+
+func (response GetCoreSubject200JSONResponse) VisitGetCoreSubjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCoreSubjectdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetCoreSubjectdefaultJSONResponse) VisitGetCoreSubjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchCoreSubjectRequestObject struct {
+	Id   string `json:"id"`
+	Body *PatchCoreSubjectJSONRequestBody
+}
+
+type PatchCoreSubjectResponseObject interface {
+	VisitPatchCoreSubjectResponse(w http.ResponseWriter) error
+}
+
+type PatchCoreSubject200JSONResponse Subject
+
+func (response PatchCoreSubject200JSONResponse) VisitPatchCoreSubjectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchCoreSubjectdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response PatchCoreSubjectdefaultJSONResponse) VisitPatchCoreSubjectResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -347,6 +1384,36 @@ type StrictServerInterface interface {
 	// GetConfig Report which modules are enabled and how this server was built
 	// (GET /api/config)
 	GetConfig(ctx context.Context, request GetConfigRequestObject) (GetConfigResponseObject, error)
+	// GetCoreFocus Report what the person is working on now
+	// (GET /api/core/focus)
+	GetCoreFocus(ctx context.Context, request GetCoreFocusRequestObject) (GetCoreFocusResponseObject, error)
+	// ListCoreLinks List links between items
+	// (GET /api/core/links)
+	ListCoreLinks(ctx context.Context, request ListCoreLinksRequestObject) (ListCoreLinksResponseObject, error)
+	// CreateCoreLink Assert that a link holds
+	// (POST /api/core/links)
+	CreateCoreLink(ctx context.Context, request CreateCoreLinkRequestObject) (CreateCoreLinkResponseObject, error)
+	// DecideCoreLink Accept or reject a suggested link
+	// (POST /api/core/links/{id}/decide)
+	DecideCoreLink(ctx context.Context, request DecideCoreLinkRequestObject) (DecideCoreLinkResponseObject, error)
+	// ListCoreSubjects List subjects, optionally matching a search
+	// (GET /api/core/subjects)
+	ListCoreSubjects(ctx context.Context, request ListCoreSubjectsRequestObject) (ListCoreSubjectsResponseObject, error)
+	// CreateCoreSubject Create a subject
+	// (POST /api/core/subjects)
+	CreateCoreSubject(ctx context.Context, request CreateCoreSubjectRequestObject) (CreateCoreSubjectResponseObject, error)
+	// GetCoreSubjectBySlug Read one subject by its slug
+	// (GET /api/core/subjects/by-slug/{slug})
+	GetCoreSubjectBySlug(ctx context.Context, request GetCoreSubjectBySlugRequestObject) (GetCoreSubjectBySlugResponseObject, error)
+	// DeleteCoreSubject Delete a subject and everything linking to it
+	// (DELETE /api/core/subjects/{id})
+	DeleteCoreSubject(ctx context.Context, request DeleteCoreSubjectRequestObject) (DeleteCoreSubjectResponseObject, error)
+	// GetCoreSubject Read one subject, with what is linked to it
+	// (GET /api/core/subjects/{id})
+	GetCoreSubject(ctx context.Context, request GetCoreSubjectRequestObject) (GetCoreSubjectResponseObject, error)
+	// PatchCoreSubject Rename a subject or set whether it is a current focus
+	// (PATCH /api/core/subjects/{id})
+	PatchCoreSubject(ctx context.Context, request PatchCoreSubjectRequestObject) (PatchCoreSubjectResponseObject, error)
 	// GetHealth Report that this server is serving
 	// (GET /api/health)
 	GetHealth(ctx context.Context, request GetHealthRequestObject) (GetHealthResponseObject, error)
@@ -415,6 +1482,288 @@ func (sh *strictHandler) GetConfig(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetCoreFocus operation middleware
+func (sh *strictHandler) GetCoreFocus(w http.ResponseWriter, r *http.Request) {
+	var request GetCoreFocusRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCoreFocus(ctx, request.(GetCoreFocusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCoreFocus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCoreFocusResponseObject); ok {
+		if err := validResponse.VisitGetCoreFocusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListCoreLinks operation middleware
+func (sh *strictHandler) ListCoreLinks(w http.ResponseWriter, r *http.Request, params ListCoreLinksParams) {
+	var request ListCoreLinksRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCoreLinks(ctx, request.(ListCoreLinksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCoreLinks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListCoreLinksResponseObject); ok {
+		if err := validResponse.VisitListCoreLinksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateCoreLink operation middleware
+func (sh *strictHandler) CreateCoreLink(w http.ResponseWriter, r *http.Request) {
+	var request CreateCoreLinkRequestObject
+
+	var body CreateCoreLinkJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCoreLink(ctx, request.(CreateCoreLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCoreLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateCoreLinkResponseObject); ok {
+		if err := validResponse.VisitCreateCoreLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DecideCoreLink operation middleware
+func (sh *strictHandler) DecideCoreLink(w http.ResponseWriter, r *http.Request, id string) {
+	var request DecideCoreLinkRequestObject
+
+	request.Id = id
+
+	var body DecideCoreLinkJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DecideCoreLink(ctx, request.(DecideCoreLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DecideCoreLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DecideCoreLinkResponseObject); ok {
+		if err := validResponse.VisitDecideCoreLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListCoreSubjects operation middleware
+func (sh *strictHandler) ListCoreSubjects(w http.ResponseWriter, r *http.Request, params ListCoreSubjectsParams) {
+	var request ListCoreSubjectsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCoreSubjects(ctx, request.(ListCoreSubjectsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCoreSubjects")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListCoreSubjectsResponseObject); ok {
+		if err := validResponse.VisitListCoreSubjectsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateCoreSubject operation middleware
+func (sh *strictHandler) CreateCoreSubject(w http.ResponseWriter, r *http.Request) {
+	var request CreateCoreSubjectRequestObject
+
+	var body CreateCoreSubjectJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateCoreSubject(ctx, request.(CreateCoreSubjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateCoreSubject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateCoreSubjectResponseObject); ok {
+		if err := validResponse.VisitCreateCoreSubjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCoreSubjectBySlug operation middleware
+func (sh *strictHandler) GetCoreSubjectBySlug(w http.ResponseWriter, r *http.Request, slug string) {
+	var request GetCoreSubjectBySlugRequestObject
+
+	request.Slug = slug
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCoreSubjectBySlug(ctx, request.(GetCoreSubjectBySlugRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCoreSubjectBySlug")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCoreSubjectBySlugResponseObject); ok {
+		if err := validResponse.VisitGetCoreSubjectBySlugResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteCoreSubject operation middleware
+func (sh *strictHandler) DeleteCoreSubject(w http.ResponseWriter, r *http.Request, id string) {
+	var request DeleteCoreSubjectRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteCoreSubject(ctx, request.(DeleteCoreSubjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteCoreSubject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteCoreSubjectResponseObject); ok {
+		if err := validResponse.VisitDeleteCoreSubjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCoreSubject operation middleware
+func (sh *strictHandler) GetCoreSubject(w http.ResponseWriter, r *http.Request, id string) {
+	var request GetCoreSubjectRequestObject
+
+	request.Id = id
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCoreSubject(ctx, request.(GetCoreSubjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCoreSubject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCoreSubjectResponseObject); ok {
+		if err := validResponse.VisitGetCoreSubjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchCoreSubject operation middleware
+func (sh *strictHandler) PatchCoreSubject(w http.ResponseWriter, r *http.Request, id string) {
+	var request PatchCoreSubjectRequestObject
+
+	request.Id = id
+
+	var body PatchCoreSubjectJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchCoreSubject(ctx, request.(PatchCoreSubjectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchCoreSubject")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchCoreSubjectResponseObject); ok {
+		if err := validResponse.VisitPatchCoreSubjectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealth operation middleware
 func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 	var request GetHealthRequestObject
@@ -444,27 +1793,75 @@ func (sh *strictHandler) GetHealth(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

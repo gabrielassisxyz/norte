@@ -9,9 +9,12 @@ import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import Stat from '@/components/ds/Stat.vue'
 import StreakGrid from '@/components/ds/StreakGrid.vue'
 import { formatLongWeekdayDate, formatMonthName, todayIsoDate } from '@/lib/clock'
-import type { StudyDay, Subject } from '@/mock/types'
+import type { StudyDay } from '@/mock/types'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 import { useReviewSummary } from '@/modules/review/data/composables'
+import { useSubjects } from '@/shell/data/composables'
+import type { Subject } from '@/shell/data/source'
+import NewSubjectButton from '@/shell/NewSubjectButton.vue'
 import { useStudyHome } from '../data/composables'
 import { completedThisMonth, currentStreak, hoursInWindow, levelForMinutes, recordStreak } from './studyDays'
 
@@ -22,10 +25,20 @@ const canReachReview = computed(() => crossModuleActionAllowed('study', 'review'
 
 const { data: home, loading, error, refresh } = useStudyHome()
 const { data: reviewCounts } = useReviewSummary(canReachReview)
+/**
+ * The subjects are the core's, not this module's.
+ *
+ * They are read straight from the core rather than from the study mock, and
+ * they are not behind `crossModuleActionAllowed`: the core is always on, so
+ * there is no crossing to gate and no mock id that could be joined to a real
+ * one.
+ */
+const { data: subjectPage, hasMore: hasMoreSubjects, loadingMore: loadingMoreSubjects, loadMore: loadMoreSubjects } =
+  useSubjects()
 
 const firstLoad = computed(() => loading.value && home.value === null)
 const curricula = computed(() => home.value?.items ?? [])
-const subjects = computed(() => home.value?.subjects ?? [])
+const subjects = computed<Subject[]>(() => subjectPage.value?.items ?? [])
 const studyDays = computed<StudyDay[]>(() => home.value?.studyDays ?? [])
 const focus = computed(() => home.value?.focus ?? '')
 
@@ -68,11 +81,28 @@ const monthLabel = computed(() => {
 })
 
 function subjectTotal(subject: Subject): number {
-  return subject.curricula + subject.courses + subject.articles + subject.videos + subject.notes + subject.questions
+  return subject.counts.total
 }
 
-function subjectHref(): string {
-  return '/biblioteca?v=tudo'
+/**
+ * The columns the subjects table shows: one per item type that at least one
+ * subject has something of.
+ *
+ * They are derived rather than fixed because the types belong to whichever
+ * modules this binary was built with, which is exactly what the core refuses
+ * to enumerate. A fixed set of columns here would print zeros for the modules
+ * that have not landed and hide the ones that have.
+ */
+const subjectTypes = computed<string[]>(() => {
+  const types = new Set<string>()
+  for (const subject of subjects.value) {
+    for (const count of subject.counts.by_type) types.add(count.type)
+  }
+  return [...types].sort((left, right) => left.localeCompare(right, 'pt-BR'))
+})
+
+function subjectTypeCount(subject: Subject, type: string): number {
+  return subject.counts.by_type.find((count) => count.type === type)?.count ?? 0
 }
 
 function toggleAdd(): void {
@@ -179,6 +209,7 @@ function selectView(value: string): void {
             <RouterLink v-if="canReachLibrary" :to="{ name: 'biblioteca', query: { v: 'tudo' } }" class="study-see-all">
               Ver na biblioteca
             </RouterLink>
+            <NewSubjectButton />
           </div>
           <SegmentedControl
             :model-value="subjectsView"
@@ -195,36 +226,40 @@ function selectView(value: string): void {
             v-for="subject in subjects"
             :key="subject.id"
             :title="subject.name"
-            :meta="`${subjectTotal(subject)} itens · ${subject.activity}`"
+            :meta="`${subjectTotal(subject)} ${subjectTotal(subject) === 1 ? 'item' : 'itens'}`"
             :cover-height="200"
-            :href="subjectHref()"
+            :href="`/assuntos/${subject.slug}`"
           />
         </div>
 
         <div v-else role="table" aria-label="Assuntos e o que cada um reúne" class="study-table">
           <div class="study-row study-head-row" role="row">
             <span class="study-th study-first" role="columnheader">Assunto</span>
-            <span class="study-th study-col-cur" role="columnheader">Currículos</span>
-            <span class="study-th study-col-courses" role="columnheader">Cursos</span>
-            <span class="study-th study-col-articles" role="columnheader">Artigos</span>
-            <span class="study-th study-col-videos" role="columnheader">Vídeos</span>
-            <span class="study-th study-col-notes" role="columnheader">Notas</span>
-            <span class="study-th study-col-questions" role="columnheader">Perguntas</span>
-            <span class="study-th" role="columnheader">Atividade</span>
+            <span v-for="type in subjectTypes" :key="type" class="study-th" role="columnheader">{{ type }}</span>
+            <span class="study-th" role="columnheader">Itens</span>
           </div>
           <div v-for="subject in subjects" :key="subject.id" class="study-row" role="row">
             <div role="cell" class="study-first">
-              <RouterLink :to="subjectHref()" class="study-row-link">{{ subject.name }}</RouterLink>
+              <RouterLink :to="{ name: 'assunto', params: { slug: subject.slug } }" class="study-row-link">
+                {{ subject.name }}
+              </RouterLink>
             </div>
-            <span class="study-num study-col-cur" role="cell">{{ subject.curricula }}</span>
-            <span class="study-num study-col-courses" role="cell">{{ subject.courses }}</span>
-            <span class="study-num study-col-articles" role="cell">{{ subject.articles }}</span>
-            <span class="study-num study-col-videos" role="cell">{{ subject.videos }}</span>
-            <span class="study-num study-col-notes" role="cell">{{ subject.notes }}</span>
-            <span class="study-num study-col-questions" role="cell">{{ subject.questions }}</span>
-            <span class="study-num" role="cell">{{ subject.activity }}</span>
+            <span v-for="type in subjectTypes" :key="type" class="study-num" role="cell">
+              {{ subjectTypeCount(subject, type) }}
+            </span>
+            <span class="study-num" role="cell">{{ subjectTotal(subject) }}</span>
           </div>
         </div>
+
+        <button
+          v-if="hasMoreSubjects"
+          type="button"
+          class="study-more"
+          :disabled="loadingMoreSubjects"
+          @click="loadMoreSubjects()"
+        >
+          {{ loadingMoreSubjects ? 'Carregando…' : 'Carregar mais assuntos' }}
+        </button>
       </section>
       </template>
     </div>
@@ -389,12 +424,31 @@ function selectView(value: string): void {
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 36px 24px;
 }
+.study-more {
+  margin-top: var(--space-6);
+  height: 36px;
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 550;
+}
+.study-more:hover {
+  background: var(--sunken);
+}
 .study-table {
   min-width: 0;
 }
 .study-row {
+  /* The number of type columns comes from the data, so the name takes the
+     remaining space and every count column is sized by its content. */
   display: grid;
-  grid-template-columns: minmax(0, 1fr) repeat(6, 72px) 88px;
+  grid-template-columns: minmax(0, 1fr) repeat(auto-fit, minmax(72px, auto));
+  grid-auto-flow: column;
   align-items: center;
   gap: var(--space-4);
   padding: 14px var(--space-3);
@@ -445,16 +499,6 @@ function selectView(value: string): void {
 .study-row-link:hover {
   color: var(--norte);
 }
-@media (max-width: 1180px) {
-  .study-row {
-    grid-template-columns: minmax(0, 1fr) repeat(3, 64px) 80px;
-  }
-  .study-col-articles,
-  .study-col-videos,
-  .study-col-questions {
-    display: none;
-  }
-}
 @media (max-width: 900px) {
   .study-band {
     flex-direction: column;
@@ -471,13 +515,8 @@ function selectView(value: string): void {
   }
 }
 @media (max-width: 600px) {
-  .study-row {
-    grid-template-columns: minmax(0, 1fr) 64px;
-  }
-  .study-col-cur,
-  .study-col-courses,
-  .study-col-notes {
-    display: none;
+  .study-table {
+    overflow-x: auto;
   }
   .study-stats {
     grid-template-columns: repeat(2, minmax(0, 1fr));

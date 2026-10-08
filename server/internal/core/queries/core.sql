@@ -56,3 +56,76 @@ ORDER BY hash;
 -- name: DeleteCollectableCoreFile :execresult
 DELETE FROM core_files WHERE core_files.hash = ?
   AND NOT EXISTS (SELECT 1 FROM core_file_refs WHERE core_file_refs.hash = ?);
+
+-- name: GetCoreItem :one
+SELECT * FROM core_items WHERE id = ?;
+
+-- name: InsertCoreSubject :exec
+INSERT INTO core_subjects (id, name, slug, focus, created_at)
+VALUES (?, ?, ?, ?, ?);
+
+-- name: GetCoreSubject :one
+SELECT * FROM core_subjects WHERE id = ?;
+
+-- name: GetCoreSubjectBySlug :one
+SELECT * FROM core_subjects WHERE slug = ?;
+
+-- name: UpdateCoreSubject :execresult
+UPDATE core_subjects SET name = ?, slug = ?, focus = ? WHERE id = ?;
+
+-- name: DeleteCoreSubject :execresult
+DELETE FROM core_subjects WHERE id = ?;
+
+-- The explicit half of the focus: the subjects a person flagged. Ordered by
+-- slug so two calls answer in the same order.
+-- name: ListFocusCoreSubjects :many
+SELECT * FROM core_subjects WHERE focus = 1 ORDER BY slug, id;
+
+-- A spelling that means an existing subject. Nothing in this delivery writes
+-- one; the classifier and the import that will are what this exists for, and
+-- the search already reads it.
+-- name: InsertCoreSubjectAlias :exec
+INSERT INTO core_subject_aliases (alias_slug, subject_id) VALUES (?, ?);
+
+-- What is linked to a subject by a confirmed `about` link, counted per owning
+-- module and item type. The core does not know any module's types, so the
+-- grouping is by whatever is in the registry rather than by a fixed list.
+-- name: CountCoreSubjectItemsByType :many
+SELECT core_items.module, core_items.type, COUNT(*) AS count
+FROM core_links
+JOIN core_items ON core_items.id = core_links.src_id
+WHERE core_links.dst_id = ? AND core_links.kind = 'about' AND core_links.status = 'confirmed'
+GROUP BY core_items.module, core_items.type
+ORDER BY core_items.module, core_items.type;
+
+-- Every link the registry cascade would remove with this item, in either
+-- direction and whatever its status. The delete confirmation shows this
+-- figure, so a suggested link counts: it is a row that would disappear too.
+-- name: CountCoreLinksTouching :one
+SELECT COUNT(*) FROM core_links WHERE src_id = ? OR dst_id = ?;
+
+-- name: GetCoreLink :one
+SELECT * FROM core_links WHERE id = ?;
+
+-- name: GetCoreLinkByTriple :one
+SELECT * FROM core_links WHERE src_id = ? AND dst_id = ? AND kind = ?;
+
+-- Accept or reject a suggestion. The status is the caller's; decided_at is set
+-- either way, because rejecting is a decision as much as accepting is. Only a
+-- suggestion can be decided: a confirmed link is a person's own assertion, and
+-- a rejected one their recorded refusal, and neither is the model's to overturn.
+-- name: DecideCoreLink :execresult
+UPDATE core_links SET status = ?, decided_at = ? WHERE id = ? AND status = 'suggested';
+
+-- A link with both of its ends from the registry, in one read. The link
+-- screens render every row with its two ends, so reading them one registry
+-- row at a time costs two extra queries per link on screen.
+-- name: GetCoreLinkResolved :one
+SELECT
+    sqlc.embed(core_links),
+    sqlc.embed(src),
+    sqlc.embed(dst)
+FROM core_links
+JOIN core_items AS src ON src.id = core_links.src_id
+JOIN core_items AS dst ON dst.id = core_links.dst_id
+WHERE core_links.id = ?;
