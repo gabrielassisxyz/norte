@@ -178,18 +178,30 @@ describe('NotesView', () => {
     expect(withoutLibrary.find('.notes-highlight .notes-links a').exists()).toBe(false)
   })
 
-  it('loads a further page when asked, and keeps the rows already shown', async () => {
-    const many = Array.from({ length: 60 }, (_, index) =>
-      highlightRecord({ id: `h-${index}`, exact: `Trecho ${index}`, source: compilation })
+  // Every tab is a paginated list, so every tab has to be able to grow. One
+  // case per tab, because a shared composable proved on one of them is a
+  // composable that could be wired into only one of them.
+  it.each([
+    ['highlights', '/notas', '.notes-highlight'],
+    ['anotacoes', '/notas?tab=anotacoes', '.notes-annotation'],
+    ['perguntas', '/notas?tab=perguntas', '.notes-question']
+  ])('loads a further page of %s when asked, keeping the rows already shown', async (_tab, path, selector) => {
+    const many = Array.from({ length: 60 }, (_, index) => index)
+    const wrapper = await mountNotes(
+      path,
+      fakeNotesSource({
+        highlights: many.map((index) => highlightRecord({ id: `h-${index}`, exact: `Trecho ${index}`, source: compilation })),
+        annotations: many.map((index) => annotationRecord({ id: `a-${index}`, text: `Anotação ${index}`, source: compilation })),
+        questions: many.map((index) => questionRecord({ id: `q-${index}`, text: `Pergunta ${index}?`, source: compilation }))
+      })
     )
-    const wrapper = await mountNotes('/notas', fakeNotesSource({ highlights: many }))
 
-    expect(wrapper.findAll('.notes-highlight')).toHaveLength(50)
+    expect(wrapper.findAll(selector)).toHaveLength(50)
 
     await wrapper.get('[data-action="carregar-mais"]').trigger('click')
     await flushReads()
 
-    expect(wrapper.findAll('.notes-highlight')).toHaveLength(60)
+    expect(wrapper.findAll(selector)).toHaveLength(60)
     expect(wrapper.find('[data-action="carregar-mais"]').exists()).toBe(false)
   })
 

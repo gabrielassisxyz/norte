@@ -111,6 +111,23 @@ describe('the question-set screen', () => {
     expect(wrapper.get('.sets-row').text()).toContain('2 perguntas')
   })
 
+  it('loads a further page of sets when asked, keeping the rows already shown', async () => {
+    const notes = fakeNotesSource({
+      sets: Array.from({ length: 60 }, (_, index) =>
+        questionSetRecord({ id: `set-${index}`, topic: `Tema ${index}` })
+      )
+    })
+    const { wrapper } = await mountSets(notes)
+
+    expect(wrapper.findAll('.sets-row')).toHaveLength(50)
+
+    await wrapper.get('[data-action="carregar-mais"]').trigger('click')
+    await flushReads()
+
+    expect(wrapper.findAll('.sets-row')).toHaveLength(60)
+    expect(wrapper.find('[data-action="carregar-mais"]').exists()).toBe(false)
+  })
+
   it('shows one set with the questions it holds, each under its prompt', async () => {
     const notes = fakeNotesSource({
       sets: [
