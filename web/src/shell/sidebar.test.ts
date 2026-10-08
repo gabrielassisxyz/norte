@@ -2,11 +2,10 @@ import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, describe, expect, it } from 'vitest'
 
-import { overrideModuleBacking, resetModuleMounting, setEnabledModules } from '@/modules/mounting'
+import { enabledModuleNames, overrideModuleBacking, resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import type { ModuleName } from '@/modules/types'
 import { createRouteTable } from '@/router'
-import { createMockSources } from '@/sources/mock'
-import { flushReads, sourcesPlugin } from '@/sources/testing'
+import { appSourcesWithLibrary, flushReads, sourcesPlugin } from '@/sources/testing'
 
 import AppSidebar from './AppSidebar.vue'
 
@@ -17,17 +16,24 @@ afterEach(() => {
   resetModuleMounting()
 })
 
-/** Switch the named modules to `api` and tell the app the server lists none of them. */
+/**
+ * Switch the named modules to `api` and tell the app the server lists none of
+ * them. The library stays listed: it is `api`-backed in its own manifest, and
+ * a sidebar without it is not the sidebar these cases are about.
+ */
 function switchOff(...names: ModuleName[]): void {
   for (const name of names) overrideModuleBacking(name, 'api')
-  setEnabledModules([])
+  setEnabledModules(['library'])
 }
 
 async function mountSidebar() {
+  // The library is `api`-backed in its own manifest, so a sidebar with a
+  // library line is a sidebar mounted against a server that lists it.
+  if (!enabledModuleNames().includes('library')) setEnabledModules([...enabledModuleNames(), 'library'])
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
   await router.push('/')
   await router.isReady()
-  const wrapper = mount(AppSidebar, { global: { plugins: [router, sourcesPlugin(createMockSources())] } })
+  const wrapper = mount(AppSidebar, { global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary())] } })
   mounted.push(wrapper)
   // Every row and every count is a module's own read, so there is no sidebar to
   // assert on until those reads have answered.

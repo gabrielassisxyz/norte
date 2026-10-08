@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import Button from '@/components/ds/Button.vue'
-import type { LibraryItem, MaterialKind } from '@/mock/types'
+import type { MaterialKind } from '@/mock/types'
+
+import type { LibraryItemRecord } from '../../data/source'
 
 const props = defineProps<{
   kind: MaterialKind
-  material: LibraryItem
+  material: LibraryItemRecord
   answer: string
   submitted: boolean
 }>()

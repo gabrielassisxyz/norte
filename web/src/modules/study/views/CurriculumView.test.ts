@@ -1,9 +1,10 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import App from '@/App.vue'
 import { createMockStore, type MockStore } from '@/mock/store'
+import { overrideModuleBacking, resetModuleMounting } from '@/modules/mounting'
 import { routes } from '@/router'
 import type { AppSources } from '@/sources'
 import { createMockSources } from '@/sources/mock'
@@ -15,6 +16,10 @@ let store: MockStore
 
 beforeEach(() => {
   store = createMockStore()
+})
+
+afterEach(() => {
+  resetModuleMounting()
 })
 
 async function mountAt(path: string, sources?: Partial<AppSources>) {
@@ -103,19 +108,29 @@ describe('curriculum screen', () => {
     expect(wrapper.text()).toContain('Instrumento: tabela de símbolos')
   })
 
-  it('routes every material row and the continue button to a known target', async () => {
-    const { wrapper, router } = await mountAt('/curriculos/fundamentos-de-compiladores')
+  it('routes every material row and the continue button to its source', async () => {
+    // The library reads the server and this module reads the mock, so a row
+    // leads to the material's own address rather than to a reader that would
+    // look up a mock id against the API and find nothing.
+    const { wrapper } = await mountAt('/curriculos/fundamentos-de-compiladores')
 
     const titles = wrapper.findAll('.nt-mat-title')
     expect(titles.length).toBeGreaterThan(0)
     for (const title of titles) {
-      const href = title.attributes('href')!
-      expect(href).toMatch(/^\/material\/(post|livro|paper)\//)
-      expect(router.resolve(href).name).toBe('material')
+      expect(title.attributes('href')).toMatch(/^https:\/\/example\.com\//)
     }
 
     const continueLink = wrapper.find('.curriculum-continue')
-    expect(continueLink.attributes('href')).toBe('/material/post/post-compilation')
+    expect(continueLink.attributes('href')).toBe('https://example.com/post-compilation')
+  })
+
+  it('routes a material row into the app once the library reads the same place', async () => {
+    overrideModuleBacking('library', 'mock')
+    const { wrapper, router } = await mountAt('/curriculos/fundamentos-de-compiladores')
+
+    const href = wrapper.findAll('.nt-mat-title')[0].attributes('href')!
+    expect(href).toMatch(/^\/material\/(post|livro|paper)\//)
+    expect(router.resolve(href).name).toBe('material')
   })
 
   it('links the breadcrumb to the study home and offers a new curriculum', async () => {

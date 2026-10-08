@@ -3,10 +3,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { formatShortDate, setClockTimeZone, shiftIsoDate, todayIsoDate } from '@/lib/clock'
 import { createMockStore, type MockStore } from '@/mock/store'
+import { fakeLibrarySource } from '@/modules/library/data/testing'
+import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import router from '@/router'
 import type { AppSources } from '@/sources'
-import { createMockSources } from '@/sources/mock'
-import { flushReads, sourcesPlugin } from '@/sources/testing'
+import { appSourcesWithLibrary, flushReads, shellLibraryRecords, sourcesPlugin } from '@/sources/testing'
 
 import HomeView from './HomeView.vue'
 
@@ -23,8 +24,10 @@ async function mountWith(sources: Partial<AppSources>, path = '/'): Promise<VueW
   return wrapper
 }
 
+let library: ReturnType<typeof fakeLibrarySource>
+
 function mountHome(path = '/'): Promise<VueWrapper> {
-  return mountWith(createMockSources(store), path)
+  return mountWith(appSourcesWithLibrary({ store, library }), path)
 }
 
 describe('HomeView', () => {
@@ -33,10 +36,15 @@ describe('HomeView', () => {
     vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
     setClockTimeZone('UTC')
     store = createMockStore()
+    library = fakeLibrarySource(shellLibraryRecords())
+    // The library reads the API, so its bands are on the home only while the
+    // server says the module is there.
+    setEnabledModules(['library'])
     await router.push('/')
   })
 
   afterEach(() => {
+    resetModuleMounting()
     vi.useRealTimers()
   })
 
@@ -61,8 +69,9 @@ describe('HomeView', () => {
 
     expect(wrapper.get('.home-review').attributes('href')).toBe('/revisao')
     expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curriculos/fundamentos-de-compiladores')
-    // The reading list arrives in the order the source sorts it: newest save first.
-    expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/material/livro/book-interpreters')
+    // The reading list arrives in the order the server sorts it: most recently
+    // opened first, which is what "continuar lendo" means.
+    expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/biblioteca/lib-post')
   })
 
   it('formats saved dates as today, yesterday, and a Portuguese calendar date', async () => {
@@ -75,8 +84,7 @@ describe('HomeView', () => {
     expect(dates).toContain(formatShortDate(shiftIsoDate(todayIsoDate(), -4)))
   })
 
-  it('opens the save dialog from the URL, rejects an empty URL, and saves to inbox first', async () => {
-    const initialInboxCount = store.libraryItems.filter((item) => item.status === 'inbox').length
+  it('opens the save dialog from the URL, rejects an empty URL, and posts the link', async () => {
     const wrapper = await mountHome('/?save=1')
 
     expect(wrapper.get('[role="dialog"]').text()).toContain('Salvar link')
@@ -87,11 +95,14 @@ describe('HomeView', () => {
     await wrapper.get('form').trigger('submit')
     await flushReads()
 
-    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
-    expect(store.libraryItems).toHaveLength(19)
-    expect(store.libraryItems[0]).toMatchObject({ status: 'inbox', url: 'https://example.org/reading-list' })
-    expect(store.libraryItems.filter((item) => item.status === 'inbox')).toHaveLength(initialInboxCount + 1)
-    expect(wrapper.get('.home-save-title').text()).toBe('Reading list')
+    // The dialog sends the address and nothing else: the title, the kind and
+    // the date are read from the page by the server.
+    expect(library.calls.save).toEqual([{ url: 'https://example.org/reading-list' }])
+    expect(library.records[0]).toMatchObject({ status: 'inbox', url: 'https://example.org/reading-list' })
+    // The new item is on screen without a reload, in the inbox band.
+    expect(wrapper.findAll('.home-save-title').map((node) => node.text())).toContain(
+      'https://example.org/reading-list'
+    )
   })
 
   it('opens the save dialog from its button', async () => {
@@ -120,17 +131,15 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
     setClockTimeZone('UTC')
+    setEnabledModules(['library'])
   })
 
   afterEach(() => {
+    resetModuleMounting()
     vi.useRealTimers()
   })
 
-  const emptyLibrary = {
-    items: [],
-    next_cursor: null,
-    counts: { inbox: 0, depois: 0, arquivo: 0, tudo: 0, unread: 0 }
-  }
+  const emptyLibrary = { items: [], next_cursor: null }
 
   const emptyStudy = {
     items: [],

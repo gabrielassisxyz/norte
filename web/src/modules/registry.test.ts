@@ -24,7 +24,12 @@ describe('what every module has to export', () => {
     // only be called by a component that has the sources provided above it.
     expect(typeof module.useSearchEntries).toBe('function')
     expect(typeof module.useSidebar).toBe('function')
-    expect(module.manifest).toMatchObject({ name, backing: 'mock', routePaths: expect.any(Array) })
+    // The library reads the API; every other module still reads the mock.
+    expect(module.manifest).toMatchObject({
+      name,
+      backing: name === 'library' ? 'api' : 'mock',
+      routePaths: expect.any(Array)
+    })
   })
 
   it('declares in the manifest every path its route table owns', () => {

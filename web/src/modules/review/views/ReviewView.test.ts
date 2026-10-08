@@ -190,27 +190,20 @@ describe('review view', () => {
     expect(wrapper.find('.review-home').exists()).toBe(false)
   })
 
-  it('links the card source and the breadcrumb to their routes', async () => {
+  it('links the breadcrumb to its route and names the source without linking it', async () => {
     const { wrapper, router } = await mountReview()
 
     expect(resolveName(router, wrapper.get('.crumb a').attributes('href'))).toBe('estudo')
 
     await deckButton(wrapper, 'Tudo de hoje').trigger('click')
     await flushReads()
-    const source = wrapper.get('.review-hint a')
-    expect(source.attributes('href')).toBe('/material/post/post-compilation')
-    expect(resolveName(router, source.attributes('href'))).toBe('material')
 
-    // The sixth card of the all-deck queue is backed by a course, which has no
-    // reading screen and falls back to the library like the home screen does.
-    for (let done = 0; done < 5; done += 1) {
-      press(' ')
-      await flushReads()
-      press('3')
-      await flushReads()
-    }
-    const fallback = wrapper.get('.review-hint a')
-    expect(resolveName(router, fallback.attributes('href'))).toBe('biblioteca')
+    // The source of a card is a library item, and the library reads the server
+    // while this module reads the mock. The hint still says where the card came
+    // from; it just does not offer a link that would resolve to nothing.
+    const hint = wrapper.get('.review-hint')
+    expect(hint.text()).toContain('origem:')
+    expect(hint.find('a').exists()).toBe(false)
   })
 
   it('says it is loading before the queue answers', async () => {

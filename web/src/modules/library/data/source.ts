@@ -1,59 +1,106 @@
-import type { Page } from '@/lib/page'
-import type { LibraryItem, LibraryKind, LibraryStatus } from '@/mock/types'
+import type { components } from '@/api/library'
 
-/** The filters the library list is read with. Status and unread are applied on the page. */
+/**
+ * The library's records, as the contract defines them.
+ *
+ * Nothing here is renamed on the way in. A field called `saved_at` on the wire
+ * stays `saved_at` in the screens, because a view that reads `savedAt` is a
+ * view that cannot be checked against `api/openapi/library.yaml` by eye — and
+ * the rename has to be undone the first time the contract gains a field.
+ */
+export type LibraryKind = components['schemas']['ItemKind']
+export type LibraryStatus = components['schemas']['ItemStatus']
+export type LibraryViewName = components['schemas']['LibraryView']
+export type LibrarySort = components['schemas']['LibrarySort']
+export type ExtractStatus = components['schemas']['ExtractStatus']
+export type TextSelection = components['schemas']['TextSelection']
+export type ReadPosition = components['schemas']['ReadPosition']
+export type LibraryItemSummary = components['schemas']['LibraryItemSummary']
+export type LibraryItemRecord = components['schemas']['LibraryItem']
+export type LibraryCounts = components['schemas']['LibraryCounts']
+export type LibraryPatch = components['schemas']['PatchItemRequest']
+export type ExtractAck = components['schemas']['ExtractItemResponse']
+
+/**
+ * The filters a list is read with — every one of them a query parameter.
+ *
+ * The shelf and the unread flag are the server's business, not the page's: a
+ * page that filtered the rows it already held would show the first page of
+ * `tudo` narrowed down, and call that the inbox.
+ */
 export interface LibraryListQuery {
-  /**
-   * A kind to narrow to, or null for every kind. `newsletter` is a kind the
-   * screen offers and the library has no items of, and narrowing to it answers
-   * with nothing rather than with everything.
-   */
-  kind?: LibraryKind | 'newsletter' | null
-  search?: string
-  sort?: 'data' | 'titulo'
-}
-
-export interface LibraryCounts {
-  inbox: number
-  depois: number
-  arquivo: number
-  tudo: number
-  unread: number
-}
-
-export type LibraryList = Page<LibraryItem, LibraryCounts>
-
-/** What the sidebar asks for: the counts it prints, without the rows behind them. */
-export interface LibrarySummary {
-  counts: LibraryCounts
-  kinds: Record<LibraryKind, number>
-  /**
-   * How many items each curriculum holds, by slug. The title belongs to the
-   * study module, so only the join this module owns travels here.
-   */
-  lists: Array<{ slug: string; count: number }>
-}
-
-export interface NewSavedLink {
-  kind: LibraryKind
-  title: string
-  author: string
-  url: string
-  curriculumSlug?: string
+  view?: LibraryViewName
+  /** A kind to narrow to, or null for every kind. */
+  tipo?: LibraryKind | null
+  /** True for unread only, false for read only, null for both. */
+  unread?: boolean | null
+  sort?: LibrarySort
+  q?: string
+  cursor?: string
+  limit?: number
 }
 
 /**
- * Everything the library screens read and write, as calls that can be slow and
- * can fail. Every mutation answers with the record as the source now holds it,
- * which is the only value a screen is allowed to display afterwards.
+ * One page of summaries. `next_cursor` is null on the last page rather than
+ * absent, because a page the screen is holding always answers the question
+ * "is there more" with a value.
+ */
+export interface LibraryItemList {
+  items: LibraryItemSummary[]
+  next_cursor: string | null
+}
+
+/** What the save dialog sends: the address, and optionally why it was kept. */
+export interface NewSavedLink {
+  url: string
+  why?: string
+}
+
+/**
+ * Everything the library screens read and write.
+ *
+ * Every mutation answers with the record as the server now holds it, which is
+ * the only value a screen may display afterwards. The one exception is
+ * `extractItem`, which answers with the queued job: the text arrives later, and
+ * the reader finds out by reading the item again.
  */
 export interface LibrarySource {
-  listItems(query: LibraryListQuery, signal: AbortSignal): Promise<LibraryList>
+  listItems(query: LibraryListQuery, signal: AbortSignal): Promise<LibraryItemList>
   /** Null when there is no such item, which is a "not found" page rather than an error. */
-  getItem(id: string, signal: AbortSignal): Promise<LibraryItem | null>
-  summary(signal: AbortSignal): Promise<LibrarySummary>
-  saveLink(link: NewSavedLink): Promise<LibraryItem>
-  setStatus(id: string, status: LibraryStatus): Promise<LibraryItem>
-  setUnread(id: string, unread: boolean): Promise<LibraryItem>
-  setCurriculum(id: string, curriculumSlug: string): Promise<LibraryItem>
+  getItem(id: string, signal: AbortSignal): Promise<LibraryItemRecord | null>
+  counts(signal: AbortSignal): Promise<LibraryCounts>
+  /** Answers with the saved record, new or already there. */
+  saveLink(link: NewSavedLink): Promise<LibraryItemRecord>
+  patchItem(id: string, patch: LibraryPatch): Promise<LibraryItemRecord>
+  openItem(id: string): Promise<LibraryItemRecord>
+  extractItem(id: string): Promise<ExtractAck>
+}
+
+/** One entry of `content_headings`, which is a JSON array on the wire. */
+export interface LibraryHeading {
+  level: number
+  text: string
+  anchor: string
+}
+
+/**
+ * The headings of a record, or none.
+ *
+ * `content_headings` is text carrying JSON, so a record written by an older
+ * extraction — or by one that failed halfway — can hold something this cannot
+ * read. The reader uses the headings only to name a reading position, so
+ * answering with none is a working article without an anchor, not a failure.
+ */
+export function parseHeadings(raw: string | undefined): LibraryHeading[] {
+  if (!raw) return []
+  try {
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter(
+      (entry): entry is LibraryHeading =>
+        typeof entry === 'object' && entry !== null && typeof (entry as LibraryHeading).anchor === 'string'
+    )
+  } catch {
+    return []
+  }
 }

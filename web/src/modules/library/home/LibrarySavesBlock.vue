@@ -5,12 +5,14 @@ import { computed } from 'vue'
 import { formatRelativeDay, todayIsoDate } from '@/lib/clock'
 
 import { useLibraryItems } from '../data/composables'
-import { domainFor, isMaterial, LIBRARY_KIND_LABELS, materialHref, minutesFor } from './items'
+import { LIBRARY_KIND_LABELS, minutesFor, readerHref, siteOf, sourceOf } from './items'
 
-const { data: page, loading, error } = useLibraryItems({ sort: 'data' })
+// The inbox, newest first, asked for as such: the shelf is a query parameter,
+// not something to filter out of a page of everything.
+const { data: page, loading, error } = useLibraryItems({ view: 'inbox', sort: 'saved_desc', limit: 5 })
 
 const firstLoad = computed(() => loading.value && page.value === null)
-const recentItems = computed(() => (page.value?.items ?? []).filter((item) => item.status === 'inbox').slice(0, 5))
+const recentItems = computed(() => page.value?.items ?? [])
 </script>
 
 <template>
@@ -26,7 +28,7 @@ const recentItems = computed(() => (page.value?.items ?? []).filter((item) => it
       <RouterLink
         v-for="item in recentItems"
         :key="item.id"
-        :to="isMaterial(item) ? materialHref(item) : { name: 'biblioteca', query: { v: 'inbox' } }"
+        :to="readerHref(item)"
         class="home-save"
       >
         <span class="home-save-icon" aria-hidden="true">
@@ -35,16 +37,16 @@ const recentItems = computed(() => (page.value?.items ?? []).filter((item) => it
         <span class="home-save-main">
           <span class="home-save-title">{{ item.title }}</span>
           <span class="home-save-meta">
-            <span>{{ domainFor(item) }}</span>
+            <span>{{ siteOf(item) }}</span>
             <span aria-hidden="true">·</span>
-            <span>{{ item.author }}</span>
+            <span>{{ sourceOf(item) }}</span>
             <span aria-hidden="true">·</span>
             <span class="home-mono home-save-minutes">{{ minutesFor(item) }} min</span>
             <span aria-hidden="true">·</span>
             <span>{{ LIBRARY_KIND_LABELS[item.kind] }}</span>
           </span>
         </span>
-        <span class="home-save-date">{{ formatRelativeDay(item.savedAt, todayIsoDate()) }}</span>
+        <span class="home-save-date">{{ formatRelativeDay(item.saved_at, todayIsoDate()) }}</span>
       </RouterLink>
     </div>
   </section>

@@ -2,6 +2,7 @@ import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, describe, expect, it } from 'vitest'
 
+import { clockTimeZone } from '@/lib/clock'
 import { enabledModuleNames, resetModuleMounting } from '@/modules/mounting'
 import { createRouteTable } from '@/router'
 import { createMockSources } from '@/sources/mock'
@@ -41,6 +42,7 @@ describe('reading the configuration before the app opens', () => {
     expect(config.modules).toEqual(['library', 'notes'])
     expect(enabledModuleNames()).toEqual(['library', 'notes'])
     expect(bootState.phase).toBe('ready')
+    expect(clockTimeZone()).toBe('America/Sao_Paulo')
   })
 
   it('reports the server as unavailable while it is failing', async () => {

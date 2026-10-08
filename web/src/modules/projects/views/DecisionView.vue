@@ -7,8 +7,9 @@ import PageTitle from '@/components/ds/PageTitle.vue'
 import TextField from '@/components/ds/TextField.vue'
 import { useAsyncAction } from '@/lib/asyncResource'
 import { daysBetweenIsoDates, formatShortDate, shiftIsoDate, todayIsoDate } from '@/lib/clock'
-import type { DecisionOption, LibraryItem, MaterialKind } from '@/mock/types'
+import type { DecisionOption, MaterialKind } from '@/mock/types'
 import { useLibraryItems } from '@/modules/library/data/composables'
+import type { LibraryItemSummary } from '@/modules/library/data/source'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 import { useSources } from '@/sources'
 
@@ -163,10 +164,10 @@ const references = computed(() => {
   const ids = REFERENCE_IDS_BY_DECISION[current.id] ?? readable.slice(0, 3).map((item) => item.id)
   return ids
     .map((id) => readable.find((item) => item.id === id))
-    .filter((item): item is LibraryItem & { kind: MaterialKind } => item !== undefined)
+    .filter((item): item is LibraryItemSummary & { kind: MaterialKind } => item !== undefined)
 })
 
-function isReadableMaterial(item: LibraryItem): item is LibraryItem & { kind: MaterialKind } {
+function isReadableMaterial(item: LibraryItemSummary): item is LibraryItemSummary & { kind: MaterialKind } {
   return item.kind === 'post' || item.kind === 'livro' || item.kind === 'paper'
 }
 
@@ -478,11 +479,11 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
                 v-for="reference in references"
                 :key="reference.id"
                 class="decision-reference"
-                :to="canReachLibrary ? { name: 'material', params: { kind: reference.kind, id: reference.id } } : undefined"
+                :to="canReachLibrary ? { name: 'leitor', params: { id: reference.id } } : undefined"
               >
                 <span class="decision-reference-kind decision-mono">{{ reference.kind }}</span>
                 <span class="decision-reference-title">{{ reference.title }}</span>
-                <span class="decision-reference-meta decision-mono">{{ reference.unread ? formatShortDate(reference.savedAt) : 'lido' }}</span>
+                <span class="decision-reference-meta decision-mono">{{ reference.unread ? formatShortDate(reference.saved_at) : 'lido' }}</span>
               </component>
             </div>
           </section>

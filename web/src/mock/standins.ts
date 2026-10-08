@@ -20,7 +20,11 @@ const KIND_BY_ID_PREFIX: Record<string, LibraryKind> = {
  * resolvable after the library's mock slice is deleted, which is why it invents
  * nothing the id does not already say.
  */
-export function createStandInLibraryItem(id: string, today: string): LibraryItem {
+export function createStandInLibraryItem(
+  id: string,
+  today: string,
+  overrides: Partial<LibraryItem> = {}
+): LibraryItem {
   return {
     id,
     kind: KIND_BY_ID_PREFIX[id.split('-')[0] ?? ''] ?? 'post',
@@ -30,6 +34,19 @@ export function createStandInLibraryItem(id: string, today: string): LibraryItem
     status: 'arquivo',
     unread: false,
     read_at: timestampDaysAgo(today, 30),
-    savedAt: daysAgo(today, 32)
+    savedAt: daysAgo(today, 32),
+    ...overrides
   }
+}
+
+/**
+ * A stand-in nobody has read yet, sitting in the inbox.
+ *
+ * The reading state of a referenced item is not incidental: a curriculum's
+ * progress line, its current material and its "next" button are all computed
+ * from it, so a slice whose stand-ins were all read would describe a curriculum
+ * that is finished.
+ */
+export function createUnreadStandInLibraryItem(id: string, today: string): LibraryItem {
+  return createStandInLibraryItem(id, today, { status: 'inbox', unread: true, read_at: undefined })
 }

@@ -16,6 +16,8 @@ green run tells the two apart.
 - `mockRecordDate.fixture.ts` — a mock record timestamped by a literal.
 - `viewDueDate.fixture.vue` — a screen deriving "today" and a due date from
   literals, in both the ISO and the compact spelling.
+- `moduleHomeBlock.fixture.vue` and `moduleDataLayer.fixture.ts` — a date
+  literal in the two places of a module that are neither a view nor mock data.
 
 They are named `*.fixture.*` because that is what every scan excludes from the
 production set: a fixture under `src/` is still compiled and still type-checked,

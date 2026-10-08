@@ -1,20 +1,33 @@
 import { reactive } from 'vue'
 
 /**
- * A counter that says "the library has gained an item".
+ * Two counters that say "ask the server again", and what each one is for.
  *
- * A change to a row can be applied straight from the write's response, but a
- * creation cannot: a list that was read before the item existed has no row to
- * replace, and the two home blocks are separate components that cannot tell
- * each other anything. Bumping this makes every open library read ask again,
- * which is what a cache does after a write.
+ * A change to a row comes back from the write itself, so a list already holding
+ * that row needs no new read — and must not make one, because re-reading a
+ * paginated list would throw away every page after the first. The counts are
+ * the opposite: they are totals over the whole library, no write response
+ * carries them, and the sidebar and the screen hold separate copies that cannot
+ * tell each other anything. So every write bumps `counts`, and only a creation
+ * bumps `items`: a list read before the item existed has no row to replace.
  */
-const state = reactive({ revision: 0 })
+const state = reactive({ items: 0, counts: 0 })
 
 export function libraryRevision(): number {
-  return state.revision
+  return state.items
 }
 
+export function libraryCountsRevision(): number {
+  return state.counts
+}
+
+/** A write that changed a row: the totals may have moved, the pages have not. */
+export function libraryItemChanged(): void {
+  state.counts += 1
+}
+
+/** A creation: every open list is now missing a row, and the totals have moved. */
 export function libraryGainedItem(): void {
-  state.revision += 1
+  state.items += 1
+  state.counts += 1
 }
