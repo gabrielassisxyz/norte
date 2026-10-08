@@ -247,26 +247,61 @@ describe('the reader and the place reading stopped', () => {
     expect(library.calls.patch).toEqual([])
   })
 
-  it('goes back to the saved heading, and writes nothing for the scroll that gets it there', async () => {
-    vi.useFakeTimers()
-    HEADING_OFFSETS['uma-secao'] = 400
-    HEADING_OFFSETS['outra-secao'] = 1200
-    // The percent is deliberately nowhere near the heading's offset: with the
-    // two agreeing, a reader that ignored the anchor would land on the same
-    // pixel and the case would pass for the wrong reason.
+  // 30%, 45% and 90% of the article, each paired with the heading that sits
+  // above it — which is what the reader stores, and what it used to scroll to
+  // instead: a reader that followed the anchor restored 30% and 45% at the top
+  // of the first section and 90% at the top of the second.
+  const STOPPING_POINTS: Array<{ percent: number; anchor: string; pixels: number }> = [
+    { percent: 0.3, anchor: 'uma-secao', pixels: 450 },
+    { percent: 0.45, anchor: 'uma-secao', pixels: 675 },
+    { percent: 0.9, anchor: 'outra-secao', pixels: 1350 }
+  ]
+
+  for (const { percent, anchor, pixels } of STOPPING_POINTS) {
+    it(`goes back to ${percent * 100}% of the article rather than to the heading above it`, async () => {
+      vi.useFakeTimers()
+      HEADING_OFFSETS['uma-secao'] = 400
+      HEADING_OFFSETS['outra-secao'] = 1200
+      const library = fakeLibrarySource([record({ read_position: { v: 1, anchor, percent } })])
+      const { wrapper } = await mountReader(library)
+      const view = scroller(wrapper)
+
+      expect(view.element.scrollTop).toBe(pixels)
+      // The criterion as it is written: within 2% of the stored percent. 1500 is
+      // the scrollable extent, 2000 - 500.
+      expect(Math.abs(view.element.scrollTop / 1500 - percent)).toBeLessThanOrEqual(0.02)
+      // It is also not where the anchor is, which is the whole defect.
+      expect(view.element.scrollTop).not.toBe(HEADING_OFFSETS[anchor])
+
+      // A scroll delivered while the restore is still settling is that restore,
+      // not the reader moving.
+      view.nudge()
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(positionPatches(library)).toEqual([])
+    })
+  }
+
+  it('snaps to the saved heading when the text moved under the percent by a little', async () => {
+    // The case the anchor was stored for: a re-extraction shifted the article a
+    // few pixels, so the percent now points just short of the heading reading
+    // had reached. 680 is 5px from 0.45 of 1500, inside the 1% correction.
+    HEADING_OFFSETS['uma-secao'] = 680
     const library = fakeLibrarySource([
-      record({ read_position: { v: 1, anchor: 'outra-secao', percent: 0.2 } })
+      record({ read_position: { v: 1, anchor: 'uma-secao', percent: 0.45 } })
     ])
     const { wrapper } = await mountReader(library)
-    const view = scroller(wrapper)
 
-    expect(view.element.scrollTop).toBe(1200)
+    expect(scroller(wrapper).element.scrollTop).toBe(680)
+  })
 
-    // A scroll delivered while the restore is still settling is that restore,
-    // not the reader moving.
-    view.nudge()
-    await vi.advanceTimersByTimeAsync(3000)
-    expect(positionPatches(library)).toEqual([])
+  it('uses the saved heading for a position that carries no percent', async () => {
+    // A position written before the percent was recorded: the heading is the
+    // only thing it says, so it is the only thing to follow.
+    HEADING_OFFSETS['outra-secao'] = 1200
+    const library = fakeLibrarySource([record({ read_position: { v: 1, anchor: 'outra-secao' } })])
+    const { wrapper } = await mountReader(library)
+
+    expect(scroller(wrapper).element.scrollTop).toBe(1200)
   })
 
   it('falls back to the saved percent when the heading is gone from the new text', async () => {
@@ -318,21 +353,70 @@ describe('the reader and the place reading stopped', () => {
     expect(positionPatches(library)[1].patch.read_position).toMatchObject({ anchor: 'outra-secao' })
   })
 
-  it('writes no position after the reader is gone', async () => {
+  it('writes the position it was still holding when the reader is torn down', async () => {
     vi.useFakeTimers()
+    HEADING_OFFSETS['uma-secao'] = 400
+    HEADING_OFFSETS['outra-secao'] = 1200
     const library = fakeLibrarySource([record()])
     const { wrapper } = await mountReader(library)
     const view = scroller(wrapper)
     await vi.advanceTimersByTimeAsync(10)
 
+    // Well inside the debounce: nothing has been written yet when the reader
+    // goes, which is the case that used to lose the last scroll of a reading.
     for (const top of [200, 400, 600]) view.scrollTo(top)
+    await vi.advanceTimersByTimeAsync(300)
+    expect(positionPatches(library)).toEqual([])
+
+    wrapper.unmount()
+    await flushPromises()
+
+    const written = positionPatches(library)
+    expect(written).toHaveLength(1)
+    expect(written[0]).toEqual({
+      id: 'item-1',
+      patch: { read_position: { v: 1, anchor: 'uma-secao', percent: 0.4 } }
+    })
+
+    // The timer went with the reader: the flush is one write, not the first of two.
+    await vi.advanceTimersByTimeAsync(5000)
+    await flushPromises()
+    expect(positionPatches(library)).toHaveLength(1)
+  })
+
+  it('writes nothing on the way out when no scroll is waiting', async () => {
+    vi.useFakeTimers()
+    const library = fakeLibrarySource([record()])
+    const { wrapper } = await mountReader(library)
+    await vi.advanceTimersByTimeAsync(10)
+
     wrapper.unmount()
     await vi.advanceTimersByTimeAsync(5000)
     await flushPromises()
 
-    // One scroll per pending write would be bad enough; a write that lands
-    // after the reader is gone belongs to a screen nobody is looking at.
+    // Opening an article and leaving it is not a reading position.
     expect(positionPatches(library)).toEqual([])
+  })
+
+  it('writes the position of the article being left, not of the one being opened', async () => {
+    vi.useFakeTimers()
+    HEADING_OFFSETS['uma-secao'] = 400
+    HEADING_OFFSETS['outra-secao'] = 1200
+    const library = fakeLibrarySource([record({ id: 'item-1' }), record({ id: 'item-2' })])
+    const { wrapper, router } = await mountReader(library, 'item-1')
+    const view = scroller(wrapper)
+    await vi.advanceTimersByTimeAsync(10)
+
+    view.scrollTo(600)
+    await router.push('/biblioteca/item-2')
+    await flushPromises()
+
+    const written = positionPatches(library)
+    expect(written).toHaveLength(1)
+    // The id is captured with the position, so the route having already moved
+    // on cannot put one article's place in another article's record.
+    expect(written[0].id).toBe('item-1')
+    expect(written[0].patch.read_position).toMatchObject({ percent: 0.4 })
   })
 })
 
