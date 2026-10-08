@@ -121,6 +121,24 @@ describe('the notes API source: a reader needs both lists of one item', () => {
   })
 })
 
+describe('the notes API source: an item with more than one page of notes', () => {
+  it('follows next_cursor until it is gone, for both lists', async () => {
+    fetchStub.mockImplementation(async (request) => {
+      const url = new URL(request.url, 'http://norte.test')
+      const cursor = url.searchParams.get('cursor')
+      const kind = url.pathname.endsWith('highlights') ? 'h' : 'a'
+      if (cursor === null) return json({ items: [{ id: `${kind}-1` }], next_cursor: 'page-2' })
+      return json({ items: [{ id: `${kind}-2` }] })
+    })
+
+    const both = await createApiNotesSource().itemNotes('item-1', signal)
+
+    expect(both.highlights.map((row) => row.id)).toEqual(['h-1', 'h-2'])
+    expect(both.annotations.map((row) => row.id)).toEqual(['a-1', 'a-2'])
+    expect(fetchStub).toHaveBeenCalledTimes(4)
+  })
+})
+
 describe('the notes API source: the one note an item carries', () => {
   it('reads it under the item in the path', async () => {
     fetchStub.mockResolvedValue(json({ item_id: 'item-1', text: '' }))

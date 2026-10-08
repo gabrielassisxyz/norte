@@ -90,6 +90,22 @@ function page<TRow>(answered: { items: TRow[]; next_cursor?: string }): NotesPag
   return { items: answered.items, next_cursor: answered.next_cursor ?? null }
 }
 
+/**
+ * Every row of a list, following the cursor to its end. A reader marks the
+ * whole article, so a passage on a later page left unread would simply never
+ * be marked.
+ */
+async function allPages<TRow>(read: (cursor: string | undefined) => Promise<NotesPage<TRow>>): Promise<TRow[]> {
+  const rows: TRow[] = []
+  let cursor: string | undefined
+  do {
+    const next = await read(cursor)
+    rows.push(...next.items)
+    cursor = next.next_cursor ?? undefined
+  } while (cursor)
+  return rows
+}
+
 export function createApiNotesSource(): NotesSource {
   return {
     async listHighlights(query, signal) {
@@ -145,10 +161,10 @@ export function createApiNotesSource(): NotesSource {
      */
     async itemNotes(itemId, signal): Promise<ItemNotes> {
       const [highlights, annotations] = await Promise.all([
-        this.listHighlights({ item_id: itemId, limit: 200 }, signal),
-        this.listAnnotations({ item_id: itemId, limit: 200 }, signal)
+        allPages((cursor) => this.listHighlights({ item_id: itemId, limit: 200, cursor }, signal)),
+        allPages((cursor) => this.listAnnotations({ item_id: itemId, limit: 200, cursor }, signal))
       ])
-      return { highlights: highlights.items, annotations: annotations.items }
+      return { highlights, annotations }
     },
 
     async itemNote(itemId, signal) {
