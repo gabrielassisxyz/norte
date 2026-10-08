@@ -12,15 +12,8 @@ import { formatLongWeekdayDate, formatMonthName, todayIsoDate } from '@/lib/cloc
 import type { StudyDay, Subject } from '@/mock/types'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 import { useReviewSummary } from '@/modules/review/data/composables'
-import {
-  completedThisMonth,
-  currentStreak,
-  hoursInWindow,
-  levelForMinutes,
-  recordStreak
-} from '@/modules/study/mock/study'
-
 import { useStudyHome } from '../data/composables'
+import { completedThisMonth, currentStreak, hoursInWindow, levelForMinutes, recordStreak } from './studyDays'
 
 /** A way into another product is offered only while that product is mounted. */
 const canReachLibrary = computed(() => crossModuleActionAllowed('study', 'library'))

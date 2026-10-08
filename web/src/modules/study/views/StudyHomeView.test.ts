@@ -4,13 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setClockTimeZone } from '@/lib/clock'
 import { createMockStore, type MockStore } from '@/mock/store'
 import router from '@/router'
-import { completedThisMonth, currentStreak, hoursInWindow } from '@/modules/study/mock/study'
 import type { AppSources } from '@/sources'
 import { createMockSources } from '@/sources/mock'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import type { StudyHomePage, StudySource } from '../data/source'
 import StudyHomeView from './StudyHomeView.vue'
+import { completedThisMonth, currentStreak, hoursInWindow } from './studyDays'
 
 const TODAY = '2026-10-03'
 

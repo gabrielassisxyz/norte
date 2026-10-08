@@ -2,15 +2,14 @@ import { describe, expect, it } from 'vitest'
 
 import type { StudyDay } from '@/mock/types'
 import {
-  STUDY_DAY_COUNT,
   completedThisMonth,
   currentStreak,
   hoursInWindow,
   levelForMinutes,
-  buildStudyDays,
-  recordStreak,
-  subjects
-} from './study'
+  recordStreak
+} from '@/modules/study/views/studyDays'
+
+import { STUDY_DAY_COUNT, buildStudyDays, subjects } from './study'
 
 /** The day the band is built against; the seed is the day, so this fixes the story. */
 const TODAY = '2026-10-03'
