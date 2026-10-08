@@ -22,12 +22,13 @@ function toggleCollapse(): void {
 }
 
 function open(mode: Exclude<ShellOverlayMode, null>): void {
-  if (mode === 'busca') handedOverQuery.value = ''
   overlay.value = mode
 }
 
 function close(): void {
   overlay.value = null
+  // Forgotten on the way out, so the next palette is the empty one the
+  // shortcut promises rather than the last thing a search box handed over.
   handedOverQuery.value = ''
 }
 

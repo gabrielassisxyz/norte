@@ -240,6 +240,34 @@ describe('shell overlay', () => {
     expect(wrapper.text()).toContain('Resultado novo')
   })
 
+  it('drops a superseded answer that arrives anyway, signal or no signal', async () => {
+    // A source that ignores the abort is the case the signal cannot cover:
+    // the request completes, and what stops its rows from landing is the
+    // palette noticing that another query has taken over since.
+    const releases: Array<(hits: CoreSearchHit[]) => void> = []
+    const core = fakeCoreSource({}, {
+      search(): Promise<CoreSearchHit[]> {
+        return new Promise<CoreSearchHit[]>((resolve) => {
+          releases.push(resolve)
+        })
+      }
+    })
+    const { wrapper } = await mountOverlay('busca', core)
+    const search = wrapper.get('input[aria-label="Buscar"]')
+
+    await search.setValue('mem')
+    await search.setValue('memória')
+    expect(releases).toHaveLength(2)
+
+    releases[0]([coreSearchHit({ id: 'stale', title: 'Resultado velho' })])
+    await flushReads()
+    expect(wrapper.text()).not.toContain('Resultado velho')
+
+    releases[1]([coreSearchHit({ id: 'fresh', title: 'Resultado novo' })])
+    await flushReads()
+    expect(wrapper.text()).toContain('Resultado novo')
+  })
+
   it('opens with the text a screen handed over and searches for it at once', async () => {
     const core = fakeCoreSource({ hits: [SAVED_ITEM] })
     const searched = vi.spyOn(core, 'search')

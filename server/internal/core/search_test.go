@@ -139,6 +139,12 @@ func TestTheMergeDoesNotDependOnTheRegistrationOrder(t *testing.T) {
 // contract promises. Four providers each answering thirty is both: none of
 // them may contribute more than ten, and the merge may not return more than
 // thirty of the forty that survive.
+//
+// The numbers are written out rather than read from the constants. Comparing
+// the answer against SearchTotalLimit asserts that the code agrees with
+// itself, which it does whatever either value is changed to; these two are
+// the contract's own numbers, and changing one has to be a decision that
+// breaks a test rather than a constant edit that breaks nothing.
 func TestEachProviderIsCappedAtTenAndTheTotalAtThirty(t *testing.T) {
 	providers := []core.SearchProvider{}
 	fakes := []*searchProviderFake{}
@@ -158,13 +164,12 @@ func TestEachProviderIsCappedAtTenAndTheTotalAtThirty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("searching: %v", err)
 	}
-	if len(entries) != core.SearchTotalLimit {
-		t.Fatalf("the merge answered %d entries, want the %d cap", len(entries), core.SearchTotalLimit)
+	if len(entries) != 30 {
+		t.Fatalf("the merge answered %d entries, want the cap of 30", len(entries))
 	}
 	for _, fake := range fakes {
-		if fake.askedLimit != core.SearchProviderLimit {
-			t.Fatalf("a provider was asked for %d hits, want %d",
-				fake.askedLimit, core.SearchProviderLimit)
+		if fake.askedLimit != 10 {
+			t.Fatalf("a provider was asked for %d hits, want 10", fake.askedLimit)
 		}
 	}
 	// Ten per provider is enforced on the answer too, not only asked for: a
@@ -174,9 +179,8 @@ func TestEachProviderIsCappedAtTenAndTheTotalAtThirty(t *testing.T) {
 		perModule[entry.Module]++
 	}
 	for module, count := range perModule {
-		if count > core.SearchProviderLimit {
-			t.Fatalf("module %s contributed %d entries, want at most %d",
-				module, count, core.SearchProviderLimit)
+		if count > 10 {
+			t.Fatalf("module %s contributed %d entries, want at most 10", module, count)
 		}
 	}
 }
@@ -218,7 +222,7 @@ func TestASubjectIsFoundByNameAndRankedAboveAPartialMatch(t *testing.T) {
 // an answer every module also has a share of.
 func TestSubjectsAreCappedLikeAProvider(t *testing.T) {
 	api, subjects := newSearchAPI(t)
-	for i := 0; i < core.SearchProviderLimit+5; i++ {
+	for i := 0; i < 15; i++ {
 		name := fmt.Sprintf("Memoria %02d", i)
 		if _, err := subjects.Create(context.Background(), name, false); err != nil {
 			t.Fatalf("creating %q: %v", name, err)
@@ -229,9 +233,8 @@ func TestSubjectsAreCappedLikeAProvider(t *testing.T) {
 	if err != nil {
 		t.Fatalf("searching: %v", err)
 	}
-	if len(entries) != core.SearchProviderLimit {
-		t.Fatalf("the subjects contributed %d entries, want at most %d",
-			len(entries), core.SearchProviderLimit)
+	if len(entries) != 10 {
+		t.Fatalf("the subjects contributed %d entries, want at most 10", len(entries))
 	}
 }
 
