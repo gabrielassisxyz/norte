@@ -185,6 +185,47 @@ func TestEachProviderIsCappedAtTenAndTheTotalAtThirty(t *testing.T) {
 	}
 }
 
+// TestAProviderThatIgnoresItsLimitStillContributesExactlyTen gives one
+// provider thirty hits that outscore every other module's. With the total cap
+// alone that provider would fill the whole answer; only the per-provider cut
+// keeps it to ten. The fakes in the test above share one score ladder, so no
+// module there ever exceeds its share and the cut cannot be seen failing.
+func TestAProviderThatIgnoresItsLimitStillContributesExactlyTen(t *testing.T) {
+	loud := &searchProviderFake{}
+	for i := 0; i < 30; i++ {
+		loud.entries = append(loud.entries, searchEntry("loud",
+			fmt.Sprintf("loud-%02d", i), fmt.Sprintf("loud %02d", i), 0.9-float64(i)/1000))
+	}
+	providers := []core.SearchProvider{loud}
+	for p := 0; p < 3; p++ {
+		quiet := &searchProviderFake{}
+		for i := 0; i < 10; i++ {
+			quiet.entries = append(quiet.entries, searchEntry(fmt.Sprintf("quiet%d", p),
+				fmt.Sprintf("q%d-%02d", p, i), fmt.Sprintf("quiet %d %02d", p, i),
+				0.5-float64(i)/1000))
+		}
+		providers = append(providers, quiet)
+	}
+	api, _ := newSearchAPI(t, providers...)
+
+	entries, err := api.Search(context.Background(), "whatever")
+	if err != nil {
+		t.Fatalf("searching: %v", err)
+	}
+	if len(entries) != 30 {
+		t.Fatalf("the merge answered %d entries, want 30", len(entries))
+	}
+	loudCount := 0
+	for _, entry := range entries {
+		if entry.Module == "loud" {
+			loudCount++
+		}
+	}
+	if loudCount != 10 {
+		t.Fatalf("the loud provider contributed %d entries, want exactly 10", loudCount)
+	}
+}
+
 // TestASubjectIsFoundByNameAndRankedAboveAPartialMatch pins the subject
 // scale: the name that was typed outranks a name that merely starts with it,
 // which outranks a name that merely contains it.
