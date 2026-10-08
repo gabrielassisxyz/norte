@@ -477,6 +477,19 @@ func TestSubjectSearchMatchesWithoutAccentsAndByAlias(t *testing.T) {
 		t.Fatalf("q=programacao = %+v, want just Programação", unaccented.Items)
 	}
 
+	// Typed as a person writes it -- accents, capitals, a space -- which is
+	// what the search has to normalise before it can match a slug at all.
+	asWritten := decodeSubjectsAnswer[subjectListBody](t,
+		env.do(t, http.MethodGet, "/api/core/subjects?q=Programa%C3%A7%C3%A3o", nil), http.StatusOK)
+	if len(asWritten.Items) != 1 || asWritten.Items[0].ID != programacao.ID {
+		t.Fatalf("q=Programação = %+v, want just Programação", asWritten.Items)
+	}
+	spaced := decodeSubjectsAnswer[subjectListBody](t,
+		env.do(t, http.MethodGet, "/api/core/subjects?q=Machine%20Learning", nil), http.StatusOK)
+	if len(spaced.Items) != 1 || spaced.Items[0].ID != machine.ID {
+		t.Fatalf("q=\"Machine Learning\" = %+v, want just Machine Learning", spaced.Items)
+	}
+
 	byAlias := decodeSubjectsAnswer[subjectListBody](t,
 		env.do(t, http.MethodGet, "/api/core/subjects?q=ml", nil), http.StatusOK)
 	if len(byAlias.Items) != 1 || byAlias.Items[0].ID != machine.ID {
