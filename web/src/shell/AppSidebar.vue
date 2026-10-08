@@ -14,7 +14,13 @@ import {
   type SidebarTree
 } from './composition'
 
-withDefaults(defineProps<{ collapsed?: boolean }>(), { collapsed: false })
+withDefaults(defineProps<{ collapsed?: boolean; drawer?: boolean }>(), {
+  collapsed: false,
+  // Whether this sidebar is the phone drawer's panel rather than the layout's
+  // first column. The rail the collapse button produces makes no sense there:
+  // a drawer is opened to navigate, and a 52px strip holds no navigation.
+  drawer: false
+})
 
 defineEmits<{
   search: []
@@ -86,6 +92,7 @@ const isInicio = computed(() => route.name === 'inicio')
     <div class="app-brand">
       <RouterLink v-if="!collapsed" :to="{ name: 'inicio' }" class="app-brand-link">Norte</RouterLink>
       <button
+        v-if="!drawer"
         type="button"
         class="app-collapse"
         :aria-label="collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'"

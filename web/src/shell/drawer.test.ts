@@ -80,6 +80,32 @@ describe('the navigation drawer', () => {
     expect(wrapper.find('.app-content h1').text()).toBe('Biblioteca')
   })
 
+  it('closes when an overlay it opened takes the screen', async () => {
+    const { wrapper } = await mountAt('/')
+    await wrapper.find(MENU).trigger('click')
+    expect(wrapper.find('.app-drawer').classes()).toContain('is-open')
+
+    // The palette is opened from inside the drawer, and the drawer is over the
+    // content: left standing it would answer the taps meant for the results.
+    await wrapper.get('.app-drawer button.app-button:not([disabled])').trigger('click')
+
+    expect(wrapper.find('.shell-palette-input').exists()).toBe(true)
+    expect(wrapper.find('.app-drawer').classes()).not.toContain('is-open')
+    expect(wrapper.find('button.app-scrim').exists()).toBe(false)
+  })
+
+  it('closes when the preferences it opened take the screen', async () => {
+    const { wrapper } = await mountAt('/')
+    await wrapper.find(MENU).trigger('click')
+
+    const buttons = wrapper.findAll('.app-drawer .app-foot button')
+    expect(buttons.map((button) => button.text())).toEqual(['Buscar⌘K', 'Preferências'])
+    await buttons[1].trigger('click')
+
+    expect(wrapper.find('.shell-preferences').exists()).toBe(true)
+    expect(wrapper.find('.app-drawer').classes()).not.toContain('is-open')
+  })
+
   it('offers no menu button and no drawer on a bare route', async () => {
     const { wrapper } = await mountAt('/biblioteca/lib-post')
 
