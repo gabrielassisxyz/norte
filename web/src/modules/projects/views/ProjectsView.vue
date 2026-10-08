@@ -7,17 +7,14 @@ import PageTitle from '@/components/ds/PageTitle.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import Stat from '@/components/ds/Stat.vue'
 import TextField from '@/components/ds/TextField.vue'
-import { store } from '@/mock/store'
-import type { Project, ProjectStatus } from '@/mock/types'
+import { useAsyncAction } from '@/lib/asyncResource'
+import type { ProjectStatus } from '@/mock/types'
+import { useSources } from '@/sources'
+
+import { useProjectsOverview } from '../data/composables'
+import type { ProjectRow } from '../data/source'
 
 type GroupBy = 'area' | 'status'
-
-interface ProjectRow extends Project {
-  areaTitle: string
-  nextStep: string
-  openTasks: number
-  pendingDecisions: number
-}
 
 const GROUP_OPTIONS = [
   { value: 'area', label: 'Por área' },
@@ -34,6 +31,13 @@ const STATUS_DETAILS: Record<ProjectStatus, { label: string; tone: string }> = {
 const STATUS_ORDER: ProjectStatus[] = ['active', 'planning', 'paused', 'completed']
 
 const route = useRoute()
+const { projects: projectsSource } = useSources()
+const { data: overview, loading, error, refresh, prependProject } = useProjectsOverview()
+const writing = useAsyncAction()
+
+const firstLoad = computed(() => loading.value && overview.value === null)
+const areas = computed(() => overview.value?.areas ?? [])
+
 const groupBy = ref<GroupBy>('area')
 const dialogOpen = ref(false)
 const title = ref('')
@@ -62,27 +66,20 @@ watch(
   { immediate: true }
 )
 
+/**
+ * The rows as the source counted them. The only thing added here is the next
+ * step typed into the dialog, which is a note this screen keeps and the source
+ * has nowhere to put yet.
+ */
 const projectRows = computed<ProjectRow[]>(() =>
-  store.projects.map((project) => {
-    const area = store.areas.find((candidate) => candidate.id === project.areaId)
-    const tasks = store.tasks.filter((task) => task.projectId === project.id)
-    const nextTask = tasks.find((task) => !task.completed)
-    const pendingDecisions = store.decisions.filter(
-      (decision) => decision.projectId === project.id && decision.status !== 'decided'
-    ).length
-
-    return {
-      ...project,
-      areaTitle: area?.title ?? 'Área sem nome',
-      nextStep: createdNextSteps.value[project.id] ?? nextTask?.title ?? 'Definir o próximo passo',
-      openTasks: tasks.filter((task) => !task.completed).length,
-      pendingDecisions
-    }
-  })
+  (overview.value?.items ?? []).map((project) => ({
+    ...project,
+    nextStep: createdNextSteps.value[project.id] ?? project.nextStep
+  }))
 )
 
 const areaGroups = computed(() =>
-  store.areas.map((area) => {
+  areas.value.map((area) => {
     const projects = projectRows.value.filter((project) => project.areaId === area.id)
     const active = projects.filter((project) => project.status === 'active').length
     return { ...area, projects, active }
@@ -98,16 +95,16 @@ const statusGroups = computed(() =>
 )
 
 const stats = computed(() => ({
-  active: projectRows.value.filter((project) => project.status === 'active').length,
-  openTasks: store.tasks.filter((task) => !task.completed).length,
-  pendingDecisions: store.decisions.filter((decision) => decision.status !== 'decided').length,
-  paused: projectRows.value.filter((project) => project.status === 'paused').length
+  active: overview.value?.counts.active ?? 0,
+  openTasks: overview.value?.counts.openTasks ?? 0,
+  pendingDecisions: overview.value?.counts.pendingDecisions ?? 0,
+  paused: overview.value?.counts.paused ?? 0
 }))
 
 const canCreate = computed(() => Boolean(title.value.trim() && purpose.value.trim() && nextStep.value.trim() && areaId.value))
 
 function openDialog(): void {
-  areaId.value ||= store.areas.find((area) => !area.archived)?.id ?? store.areas[0]?.id ?? ''
+  areaId.value ||= areas.value.find((area) => !area.archived)?.id ?? areas.value[0]?.id ?? ''
   dialogOpen.value = true
 }
 
@@ -126,16 +123,22 @@ function projectSummary(project: ProjectRow): string {
   return parts.length ? parts.join(' · ') : 'Nada em aberto'
 }
 
-function createProject(): void {
+async function createProject(): Promise<void> {
   if (!canCreate.value) return
 
-  const created = store.addProject({
-    areaId: areaId.value,
-    title: title.value.trim(),
-    purpose: purpose.value.trim(),
-    status: 'planning',
-    priority: 'P2'
-  })
+  const created = await writing.run(() =>
+    projectsSource.addProject({
+      areaId: areaId.value,
+      title: title.value.trim(),
+      purpose: purpose.value.trim(),
+      status: 'planning',
+      priority: 'P2'
+    })
+  )
+  // A failed create keeps the dialog and everything typed into it.
+  if (!created) return
+
+  prependProject(created)
   createdNextSteps.value = { ...createdNextSteps.value, [created.id]: nextStep.value.trim() }
   title.value = ''
   purpose.value = ''
@@ -168,7 +171,22 @@ function createProject(): void {
         <SegmentedControl :model-value="groupBy" :options="GROUP_OPTIONS" label="Agrupar projetos" @change="selectGroup" />
       </section>
 
-      <div v-if="groupBy === 'area'" class="projects-groups" data-grouping="area">
+      <p v-if="writing.error.value" class="projects-write-error" role="alert">
+        Não foi possível salvar: {{ writing.error.value }}
+      </p>
+
+      <p v-if="firstLoad" class="projects-state" role="status">Carregando os projetos…</p>
+
+      <div v-else-if="error" class="projects-state" role="alert">
+        <p>Não foi possível carregar os projetos: {{ error }}</p>
+        <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+      </div>
+
+      <p v-else-if="projectRows.length === 0" class="projects-state">
+        Nenhum projeto ainda. Comece criando um — ele guarda o próximo passo para você.
+      </p>
+
+      <div v-else-if="groupBy === 'area'" class="projects-groups" data-grouping="area">
         <section v-for="area in areaGroups" :key="area.id" :aria-labelledby="area.id" class="project-group">
           <div class="project-group-head">
             <div class="project-group-title">
@@ -236,7 +254,7 @@ function createProject(): void {
         <legend>Área</legend>
         <div>
           <button
-            v-for="area in store.areas"
+            v-for="area in areas"
             :key="area.id"
             type="button"
             :class="['projects-area-option', { 'is-selected': areaId === area.id }]"
@@ -256,6 +274,10 @@ function createProject(): void {
 </template>
 
 <style scoped>
+.projects-state { margin: var(--space-6) 0 0; color: var(--muted); font-size: 15px; line-height: 24px; }
+.projects-state p { margin: 0 0 var(--space-2); }
+.projects-write-error { margin: var(--space-4) 0 0; color: var(--danger); font-size: 13px; line-height: 20px; }
+
 .projects-view { min-width: 0; }
 .projects-inner { max-width: 1120px; margin: 0 auto; }
 .projects-actions { display: flex; justify-content: flex-end; }

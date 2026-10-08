@@ -427,6 +427,8 @@ export const curricula: Curriculum[] = [
  * Stand-ins for every library item a curriculum module names, so this slice
  * stays readable on its own once the library's mock slice is deleted.
  */
-export const studyReferencedItems: LibraryItem[] = [
-  ...new Set(curricula.flatMap((curriculum) => curriculum.modules.flatMap((module) => module.materials.map((material) => material.libraryItemId))))
-].map(createStandInLibraryItem)
+export function buildStudyReferencedItems(today: string): LibraryItem[] {
+  return [
+    ...new Set(curricula.flatMap((curriculum) => curriculum.modules.flatMap((module) => module.materials.map((material) => material.libraryItemId))))
+  ].map((id) => createStandInLibraryItem(id, today))
+}

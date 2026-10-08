@@ -1,14 +1,21 @@
 import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { store } from '@/mock/store'
+import { createMockStore, type MockStore } from '@/mock/store'
 import { overrideModuleBacking, resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { createRouteTable } from '@/router'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import LibraryView from './LibraryView.vue'
 
 const mounted: Array<{ unmount: () => void }> = []
+let store: MockStore
+
+beforeEach(() => {
+  store = createMockStore()
+})
 
 afterEach(() => {
   while (mounted.length > 0) mounted.pop()?.unmount()
@@ -19,8 +26,11 @@ async function mountLibrary() {
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
   await router.push('/biblioteca?v=tudo')
   await router.isReady()
-  const wrapper = mount(LibraryView, { global: { plugins: [router] } })
+  const wrapper = mount(LibraryView, {
+    global: { plugins: [router, sourcesPlugin(createMockSources(store))] }
+  })
   mounted.push(wrapper)
+  await flushReads()
   return wrapper
 }
 
@@ -63,6 +73,7 @@ describe('the actions an item offers into another module', () => {
     await item.get('button[aria-label="Vincular a currículo"]').trigger('click')
     const row = item.findAll('.act-menu-row').find((candidate) => candidate.text() === target.title)!
     await row.trigger('click')
+    await flushReads()
 
     expect(store.libraryItems.find((candidate) => candidate.id === id)?.curriculumSlug).toBe(target.slug)
     expect(item.find('.act-menu').exists()).toBe(false)
@@ -78,6 +89,7 @@ describe('the actions an item offers into another module', () => {
     await item.get('button[aria-label="Criar tarefa"]').trigger('click')
     const row = item.findAll('.act-menu-row').find((candidate) => candidate.text() === project.title)!
     await row.trigger('click')
+    await flushReads()
 
     expect(store.tasks).toHaveLength(before + 1)
     expect(store.tasks[0]).toMatchObject({ projectId: project.id, title: `Ler "${title}"`, bucket: 'next' })

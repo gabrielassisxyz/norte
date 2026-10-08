@@ -6,9 +6,12 @@ import Button from '@/components/ds/Button.vue'
 import PageTitle from '@/components/ds/PageTitle.vue'
 import Tag from '@/components/ds/Tag.vue'
 import TextField from '@/components/ds/TextField.vue'
-import { store } from '@/mock/store'
+import { useAsyncAction } from '@/lib/asyncResource'
+import { nowTimestamp } from '@/lib/clock'
 import type { Bucket, Decision } from '@/mock/types'
+import { useSources } from '@/sources'
 
+import { useTask } from '../data/composables'
 import SessionDialog from './TaskView/SessionDialog.vue'
 
 const props = defineProps<{ id: string }>()
@@ -18,24 +21,17 @@ const editTitle = ref('')
 const editDescription = ref('')
 const sessionOpen = ref(false)
 
-const task = computed(() => store.tasks.find((candidate) => candidate.id === props.id))
-const project = computed(() =>
-  store.projects.find((candidate) => candidate.id === task.value?.projectId)
-)
-const area = computed(() => store.areas.find((candidate) => candidate.id === project.value?.areaId))
-const taskSessions = computed(() => store.sessions.filter((session) => session.taskId === props.id))
-const blockingDecisions = computed(() =>
-  store.decisions.filter((decision) => decision.blockedTaskIds.includes(props.id))
-)
-const siblingTasks = computed(() =>
-  store.tasks.filter(
-    (candidate) =>
-      candidate.projectId === task.value?.projectId &&
-      candidate.id !== props.id &&
-      !candidate.completed &&
-      (candidate.priority === 'P1' || candidate.priority === 'P2')
-  )
-)
+const { projects: projectsSource } = useSources()
+const { data: detail, loading, error, refresh, applyTask, refreshSessions } = useTask(() => props.id)
+const writing = useAsyncAction()
+
+const firstLoad = computed(() => loading.value && detail.value === null)
+const task = computed(() => detail.value?.task)
+const project = computed(() => detail.value?.project)
+const area = computed(() => detail.value?.area)
+const taskSessions = computed(() => detail.value?.sessions ?? [])
+const blockingDecisions = computed(() => detail.value?.blockingDecisions ?? [])
+const siblingTasks = computed(() => detail.value?.siblingTasks ?? [])
 
 // The prototype offers three horizons; the fourth mock bucket ("someday")
 // keeps its stored value and simply shows no active pick here.
@@ -70,29 +66,60 @@ function closeEdit(): void {
   editing.value = false
 }
 
-function saveEdit(): void {
-  if (!task.value || editTitle.value.trim().length === 0) return
-  store.updateTask(task.value.id, {
-    title: editTitle.value.trim(),
-    description: editDescription.value.trim()
-  })
+/** Each write shows the task the source answered with, or nothing at all. */
+async function saveEdit(): Promise<void> {
+  const current = task.value
+  if (!current || editTitle.value.trim().length === 0) return
+  const updated = await writing.run(() =>
+    projectsSource.updateTask(current.id, {
+      title: editTitle.value.trim(),
+      description: editDescription.value.trim()
+    })
+  )
+  if (!updated) return
+  applyTask(updated)
   editing.value = false
 }
 
-function pickBucket(bucket: Bucket): void {
-  if (!task.value || task.value.bucket === bucket) return
-  store.setTaskBucket(task.value.id, bucket)
+async function pickBucket(bucket: Bucket): Promise<void> {
+  const current = task.value
+  if (!current || current.bucket === bucket) return
+  const updated = await writing.run(() => projectsSource.setTaskBucket(current.id, bucket))
+  if (updated) applyTask(updated)
 }
 
-function saveSession(payload: { did: string; next: string }): void {
-  if (!task.value || !project.value) return
-  store.addSession({
-    projectId: project.value.id,
-    taskId: task.value.id,
-    startedAt: new Date().toISOString(),
-    durationMinutes: 25,
-    summary: `${payload.did} Próximo: ${payload.next}`
-  })
+async function toggleDone(): Promise<void> {
+  const current = task.value
+  if (!current) return
+  const updated = await writing.run(() => projectsSource.toggleTaskDone(current.id))
+  if (updated) applyTask(updated)
+}
+
+async function toggleStep(stepId: string): Promise<void> {
+  const current = task.value
+  if (!current) return
+  const updated = await writing.run(() => projectsSource.toggleTaskStep(current.id, stepId))
+  if (updated) applyTask(updated)
+}
+
+async function saveSession(payload: { did: string; next: string }): Promise<void> {
+  const current = task.value
+  const currentProject = project.value
+  if (!current || !currentProject) return
+  const saved = await writing.run(() =>
+    projectsSource.addSession({
+      projectId: currentProject.id,
+      taskId: current.id,
+      startedAt: nowTimestamp(),
+      durationMinutes: 25,
+      summary: `${payload.did} Próximo: ${payload.next}`
+    })
+  )
+  // A failed save keeps the dialog open with everything typed into it.
+  if (!saved) return
+
+  // The session list belongs to the task's read, so it is read again.
+  await refreshSessions()
   sessionOpen.value = false
 }
 
@@ -102,7 +129,16 @@ function sessionDate(startedAt: string): string {
 </script>
 
 <template>
-  <main v-if="task && project" class="task">
+  <main v-if="firstLoad" class="task task-missing" role="status">
+    <p>Carregando a tarefa…</p>
+  </main>
+
+  <main v-else-if="error" class="task task-missing" role="alert">
+    <p>Não foi possível carregar a tarefa: {{ error }}</p>
+    <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+  </main>
+
+  <main v-else-if="task && project" class="task">
     <div class="task-top">
       <nav class="crumb" aria-label="Navegação estrutural">
         <RouterLink :to="{ name: 'projetos' }">Projetos</RouterLink>
@@ -122,11 +158,15 @@ function sessionDate(startedAt: string): string {
           {{ editing ? 'Fechar edição' : 'Editar' }}
         </button>
         <Button variant="secondary" icon="note" @click="sessionOpen = true">Registrar sessão</Button>
-        <Button variant="primary" icon="check" @click="store.toggleTaskDone(task.id)">
+        <Button variant="primary" icon="check" @click="toggleDone()">
           {{ task.completed ? 'Reabrir tarefa' : 'Marcar como feita' }}
         </Button>
       </div>
     </div>
+
+    <p v-if="writing.error.value" class="task-write-error" role="alert">
+      Não foi possível salvar: {{ writing.error.value }}
+    </p>
 
     <div class="task-page">
       <div class="task-main">
@@ -167,7 +207,7 @@ function sessionDate(startedAt: string): string {
               class="step"
               :class="{ 'is-done': step.completed }"
               :aria-pressed="step.completed"
-              @click="store.toggleTaskStep(task.id, step.id)"
+              @click="toggleStep(step.id)"
             >
               <span class="box" aria-hidden="true">
                 <svg
@@ -695,6 +735,13 @@ a.meta-plain:hover {
 
 .sibling:hover {
   color: var(--norte);
+}
+
+.task-write-error {
+  margin: var(--space-4) 0 0;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .task-missing {

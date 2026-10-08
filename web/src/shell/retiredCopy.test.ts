@@ -4,6 +4,8 @@ import { describe, expect, it } from 'vitest'
 
 import App from '@/App.vue'
 import { createRouteTable } from '@/router'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import ShellOverlay from './ShellOverlay.vue'
 
@@ -19,14 +21,14 @@ async function mountShell() {
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
   await router.push('/')
   await router.isReady()
-  return mount(App, { global: { plugins: [router] } })
+  return mount(App, { global: { plugins: [router, sourcesPlugin(createMockSources())] } })
 }
 
 async function mountOverlay(open: 'busca' | 'prefs') {
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
   await router.push('/')
   await router.isReady()
-  return mount(ShellOverlay, { props: { open }, global: { plugins: [router] } })
+  return mount(ShellOverlay, { props: { open }, global: { plugins: [router, sourcesPlugin(createMockSources())] } })
 }
 
 describe('the retired sync copy', () => {

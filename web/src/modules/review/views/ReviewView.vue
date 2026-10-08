@@ -6,11 +6,15 @@ import Button from '@/components/ds/Button.vue'
 import Flashcard from '@/components/ds/Flashcard.vue'
 import PageTitle from '@/components/ds/PageTitle.vue'
 import Stat from '@/components/ds/Stat.vue'
-import { store } from '@/mock/store'
+import { useAsyncAction } from '@/lib/asyncResource'
+import { todayIsoDate } from '@/lib/clock'
 import type { CardRating, MaterialKind, ReviewCard } from '@/mock/types'
+import { useLibraryItem } from '@/modules/library/data/composables'
 import { crossModuleActionAllowed } from '@/modules/mounting'
+import { useSources } from '@/sources'
 
-const TODAY = '2026-10-03'
+import { useReviewQueue } from '../data/composables'
+
 const ALL_DECKS = 'all'
 const INTERVALS: [string, string, string, string] = ['10 min', '2 d', '6 d', '14 d']
 const MATERIAL_KINDS = new Set<MaterialKind>(['post', 'livro', 'paper'])
@@ -30,22 +34,29 @@ interface DeckRow {
   active: boolean
 }
 
-// Picking a deck snapshots its due cards into a session queue. Ratings are
-// written to the mock store straight away, so the deck list and the "left
-// today" stat drop live while the session queue itself stays stable.
 /** A way into another product is offered only while that product is mounted. */
 const canReachStudy = computed(() => crossModuleActionAllowed('review', 'study'))
 const canReachLibrary = computed(() => crossModuleActionAllowed('review', 'library'))
 
+const { review } = useSources()
+const { data: queuePage, loading, error, refresh, applyCard } = useReviewQueue()
+const rating = useAsyncAction()
+
+const firstLoad = computed(() => loading.value && queuePage.value === null)
+const cards = computed<ReviewCard[]>(() => queuePage.value?.items ?? [])
+const decks = computed(() => queuePage.value?.decks ?? [])
+
+// Picking a deck snapshots its due cards into a session queue. A rating is
+// written to the source and the card comes back with its new due date, so the
+// deck list and the "left today" stat drop while the session queue stays stable.
 const pickedId = ref<string | null>(null)
 const queue = ref<string[]>([])
 const position = ref(0)
 const ratings = ref<SessionRating[]>([])
 
 function dueCards(deckId: string): ReviewCard[] {
-  return store.reviewCards.filter(
-    (card) => card.dueAt <= TODAY && (deckId === ALL_DECKS || card.deckId === deckId)
-  )
+  const today = todayIsoDate()
+  return cards.value.filter((card) => card.dueAt <= today && (deckId === ALL_DECKS || card.deckId === deckId))
 }
 
 function progress(due: ReviewCard[], all: ReviewCard[]): { left: number; total: number; pct: number } {
@@ -58,17 +69,17 @@ const deckRows = computed<DeckRow[]>(() => [
   {
     id: ALL_DECKS,
     name: 'Tudo de hoje',
-    sub: `${store.reviewDecks.length} baralhos`,
-    ...progress(dueCards(ALL_DECKS), store.reviewCards),
+    sub: `${decks.value.length} baralhos`,
+    ...progress(dueCards(ALL_DECKS), cards.value),
     active: pickedId.value === ALL_DECKS
   },
-  ...store.reviewDecks.map((deck) => ({
+  ...decks.value.map((deck) => ({
     id: deck.id,
     name: deck.title,
     sub: deck.description,
     ...progress(
       dueCards(deck.id),
-      store.reviewCards.filter((card) => card.deckId === deck.id)
+      cards.value.filter((card) => card.deckId === deck.id)
     ),
     active: pickedId.value === deck.id
   }))
@@ -77,31 +88,28 @@ const deckRows = computed<DeckRow[]>(() => [
 const currentCard = computed<ReviewCard | undefined>(() => {
   const id = queue.value[position.value]
   if (id === undefined) return undefined
-  return store.reviewCards.find((card) => card.id === id)
+  return cards.value.find((card) => card.id === id)
 })
 
 const finished = computed(() => pickedId.value !== null && currentCard.value === undefined)
 
-const leftToday = computed(() => store.reviewCards.filter((card) => card.dueAt <= TODAY).length)
+const leftToday = computed(() => queuePage.value?.counts.due ?? 0)
 
 const doneCount = computed(() => ratings.value.length)
 
 const recalled = computed(() => {
   const total = ratings.value.length
   if (total === 0) return '–'
-  const remembered = ratings.value.filter(
-    (entry) => entry.rating === 'good' || entry.rating === 'easy'
-  ).length
+  const remembered = ratings.value.filter((entry) => entry.rating === 'good' || entry.rating === 'easy').length
   return String(Math.round((remembered / total) * 100))
 })
 
-const cardDeck = computed(
-  () => store.reviewDecks.find((deck) => deck.id === currentCard.value?.deckId)?.title ?? ''
-)
+const cardDeck = computed(() => decks.value.find((deck) => deck.id === currentCard.value?.deckId)?.title ?? '')
 
-const sourceItem = computed(() =>
-  store.libraryItems.find((item) => item.id === currentCard.value?.sourceLibraryItemId)
-)
+/** The card's source material belongs to the library, so the library answers for it. */
+const sourceId = computed(() => currentCard.value?.sourceLibraryItemId ?? '')
+const sourceEnabled = computed(() => canReachLibrary.value && sourceId.value !== '')
+const { data: sourceItem } = useLibraryItem(sourceId, sourceEnabled)
 
 function isMaterialKind(kind: string): boolean {
   return MATERIAL_KINDS.has(kind as MaterialKind)
@@ -111,7 +119,7 @@ function isMaterialKind(kind: string): boolean {
 // course) falls back to the library, like the home screen does.
 const sourceTo = computed(() => {
   const item = sourceItem.value
-  if (item !== undefined && isMaterialKind(item.kind)) return `/material/${item.kind}/${item.id}`
+  if (item && isMaterialKind(item.kind)) return `/material/${item.kind}/${item.id}`
   return { name: 'biblioteca', query: { v: 'tudo' } }
 })
 
@@ -124,11 +132,18 @@ function pick(id: string): void {
   ratings.value = []
 }
 
-function rate(rating: CardRating): void {
+/**
+ * A rating moves on only once the source has taken it. If it fails the card
+ * stays in front of the reader with the reason, because advancing past a card
+ * nobody recorded loses the answer the reader just gave.
+ */
+async function rate(value: CardRating): Promise<void> {
   const id = queue.value[position.value]
   if (id === undefined) return
-  store.rateCard(id, rating)
-  ratings.value.push({ id, rating })
+  const rated = await rating.run(() => review.rateCard(id, value))
+  if (!rated) return
+  applyCard(rated)
+  ratings.value.push({ id, rating: value })
   position.value += 1
 }
 
@@ -168,7 +183,22 @@ function restart(): void {
       <Stat :value="recalled" unit="%" label="Lembrados" />
     </div>
 
-    <div class="review-page">
+    <p v-if="rating.error.value" class="review-write-error" role="alert">
+      Não foi possível registrar a resposta: {{ rating.error.value }}
+    </p>
+
+    <p v-if="firstLoad" class="review-state" role="status">Carregando os cartões…</p>
+
+    <div v-else-if="error" class="review-state" role="alert">
+      <p>Não foi possível carregar os cartões: {{ error }}</p>
+      <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+    </div>
+
+    <div v-else-if="cards.length === 0" class="review-state">
+      <p>Nenhum cartão ainda. Os cartões nascem do que você lê e marca.</p>
+    </div>
+
+    <div v-else class="review-page">
       <div class="review-main">
         <template v-if="currentCard">
           <Flashcard
@@ -251,6 +281,10 @@ function restart(): void {
 </template>
 
 <style scoped>
+.review-state { margin: var(--space-6) 0 0; color: var(--muted); font-size: 15px; line-height: 24px; }
+.review-state p { margin: 0 0 var(--space-2); }
+.review-write-error { margin: var(--space-4) 0 0; color: var(--danger); font-size: 13px; line-height: 20px; }
+
 .review {
   max-width: 1120px;
   margin: 0 auto;

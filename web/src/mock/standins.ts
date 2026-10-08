@@ -1,3 +1,4 @@
+import { daysAgo, timestampDaysAgo } from './relative'
 import type { LibraryItem, LibraryKind } from './types'
 
 const KIND_BY_ID_PREFIX: Record<string, LibraryKind> = {
@@ -19,7 +20,7 @@ const KIND_BY_ID_PREFIX: Record<string, LibraryKind> = {
  * resolvable after the library's mock slice is deleted, which is why it invents
  * nothing the id does not already say.
  */
-export function createStandInLibraryItem(id: string): LibraryItem {
+export function createStandInLibraryItem(id: string, today: string): LibraryItem {
   return {
     id,
     kind: KIND_BY_ID_PREFIX[id.split('-')[0] ?? ''] ?? 'post',
@@ -28,6 +29,7 @@ export function createStandInLibraryItem(id: string): LibraryItem {
     url: `https://example.com/${id}`,
     status: 'arquivo',
     unread: false,
-    savedAt: '2026-09-01'
+    read_at: timestampDaysAgo(today, 30),
+    savedAt: daysAgo(today, 32)
   }
 }

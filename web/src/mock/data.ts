@@ -1,9 +1,9 @@
-import { libraryItems } from '@/modules/library/mock/items'
-import { annotations, highlights, notesReferencedItems, questions } from '@/modules/notes/mock/notes'
-import { areas, decisions, projects, sessions, tasks } from '@/modules/projects/mock/life'
-import { reviewCards, reviewDecks, reviewReferencedItems } from '@/modules/review/mock/cards'
-import { curricula, studyReferencedItems } from '@/modules/study/mock/curricula'
-import { studyDays, subjects } from '@/modules/study/mock/study'
+import { buildLibraryItems } from '@/modules/library/mock/items'
+import { buildAnnotations, buildHighlights, buildNotesReferencedItems, buildQuestions } from '@/modules/notes/mock/notes'
+import { areas, buildDecisions, buildSessions, projects, tasks } from '@/modules/projects/mock/life'
+import { buildReviewCards, buildReviewReferencedItems, reviewDecks } from '@/modules/review/mock/cards'
+import { buildStudyReferencedItems, curricula } from '@/modules/study/mock/curricula'
+import { buildStudyDays, subjects } from '@/modules/study/mock/study'
 
 import type { LibraryItem, MockData } from './types'
 
@@ -26,19 +26,43 @@ function mergeLibraryItems(...slices: LibraryItem[][]): LibraryItem[] {
   return merged
 }
 
-export const initialMockData: MockData = {
-  libraryItems: mergeLibraryItems(libraryItems, studyReferencedItems, reviewReferencedItems, notesReferencedItems),
-  curricula,
-  reviewDecks,
-  reviewCards,
-  highlights,
-  annotations,
-  questions,
-  areas,
-  projects,
-  decisions,
-  tasks,
-  sessions,
-  subjects,
-  studyDays
+/**
+ * Each store gets its own copy of the undated slices.
+ *
+ * They are module constants, so handing the same array to two stores lets a
+ * write in one appear in the other — which, in a test suite, means one case
+ * editing a curriculum changes what the next case reads. The dated slices are
+ * built fresh per call and need no copy.
+ */
+function ownCopy<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
+/**
+ * Every mock record, dated against one day: the caller passes the day the app
+ * is on, so a screen that says "ontem" means yesterday rather than the day this
+ * file was written.
+ */
+export function buildMockData(today: string): MockData {
+  return {
+    libraryItems: mergeLibraryItems(
+      buildLibraryItems(today),
+      buildStudyReferencedItems(today),
+      buildReviewReferencedItems(today),
+      buildNotesReferencedItems(today)
+    ),
+    curricula: ownCopy(curricula),
+    reviewDecks: ownCopy(reviewDecks),
+    reviewCards: buildReviewCards(today),
+    highlights: buildHighlights(today),
+    annotations: buildAnnotations(today),
+    questions: buildQuestions(today),
+    areas: ownCopy(areas),
+    projects: ownCopy(projects),
+    decisions: buildDecisions(today),
+    tasks: ownCopy(tasks),
+    sessions: buildSessions(today),
+    subjects: ownCopy(subjects),
+    studyDays: buildStudyDays(today)
+  }
 }

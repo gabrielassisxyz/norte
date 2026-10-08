@@ -1,11 +1,16 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { store } from '@/mock/store'
 
-import { domainFor, formatRelativeDate, isMaterial, LIBRARY_KIND_LABELS, LIBRARY_TODAY, materialHref, minutesFor } from './items'
+import { formatRelativeDay, todayIsoDate } from '@/lib/clock'
 
-const recentItems = computed(() => store.libraryItems.filter((item) => item.status === 'inbox').slice(0, 5))
+import { useLibraryItems } from '../data/composables'
+import { domainFor, isMaterial, LIBRARY_KIND_LABELS, materialHref, minutesFor } from './items'
+
+const { data: page, loading, error } = useLibraryItems({ sort: 'data' })
+
+const firstLoad = computed(() => loading.value && page.value === null)
+const recentItems = computed(() => (page.value?.items ?? []).filter((item) => item.status === 'inbox').slice(0, 5))
 </script>
 
 <template>
@@ -14,7 +19,10 @@ const recentItems = computed(() => store.libraryItems.filter((item) => item.stat
       <h2 id="recent-saves">Salvos recentemente</h2>
       <RouterLink :to="{ name: 'biblioteca', query: { v: 'inbox' } }" class="home-see-all">Ver inbox</RouterLink>
     </div>
-    <div class="home-saves">
+    <p v-if="firstLoad" class="home-saves-state" role="status">Carregando os salvos…</p>
+    <p v-else-if="error" class="home-saves-state" role="alert">Não foi possível carregar os salvos: {{ error }}</p>
+    <p v-else-if="recentItems.length === 0" class="home-saves-state">Nada salvo ainda.</p>
+    <div v-else class="home-saves">
       <RouterLink
         v-for="item in recentItems"
         :key="item.id"
@@ -36,13 +44,14 @@ const recentItems = computed(() => store.libraryItems.filter((item) => item.stat
             <span>{{ LIBRARY_KIND_LABELS[item.kind] }}</span>
           </span>
         </span>
-        <span class="home-save-date">{{ formatRelativeDate(item.savedAt, LIBRARY_TODAY) }}</span>
+        <span class="home-save-date">{{ formatRelativeDay(item.savedAt, todayIsoDate()) }}</span>
       </RouterLink>
     </div>
   </section>
 </template>
 
 <style scoped>
+.home-saves-state { margin: 0; color: var(--muted); font-size: 14px; line-height: 22px; }
 .home-save { display: grid; grid-template-columns: 48px minmax(0, 1fr) auto; align-items: center; gap: var(--space-6); padding: var(--space-3); border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; }
 .home-save:hover { background: var(--surface); }
 .home-save:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }

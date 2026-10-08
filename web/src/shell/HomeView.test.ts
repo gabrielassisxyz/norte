@@ -1,20 +1,43 @@
-import { mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { mount, type VueWrapper } from '@vue/test-utils'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { formatShortDate, setClockTimeZone, shiftIsoDate, todayIsoDate } from '@/lib/clock'
+import { createMockStore, type MockStore } from '@/mock/store'
 import router from '@/router'
-import { store } from '@/mock/store'
+import type { AppSources } from '@/sources'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import HomeView from './HomeView.vue'
 
-async function mountHome(path = '/') {
+/** The day the mock data is built against, so a date on screen is a known date. */
+const TODAY = '2026-10-03'
+
+let store: MockStore
+
+async function mountWith(sources: Partial<AppSources>, path = '/'): Promise<VueWrapper> {
   await router.push(path)
   await router.isReady()
-  return mount(HomeView, { global: { plugins: [router] } })
+  const wrapper = mount(HomeView, { global: { plugins: [router, sourcesPlugin(sources)] } })
+  await flushReads()
+  return wrapper
+}
+
+function mountHome(path = '/'): Promise<VueWrapper> {
+  return mountWith(createMockSources(store), path)
 }
 
 describe('HomeView', () => {
   beforeEach(async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
+    setClockTimeZone('UTC')
+    store = createMockStore()
     await router.push('/')
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('renders its title and the main home regions', async () => {
@@ -38,7 +61,8 @@ describe('HomeView', () => {
 
     expect(wrapper.get('.home-review').attributes('href')).toBe('/revisao')
     expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curriculos/fundamentos-de-compiladores')
-    expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/material/post/post-compilation')
+    // The reading list arrives in the order the source sorts it: newest save first.
+    expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/material/livro/book-interpreters')
   })
 
   it('formats saved dates as today, yesterday, and a Portuguese calendar date', async () => {
@@ -47,7 +71,8 @@ describe('HomeView', () => {
 
     expect(dates).toContain('hoje')
     expect(dates).toContain('ontem')
-    expect(dates).toContain('29 set')
+    // The oldest of the five recent saves sits four days back.
+    expect(dates).toContain(formatShortDate(shiftIsoDate(todayIsoDate(), -4)))
   })
 
   it('opens the save dialog from the URL, rejects an empty URL, and saves to inbox first', async () => {
@@ -60,6 +85,7 @@ describe('HomeView', () => {
 
     await wrapper.get('.nt-input').setValue('https://example.org/reading-list')
     await wrapper.get('form').trigger('submit')
+    await flushReads()
 
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     expect(store.libraryItems).toHaveLength(19)
@@ -74,5 +100,102 @@ describe('HomeView', () => {
     await wrapper.get('button.nt-btn-secondary').trigger('click')
 
     expect(wrapper.get('[role="dialog"]').text()).toContain('Salvar link')
+  })
+
+  it('titles the day from the clock, so the home follows the calendar', async () => {
+    expect((await mountHome()).get('h1').text()).toBe('Sábado, 3 de outubro')
+
+    vi.setSystemTime(new Date('2026-10-04T12:00:00Z'))
+    expect((await mountHome()).get('h1').text()).toBe('Domingo, 4 de outubro')
+  })
+})
+
+/**
+ * The home has no read of its own: every band on it is a module's. So its
+ * loading, empty and error states are the states of those bands, and they are
+ * driven here by the sources the bands were given.
+ */
+describe('HomeView while its bands wait, find nothing, or fail', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
+    setClockTimeZone('UTC')
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  const emptyLibrary = {
+    items: [],
+    next_cursor: null,
+    counts: { inbox: 0, depois: 0, arquivo: 0, tudo: 0, unread: 0 }
+  }
+
+  const emptyStudy = {
+    items: [],
+    next_cursor: null,
+    counts: { curricula: 0, modules: 0, subjects: 0 },
+    subjects: [],
+    studyDays: [],
+    focus: 'Sem foco desta semana.'
+  }
+
+  function homeSources(overrides: {
+    library?: Partial<AppSources['library']>
+    study?: Partial<AppSources['study']>
+  }): Partial<AppSources> {
+    return {
+      library: { listItems: async () => emptyLibrary, ...overrides.library } as unknown as AppSources['library'],
+      study: { studyHome: async () => emptyStudy, ...overrides.study } as unknown as AppSources['study'],
+      review: { summary: async () => ({ cards: 0, due: 0, decks: 0 }) } as unknown as AppSources['review']
+    }
+  }
+
+  it('says each band is loading before its own read answers', async () => {
+    const wrapper = await mountWith(
+      homeSources({
+        library: { listItems: () => new Promise(() => {}) },
+        study: { studyHome: () => new Promise(() => {}) }
+      })
+    )
+    const waiting = wrapper.findAll('[role="status"]').map((node) => node.text())
+
+    expect(waiting).toContain('Carregando as leituras…')
+    expect(waiting).toContain('Carregando os salvos…')
+    expect(waiting).toContain('Carregando os currículos…')
+  })
+
+  it('says each band is empty once its read answers with nothing', async () => {
+    const wrapper = await mountWith(homeSources({}))
+
+    expect(wrapper.find('[role="status"]').exists()).toBe(false)
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.get('#continue-reading').text()).toBe('Continuar lendo')
+    expect(wrapper.findAll('.home-reading-card')).toHaveLength(0)
+    expect(wrapper.findAll('.home-study-row')).toHaveLength(0)
+    expect(wrapper.findAll('.home-save-title')).toHaveLength(0)
+  })
+
+  it('says why each band could not be read', async () => {
+    const wrapper = await mountWith(
+      homeSources({
+        library: {
+          listItems: async () => {
+            throw new Error('rede fora do ar')
+          }
+        },
+        study: {
+          studyHome: async () => {
+            throw new Error('servidor sem resposta')
+          }
+        }
+      })
+    )
+    const failures = wrapper.findAll('[role="alert"]').map((node) => node.text())
+
+    expect(failures).toContain('Não foi possível carregar as leituras: rede fora do ar')
+    expect(failures).toContain('Não foi possível carregar os salvos: rede fora do ar')
+    expect(failures).toContain('Não foi possível carregar os currículos: servidor sem resposta')
   })
 })

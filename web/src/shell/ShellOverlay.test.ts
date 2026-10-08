@@ -1,16 +1,23 @@
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { describe, expect, it } from 'vitest'
 
 import ShellOverlay from '@/shell/ShellOverlay.vue'
 import { routes } from '@/router'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 import { setTheme } from '@/theme'
 
 async function mountOverlay(open: 'busca' | 'prefs') {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push('/')
   await router.isReady()
-  const wrapper = mount(ShellOverlay, { props: { open }, global: { plugins: [router] } })
+  const wrapper = mount(ShellOverlay, {
+    props: { open },
+    global: { plugins: [router, sourcesPlugin(createMockSources())] }
+  })
+  // The palette offers what each mounted module answered with.
+  await flushReads()
   return { wrapper, router }
 }
 
@@ -32,11 +39,21 @@ describe('shell overlay', () => {
     expect(wrapper.findAll('.shell-palette-row')).toHaveLength(1)
     await search.trigger('keydown', { key: 'ArrowDown' })
     expect(wrapper.get('.shell-palette-row').classes()).toContain('is-highlighted')
+    // Module routes are lazy, so the push also waits on a dynamic import. The
+    // router reports its own arrival, which is a fact rather than a deadline:
+    // polling for a fixed number of milliseconds fails on a busy machine for
+    // reasons that have nothing to do with the screen under test.
+    const navigated = new Promise<void>((resolve) => {
+      const stop = router.afterEach((to) => {
+        if (to.name !== 'material') return
+        stop()
+        resolve()
+      })
+    })
     await search.trigger('keydown', { key: 'Enter' })
-    // Module routes are lazy, so the push also waits on a dynamic import.
-    for (let attempt = 0; attempt < 200 && router.currentRoute.value.name !== 'material'; attempt += 1) {
-      await new Promise((resolve) => setTimeout(resolve, 5))
-    }
+    await navigated
+    // The overlay closes itself once its own push resolves, one turn later.
+    await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('material')
     expect(router.currentRoute.value.params).toMatchObject({ kind: 'post', id: 'post-compilation' })

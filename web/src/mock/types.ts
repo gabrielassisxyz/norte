@@ -1,6 +1,11 @@
 export type LibraryKind = 'post' | 'livro' | 'paper' | 'video' | 'podcast' | 'curso'
 
-export type LibraryStatus = 'inbox' | 'depois' | 'arquivo' | 'read'
+/**
+ * Where an item sits. Reading is not a place: an item that has been read keeps
+ * the status it had and carries `unread`/`read_at` instead, so marking it read
+ * does not move it out of the list the user put it in.
+ */
+export type LibraryStatus = 'inbox' | 'depois' | 'arquivo'
 
 export type MaterialKind = Extract<LibraryKind, 'post' | 'livro' | 'paper'>
 
@@ -15,6 +20,8 @@ export interface LibraryItem {
   readProgress?: number
   status: LibraryStatus
   unread: boolean
+  /** When it was read, and absent while `unread` is true. */
+  read_at?: string
   savedAt: string
   curriculumSlug?: string
 }
@@ -163,9 +170,13 @@ export interface Decision {
   projectId: string
   title: string
   context: string
+  /** When the decision was opened, which is what the screen dates it by. */
+  createdAt: string
   status: DecisionStatus
   options: DecisionOption[]
   selectedOptionId?: string
+  /** Written when the choice is none of the recorded options. */
+  reasoning?: string
   blockedTaskIds: string[]
   postponedUntil?: string
 }

@@ -1,16 +1,50 @@
 import { mount } from '@vue/test-utils'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import { setClockTimeZone } from '@/lib/clock'
+import { createMockStore, type MockStore } from '@/mock/store'
 import router from '@/router'
-import { store } from '@/mock/store'
-import { completedThisMonth, currentStreak, hoursInWindow } from '@/modules/study/mock/study'
+import type { AppSources } from '@/sources'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 
+import type { StudyHomePage, StudySource } from '../data/source'
 import StudyHomeView from './StudyHomeView.vue'
+import { completedThisMonth, currentStreak, hoursInWindow } from './studyDays'
 
-async function mountStudy() {
+const TODAY = '2026-10-03'
+
+let store: MockStore
+
+async function mountStudy(sources?: Partial<AppSources>) {
   await router.push('/estudo')
   await router.isReady()
-  return mount(StudyHomeView, { global: { plugins: [router] } })
+  const wrapper = mount(StudyHomeView, {
+    global: { plugins: [router, sourcesPlugin(sources ?? createMockSources(store))] }
+  })
+  await flushReads()
+  return wrapper
+}
+
+function studyWith(overrides: Partial<StudySource>): Partial<AppSources> {
+  const empty: StudyHomePage = {
+    items: [],
+    next_cursor: null,
+    counts: { curricula: 0, modules: 0, subjects: 0 },
+    subjects: [],
+    studyDays: [],
+    focus: 'Foco da semana.'
+  }
+  return {
+    study: {
+      studyHome: async () => empty,
+      getCurriculum: async () => null,
+      materialContext: async () => null,
+      summary: async () => ({ counts: empty.counts, curricula: [] }),
+      ...overrides
+    } as unknown as AppSources['study'],
+    review: { summary: async () => ({ cards: 0, due: 0, decks: 0 }) } as unknown as AppSources['review']
+  }
 }
 
 function expectedTitle(): string {
@@ -20,7 +54,15 @@ function expectedTitle(): string {
 
 describe('StudyHomeView', () => {
   beforeEach(async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
+    store = createMockStore()
     await router.push('/estudo')
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    setClockTimeZone('UTC')
   })
 
   it('renders its title and main regions from mock data', async () => {
@@ -43,7 +85,7 @@ describe('StudyHomeView', () => {
     expect(stats[3].text()).toContain(`Concluídos em`)
     expect(stats[3].text()).toContain(String(completedThisMonth(store.studyDays).total))
     expect(wrapper.find('.study-review').text()).toContain(
-      String(store.reviewCards.filter((card) => card.dueAt <= '2026-10-03').length)
+      String(store.reviewCards.filter((card) => card.dueAt <= TODAY).length)
     )
     expect(hoursInWindow(store.studyDays)).toBeGreaterThan(0)
   })
@@ -108,5 +150,65 @@ describe('StudyHomeView', () => {
 
     await wrapper.get('[role="tablist"] [role="tab"]:last-child').trigger('click')
     expect(wrapper.get('.study-row-link').attributes('href')).toBe('/biblioteca?v=tudo')
+  })
+
+  it('says it is loading before the study home answers', async () => {
+    await router.push('/estudo')
+    await router.isReady()
+    const wrapper = mount(StudyHomeView, {
+      global: {
+        plugins: [router, sourcesPlugin(studyWith({ studyHome: () => new Promise<StudyHomePage>(() => {}) }))]
+      }
+    })
+
+    expect(wrapper.get('[role="status"]').text()).toBe('Carregando o estudo…')
+    expect(wrapper.find('.nt-stat').exists()).toBe(false)
+  })
+
+  it('says each band is empty once the read answers with nothing', async () => {
+    const wrapper = await mountStudy(studyWith({}))
+
+    expect(wrapper.text()).toContain('Nenhum currículo ainda')
+    expect(wrapper.text()).toContain('Nenhum assunto ainda')
+    expect(wrapper.find('.nt-carousel-item').exists()).toBe(false)
+  })
+
+  it('says why the study home could not be read, and reads again when asked', async () => {
+    let attempts = 0
+    const wrapper = await mountStudy(
+      studyWith({
+        studyHome: async () => {
+          attempts += 1
+          if (attempts === 1) throw new Error('rede indisponível')
+          return {
+            items: [],
+            next_cursor: null,
+            counts: { curricula: 0, modules: 0, subjects: 0 },
+            subjects: [],
+            studyDays: [],
+            focus: 'Foco da semana.'
+          }
+        }
+      })
+    )
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar o estudo: rede indisponível')
+
+    await wrapper.get('[role="alert"] button').trigger('click')
+    await flushReads()
+
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Nenhum currículo ainda')
+  })
+
+  it('titles the day in the configured zone, not the browser\'s', async () => {
+    // 23:30 in São Paulo is already the next day in UTC.
+    vi.setSystemTime(new Date('2026-10-04T02:30:00Z'))
+
+    setClockTimeZone('America/Sao_Paulo')
+    expect((await mountStudy()).get('h1').text()).toBe('Sábado, 3 de outubro')
+
+    setClockTimeZone('UTC')
+    expect((await mountStudy()).get('h1').text()).toBe('Domingo, 4 de outubro')
   })
 })

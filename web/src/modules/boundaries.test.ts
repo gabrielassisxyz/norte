@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { initialMockData } from '@/mock/data'
-import { annotations, highlights, notesReferencedItems, questions } from '@/modules/notes/mock/notes'
-import { reviewCards, reviewReferencedItems } from '@/modules/review/mock/cards'
-import { curricula, studyReferencedItems } from '@/modules/study/mock/curricula'
+import { buildMockData } from '@/mock/data'
+import { buildAnnotations, buildHighlights, buildNotesReferencedItems, buildQuestions } from '@/modules/notes/mock/notes'
+import { buildReviewCards, buildReviewReferencedItems } from '@/modules/review/mock/cards'
+import { buildStudyReferencedItems, curricula } from '@/modules/study/mock/curricula'
+
+/** One day to build every slice against; which day it is changes nothing here. */
+const TODAY = '2026-10-03'
 
 /**
  * Every source file of the three modules, read as text. What this asserts on is
@@ -43,7 +46,7 @@ describe('the study, review and notes modules do not reach into the library slic
 
 describe('each slice carries the library items it names', () => {
   it('keeps every curriculum material resolvable without the library slice', () => {
-    const own = new Set(studyReferencedItems.map((item) => item.id))
+    const own = new Set(buildStudyReferencedItems(TODAY).map((item) => item.id))
     const named = curricula.flatMap((curriculum) =>
       curriculum.modules.flatMap((module) => module.materials.map((material) => material.libraryItemId))
     )
@@ -53,16 +56,16 @@ describe('each slice carries the library items it names', () => {
   })
 
   it('keeps every card source resolvable without the library slice', () => {
-    const own = new Set(reviewReferencedItems.map((item) => item.id))
-    const named = reviewCards.map((card) => card.sourceLibraryItemId)
+    const own = new Set(buildReviewReferencedItems(TODAY).map((item) => item.id))
+    const named = buildReviewCards(TODAY).map((card) => card.sourceLibraryItemId)
 
     expect(named.length).toBeGreaterThan(0)
     expect(named.filter((id) => !own.has(id))).toEqual([])
   })
 
   it('keeps every note target resolvable without the library slice', () => {
-    const own = new Set(notesReferencedItems.map((item) => item.id))
-    const named = [...highlights, ...annotations, ...questions]
+    const own = new Set(buildNotesReferencedItems(TODAY).map((item) => item.id))
+    const named = [...buildHighlights(TODAY), ...buildAnnotations(TODAY), ...buildQuestions(TODAY)]
       .map((note) => note.materialId)
       .filter((id): id is string => Boolean(id))
 
@@ -74,6 +77,6 @@ describe('each slice carries the library items it names', () => {
     // The library's own slice is merged first, so its richer entry wins while it
     // exists; a stand-in leaking into the visible data would show up here as an
     // item carrying the stand-in's author.
-    expect(initialMockData.libraryItems.filter((item) => item.author === 'Material referenciado')).toEqual([])
+    expect(buildMockData(TODAY).libraryItems.filter((item) => item.author === 'Material referenciado')).toEqual([])
   })
 })

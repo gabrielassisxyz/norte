@@ -1,6 +1,8 @@
 import { reactive } from 'vue'
 
-import { initialMockData } from './data'
+import { nowTimestamp, shiftIsoDate, todayIsoDate } from '@/lib/clock'
+
+import { buildMockData } from './data'
 import type {
   Annotation,
   Area,
@@ -8,16 +10,19 @@ import type {
   CardRating,
   Curriculum,
   CurriculumModule,
+  Decision,
   Highlight,
   LibraryItem,
   LibraryStatus,
-  MockData,
   Project,
   Question,
   ReviewCard,
   Session,
   Task
 } from './types'
+
+/** How far a rating pushes a card out, matching the intervals the deck offers. */
+const DAYS_BY_RATING: Record<CardRating, number> = { again: 0, hard: 2, good: 6, easy: 14 }
 
 type SavedLink = Pick<LibraryItem, 'kind' | 'title' | 'author' | 'url'> & Partial<Pick<LibraryItem, 'curriculumSlug'>>
 type NewProject = Omit<Project, 'id' | 'features' | 'bugs'> & Partial<Pick<Project, 'features' | 'bugs'>>
@@ -28,10 +33,6 @@ type NewCurriculum = Omit<Curriculum, 'slug' | 'status' | 'modules'> & Partial<P
 type NewHighlight = Omit<Highlight, 'id' | 'createdAt'>
 type NewAnnotation = Omit<Annotation, 'id' | 'createdAt'>
 type NewQuestion = Omit<Question, 'id' | 'createdAt'>
-
-function cloneInitialData(): MockData {
-  return JSON.parse(JSON.stringify(initialMockData)) as MockData
-}
 
 function requireItem<T extends { id: string }>(items: T[], id: string, label: string): T {
   const item = items.find((candidate) => candidate.id === id)
@@ -54,16 +55,39 @@ function nextId(prefix: string, items: { id: string }[]): string {
   return `${prefix}-${sequence}`
 }
 
-export function createMockStore() {
-  const state = reactive(cloneInitialData())
+/**
+ * One mock dataset with the operations a screen performs on it.
+ *
+ * The data is dated against `today`, which the caller reads from the clock, and
+ * every record this store creates is dated the same way — so a store built this
+ * morning and a link saved this afternoon agree about what day it is.
+ */
+export function createMockStore(today: string = todayIsoDate()) {
+  const state = reactive(buildMockData(today))
 
-  function setLibraryItemStatus(id: string, status: LibraryStatus): void {
-    requireItem(state.libraryItems, id, 'Library item').status = status
+  function setLibraryItemStatus(id: string, status: LibraryStatus): LibraryItem {
+    const item = requireItem(state.libraryItems, id, 'Library item')
+    item.status = status
+    return item
   }
 
-  function setLibraryItemCurriculum(id: string, curriculumSlug: string): void {
+  /**
+   * Reading is an event, not a place: this leaves the item in the list the user
+   * put it in and only records whether it has been read, and when.
+   */
+  function setLibraryItemUnread(id: string, unread: boolean): LibraryItem {
+    const item = requireItem(state.libraryItems, id, 'Library item')
+    item.unread = unread
+    if (unread) delete item.read_at
+    else item.read_at = nowTimestamp()
+    return item
+  }
+
+  function setLibraryItemCurriculum(id: string, curriculumSlug: string): LibraryItem {
     requireCurriculum(curriculumSlug)
-    requireItem(state.libraryItems, id, 'Library item').curriculumSlug = curriculumSlug
+    const item = requireItem(state.libraryItems, id, 'Library item')
+    item.curriculumSlug = curriculumSlug
+    return item
   }
 
   function addSavedLink(link: SavedLink): LibraryItem {
@@ -72,56 +96,78 @@ export function createMockStore() {
       ...link,
       status: 'inbox',
       unread: true,
-      savedAt: '2026-10-03'
+      savedAt: todayIsoDate()
     }
     state.libraryItems.unshift(item)
     return item
   }
 
   function addQuestion(question: NewQuestion): Question {
-    const created: Question = { id: nextId('question', state.questions), ...question, createdAt: '2026-10-03T12:00:00Z' }
+    const created: Question = { id: nextId('question', state.questions), ...question, createdAt: nowTimestamp() }
     state.questions.unshift(created)
     return created
   }
 
-  function rateCard(id: string, rating: CardRating): void {
+  function rateCard(id: string, rating: CardRating): ReviewCard {
     const card: ReviewCard = requireItem(state.reviewCards, id, 'Review card')
     card.lastRating = rating
-    card.dueAt = '2026-10-17'
+    card.dueAt = shiftIsoDate(todayIsoDate(), DAYS_BY_RATING[rating])
+    return card
   }
 
-  function decideDecision(decisionId: string, optionId: string): void {
+  /**
+   * `optionId` may name a choice that is none of the recorded options, which is
+   * what the "Outra" answer is; it then carries its own reasoning.
+   */
+  function decideDecision(decisionId: string, optionId: string, reasoning?: string): Decision {
     const decision = requireItem(state.decisions, decisionId, 'Decision')
-    requireItem(decision.options, optionId, 'Decision option')
+    if (decision.options.some((option) => option.id === optionId)) {
+      delete decision.reasoning
+    } else {
+      if (!reasoning?.trim()) throw new Error(`Decision "${decisionId}" needs a reason for a choice of its own`)
+      decision.reasoning = reasoning.trim()
+    }
     decision.status = 'decided'
     decision.selectedOptionId = optionId
     delete decision.postponedUntil
+    return decision
   }
 
-  function postponeDecision(decisionId: string, until: string): void {
+  function postponeDecision(decisionId: string, until: string): Decision {
     const decision = requireItem(state.decisions, decisionId, 'Decision')
     decision.status = 'postponed'
     decision.postponedUntil = until
     delete decision.selectedOptionId
+    return decision
   }
 
-  function toggleTaskStep(taskId: string, stepId: string): void {
+  function updateDecision(decisionId: string, updates: Pick<Decision, 'title' | 'context'>): Decision {
+    const decision = requireItem(state.decisions, decisionId, 'Decision')
+    Object.assign(decision, updates)
+    return decision
+  }
+
+  function toggleTaskStep(taskId: string, stepId: string): Task {
     const task = requireItem(state.tasks, taskId, 'Task')
     const step = requireItem(task.steps, stepId, 'Task step')
     step.completed = !step.completed
+    return task
   }
 
-  function toggleTaskDone(taskId: string): void {
+  function toggleTaskDone(taskId: string): Task {
     const task = requireItem(state.tasks, taskId, 'Task')
     task.completed = !task.completed
+    return task
   }
 
-  function setTaskBucket(taskId: string, bucket: Bucket): void {
-    requireItem(state.tasks, taskId, 'Task').bucket = bucket
+  function setTaskBucket(taskId: string, bucket: Bucket): Task {
+    const task = requireItem(state.tasks, taskId, 'Task')
+    task.bucket = bucket
+    return task
   }
 
-  function updateTask(taskId: string, updates: Pick<Task, 'title' | 'description'>): void {
-    Object.assign(requireItem(state.tasks, taskId, 'Task'), updates)
+  function updateTask(taskId: string, updates: Pick<Task, 'title' | 'description'>): Task {
+    return Object.assign(requireItem(state.tasks, taskId, 'Task'), updates)
   }
 
   function addProject(project: NewProject): Project {
@@ -154,16 +200,20 @@ export function createMockStore() {
     return created
   }
 
-  function updateArea(id: string, updates: Pick<Area, 'title' | 'intention'>): void {
-    Object.assign(requireItem(state.areas, id, 'Area'), updates)
+  function updateArea(id: string, updates: Pick<Area, 'title' | 'intention'>): Area {
+    return Object.assign(requireItem(state.areas, id, 'Area'), updates)
   }
 
-  function archiveArea(id: string): void {
-    requireItem(state.areas, id, 'Area').archived = true
+  function archiveArea(id: string): Area {
+    const area = requireItem(state.areas, id, 'Area')
+    area.archived = true
+    return area
   }
 
-  function unarchiveArea(id: string): void {
-    requireItem(state.areas, id, 'Area').archived = false
+  function unarchiveArea(id: string): Area {
+    const area = requireItem(state.areas, id, 'Area')
+    area.archived = false
+    return area
   }
 
   function requireCurriculum(slug: string): Curriculum {
@@ -172,12 +222,13 @@ export function createMockStore() {
     return curriculum
   }
 
-  function updateCurriculum(slug: string, updates: Pick<Curriculum, 'title' | 'goal' | 'status'>): void {
-    Object.assign(requireCurriculum(slug), updates)
+  function updateCurriculum(slug: string, updates: Pick<Curriculum, 'title' | 'goal' | 'status'>): Curriculum {
+    return Object.assign(requireCurriculum(slug), updates)
   }
 
-  function updateCurriculumModule(slug: string, moduleId: string, updates: Pick<CurriculumModule, 'title'>): void {
+  function updateCurriculumModule(slug: string, moduleId: string, updates: Pick<CurriculumModule, 'title'>): Curriculum {
     Object.assign(requireItem(requireCurriculum(slug).modules, moduleId, 'Curriculum module'), updates)
+    return requireCurriculum(slug)
   }
 
   function addCurriculum(curriculum: NewCurriculum): Curriculum {
@@ -197,7 +248,7 @@ export function createMockStore() {
 
   function addHighlight(highlight: NewHighlight): Highlight {
     requireItem(state.libraryItems, highlight.materialId, 'Library item')
-    const created: Highlight = { id: nextId('highlight', state.highlights), ...highlight, createdAt: '2026-10-03T12:00:00Z' }
+    const created: Highlight = { id: nextId('highlight', state.highlights), ...highlight, createdAt: nowTimestamp() }
     state.highlights.unshift(created)
     return created
   }
@@ -205,19 +256,21 @@ export function createMockStore() {
   function addAnnotation(annotation: NewAnnotation): Annotation {
     requireItem(state.libraryItems, annotation.materialId, 'Library item')
     if (annotation.highlightId) requireItem(state.highlights, annotation.highlightId, 'Highlight')
-    const created: Annotation = { id: nextId('annotation', state.annotations), ...annotation, createdAt: '2026-10-03T12:00:00Z' }
+    const created: Annotation = { id: nextId('annotation', state.annotations), ...annotation, createdAt: nowTimestamp() }
     state.annotations.unshift(created)
     return created
   }
 
   return Object.assign(state, {
     setLibraryItemStatus,
+    setLibraryItemUnread,
     setLibraryItemCurriculum,
     addSavedLink,
     addQuestion,
     rateCard,
     decideDecision,
     postponeDecision,
+    updateDecision,
     toggleTaskStep,
     toggleTaskDone,
     setTaskBucket,
@@ -238,5 +291,3 @@ export function createMockStore() {
 }
 
 export type MockStore = ReturnType<typeof createMockStore>
-
-export const store = createMockStore()

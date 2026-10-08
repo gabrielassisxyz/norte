@@ -1,28 +1,61 @@
 import { mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { routes } from '@/router'
-import { store } from '@/mock/store'
+import { createMockStore, type MockStore } from '@/mock/store'
 import type { CardRating } from '@/mock/types'
+import { routes } from '@/router'
+import type { AppSources } from '@/sources'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
+
+import type { ReviewQueuePage, ReviewSource } from '../data/source'
 import ReviewView from './ReviewView.vue'
 
+/** Every seeded card is due the day the store is built for, which this fixes. */
 const TODAY = '2026-10-03'
 
-function resetReviewCards(): void {
-  for (const card of store.reviewCards) {
-    card.dueAt = TODAY
-    delete card.lastRating
-  }
-}
+let store: MockStore
 
-async function mountReview(path = '/revisao') {
-  resetReviewCards()
+beforeEach(() => {
+  vi.useFakeTimers()
+  vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
+  store = createMockStore()
+})
+
+afterEach(() => {
+  vi.useRealTimers()
+})
+
+async function mountReview(path = '/revisao', sources?: Partial<AppSources>) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(ReviewView, { global: { plugins: [router] } })
+  const wrapper = mount(ReviewView, {
+    global: { plugins: [router, sourcesPlugin(sources ?? createMockSources(store))] }
+  })
+  await flushReads()
   return { wrapper, router }
+}
+
+function reviewWith(overrides: Partial<ReviewSource>): Partial<AppSources> {
+  const empty: ReviewQueuePage = {
+    items: [],
+    next_cursor: null,
+    counts: { cards: 0, due: 0, decks: 0 },
+    decks: []
+  }
+  return {
+    review: {
+      listCards: async () => empty,
+      summary: async () => empty.counts,
+      rateCard: async () => {
+        throw new Error('not faked')
+      },
+      ...overrides
+    } as unknown as AppSources['review'],
+    library: { getItem: async () => null } as unknown as AppSources['library']
+  }
 }
 
 function resolveName(router: Router, href: string | undefined): string | undefined {
@@ -53,6 +86,7 @@ async function reveal(wrapper: Wrapper): Promise<void> {
 
 async function rateVisible(wrapper: Wrapper, index: number): Promise<void> {
   await wrapper.findAll('.nt-rate')[index].trigger('click')
+  await flushReads()
 }
 
 describe('review view', () => {
@@ -78,6 +112,7 @@ describe('review view', () => {
     const { wrapper } = await mountReview()
 
     await deckButton(wrapper, 'Construção de linguagens').trigger('click')
+    await flushReads()
 
     expect(wrapper.get('.nt-card-front').text()).toBe('Para que serve uma tabela de símbolos?')
     expect(wrapper.get('.nt-card-pos').text()).toBe('1/8')
@@ -101,26 +136,27 @@ describe('review view', () => {
     const { wrapper } = await mountReview()
 
     await deckButton(wrapper, 'Tudo de hoje').trigger('click')
+    await flushReads()
     const first = wrapper.get('.nt-card-front').text()
 
     press(' ')
-    await wrapper.vm.$nextTick()
+    await flushReads()
     expect(wrapper.find('.nt-card-back').exists()).toBe(true)
 
     // Rating keys do nothing while the back is hidden on the next card.
     press('4')
-    await wrapper.vm.$nextTick()
+    await flushReads()
     expect(wrapper.get('.nt-card-front').text()).not.toBe(first)
     expect(statValues(wrapper)[1]).toContain('1')
 
     press('2')
-    await wrapper.vm.$nextTick()
+    await flushReads()
     expect(statValues(wrapper)[1]).toContain('1')
 
     press(' ')
-    await wrapper.vm.$nextTick()
+    await flushReads()
     press('2')
-    await wrapper.vm.$nextTick()
+    await flushReads()
     expect(statValues(wrapper)[1]).toContain('2')
     expect(store.reviewCards.find((card) => card.id === 'card-comp-2')).toMatchObject({
       lastRating: 'hard'
@@ -132,11 +168,12 @@ describe('review view', () => {
     const pattern: CardRating[] = ['good', 'easy', 'hard', 'again', 'good', 'easy', 'good', 'easy']
 
     await deckButton(wrapper, 'Letras e leitura').trigger('click')
+    await flushReads()
     for (const rating of pattern) {
       press(' ')
-      await wrapper.vm.$nextTick()
+      await flushReads()
       press(String(['again', 'hard', 'good', 'easy'].indexOf(rating) + 1))
-      await wrapper.vm.$nextTick()
+      await flushReads()
     }
 
     expect(wrapper.text()).toContain('Sessão concluída')
@@ -159,6 +196,7 @@ describe('review view', () => {
     expect(resolveName(router, wrapper.get('.crumb a').attributes('href'))).toBe('estudo')
 
     await deckButton(wrapper, 'Tudo de hoje').trigger('click')
+    await flushReads()
     const source = wrapper.get('.review-hint a')
     expect(source.attributes('href')).toBe('/material/post/post-compilation')
     expect(resolveName(router, source.attributes('href'))).toBe('material')
@@ -167,11 +205,128 @@ describe('review view', () => {
     // reading screen and falls back to the library like the home screen does.
     for (let done = 0; done < 5; done += 1) {
       press(' ')
-      await wrapper.vm.$nextTick()
+      await flushReads()
       press('3')
-      await wrapper.vm.$nextTick()
+      await flushReads()
     }
     const fallback = wrapper.get('.review-hint a')
     expect(resolveName(router, fallback.attributes('href'))).toBe('biblioteca')
+  })
+
+  it('says it is loading before the queue answers', async () => {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/revisao')
+    await router.isReady()
+    const wrapper = mount(ReviewView, {
+      global: {
+        plugins: [router, sourcesPlugin(reviewWith({ listCards: () => new Promise<ReviewQueuePage>(() => {}) }))]
+      }
+    })
+
+    expect(wrapper.get('[role="status"]').text()).toBe('Carregando os cartões…')
+    expect(wrapper.find('button.deck').exists()).toBe(false)
+  })
+
+  it('says there are no cards once the queue answers empty', async () => {
+    const { wrapper } = await mountReview('/revisao', reviewWith({}))
+
+    expect(wrapper.get('.review-state').text()).toContain('Nenhum cartão ainda')
+    expect(wrapper.find('button.deck').exists()).toBe(false)
+  })
+
+  it('says why the queue could not be read, and reads again when asked', async () => {
+    let attempts = 0
+    const { wrapper } = await mountReview(
+      '/revisao',
+      reviewWith({
+        listCards: async () => {
+          attempts += 1
+          if (attempts === 1) throw new Error('rede indisponível')
+          return { items: [], next_cursor: null, counts: { cards: 0, due: 0, decks: 0 }, decks: [] }
+        }
+      })
+    )
+
+    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar os cartões: rede indisponível')
+
+    await wrapper.get('[role="alert"] button').trigger('click')
+    await flushReads()
+
+    expect(wrapper.get('.review-state').text()).toContain('Nenhum cartão ainda')
+  })
+
+  it('keeps the card in front of the reader when the rating cannot be recorded', async () => {
+    const { wrapper } = await mountReview('/revisao', {
+      ...createMockSources(store),
+      review: {
+        ...createMockSources(store).review,
+        rateCard: async () => {
+          throw new Error('conflito no servidor')
+        }
+      }
+    })
+
+    await deckButton(wrapper, 'Construção de linguagens').trigger('click')
+    await flushReads()
+    const front = wrapper.get('.nt-card-front').text()
+
+    await reveal(wrapper)
+    await rateVisible(wrapper, 2)
+
+    expect(wrapper.get('.review-write-error').text()).toContain('Não foi possível registrar a resposta: conflito no servidor')
+    expect(wrapper.get('.nt-card-front').text()).toBe(front)
+    expect(wrapper.get('.nt-card-pos').text()).toBe('1/8')
+    expect(statValues(wrapper)[0]).toContain('24')
+  })
+
+  it('shows the due date the source came back with, by dropping the card from the deck', async () => {
+    const { wrapper } = await mountReview()
+
+    await deckButton(wrapper, 'Construção de linguagens').trigger('click')
+    await flushReads()
+    await reveal(wrapper)
+    await rateVisible(wrapper, 0)
+
+    // "De novo" is the first interval, so the card stays due today and the deck
+    // count does not drop — which only a page reading the response can tell.
+    expect(deckButton(wrapper, 'Construção de linguagens').text()).toContain('8 / 8')
+    expect(statValues(wrapper)[0]).toContain('24')
+  })
+})
+
+/**
+ * The due list is the clock's, not the seed's: a card becomes due because the
+ * day moved, and a fixed queue read on two days has to answer differently.
+ */
+describe('review view against the calendar', () => {
+  const DECK = { id: 'deck-linguagens', title: 'Construção de linguagens', curriculumSlug: 'c', description: 'd' }
+
+  function queueDueOn(dates: string[]): Partial<AppSources> {
+    const items = dates.map((dueAt, position) => ({
+      id: `card-${position}`,
+      deckId: DECK.id,
+      front: `Frente ${position}`,
+      back: `Verso ${position}`,
+      sourceLibraryItemId: 'post-compilation',
+      dueAt
+    }))
+    const page: ReviewQueuePage = {
+      items,
+      next_cursor: null,
+      counts: { cards: items.length, due: 0, decks: 1 },
+      decks: [DECK]
+    }
+    return reviewWith({ listCards: async () => page })
+  }
+
+  it('moves a card into the due list when the day it is due arrives', async () => {
+    const sources = queueDueOn(['2026-10-03', '2026-10-04', '2026-10-05'])
+
+    const { wrapper: onThird } = await mountReview('/revisao', sources)
+    expect(deckButton(onThird, 'Tudo de hoje').text()).toContain('1 / 3')
+
+    vi.setSystemTime(new Date('2026-10-04T12:00:00Z'))
+    const { wrapper: onFourth } = await mountReview('/revisao', sources)
+    expect(deckButton(onFourth, 'Tudo de hoje').text()).toContain('2 / 3')
   })
 })

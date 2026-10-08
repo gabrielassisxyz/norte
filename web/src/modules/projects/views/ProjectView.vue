@@ -5,9 +5,12 @@ import { RouterLink } from 'vue-router'
 import Button from '@/components/ds/Button.vue'
 import PageTitle from '@/components/ds/PageTitle.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
-import { store } from '@/mock/store'
+import { useAsyncAction } from '@/lib/asyncResource'
+import { nowTimestamp } from '@/lib/clock'
 import type { Bucket, Priority, ProjectStatus, Task } from '@/mock/types'
+import { useSources } from '@/sources'
 
+import { useProject } from '../data/composables'
 import SessionDialog from './ProjectView/SessionDialog.vue'
 import TaskDialog, { type NewProjectTask } from './ProjectView/TaskDialog.vue'
 
@@ -24,16 +27,17 @@ const openTaskIds = ref<string[]>([])
 const sessionNote = ref('')
 const sessionNext = ref('')
 
-const project = computed(() => store.projects.find((candidate) => candidate.id === props.id))
-const area = computed(() => store.areas.find((candidate) => candidate.id === project.value?.areaId))
-const projectTasks = computed(() => store.tasks.filter((task) => task.projectId === props.id))
-const projectDecisions = computed(() =>
-  store.decisions.filter((decision) => decision.projectId === props.id)
-)
+const { projects: projectsSource } = useSources()
+const { data: detail, loading, error, refresh, applyTask, countSession } = useProject(() => props.id)
+const writing = useAsyncAction()
+
+const firstLoad = computed(() => loading.value && detail.value === null)
+const project = computed(() => detail.value?.project)
+const area = computed(() => detail.value?.area)
+const projectTasks = computed(() => detail.value?.tasks ?? [])
+const projectDecisions = computed(() => detail.value?.decisions ?? [])
 const projectBugs = computed(() => project.value?.bugs ?? [])
-const sessionCount = computed(
-  () => store.sessions.filter((session) => session.projectId === props.id).length
-)
+const sessionCount = computed(() => detail.value?.sessionCount ?? 0)
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
   active: 'Ativo',
@@ -167,34 +171,47 @@ function stepsProgress(task: Task): string {
   return `${done}/${task.steps.length} passos`
 }
 
-function saveSession(payload: { did: string; stuck: string; next: string }): void {
-  if (!project.value) return
+async function saveSession(payload: { did: string; stuck: string; next: string }): Promise<void> {
+  const current = project.value
+  if (!current) return
   const note = `${payload.did}${payload.stuck ? ` Travou: ${payload.stuck}.` : ''}`
   const summary = `${note} Próximo: ${payload.next}`
   // No duration input in the design; a new session records one focused block.
-  store.addSession({
-    projectId: project.value.id,
-    startedAt: new Date().toISOString(),
-    durationMinutes: 25,
-    summary
-  })
+  const saved = await writing.run(() =>
+    projectsSource.addSession({
+      projectId: current.id,
+      startedAt: nowTimestamp(),
+      durationMinutes: 25,
+      summary
+    })
+  )
+  // A failed save keeps the dialog open with everything typed into it.
+  if (!saved) return
+
+  countSession()
   sessionNote.value = note
   sessionNext.value = payload.next
   dialog.value = null
 }
 
-function saveTask(payload: NewProjectTask): void {
-  if (!project.value) return
+async function saveTask(payload: NewProjectTask): Promise<void> {
+  const current = project.value
+  if (!current) return
   const description =
     `${payload.why}${payload.what ? ` O que fazer: ${payload.what}.` : ''}` +
     ` Pronto quando: ${payload.done}.`
-  const created = store.addTask({
-    projectId: project.value.id,
-    title: payload.title,
-    description,
-    priority: payload.priority,
-    bucket: payload.bucket
-  })
+  const created = await writing.run(() =>
+    projectsSource.addTask({
+      projectId: current.id,
+      title: payload.title,
+      description,
+      priority: payload.priority,
+      bucket: payload.bucket
+    })
+  )
+  if (!created) return
+
+  applyTask(created)
   openTaskIds.value = [...openTaskIds.value, created.id]
   if (filter.value !== 'abertas') filter.value = 'abertas'
   dialog.value = null
@@ -202,7 +219,16 @@ function saveTask(payload: NewProjectTask): void {
 </script>
 
 <template>
-  <main v-if="project" class="project">
+  <main v-if="firstLoad" class="project project-missing" role="status">
+    <p>Carregando o projeto…</p>
+  </main>
+
+  <main v-else-if="error" class="project project-missing" role="alert">
+    <p>Não foi possível carregar o projeto: {{ error }}</p>
+    <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+  </main>
+
+  <main v-else-if="project" class="project">
     <div class="project-top">
       <nav class="crumb" aria-label="Navegação estrutural">
         <RouterLink :to="{ name: 'projetos' }">Projetos</RouterLink>
@@ -218,6 +244,10 @@ function saveTask(payload: NewProjectTask): void {
         <Button variant="primary" @click="dialog = 'task'">Nova tarefa</Button>
       </div>
     </div>
+
+    <p v-if="writing.error.value" class="project-write-error" role="alert">
+      Não foi possível salvar: {{ writing.error.value }}
+    </p>
 
     <div class="project-page">
       <div class="project-main">
@@ -1113,6 +1143,13 @@ function saveTask(payload: NewProjectTask): void {
 .toc a:hover {
   background: var(--surface);
   color: var(--ink);
+}
+
+.project-write-error {
+  margin: var(--space-4) 0 0;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .project-missing {
