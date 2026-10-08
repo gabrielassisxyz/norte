@@ -134,10 +134,12 @@ describe('the "Sugestões" tab', () => {
     await action(queue, 'Aceitar Sistemas distribuídos').trigger('click')
     await flushReads()
 
+    // The panel first: it is the criterion, and an assertion behind three
+    // others is one that has never been seen to fail.
+    expect(panel.text()).toContain('Notas sobre consenso')
     expect(core.calls.decideLink).toEqual([{ id: 'link-sugerido', decision: 'accept' }])
     expect(rows(queue)).toHaveLength(0)
     expect(queue.text()).toContain('Nenhuma sugestão pendente.')
-    expect(panel.text()).toContain('Notas sobre consenso')
   })
 
   it('rejecting removes it from the tab', async () => {

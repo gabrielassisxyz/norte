@@ -251,14 +251,18 @@ func TestOnlyTheTopThreeOfFiveCandidatesAreStored(t *testing.T) {
 // of range and an unknown id all arrive at once, through the stub, and what is
 // written is the documented top three.
 func TestASchemaValidButDisorderlyAnswerNormalisesToTheDocumentedThree(t *testing.T) {
-	harness := newLibraryClassifyHarness(t, "", "Um", "Dois", "Três", "Quatro")
+	harness := newLibraryClassifyHarness(t, "", "Um", "Dois", "Três", "Quatro", "Cinco")
 	item := harness.saveItem("Resposta desordenada", "por quê", "algum texto")
+	// Four of these survive validation and only three may be stored, so the
+	// cut is exercised and not merely allowed for: "Cinco" is the one the
+	// ranking has to leave out.
 	harness.answerWith(
 		harness.entry("Dois", 0.2),
 		harness.entry("Dois", 0.8),
 		`{"id":"nao-existe","confidence":1}`,
 		harness.entry("Quatro", 1.5),
 		harness.entry("Um", 0.9),
+		harness.entry("Cinco", 0.05),
 		harness.entry("Três", 0.5),
 	)
 
@@ -267,6 +271,9 @@ func TestASchemaValidButDisorderlyAnswerNormalisesToTheDocumentedThree(t *testin
 	}
 	got := harness.suggestions(item)
 	want := []string{"Um=0.9/suggested/llm", "Dois=0.8/suggested/llm", "Três=0.5/suggested/llm"}
+	if strings.Contains(strings.Join(got, "|"), "Cinco") {
+		t.Errorf("the lowest-ranked valid entry survived the cut: %v", got)
+	}
 	if strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Errorf("suggestions = %v, want %v", got, want)
 	}
@@ -447,10 +454,12 @@ func TestThePromptCarriesTheTitleTheNoteTheCappedTextAndTheCandidateIds(t *testi
 		}
 	}
 
+	// The 2,000 is written out rather than read from the constant: a test that
+	// compares the cap against itself passes for any value of it, and the
+	// number is the criterion.
 	fenced := libraryFencedBlock(t, prompt)
-	if got := len([]rune(fenced)); got != libraryClassifyTextRunes {
-		t.Errorf("the fenced block holds %d runes, want the first %d of the text",
-			got, libraryClassifyTextRunes)
+	if got := len([]rune(fenced)); got != 2000 {
+		t.Errorf("the fenced block holds %d runes, want the first 2000 of the text", got)
 	}
 	if !strings.Contains(requests[0].System, libraryClassifyContentOpen) {
 		t.Error("the system prompt does not name the delimiter it marks as untrusted")
