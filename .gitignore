@@ -1,6 +1,9 @@
 web/node_modules/
 web/dist/
 web/coverage/
+# Playwright's per-run output: reports, traces and failure context.
+web/test-results/
+web/playwright-report/
 *.local
 .DS_Store
 

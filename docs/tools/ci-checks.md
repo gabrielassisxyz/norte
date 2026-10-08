@@ -22,6 +22,8 @@ for an answer one command gives in seconds.
 | `go-test` | The Go suite, under a temporary `NORTE_DATA` so nothing touches the real data directory. | `cd server && NORTE_DATA="$(mktemp -d)" go test ./...` |
 | `go-test-race` | Two worker loops against one database never run one job twice, under the race detector. | `cd server && go test -race ./internal/core -run TestWorkersDoNotDoubleClaim -count=1` |
 | `web-test` | The Vitest suite. Needs `web/node_modules`, which `bin/generate` installs. | `cd web && npm test` |
+| `web-e2e-csp` | The app under the policy the server sends: an article whose image comes from a local HTTPS listener renders, a style written at runtime applies, and an injected inline script is blocked with a `securitypolicyviolation` reported. Needs `generate` and `go-build`. | `cd web && npx playwright test e2e/csp.spec.ts` |
+| `web-e2e-phone` | The first delivery walked at 390x844 with touch and no mouse, plus the same actions at 1440x900. Needs `generate` and `go-build`. | `cd web && npx playwright test e2e/phone-walk.spec.ts` |
 
 `bin/ci --list` prints the names, and `bin/ci <name>...` runs only the ones
 given. Every check runs even after one fails, so a single red run names all the
@@ -42,6 +44,14 @@ skips both.
 Within `web-test`, one file reruns on its own:
 
     cd web && npx vitest run src/theme.test.ts
+
+The two `web-e2e-*` checks drive a real `norte serve` on a temporary
+`NORTE_DATA`, started by the suite itself, against the binary the `go-build`
+check wrote to `server/norte`. Running one of them before `bin/generate` and
+that build have run fails saying so. Each also runs `npx playwright install
+chromium`, which is a no-op once the pinned browser is on the machine;
+`web-e2e-csp` additionally needs `openssl`, which it uses to make the
+throwaway certificate its local HTTPS listener presents.
 
 Within `generate`, one stage reruns on its own, which is the fast way back after
 editing a contract or a query:
