@@ -6,8 +6,10 @@ import type { paths } from '@/api/library'
 import type {
   ExtractAck,
   LibraryCounts,
+  LibraryDrawQuery,
   LibraryItemList,
   LibraryItemRecord,
+  LibraryItemSummary,
   LibraryListQuery,
   LibraryPatch,
   LibrarySource,
@@ -80,6 +82,21 @@ function listQuery(query: LibraryListQuery): Record<string, string | number | bo
   return sent
 }
 
+/**
+ * A draw as the contract spells it.
+ *
+ * `away_from_focus: false` is a request for a uniform draw and does reach the
+ * wire, so the check is against undefined rather than falsiness — the same
+ * reason `unread: false` is sent above.
+ */
+function drawQuery(query: LibraryDrawQuery): Record<string, string | number | boolean> {
+  const sent: Record<string, string | number | boolean> = {}
+  if (query.away_from_focus !== undefined) sent.away_from_focus = query.away_from_focus
+  if (query.n !== undefined) sent.n = query.n
+  if (query.seed !== undefined) sent.seed = query.seed
+  return sent
+}
+
 export function createApiLibrarySource(): LibrarySource {
   return {
     async listItems(query: LibraryListQuery, signal: AbortSignal): Promise<LibraryItemList> {
@@ -143,6 +160,17 @@ export function createApiLibrarySource(): LibrarySource {
         body: {}
       })
       return unwrap(answered as Answered<ExtractAck>)
+    },
+
+    async drawItems(query: LibraryDrawQuery, signal: AbortSignal): Promise<LibraryItemSummary[]> {
+      const answered = await libraryClient.GET('/api/library/items/random', {
+        params: { query: drawQuery(query) },
+        signal
+      })
+      // Nothing unread is the library's own state, not a failure: the button
+      // says so, and an error here would put that in the error panel.
+      if (failureCode(answered.error) === 'not_found') return []
+      return unwrap(answered as Answered<{ items: LibraryItemSummary[] }>).items
     }
   }
 }

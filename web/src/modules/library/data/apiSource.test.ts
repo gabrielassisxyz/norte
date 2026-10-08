@@ -162,3 +162,38 @@ describe('the library API source: counts and writes', () => {
     expect(record).toMatchObject({ unread: false })
   })
 })
+
+describe('the library API source: the serendipity draw', () => {
+  it('asks the random endpoint and sends only the parameters that were set', async () => {
+    fetchStub.mockResolvedValue(json({ items: [{ id: 'item-7' }] }))
+    const items = await createApiLibrarySource().drawItems({ away_from_focus: true }, signal)
+
+    const url = lastUrl()
+    expect(url.pathname).toBe('/api/library/items/random')
+    expect(Object.fromEntries(url.searchParams)).toEqual({ away_from_focus: 'true' })
+    expect(items).toEqual([{ id: 'item-7' }])
+  })
+
+  it('sends away_from_focus=false, which is a uniform draw rather than no filter', async () => {
+    fetchStub.mockResolvedValue(json({ items: [] }))
+    await createApiLibrarySource().drawItems({ away_from_focus: false, n: 3, seed: 42 }, signal)
+
+    expect(Object.fromEntries(lastUrl().searchParams)).toEqual({
+      away_from_focus: 'false',
+      n: '3',
+      seed: '42'
+    })
+  })
+
+  it('reads nothing unread as an empty draw rather than a failure', async () => {
+    fetchStub.mockResolvedValue(json({ error: { code: 'not_found', message: 'nada não lido' } }, 404))
+
+    expect(await createApiLibrarySource().drawItems({}, signal)).toEqual([])
+  })
+
+  it('throws the sentence the server wrote for any other failure', async () => {
+    fetchStub.mockResolvedValue(json({ error: { code: 'invalid_request', message: 'n fora da faixa' } }, 400))
+
+    await expect(createApiLibrarySource().drawItems({ n: 101 }, signal)).rejects.toThrow('n fora da faixa')
+  })
+})
