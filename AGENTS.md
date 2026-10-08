@@ -46,6 +46,11 @@ Screens still run on mock data. Each module moves to real data as its backend be
     outside its own package directory and the package has to compile in a fresh clone.
 - `api/openapi/<module>.yaml` — one contract per module, not a single file. It generates the
   Go types and the TypeScript types both.
+- `extension/` — the Manifest V3 browser extension that saves the current tab's rendered
+  HTML, which is the only way a page behind a login reaches the server. Plain ES modules and
+  no bundler: `node build.mjs` copies `src/` into `dist/chromium/`. It installs with no host
+  permissions and asks for the configured origin at runtime, so a homelab or Tailscale
+  address needs no new release.
 - `design/system/` — the design system. Tokens in `tokens.css`/`tokens.json`, component docs
   in `components/<Name>/README.md`, props in `components/index.d.ts`, fonts in `fonts/`.
 - `design/prototypes/` — git-ignored, and exists only in the main checkout. Open
