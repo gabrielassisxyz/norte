@@ -236,13 +236,23 @@ func NorteTextProviders(modules []Module) map[string]core.TextProvider {
 }
 
 // NorteFocusProviders exposes the enabled focus providers in the configured
-// order. The endpoint merging them arrives in a later bead.
+// order, which is what GET /api/core/focus merges with the flagged subjects.
 func NorteFocusProviders(modules []Module) []core.FocusProvider {
 	providers := make([]core.FocusProvider, 0, len(modules))
 	for _, module := range modules {
 		providers = append(providers, module)
 	}
 	return providers
+}
+
+// norteModuleNames lists the enabled modules by name, which is what the core
+// restricts a subject's counts to.
+func norteModuleNames(modules []Module) []string {
+	names := make([]string, 0, len(modules))
+	for _, module := range modules {
+		names = append(names, module.Name())
+	}
+	return names
 }
 
 // NorteSearchProviders exposes the enabled search providers in the configured

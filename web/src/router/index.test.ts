@@ -4,6 +4,9 @@ import router from './index'
 
 const APP_PATHS: Array<[string, string]> = [
   ['/', 'inicio'],
+  // The subject screen is the shell's, not a module's: subjects belong to the
+  // core, so the address answers whatever the server lists.
+  ['/assuntos/kubernetes', 'assunto'],
   ['/biblioteca', 'biblioteca'],
   ['/notas', 'notas'],
   ['/revisao', 'revisao'],
@@ -21,6 +24,7 @@ const APP_PATHS: Array<[string, string]> = [
 
 const TITLES: Record<string, string> = {
   inicio: 'Início',
+  assunto: 'Assunto',
   biblioteca: 'Biblioteca',
   notas: 'Notas',
   revisao: 'Revisão',

@@ -5,6 +5,7 @@ import { setClockTimeZone } from '@/lib/clock'
 import { createMockStore, type MockStore } from '@/mock/store'
 import router from '@/router'
 import type { AppSources } from '@/sources'
+import { fakeCoreSource, subjectRecord } from '@/shell/data/testing'
 import { createMockSources } from '@/sources/mock'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
@@ -16,11 +17,40 @@ const TODAY = '2026-10-03'
 
 let store: MockStore
 
+/**
+ * The subjects the Estudo home shows are the core's, not the study mock's, so
+ * the test seeds them where the screen reads them from. The counts are per
+ * item type, which is what the table's columns are derived from.
+ */
+function coreSubjects() {
+  return [
+    subjectRecord({
+      name: 'Kubernetes',
+      counts: { total: 3, by_type: [{ module: 'library', type: 'post', count: 3 }] }
+    }),
+    subjectRecord({
+      name: 'Escrita',
+      counts: {
+        total: 2,
+        by_type: [
+          { module: 'library', type: 'curso', count: 1 },
+          { module: 'library', type: 'post', count: 1 }
+        ]
+      }
+    })
+  ]
+}
+
 async function mountStudy(sources?: Partial<AppSources>) {
   await router.push('/estudo')
   await router.isReady()
   const wrapper = mount(StudyHomeView, {
-    global: { plugins: [router, sourcesPlugin(sources ?? createMockSources(store))] }
+    global: {
+      plugins: [
+        router,
+        sourcesPlugin(sources ?? { ...createMockSources(store), core: fakeCoreSource({ subjects: coreSubjects() }) })
+      ]
+    }
   })
   await flushReads()
   return wrapper
@@ -43,7 +73,10 @@ function studyWith(overrides: Partial<StudySource>): Partial<AppSources> {
       summary: async () => ({ counts: empty.counts, curricula: [] }),
       ...overrides
     } as unknown as AppSources['study'],
-    review: { summary: async () => ({ cards: 0, due: 0, decks: 0 }) } as unknown as AppSources['review']
+    review: { summary: async () => ({ cards: 0, due: 0, decks: 0 }) } as unknown as AppSources['review'],
+    // The core is always on, so an empty one is the right stand-in: a screen
+    // reaching for subjects must get an answer, not a refusal.
+    core: fakeCoreSource()
   }
 }
 
@@ -76,7 +109,7 @@ describe('StudyHomeView', () => {
     expect(wrapper.findAll('.nt-stat')).toHaveLength(4)
     expect(wrapper.findAll('.nt-streak-grid .nt-streak-cell')).toHaveLength(store.studyDays.length)
     expect(wrapper.findAll('.nt-carousel-item')).toHaveLength(store.curricula.length)
-    expect(wrapper.findAll('.study-grid .nt-cover-card')).toHaveLength(store.subjects.length)
+    expect(wrapper.findAll('.study-grid .nt-cover-card')).toHaveLength(coreSubjects().length)
 
     const stats = wrapper.findAll('.nt-stat')
     expect(stats[0].text()).toContain(String(currentStreak(store.studyDays)))
@@ -112,9 +145,11 @@ describe('StudyHomeView', () => {
     expect(wrapper.get('.nt-carousel-btn.is-next').attributes('disabled')).toBeUndefined()
   })
 
-  it('switches subjects between Capas and Tabela with the same six subjects', async () => {
+  it('switches subjects between Capas and Tabela with the same subjects', async () => {
     const wrapper = await mountStudy()
-    const names = store.subjects.map((subject) => subject.name)
+    // The list comes back ordered by slug, which is the order the server
+    // answers in and so the order the rows are in.
+    const names = ['Escrita', 'Kubernetes']
 
     expect(wrapper.find('[role="table"]').exists()).toBe(false)
     const coverNames = wrapper.findAll('.study-grid .nt-cover-card').map((card) => card.text())
@@ -124,20 +159,27 @@ describe('StudyHomeView', () => {
 
     await wrapper.get('[role="tab"][aria-selected="false"]').trigger('click')
     const rows = wrapper.findAll('[role="table"] [role="row"]')
-    expect(rows).toHaveLength(store.subjects.length + 1)
+    expect(rows).toHaveLength(names.length + 1)
     const rowNames = wrapper.findAll('.study-row-link').map((link) => link.text())
     expect(rowNames).toEqual(names)
     expect(wrapper.find('.study-grid').exists()).toBe(false)
 
+    // The columns are the item types the subjects actually have something of,
+    // because the core does not enumerate any module's types.
+    const headers = wrapper.findAll('[role="columnheader"]').map((cell) => cell.text())
+    expect(headers).toEqual(['Assunto', 'curso', 'post', 'Itens'])
+    expect(rows[1]!.text()).toContain('Escrita')
+
     await wrapper.get('[role="tablist"] [role="tab"]:first-child').trigger('click')
-    expect(wrapper.findAll('.study-grid .nt-cover-card')).toHaveLength(store.subjects.length)
+    expect(wrapper.findAll('.study-grid .nt-cover-card')).toHaveLength(names.length)
   })
 
   it('routes subjects, review, and the Adicionar menu to the promised routes', async () => {
     const wrapper = await mountStudy()
 
     expect(wrapper.get('.study-review').attributes('href')).toBe('/revisao')
-    expect(wrapper.get('.study-grid .nt-cover-card').attributes('href')).toBe('/biblioteca?v=tudo')
+    // A subject opens its own page, not the whole library.
+    expect(wrapper.get('.study-grid .nt-cover-card').attributes('href')).toBe('/assuntos/escrita')
     expect(wrapper.get('#study-search').attributes('placeholder')).toBe('Buscar cursos, notas, perguntas…')
 
     await wrapper.get('.study-add button').trigger('click')
@@ -149,7 +191,31 @@ describe('StudyHomeView', () => {
     ])
 
     await wrapper.get('[role="tablist"] [role="tab"]:last-child').trigger('click')
-    expect(wrapper.get('.study-row-link').attributes('href')).toBe('/biblioteca?v=tudo')
+    expect(wrapper.get('.study-row-link').attributes('href')).toBe('/assuntos/escrita')
+  })
+
+  it('creates a subject from the grid and opens its page', async () => {
+    // The route this ends on loads its screen through a dynamic import, which
+    // settles on the event loop rather than on the microtask queue a flush
+    // drains -- and the clock is faked for the rest of this file, so nothing
+    // would ever move that loop on. Nothing in this case reads the frozen day.
+    vi.useRealTimers()
+    const core = fakeCoreSource({ subjects: coreSubjects() })
+    const wrapper = await mountStudy({ ...createMockSources(store), core })
+
+    await wrapper.get('.study-section-titles button').trigger('click')
+    const dialog = wrapper.get('[role="dialog"]')
+    expect(dialog.text()).toContain('Novo assunto')
+
+    await dialog.get('input').setValue('Observabilidade')
+    // jsdom does not turn a click on a submit button into a submit event, so
+    // the event is raised where the dialog handles it.
+    await dialog.trigger('submit')
+    await flushReads()
+
+    expect(core.calls.createSubject).toEqual(['Observabilidade'])
+    await vi.waitUntil(() => router.currentRoute.value.name === 'assunto')
+    expect(router.currentRoute.value.fullPath).toBe('/assuntos/observabilidade')
   })
 
   it('says it is loading before the study home answers', async () => {

@@ -56,6 +56,7 @@ func NewRootCommand() *cobra.Command {
 		root.PersistentFlags().String(s.flag, "", fmt.Sprintf("%s (env %s)", flagUsage[s.name], s.env))
 	}
 	root.AddCommand(newServeCommand(), newMigrateCommand(), newVersionCommand(), newConfigCommand(), newFilesCommand(), newJobsCommand())
+	root.AddCommand(newSubjectsCommand())
 	for _, module := range norteEnabledModulesForCLI() {
 		for _, cmd := range module.Commands() {
 			root.AddCommand(cmd)

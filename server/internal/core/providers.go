@@ -12,8 +12,8 @@ import (
 )
 
 // FocusTarget is one thing the person is working on now, as a module reports
-// it. The focus endpoint that merges these across modules arrives in a later
-// bead; this is the shape it will merge.
+// it. GET /api/core/focus merges these across the enabled modules and adds the
+// subjects a person flagged.
 type FocusTarget struct {
 	ID    string
 	Type  string

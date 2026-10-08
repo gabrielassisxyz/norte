@@ -5,6 +5,7 @@ import type { NotesSource } from '@/modules/notes/data/source'
 import type { ProjectsSource } from '@/modules/projects/data/source'
 import type { ReviewSource } from '@/modules/review/data/source'
 import type { StudySource } from '@/modules/study/data/source'
+import type { CoreSource } from '@/shell/data/source'
 
 /**
  * Where every module reads from, as one bundle.
@@ -16,6 +17,12 @@ import type { StudySource } from '@/modules/study/data/source'
  * business, not this bundle's.
  */
 export interface AppSources {
+  /**
+   * The core is not a module: it is always there, so this one is never absent
+   * and no mount rule gates it. The subjects, the focus and the links between
+   * modules all read through it.
+   */
+  core: CoreSource
   library: LibrarySource
   notes: NotesSource
   study: StudySource

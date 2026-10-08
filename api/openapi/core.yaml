@@ -55,6 +55,284 @@ paths:
                 $ref: "#/components/schemas/Health"
         default:
           $ref: "#/components/responses/Error"
+  /api/core/subjects:
+    get:
+      operationId: listCoreSubjects
+      summary: List subjects, optionally matching a search
+      description: |
+        One page of subjects, ordered by slug then id so the order is total and
+        no page boundary can split it. With q the match is accent-insensitive
+        over the normalised name and over the aliases, exact before prefix
+        before substring, and a subject whose name and whose alias both match
+        comes back once. The cursor encodes the filter it was issued under, and
+        a cursor presented with a different q is refused.
+      parameters:
+        - name: q
+          in: query
+          description: Match the name or an alias, ignoring accents and case.
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          description: The next_cursor of the previous page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: How many subjects a page holds.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: One page of subjects.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubjectList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createCoreSubject
+      summary: Create a subject
+      description: |
+        Derives the slug from the name -- lowercased, accents stripped,
+        punctuation removed, spaces to hyphens -- and registers the subject in
+        the item registry so a link can point at it. A name whose slug is
+        already taken is refused with 409 rather than creating a second
+        vocabulary entry for the same thing.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateSubjectRequest"
+      responses:
+        "201":
+          description: The subject that was created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/core/subjects/{id}:
+    get:
+      operationId: getCoreSubject
+      summary: Read one subject, with what is linked to it
+      description: |
+        The subject plus the per-kind counts of the items linked to it by a
+        confirmed link, and the number of links touching it in either
+        direction -- which is the figure the delete confirmation names.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The subject.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+        default:
+          $ref: "#/components/responses/Error"
+    patch:
+      operationId: patchCoreSubject
+      summary: Rename a subject or set whether it is a current focus
+      description: |
+        Only the fields present are applied. A rename derives a new slug and
+        updates the registry row the links render from; a slug already taken is
+        refused with 409.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchSubjectRequest"
+      responses:
+        "200":
+          description: The subject after the change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteCoreSubject
+      summary: Delete a subject and everything linking to it
+      description: |
+        Removes the subject, its aliases and its registry row in one
+        transaction; the registry cascade takes every link to and from it with
+        it. There is no undo, which is why the screen names the number of
+        links before it calls this.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: The subject is gone.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/core/subjects/by-slug/{slug}:
+    get:
+      operationId: getCoreSubjectBySlug
+      summary: Read one subject by its slug
+      description: |
+        The same answer as reading by id, for the address bar: the subject
+        screen is reached at /assuntos/<slug> and has no id to open with.
+      parameters:
+        - name: slug
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The subject.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Subject"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/core/focus:
+    get:
+      operationId: getCoreFocus
+      summary: Report what the person is working on now
+      description: |
+        The subjects marked as a focus, plus what every enabled module reports
+        as in progress. Focus is derived rather than declared: each module
+        decides what "in progress" means for the things it owns, and the
+        subject flag is the one explicit part of it.
+      responses:
+        "200":
+          description: The current focus.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Focus"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/core/links:
+    get:
+      operationId: listCoreLinks
+      summary: List links between items
+      description: |
+        One page of links, newest first with the id breaking ties. Every
+        filter is optional; status on its own is the suggestion queue. Both
+        ends come back resolved from the item registry, so a client renders a
+        link without asking the owning module anything.
+      parameters:
+        - name: src_id
+          in: query
+          description: Keep only links out of this item.
+          schema:
+            type: string
+        - name: dst_id
+          in: query
+          description: Keep only links into this item.
+          schema:
+            type: string
+        - name: kind
+          in: query
+          description: Keep only links of this kind.
+          schema:
+            $ref: "#/components/schemas/LinkKind"
+        - name: status
+          in: query
+          description: Keep only links in this state.
+          schema:
+            $ref: "#/components/schemas/LinkStatus"
+        - name: cursor
+          in: query
+          description: The next_cursor of the previous page.
+          schema:
+            type: string
+        - name: limit
+          in: query
+          description: How many links a page holds.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+      responses:
+        "200":
+          description: One page of links.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LinkList"
+        default:
+          $ref: "#/components/responses/Error"
+    post:
+      operationId: createCoreLink
+      summary: Assert that a link holds
+      description: |
+        Records a manual, confirmed link. An end that is not in the item
+        registry is refused with 400. A suggested or rejected row for the same
+        (src, dst, kind) is flipped to confirmed rather than refused by the
+        unique index, because a person overriding the model and a person
+        changing their mind are the same operation.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLinkRequest"
+      responses:
+        "201":
+          description: The link as it now stands.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Link"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/core/links/{id}/decide:
+    post:
+      operationId: decideCoreLink
+      summary: Accept or reject a suggested link
+      description: |
+        Accepting confirms the link; rejecting records that the pair was
+        rejected and keeps the row, so the same suggestion does not come back.
+        Either way the date the person decided is recorded.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecideLinkRequest"
+      responses:
+        "200":
+          description: The link after the decision.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Link"
+        default:
+          $ref: "#/components/responses/Error"
 components:
   responses:
     Error:
@@ -66,6 +344,254 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
   schemas:
+    Subject:
+      type: object
+      additionalProperties: false
+      description: One entry of the stable vocabulary the library groups by.
+      required:
+        - id
+        - name
+        - slug
+        - focus
+        - created_at
+        - counts
+        - link_count
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+          description: Derived from the name; unique across subjects.
+        focus:
+          type: boolean
+          description: Whether this subject is one the person is working on now.
+        created_at:
+          type: string
+        counts:
+          $ref: "#/components/schemas/SubjectCounts"
+        link_count:
+          type: integer
+          description: |
+            Links touching this subject in either direction, whatever their
+            status. It is what the delete confirmation names, so it counts
+            every row the cascade would remove and not only the confirmed ones.
+    SubjectCounts:
+      type: object
+      additionalProperties: false
+      description: |
+        What is linked to this subject by a confirmed `about` link, counted per
+        item type. The types are not enumerated here: they belong to whichever
+        modules this binary was built with, and the core does not know them.
+      required:
+        - total
+        - by_type
+      properties:
+        total:
+          type: integer
+        by_type:
+          type: array
+          description: One entry per type that has at least one item, ordered by type.
+          items:
+            $ref: "#/components/schemas/SubjectTypeCount"
+    SubjectTypeCount:
+      type: object
+      additionalProperties: false
+      required:
+        - module
+        - type
+        - count
+      properties:
+        module:
+          type: string
+          description: The module owning the counted items.
+        type:
+          type: string
+          description: The item type, as that module spells it.
+        count:
+          type: integer
+    SubjectList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Subject"
+        next_cursor:
+          type: string
+          description: The cursor for the following page, absent on the last one.
+    CreateSubjectRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The subject as a person writes it; the slug is derived from it.
+          minLength: 1
+        focus:
+          type: boolean
+          description: Mark it as a current focus straight away.
+    PatchSubjectRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+          minLength: 1
+        focus:
+          type: boolean
+    Focus:
+      type: object
+      additionalProperties: false
+      description: |
+        What the person is working on now: the subjects they flagged, and what
+        each enabled module reports as in progress.
+      required:
+        - subjects
+        - targets
+      properties:
+        subjects:
+          type: array
+          items:
+            $ref: "#/components/schemas/Subject"
+        targets:
+          type: array
+          description: One entry per thing a module considers in progress.
+          items:
+            $ref: "#/components/schemas/FocusTarget"
+    FocusTarget:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - type
+        - title
+      properties:
+        id:
+          type: string
+        type:
+          type: string
+          description: The item type, as the owning module spells it.
+        title:
+          type: string
+    LinkKind:
+      type: string
+      description: What a link asserts about the pair it joins.
+      enum:
+        - about
+        - material_of
+        - derived_from
+        - blocks
+    LinkSource:
+      type: string
+      description: Who proposed the link.
+      enum:
+        - manual
+        - llm
+    LinkStatus:
+      type: string
+      description: Where the link stands.
+      enum:
+        - confirmed
+        - suggested
+        - rejected
+    RegistryItem:
+      type: object
+      additionalProperties: false
+      description: |
+        One end of a link, as the item registry holds it: only what is needed
+        to open the thing, never what is needed to read it.
+      required:
+        - id
+        - module
+        - type
+        - title
+      properties:
+        id:
+          type: string
+        module:
+          type: string
+        type:
+          type: string
+        title:
+          type: string
+        url:
+          type: string
+    Link:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - kind
+        - source
+        - status
+        - created_at
+        - src
+        - dst
+      properties:
+        id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/LinkKind"
+        source:
+          $ref: "#/components/schemas/LinkSource"
+        status:
+          $ref: "#/components/schemas/LinkStatus"
+        confidence:
+          type: number
+          description: The model's confidence, present only on a suggestion it made.
+        created_at:
+          type: string
+        decided_at:
+          type: string
+          description: When a person decided this link; absent while it is only suggested.
+        src:
+          $ref: "#/components/schemas/RegistryItem"
+        dst:
+          $ref: "#/components/schemas/RegistryItem"
+    LinkList:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Link"
+        next_cursor:
+          type: string
+          description: The cursor for the following page, absent on the last one.
+    CreateLinkRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - src_id
+        - dst_id
+      properties:
+        src_id:
+          type: string
+        dst_id:
+          type: string
+        kind:
+          $ref: "#/components/schemas/LinkKind"
+    DecideLinkRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - decision
+      properties:
+        decision:
+          type: string
+          enum:
+            - accept
+            - reject
     Config:
       type: object
       additionalProperties: false

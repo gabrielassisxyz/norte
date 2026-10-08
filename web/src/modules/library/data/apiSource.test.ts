@@ -133,6 +133,25 @@ describe('the library API source: counts and writes', () => {
     expect(saved).toMatchObject({ id: 'item-9', title: 'lido do servidor' })
   })
 
+  it('sends link_to as the body field, and omits it when there is nothing to link', async () => {
+    fetchStub.mockImplementation(async (request) => {
+      const url = new URL(request.url, 'http://norte.test')
+      if (request.method === 'POST') return json({ id: 'item-9' }, 201)
+      return json({ id: url.pathname.split('/').at(-1) })
+    })
+    const source = createApiLibrarySource()
+
+    await source.saveLink({ url: 'https://example.test/a', link_to: ['subject-1', 'subject-2'] })
+    expect(await fetchStub.mock.calls[0][0].clone().json()).toEqual({
+      url: 'https://example.test/a',
+      link_to: ['subject-1', 'subject-2']
+    })
+
+    fetchStub.mockClear()
+    await source.saveLink({ url: 'https://example.test/b', link_to: [] })
+    expect(await fetchStub.mock.calls[0][0].clone().json()).toEqual({ url: 'https://example.test/b' })
+  })
+
   it('patches the item and returns the record the server answered', async () => {
     fetchStub.mockResolvedValue(json({ id: 'item-1', unread: false }))
     const record = await createApiLibrarySource().patchItem('item-1', { unread: false })

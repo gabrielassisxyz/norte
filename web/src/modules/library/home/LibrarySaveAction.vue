@@ -1,10 +1,13 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
 import Button from '@/components/ds/Button.vue'
 import TextField from '@/components/ds/TextField.vue'
 import { useAsyncAction } from '@/lib/asyncResource'
+import { coreLinksChanged } from '@/shell/data/revision'
+import type { Subject } from '@/shell/data/source'
+import SubjectPicker from '@/shell/SubjectPicker.vue'
 import { useSources } from '@/sources'
 
 import { libraryGainedItem } from '../data/revision'
@@ -19,16 +22,34 @@ const saveUrl = ref('')
 const saveWhy = ref('')
 const saveError = ref('')
 const savedItem = ref<LibraryItemRecord | null>(null)
+/**
+ * The subjects the link is about, chosen before it is saved.
+ *
+ * They travel with the save as `link_to` rather than as a second call, so the
+ * item and its links land in one transaction: a save that linked afterwards
+ * would leave an unlinked item behind whenever that second call failed.
+ */
+const chosen = ref<Subject[]>([])
+const chosenIds = computed(() => chosen.value.map((subject) => subject.id))
 
 function openSave(): void {
   saveError.value = ''
   savedItem.value = null
+  chosen.value = []
   saveOpen.value = true
 }
 
 function closeSave(): void {
   saveOpen.value = false
   saveError.value = ''
+}
+
+function chooseSubject(subject: Subject): void {
+  if (!chosen.value.some((candidate) => candidate.id === subject.id)) chosen.value.push(subject)
+}
+
+function dropSubject(id: string): void {
+  chosen.value = chosen.value.filter((subject) => subject.id !== id)
 }
 
 /**
@@ -55,7 +76,14 @@ async function saveLink(): Promise<void> {
   }
 
   const why = saveWhy.value.trim()
-  const saved = await saving.run(() => library.saveLink({ url: url.toString(), ...(why ? { why } : {}) }))
+  const linkTo = chosenIds.value
+  const saved = await saving.run(() =>
+    library.saveLink({
+      url: url.toString(),
+      ...(why ? { why } : {}),
+      ...(linkTo.length ? { link_to: linkTo } : {})
+    })
+  )
 
   // A failed save keeps the dialog, the typed URL and the reason it failed.
   if (!saved) {
@@ -66,9 +94,12 @@ async function saveLink(): Promise<void> {
   // Nothing else on this screen can be handed the new item, so the lists that
   // are open ask again.
   libraryGainedItem()
+  // The save created the links too, so every subject count on screen moved.
+  if (linkTo.length > 0) coreLinksChanged()
   savedItem.value = saved
   saveUrl.value = ''
   saveWhy.value = ''
+  chosen.value = []
 }
 
 watch(
@@ -102,6 +133,18 @@ watch(
       <template v-else>
         <TextField v-model="saveUrl" label="URL" placeholder="https://…" type="url" />
         <TextField v-model="saveWhy" label="Por que salvar (opcional)" placeholder="Uma linha para o eu de daqui a um mês" :multiline="true" :rows="2" />
+        <div class="save-subjects">
+          <ul v-if="chosen.length > 0" class="save-chosen" aria-label="Assuntos escolhidos">
+            <li v-for="subject in chosen" :key="subject.id">
+              <button type="button" class="save-chip" @click="dropSubject(subject.id)">
+                {{ subject.name }}
+                <span aria-hidden="true">×</span>
+                <span class="save-chip-hint">remover</span>
+              </button>
+            </li>
+          </ul>
+          <SubjectPicker label="Sobre qual assunto (opcional)" :chosen="chosenIds" @select="chooseSubject" />
+        </div>
         <p v-if="saveError" class="save-error" role="alert">{{ saveError }}</p>
         <div class="save-buttons">
           <Button variant="secondary" @click="closeSave">Cancelar</Button>
@@ -121,4 +164,9 @@ watch(
 .save-done { margin: 0; font-size: 14px; line-height: 22px; }
 .save-done a { color: var(--norte); }
 .save-buttons { display: flex; justify-content: flex-end; gap: var(--space-3); }
+.save-subjects { display: grid; gap: var(--space-3); }
+.save-chosen { display: flex; flex-wrap: wrap; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.save-chip { display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--sunken); color: var(--ink-2); cursor: pointer; font-family: var(--font-display); font-size: 13px; font-weight: 550; }
+.save-chip:hover { border-color: var(--norte); color: var(--norte); }
+.save-chip-hint { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 </style>

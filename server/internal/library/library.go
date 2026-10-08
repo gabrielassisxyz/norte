@@ -84,8 +84,9 @@ func (*LibraryModule) Start(ctx context.Context, deps app.Deps) error {
 // renders an item.
 func (*LibraryModule) Text(context.Context, string) (string, bool, error) { return "", false, nil }
 
-// FocusTargets reports nothing: the subjects bead adds what the person is
-// working on.
+// FocusTargets reports nothing. "In progress" is each module's own idea, and
+// the library has none: a saved link is not something being worked through,
+// which is what the curriculum and the project are for.
 func (*LibraryModule) FocusTargets(context.Context) ([]core.FocusTarget, error) {
 	return nil, nil
 }

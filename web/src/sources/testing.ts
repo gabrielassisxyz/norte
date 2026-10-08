@@ -3,6 +3,7 @@ import { nextTick, type App, type Plugin } from 'vue'
 import { createMockStore, type MockStore } from '@/mock/store'
 import type { LibraryItemRecord } from '@/modules/library/data/source'
 import { fakeLibrarySource, libraryRecord } from '@/modules/library/data/testing'
+import { fakeCoreSource } from '@/shell/data/testing'
 
 import { appSourcesKey, type AppSources } from '.'
 import { createMockSources } from './mock'
@@ -11,7 +12,7 @@ import { createMockSources } from './mock'
  * Helpers for mounting a screen against sources a test controls. They are only
  * ever imported by tests; the application installs its own bundle in `main.ts`.
  */
-const MODULE_NAMES: Array<keyof AppSources> = ['library', 'notes', 'study', 'review', 'projects']
+const MODULE_NAMES: Array<keyof AppSources> = ['core', 'library', 'notes', 'study', 'review', 'projects']
 
 /**
  * A source that fails loudly instead of answering.
@@ -153,10 +154,18 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
  * test: `setEnabledModules(['library'])`.
  */
 export function appSourcesWithLibrary(
-  options: { store?: MockStore; records?: LibraryItemRecord[]; library?: AppSources['library'] } = {}
+  options: {
+    store?: MockStore
+    records?: LibraryItemRecord[]
+    library?: AppSources['library']
+    core?: AppSources['core']
+  } = {}
 ): AppSources {
   return {
     ...createMockSources(options.store ?? createMockStore()),
-    library: options.library ?? fakeLibrarySource(options.records ?? shellLibraryRecords())
+    library: options.library ?? fakeLibrarySource(options.records ?? shellLibraryRecords()),
+    // The core is always on, so a screen mounted here can always reach it: an
+    // empty one is the right default, never a refusing stand-in.
+    core: options.core ?? fakeCoreSource()
   }
 }
