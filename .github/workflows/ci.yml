@@ -61,11 +61,14 @@ jobs:
           echo "image user: $user"
           cid="$(docker create norte:ci)"
           trap 'docker rm "$cid" >/dev/null' EXIT
-          if ! docker export "$cid" | tar -t | grep -q "etc/ssl/certs/ca-certificates.crt"; then
+          # List to a file first: grep -q exits at the first match, and tar
+          # then dies of SIGPIPE, which pipefail turns into a failed step.
+          docker export "$cid" | tar -t > "$RUNNER_TEMP/norte-image-files.txt"
+          if ! grep -q "etc/ssl/certs/ca-certificates.crt" "$RUNNER_TEMP/norte-image-files.txt"; then
             echo "the CA bundle is missing from the image" >&2
             exit 1
           fi
-          if docker export "$cid" | tar -t | grep -q "bin/sh"; then
+          if grep -q "bin/sh" "$RUNNER_TEMP/norte-image-files.txt"; then
             echo "the image carries a shell, want scratch" >&2
             exit 1
           fi
@@ -101,13 +104,6 @@ jobs:
             -d '{"url":"https://example.org/docker-ci-probe","title":"Docker CI probe","html":"<html><head><title>Docker CI probe</title></head><body><p>probe</p></body></html>"}')"
           echo "$save"
           id="$(echo "$save" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
-          docker restart norte-ci >/dev/null
-          for i in $(seq 1 30); do
-            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null; then
-              break
-            fi
-            sleep 2
-          done
           # A restart keeps the container's own filesystem, so recreate on the
           # same volume instead: only data in the named volume survives this.
           docker rm -f norte-ci >/dev/null
