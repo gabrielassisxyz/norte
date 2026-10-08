@@ -791,3 +791,29 @@ func TestAHighlightOnASwitchedOffModuleIsStillAnchored(t *testing.T) {
 		t.Fatalf("the highlight came back %q, want anchored", highlight.Status)
 	}
 }
+
+// TestAHighlightSpanningAParagraphBreakOnMinifiedMarkup is the join the
+// extraction has to leave separated, read from the side that suffers when it
+// does not: a selection dragged from the end of one paragraph into the next.
+// The page is written with no whitespace between its tags, which is how a
+// minified page and the extension's capture arrive.
+func TestAHighlightSpanningAParagraphBreakOnMinifiedMarkup(t *testing.T) {
+	harness := newNotesHarness(t)
+	itemID := harness.saveAndExtract("https://example.invalid/glued",
+		`<html><body><article><h1>Título</h1>`+
+			`<p>Primeiro parágrafo fala do mar inteiro sem parar.</p>`+
+			`<p>Segundo parágrafo descreve montanhas geladas onde lobos cinzentos caçam renas.</p>`+
+			`</article></body></html>`)
+
+	created := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
+		map[string]any{
+			"item_id": itemID,
+			"exact":   "parar. Segundo",
+			"prefix":  "do mar inteiro sem ",
+			"suffix":  " parágrafo descreve",
+		}), http.StatusCreated)
+	if created.Status != NotesAnchored {
+		t.Fatalf("a highlight across the paragraph break came back %q, over the text %q",
+			created.Status, harness.articleText(itemID))
+	}
+}

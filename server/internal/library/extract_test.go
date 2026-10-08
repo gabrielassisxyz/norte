@@ -638,3 +638,78 @@ func TestTheExtractionBaseURLPrefersTheRecordedFinalURL(t *testing.T) {
 		})
 	}
 }
+
+// libraryGluedBlocksPage is the shape of a minified page and of what the
+// browser extension captures: block-level tags with nothing at all between
+// them. separator is what is written between the tags, so the same page can be
+// extracted minified and pretty-printed.
+func libraryGluedBlocksPage(separator string) []byte {
+	return []byte(`<html><body><article>` + separator +
+		`<h1>Título</h1>` + separator +
+		`<p>Primeiro parágrafo fala do mar inteiro sem parar.</p>` + separator +
+		`<p>Segundo parágrafo descreve montanhas geladas onde lobos cinzentos caçam renas.</p>` + separator +
+		`</article></body></html>`)
+}
+
+func libraryExtractGluedBlocks(t *testing.T, separator string) libraryExtracted {
+	t.Helper()
+	pageURL, err := url.Parse("https://pages.example/glued")
+	if err != nil {
+		t.Fatalf("parsing the page URL: %v", err)
+	}
+	extracted, err := libraryExtractPage(libraryGluedBlocksPage(separator), pageURL, "")
+	if err != nil {
+		t.Fatalf("extracting the glued page: %v", err)
+	}
+	return extracted
+}
+
+// TestAdjacentBlocksAreSeparatedWithNoWhitespaceInTheMarkup is the criterion
+// search, the reading time and a highlight all rest on: the last word of a
+// block never touches the first word of the next, whatever the markup looked
+// like. The words are checked rather than the block count, because gluing them
+// is what makes a word unsearchable and a selection unanchored.
+func TestAdjacentBlocksAreSeparatedWithNoWhitespaceInTheMarkup(t *testing.T) {
+	text := libraryExtractGluedBlocks(t, "").ContentText
+	for _, glued := range []string{"TítuloPrimeiro", "parar.Segundo"} {
+		if strings.Contains(text, glued) {
+			t.Errorf("two blocks came out glued as %q:\n%q", glued, text)
+		}
+	}
+	for _, want := range []string{"Título\n\nPrimeiro", "parar.\n\nSegundo"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("content_text does not separate %q:\n%q", want, text)
+		}
+	}
+}
+
+// TestTheMarkupsWhitespaceDoesNotChangeTheExtractedText states the rule the
+// one above is a case of. A page carrying newlines between its tags and the
+// same page minified are the same article, so they must store the same text --
+// otherwise a word is searchable on one spelling of a page and not on the
+// other.
+func TestTheMarkupsWhitespaceDoesNotChangeTheExtractedText(t *testing.T) {
+	minified := libraryExtractGluedBlocks(t, "").ContentText
+	spaced := libraryExtractGluedBlocks(t, "\n").ContentText
+	if minified != spaced {
+		t.Errorf("the minified page stored\n%q\nand the spaced one stored\n%q", minified, spaced)
+	}
+}
+
+// TestAPageWhoseBlocksSurviveKeepsTrafilaturasReading is the other side of the
+// separation rule: the second pass is for a page whose blocks were run
+// together, and a page extracted correctly today must not be routed through it.
+// The essay fixture's text begins at its own heading, which is where
+// trafilatura starts it; go-readability's reading of the same page opens on the
+// date line above the title instead, so the first block says which reading was
+// stored.
+func TestAPageWhoseBlocksSurviveKeepsTrafilaturasReading(t *testing.T) {
+	extracted, _ := libraryExtractFixture(t, "essay")
+	blocks := strings.Split(extracted.ContentText, "\n\n")
+	if len(blocks) < 2 {
+		t.Fatalf("the essay fixture came out as %d block(s):\n%q", len(blocks), extracted.ContentText)
+	}
+	if blocks[0] != "On Keeping Notes You Will Read Again" {
+		t.Errorf("the essay's text opens on %q, want its heading", blocks[0])
+	}
+}

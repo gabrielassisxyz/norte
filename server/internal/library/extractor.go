@@ -94,6 +94,20 @@ func libraryExtractPage(source []byte, pageURL *url.URL, contentType string) (li
 			content = fromReadability
 		}
 	}
+	if content != nil && libraryNodeTextBlocks(content) < 2 {
+		// trafilatura's last-resort pass concatenates a page's blocks into a
+		// single paragraph, so the last word of one block is glued to the
+		// first of the next whenever the markup carried no whitespace between
+		// the tags -- which is the normal shape of a minified page and of what
+		// the extension captures. go-readability keeps the block elements, so
+		// when it finds more than one block its reading is the one the stored
+		// text can carry a separator in. A page that really is one block comes
+		// back as one block from both, and nothing is swapped.
+		if fromReadability := libraryReadabilityContent(source, pageURL); fromReadability != nil &&
+			libraryNodeTextBlocks(fromReadability) > 1 {
+			content = fromReadability
+		}
+	}
 	if content == nil {
 		return libraryExtracted{}, core.Permanent(fmt.Errorf("the page carries no readable content"))
 	}
@@ -363,9 +377,17 @@ var libraryBlockElements = map[string]bool{
 // on and what a highlight is anchored against, and a passage that survived the
 // extractor but not the sanitizer would otherwise be searchable and absent.
 func libraryTextFromHTML(markup string) string {
+	return strings.Join(libraryTextBlocks(markup), "\n\n")
+}
+
+// libraryTextBlocks is libraryTextFromHTML before the blocks are joined. The
+// count of what it returns is also how the collapse rule in
+// libraryExtractPage tells a reading that kept the page's blocks from one
+// that ran them all together.
+func libraryTextBlocks(markup string) []string {
 	doc, err := html.Parse(strings.NewReader(markup))
 	if err != nil {
-		return ""
+		return nil
 	}
 	blocks := []string{}
 	var pending strings.Builder
@@ -404,5 +426,12 @@ func libraryTextFromHTML(markup string) string {
 	}
 	walk(doc)
 	flush()
-	return strings.Join(blocks, "\n\n")
+	return blocks
+}
+
+// libraryNodeTextBlocks is libraryTextBlocks over a candidate content tree,
+// before it is sanitized. Sanitization never removes a block-level element, so
+// the count it reports is the count the stored text will have.
+func libraryNodeTextBlocks(content *html.Node) int {
+	return len(libraryTextBlocks(libraryRenderFragment(content)))
 }
