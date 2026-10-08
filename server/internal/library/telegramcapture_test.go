@@ -755,3 +755,18 @@ func (h *libraryTelegramHarness) replayEveryReply(notifier *telegram.Notifier) e
 	}
 	return nil
 }
+
+// TestEveryPollAsksForASmallBatch: an answer past the client's read cap is cut
+// mid-JSON and the same batch would be fetched forever, so the request itself
+// has to bound the batch.
+func TestEveryPollAsksForASmallBatch(t *testing.T) {
+	harness := newLibraryTelegramHarness(t)
+	stop := harness.startPoller()
+	defer stop()
+	harness.waitFor("polled", func() bool { return len(harness.fake.Limits()) > 0 })
+	for _, limit := range harness.fake.Limits() {
+		if limit != "20" {
+			t.Errorf("a poll sent limit=%q, want 20", limit)
+		}
+	}
+}

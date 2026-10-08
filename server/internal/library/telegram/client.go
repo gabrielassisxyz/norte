@@ -23,6 +23,12 @@ const redactedToken = "<token>"
 // whole would be the only unbounded read in the adapter.
 const clientReadLimit = 1 << 20
 
+// updatesBatchLimit caps how many updates one getUpdates answer carries. The
+// answer is read through clientReadLimit, and a batch larger than that is cut
+// mid-JSON, fails to parse and is fetched again unchanged forever; a small
+// batch keeps the answer far below the cap.
+const updatesBatchLimit = 20
+
 // Client is the slice of the Telegram Bot API this adapter uses: long-polled
 // updates in, one message out.
 //
@@ -83,6 +89,7 @@ type apiEnvelope struct {
 func (c *Client) GetUpdates(ctx context.Context, offset int64, timeout time.Duration) ([]Update, error) {
 	query := url.Values{}
 	query.Set("offset", strconv.FormatInt(offset, 10))
+	query.Set("limit", strconv.Itoa(updatesBatchLimit))
 	query.Set("timeout", strconv.Itoa(int(timeout.Seconds())))
 	raw, err := c.call(ctx, http.MethodGet, "getUpdates?"+query.Encode(), nil)
 	if err != nil {
