@@ -1,4 +1,5 @@
 import { mount } from '@vue/test-utils'
+import { defineComponent, h } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, describe, expect, it } from 'vitest'
 
@@ -131,5 +132,103 @@ describe('the "Salvos sobre isso" panel', () => {
 
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
     expect(wrapper.text()).toContain('Nada salvo sobre isso ainda.')
+  })
+})
+
+describe('the "Salvos sobre isso" panel: more than one page', () => {
+  function manyLinks(count: number) {
+    return Array.from({ length: count }, (_, index) =>
+      coreLink({
+        id: `link-${index}`,
+        created_at: `2026-10-07T12:${String(Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}.000Z`,
+        src: registryItem({ id: `item-${index}`, title: `Texto ${index}` }),
+        dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject', title: 'Kubernetes' })
+      })
+    )
+  }
+
+  async function mountWith(links: ReturnType<typeof manyLinks>) {
+    setEnabledModules(['library'])
+    const core = fakeCoreSource({ subjects: [subjectRecord({ id: 'subject-1' })], links })
+    const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
+    await router.push('/')
+    await router.isReady()
+    const wrapper = mount(SavedAboutPanel, {
+      props: { targetId: 'subject-1' },
+      global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary({ core }))] }
+    })
+    mounted.push(wrapper)
+    await flushReads()
+    return { wrapper, core }
+  }
+
+  const moreButton = (wrapper: Awaited<ReturnType<typeof mountWith>>['wrapper']) =>
+    wrapper.findAll('button').find((button) => button.text() === 'Carregar mais')
+
+  it('shows the first page and appends the next ones under the same filters', async () => {
+    const { wrapper, core } = await mountWith(manyLinks(120))
+
+    expect(wrapper.findAll('.saved-about-row')).toHaveLength(50)
+    await moreButton(wrapper)!.trigger('click')
+    await flushReads()
+    expect(wrapper.findAll('.saved-about-row')).toHaveLength(100)
+    await moreButton(wrapper)!.trigger('click')
+    await flushReads()
+    expect(wrapper.findAll('.saved-about-row')).toHaveLength(120)
+    expect(moreButton(wrapper)).toBeUndefined()
+
+    expect(core.calls.listLinks.map((call) => call.cursor)).toEqual([undefined, '50', '100'])
+    for (const call of core.calls.listLinks) {
+      expect(call).toMatchObject({ dst_id: 'subject-1', kind: 'about', status: 'confirmed' })
+    }
+  })
+
+  it('offers no "carregar mais" for a single page', async () => {
+    const { wrapper } = await mountWith(manyLinks(3))
+    expect(moreButton(wrapper)).toBeUndefined()
+  })
+
+  it('does not list items of a module the server has switched off', async () => {
+    const links = [
+      coreLink({
+        id: 'link-vivo',
+        src: registryItem({ id: 'item-vivo', title: 'De um módulo ligado' }),
+        dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject' })
+      }),
+      coreLink({
+        id: 'link-morto',
+        created_at: '2026-10-06T12:00:00.000Z',
+        src: registryItem({ id: 'item-morto', module: 'notes', title: 'De um módulo desligado' }),
+        dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject' })
+      })
+    ]
+    const { wrapper } = await mountWith(links as ReturnType<typeof manyLinks>)
+
+    expect(wrapper.text()).toContain('De um módulo ligado')
+    expect(wrapper.text()).not.toContain('De um módulo desligado')
+  })
+})
+
+describe('the "Salvos sobre isso" panel: ids', () => {
+  it('gives every instance its own heading id, so two panels on one page do not share one', async () => {
+    setEnabledModules(['library'])
+    const core = fakeCoreSource({})
+    const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
+    await router.push('/')
+    await router.isReady()
+    const Two = defineComponent({
+      render: () => h('div', [h(SavedAboutPanel, { targetId: 'a' }), h(SavedAboutPanel, { targetId: 'b' })])
+    })
+    const wrapper = mount(Two, { global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary({ core }))] } })
+    mounted.push(wrapper)
+    await flushReads()
+
+    const headings = wrapper.findAll('.saved-about h2')
+    expect(headings).toHaveLength(2)
+    const ids = headings.map((heading) => heading.attributes('id'))
+    expect(ids[0]).toBeTruthy()
+    expect(new Set(ids).size).toBe(2)
+    const labelled = wrapper.findAll('.saved-about').map((section) => section.attributes('aria-labelledby'))
+    expect(labelled).toEqual(ids)
   })
 })

@@ -135,6 +135,50 @@ describe('the subject screen', () => {
     expect(core.subjects).toHaveLength(1)
   })
 
+  it('names the link count the subject has when the dialog opens, not when the page loaded', async () => {
+    // Links were added elsewhere while the page sat open: the read by id
+    // answers with a new record, as the server would, rather than mutating the
+    // one the page holds.
+    const reads: string[] = []
+    const core = fakeCoreSource(
+      { subjects: [kubernetes()] },
+      {
+        getSubject: async (id) => {
+          reads.push(id)
+          return { ...kubernetes(), link_count: 7 }
+        }
+      }
+    )
+    const { wrapper } = await mountSubject('kubernetes', core)
+    expect(reads).toEqual([])
+
+    await wrapper.get('.subject-actions button:last-child').trigger('click')
+    await flushReads()
+
+    expect(reads).toEqual(['subject-k8s'])
+    const dialog = wrapper.get('[role="dialog"]')
+    expect(dialog.text()).toContain('7 ligações')
+    expect(dialog.text()).not.toContain('4 ligações')
+  })
+
+  it('does not open the dialog when the count cannot be read, and says why', async () => {
+    const core = fakeCoreSource(
+      { subjects: [kubernetes()] },
+      {
+        getSubject: async () => {
+          throw new Error('rede indisponível')
+        }
+      }
+    )
+    const { wrapper } = await mountSubject('kubernetes', core)
+
+    await wrapper.get('.subject-actions button:last-child').trigger('click')
+    await flushReads()
+
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível contar as ligações: rede indisponível')
+  })
+
   it('deletes only once the dialog is confirmed', async () => {
     const { wrapper, core } = await mountSubject()
 

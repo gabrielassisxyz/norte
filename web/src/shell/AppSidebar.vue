@@ -139,6 +139,15 @@ const isInicio = computed(() => route.name === 'inicio')
             </RouterLink>
           </template>
           <div v-if="section.rows().length === 0" class="app-empty">Nenhum assunto ainda</div>
+          <button
+            v-if="section.hasMore()"
+            type="button"
+            class="app-item app-sub app-button"
+            :disabled="section.loadingMore()"
+            @click="section.loadMore()"
+          >
+            <span class="app-label">{{ section.loadingMore() ? 'Carregando…' : 'Carregar mais' }}</span>
+          </button>
         </div>
       </template>
 

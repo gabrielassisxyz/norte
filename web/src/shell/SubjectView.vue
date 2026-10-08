@@ -27,6 +27,8 @@ const { data: subject, loading, error, refresh, apply } = useSubjectBySlug(slug)
 const writing = useAsyncAction()
 const writeError = ref('')
 const deleteOpen = ref(false)
+/** The links the subject has when the dialog opened, not when the page loaded. */
+const deleteLinkCount = ref(0)
 
 const firstLoad = computed(() => loading.value && subject.value === null)
 const counts = computed<SubjectTypeCount[]>(() => subject.value?.counts.by_type ?? [])
@@ -53,12 +55,25 @@ async function toggleFocus(): Promise<void> {
 }
 
 /**
- * Deleting names the number of links first, which is the figure the subject
- * read already carries. Nothing is sent until the dialog is confirmed, and
- * cancelling sends nothing at all.
+ * Deleting names the number of links first. The page may have been open for a
+ * while and links are added and removed elsewhere, so the figure is read again
+ * when the dialog opens: the count the person confirms must be the one the
+ * delete will take with it. Nothing is deleted until the dialog is confirmed,
+ * and cancelling sends nothing at all.
  */
-function openDelete(): void {
+async function openDelete(): Promise<void> {
+  const current = subject.value
+  if (!current) return
   writeError.value = ''
+  const fresh = await writing.run(() => core.getSubject(current.id, new AbortController().signal))
+  if (!fresh) {
+    writeError.value = writing.error.value
+      ? `Não foi possível contar as ligações: ${writing.error.value}`
+      : 'Este assunto não existe mais.'
+    return
+  }
+  apply(fresh)
+  deleteLinkCount.value = fresh.link_count
   deleteOpen.value = true
 }
 
@@ -142,7 +157,7 @@ async function confirmDelete(): Promise<void> {
             <h2 id="subject-delete-title">Apagar “{{ subject.name }}”?</h2>
             <p>
               Isso apaga o assunto e
-              {{ subject.link_count === 1 ? '1 ligação' : `${subject.link_count} ligações` }}
+              {{ deleteLinkCount === 1 ? '1 ligação' : `${deleteLinkCount} ligações` }}
               para ele. Os itens salvos continuam na biblioteca. Não há como desfazer.
             </p>
             <div class="subject-dialog-buttons">

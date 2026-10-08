@@ -157,6 +157,55 @@ describe('Assuntos in the sidebar', () => {
   })
 })
 
+describe('Assuntos in the sidebar: more than one page', () => {
+  function manySubjects(count: number) {
+    return Array.from({ length: count }, (_, index) =>
+      subjectRecord({ name: `Assunto ${String(index).padStart(3, '0')}` })
+    )
+  }
+
+  function subjectRows(wrapper: Awaited<ReturnType<typeof mountSidebar>>) {
+    return wrapper
+      .findAll('nav[aria-label="Principal"] .app-children .app-sub')
+      .filter((row) => row.attributes('href')?.startsWith('/assuntos/'))
+  }
+
+  function assuntosCount(wrapper: Awaited<ReturnType<typeof mountSidebar>>): string {
+    return wrapper.get('nav[aria-label="Principal"] .app-group .app-count').text()
+  }
+
+  function moreButton(wrapper: Awaited<ReturnType<typeof mountSidebar>>) {
+    return wrapper.findAll('nav[aria-label="Principal"] button').find((button) => button.text() === 'Carregar mais')
+  }
+
+  it('lists the first page, marks the count as partial, and loads the rest on request', async () => {
+    const wrapper = await mountSidebar(manySubjects(120))
+
+    expect(subjectRows(wrapper)).toHaveLength(50)
+    // The API gives no total, so a bare 50 would read as the whole vocabulary.
+    expect(assuntosCount(wrapper)).toBe('50+')
+
+    await moreButton(wrapper)!.trigger('click')
+    await flushReads()
+    expect(subjectRows(wrapper)).toHaveLength(100)
+    expect(assuntosCount(wrapper)).toBe('100+')
+
+    await moreButton(wrapper)!.trigger('click')
+    await flushReads()
+    expect(subjectRows(wrapper)).toHaveLength(120)
+    expect(assuntosCount(wrapper)).toBe('120')
+    expect(moreButton(wrapper)).toBeUndefined()
+  })
+
+  it('offers no "carregar mais" when everything fits on the first page', async () => {
+    const wrapper = await mountSidebar(manySubjects(3))
+
+    expect(subjectRows(wrapper)).toHaveLength(3)
+    expect(assuntosCount(wrapper)).toBe('3')
+    expect(moreButton(wrapper)).toBeUndefined()
+  })
+})
+
 describe('the Listas group', () => {
   it('is not rendered while Estudo is mock-backed', async () => {
     const wrapper = await mountSidebar()

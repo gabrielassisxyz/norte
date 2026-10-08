@@ -106,8 +106,12 @@ export interface ShellSidebarSection {
   id: string
   label: string
   order: number
-  count: () => number | undefined
+  count: () => number | string | undefined
   rows: () => SidebarRow[]
+  /** True while the server holds subjects beyond the ones already listed. */
+  hasMore: () => boolean
+  loadingMore: () => boolean
+  loadMore: () => void
 }
 
 /**
@@ -118,7 +122,8 @@ export interface ShellSidebarSection {
  * renders the sidebar and nowhere else.
  */
 export function useShellSidebarSections(): ShellSidebarSection[] {
-  const { data: page } = useSubjects()
+  const subjects = useSubjects()
+  const page = subjects.data
 
   return [
     {
@@ -127,14 +132,24 @@ export function useShellSidebarSections(): ShellSidebarSection[] {
       // Ahead of every product: a subject is what the other lines are filed
       // under, and the core is on before any of them.
       order: 5,
-      count: () => page.value?.items.length,
+      // The API gives no total, so the count is what has been loaded and a
+      // "+" says there is more: a bare 50 would read as the whole vocabulary
+      // when it is only the first page.
+      count: () => {
+        const loaded = page.value?.items.length
+        if (loaded === undefined) return undefined
+        return subjects.hasMore.value ? `${loaded}+` : loaded
+      },
       rows: () =>
         (page.value?.items ?? []).map<SidebarRow>((subject) => ({
           id: `assunto-${subject.slug}`,
           label: subject.name,
           to: { name: 'assunto', params: { slug: subject.slug } },
           count: subject.counts.total
-        }))
+        })),
+      hasMore: () => subjects.hasMore.value,
+      loadingMore: () => subjects.loadingMore.value,
+      loadMore: () => void subjects.loadMore()
     }
   ]
 }
