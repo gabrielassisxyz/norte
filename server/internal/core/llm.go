@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -54,6 +55,9 @@ type LLM struct {
 	model    string
 	key      string
 	client   *http.Client
+	// timeout bounds one attempt; a field so a test can shrink it instead of
+	// waiting out llmTimeout.
+	timeout time.Duration
 }
 
 // NewLLM returns the client over the configured settings. An empty rawURL
@@ -79,7 +83,8 @@ func NewLLM(rawURL, model, key string) *LLM {
 		key:      key,
 		// No overall timeout on the client: the per-attempt deadline is a
 		// context, so a retry is not spending the first attempt's budget.
-		client: &http.Client{},
+		client:  &http.Client{},
+		timeout: llmTimeout,
 	}
 }
 
@@ -140,7 +145,7 @@ func (l *LLM) Complete(ctx context.Context, system, user string, schema LLMSchem
 // attempt runs one request. The second result says whether the failure is one
 // a retry could fix: a timeout or a 5xx, and nothing else.
 func (l *LLM) attempt(ctx context.Context, body []byte) (json.RawMessage, bool, error) {
-	attemptCtx, cancel := context.WithTimeout(ctx, llmTimeout)
+	attemptCtx, cancel := context.WithTimeout(ctx, l.timeout)
 	defer cancel()
 
 	request, err := http.NewRequestWithContext(attemptCtx, http.MethodPost, l.endpoint, bytes.NewReader(body))
@@ -154,9 +159,7 @@ func (l *LLM) attempt(ctx context.Context, body []byte) (json.RawMessage, bool, 
 
 	response, err := l.client.Do(request)
 	if err != nil {
-		// The message is not wrapped with the URL: a configured endpoint can
-		// carry a token in its query, and this error travels into a job row.
-		return nil, llmTransportRetryable(attemptCtx, err), fmt.Errorf("asking the LLM: %w", err)
+		return nil, llmTransportRetryable(attemptCtx, err), l.transportError(err)
 	}
 	defer func() {
 		_, _ = io.Copy(io.Discard, io.LimitReader(response.Body, llmMaxAnswerBytes))
@@ -197,6 +200,22 @@ func (l *LLM) attempt(ctx context.Context, body []byte) (json.RawMessage, bool, 
 		return nil, false, errors.New("the LLM's answer is not JSON")
 	}
 	return json.RawMessage(content), false, nil
+}
+
+// transportError rewraps a transport failure without the request URL. The
+// *url.Error net/http returns prints the full URL, and a configured endpoint
+// can carry a token in its query while this error travels into a job row; the
+// underlying cause plus the host is what a person needs to diagnose it.
+func (l *LLM) transportError(err error) error {
+	var urlErr *url.Error
+	if !errors.As(err, &urlErr) {
+		return fmt.Errorf("asking the LLM: %w", err)
+	}
+	host := "the endpoint"
+	if parsed, parseErr := url.Parse(l.endpoint); parseErr == nil && parsed.Host != "" {
+		host = parsed.Host
+	}
+	return fmt.Errorf("asking the LLM at %s: %w", host, urlErr.Err)
 }
 
 // llmTransportRetryable reports whether a transport failure was the attempt
