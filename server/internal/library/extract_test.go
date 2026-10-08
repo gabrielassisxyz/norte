@@ -8,9 +8,13 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	trafilatura "github.com/markusmobius/go-trafilatura/v2"
 	"golang.org/x/net/html"
+	"golang.org/x/text/encoding"
+	"golang.org/x/text/encoding/charmap"
+	"golang.org/x/text/transform"
 )
 
 // libraryGolden is one fixture's hand-written expectation, read from
@@ -63,7 +67,7 @@ func libraryReadFixture(t *testing.T, name string) ([]byte, libraryGolden, *url.
 func libraryExtractFixture(t *testing.T, name string) (libraryExtracted, libraryGolden) {
 	t.Helper()
 	page, golden, pageURL := libraryReadFixture(t, name)
-	extracted, err := libraryExtractPage(page, pageURL)
+	extracted, err := libraryExtractPage(page, pageURL, "")
 	if err != nil {
 		t.Fatalf("extracting the %s fixture: %v", name, err)
 	}
@@ -255,7 +259,7 @@ func TestEveryHttpImageIsRewrittenToHttps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parsing the page URL: %v", err)
 	}
-	extracted, err := libraryExtractPage(page, pageURL)
+	extracted, err := libraryExtractPage(page, pageURL, "")
 	if err != nil {
 		t.Fatalf("libraryExtractPage: %v", err)
 	}
@@ -341,7 +345,7 @@ func TestAHeadingWithNoSluggableTextStillGetsAnAnchor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("parsing the page URL: %v", err)
 	}
-	extracted, err := libraryExtractPage(page, pageURL)
+	extracted, err := libraryExtractPage(page, pageURL, "")
 	if err != nil {
 		t.Fatalf("libraryExtractPage: %v", err)
 	}
@@ -482,5 +486,155 @@ func TestHeadingAnchorsNeverCollide(t *testing.T) {
 	}
 	if len(seen) != 3 {
 		t.Errorf("got %d distinct anchors, want 3: %v", len(seen), seen)
+	}
+}
+
+// libraryEncodedPage renders a page in one of the legacy encodings, so a test
+// over a non-UTF-8 fixture reads as the bytes a server would send rather than
+// as an escaped literal.
+func libraryEncodedPage(t *testing.T, enc encoding.Encoding, declaredCharset, title string) []byte {
+	t.Helper()
+	head := `<!doctype html><html><head>`
+	if declaredCharset != "" {
+		head += `<meta charset="` + declaredCharset + `">`
+	}
+	page := head + `<title>` + title + `</title>` +
+		`<meta property="og:title" content="` + title + `"></head><body><article><h1>` + title + `</h1><p>` +
+		strings.Repeat("Texto suficiente para o extrator aceitar a pagina. ", 20) +
+		`</p></article></body></html>`
+	encoded, _, err := transform.Bytes(enc.NewEncoder(), []byte(page))
+	if err != nil {
+		t.Fatalf("encoding the page: %v", err)
+	}
+	return encoded
+}
+
+// TestAPageIsDecodedByItsDeclaredCharset is the latin-1 defect: the body text
+// always arrived decoded, because the extractors do that themselves, while the
+// declarations were parsed straight off the raw bytes -- so the title of a page
+// written in ISO-8859-1 was stored as the invalid UTF-8 those bytes are.
+//
+// The last two cases are the other half of the fix: a UTF-8 page and a page
+// that declares nothing have to come out exactly as before, which is why they
+// are asserted here against the same decoder rather than taken on trust.
+func TestAPageIsDecodedByItsDeclaredCharset(t *testing.T) {
+	pageURL, err := url.Parse("https://pages.example/acentuacao")
+	if err != nil {
+		t.Fatalf("parsing the page URL: %v", err)
+	}
+	const accented = "Acentuação"
+	for _, tc := range []struct {
+		name        string
+		page        []byte
+		contentType string
+		want        string
+	}{
+		{
+			name: "latin-1 declared in a meta charset",
+			page: libraryEncodedPage(t, charmap.ISO8859_1, "iso-8859-1", accented),
+			want: accented,
+		},
+		{
+			name:        "latin-1 declared only in the response header",
+			page:        libraryEncodedPage(t, charmap.ISO8859_1, "", accented),
+			contentType: "text/html; charset=iso-8859-1",
+			want:        accented,
+		},
+		{
+			name: "windows-1252 declared in a meta charset",
+			page: libraryEncodedPage(t, charmap.Windows1252, "windows-1252", accented),
+			want: accented,
+		},
+		{
+			name: "a UTF-8 page is unchanged",
+			page: []byte(libraryTestPage(accented)),
+			want: accented,
+		},
+		{
+			name: "a page declaring no charset is unchanged",
+			page: []byte(libraryTestPage("Plain ASCII Title")),
+			want: "Plain ASCII Title",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			extracted, err := libraryExtractPage(tc.page, pageURL, tc.contentType)
+			if err != nil {
+				t.Fatalf("libraryExtractPage: %v", err)
+			}
+			if extracted.Title != tc.want {
+				t.Errorf("title = %q (% x), want %q", extracted.Title, extracted.Title, tc.want)
+			}
+			if !utf8.ValidString(extracted.Title) {
+				t.Errorf("title is not valid UTF-8: % x", extracted.Title)
+			}
+		})
+	}
+}
+
+// TestASnapshotIsExtractedAgainstItsFinalURL is the redirect defect at the unit
+// level: the same bytes, extracted against the address a redirect chain ended
+// at, resolve their links and their site there and not at the short link the
+// person saved.
+func TestASnapshotIsExtractedAgainstItsFinalURL(t *testing.T) {
+	page, _, _ := libraryReadFixture(t, "go-blog")
+
+	shortened, err := url.Parse("https://redirector.example/abc123")
+	if err != nil {
+		t.Fatalf("parsing the short link: %v", err)
+	}
+	final, err := url.Parse("https://go.dev/blog/go1.22")
+	if err != nil {
+		t.Fatalf("parsing the final URL: %v", err)
+	}
+
+	fromShortLink, err := libraryExtractPage(page, shortened, "")
+	if err != nil {
+		t.Fatalf("extracting against the short link: %v", err)
+	}
+	if fromShortLink.Site != "redirector.example" {
+		t.Fatalf("site = %q against the short link; the fixture no longer shows the defect this guards",
+			fromShortLink.Site)
+	}
+
+	fromFinal, err := libraryExtractPage(page, final, "")
+	if err != nil {
+		t.Fatalf("extracting against the final URL: %v", err)
+	}
+	if fromFinal.Site != "go.dev" {
+		t.Errorf("site = %q, want go.dev", fromFinal.Site)
+	}
+	if strings.Contains(fromFinal.ContentHTML, "redirector.example") {
+		t.Errorf("the short link's host survived into content_html:\n%s", fromFinal.ContentHTML)
+	}
+	if !strings.Contains(fromFinal.ContentHTML, `href="https://go.dev/`) {
+		t.Errorf("no link resolved under https://go.dev/:\n%s", fromFinal.ContentHTML)
+	}
+}
+
+// TestTheExtractionBaseURLPrefersTheRecordedFinalURL covers the choice on its
+// own, including the two readings that have to fall back: a snapshot with no
+// recorded final URL, and a recorded value that does not parse as an absolute
+// address. Meta is open JSON, so the second is a value a caller can really see.
+func TestTheExtractionBaseURLPrefersTheRecordedFinalURL(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		itemURL  string
+		finalURL string
+		want     string
+	}{
+		{"the final URL wins", "https://t.co/abc", "https://go.dev/blog/go1.22", "https://go.dev/blog/go1.22"},
+		{"no final URL recorded", "https://go.dev/blog/go1.22", "", "https://go.dev/blog/go1.22"},
+		{"a relative final URL is ignored", "https://go.dev/blog/go1.22", "/blog/go1.22", "https://go.dev/blog/go1.22"},
+		{"an unparseable final URL is ignored", "https://go.dev/blog/go1.22", "ht tp://%zz", "https://go.dev/blog/go1.22"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := librarySnapshotBaseURL(tc.itemURL, tc.finalURL)
+			if err != nil {
+				t.Fatalf("librarySnapshotBaseURL: %v", err)
+			}
+			if got.String() != tc.want {
+				t.Errorf("base = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }

@@ -1,12 +1,15 @@
 package library
 
 import (
+	"bytes"
+	"io"
 	"net/url"
 	"strings"
 	"time"
 
 	trafilatura "github.com/markusmobius/go-trafilatura/v2"
 	"golang.org/x/net/html"
+	"golang.org/x/net/html/charset"
 
 	"github.com/gabrielassisxyz/norte/server/internal/core"
 )
@@ -69,9 +72,13 @@ type libraryDeclarations struct {
 // libraryReadDeclarations parses the page and collects what it declares. It
 // takes the first value of each name, because a page that repeats one is
 // declaring the first and echoing it.
-func libraryReadDeclarations(source []byte) libraryDeclarations {
+//
+// contentType is the Content-Type header of the fetch that produced the page,
+// empty for a snapshot that arrived without one -- from the extension, from the
+// command line, or from a stored snapshot fetched before the header was kept.
+func libraryReadDeclarations(source []byte, contentType string) libraryDeclarations {
 	declared := libraryDeclarations{meta: map[string]string{}}
-	doc, err := html.Parse(strings.NewReader(string(source)))
+	doc, err := html.Parse(libraryDecodedSource(source, contentType))
 	if err != nil {
 		return declared
 	}
@@ -95,6 +102,27 @@ func libraryReadDeclarations(source []byte) libraryDeclarations {
 	}
 	walk(doc)
 	return declared
+}
+
+// libraryDecodedSource reads the page as UTF-8, whatever encoding it was
+// written in.
+//
+// The body text already arrives decoded, because the extractors do this
+// themselves -- but the declarations were parsed straight off the raw bytes,
+// so a latin-1 page's title was stored as the invalid UTF-8 it is in that
+// encoding and copied on into the registry and the search index. The charset
+// comes from the response header first, then the page's own <meta charset>,
+// then a sniff; a page that is already valid UTF-8 passes through untouched.
+//
+// A reader that cannot be built at all -- an empty snapshot is the one case --
+// falls back to the raw bytes, because parsing them is what happened before
+// this and is never worse than parsing nothing.
+func libraryDecodedSource(source []byte, contentType string) io.Reader {
+	decoded, err := charset.NewReader(bytes.NewReader(source), contentType)
+	if err != nil {
+		return bytes.NewReader(source)
+	}
+	return decoded
 }
 
 // libraryRecordMeta stores one meta tag under its name and under its property,

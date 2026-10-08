@@ -71,13 +71,19 @@ func libraryExtractOptions(pageURL *url.URL) trafilatura.Options {
 
 // libraryExtractPage turns a page's HTML into what gets stored.
 //
+// pageURL is the address the links, the images and the site name resolve
+// against, which after a redirect is the URL the chain ended at rather than the
+// one the person saved. contentType is the fetch's Content-Type header, used to
+// decode a page that is not UTF-8; it is empty for a snapshot that came with no
+// header.
+//
 // Metadata always comes from trafilatura. The content usually does too, except
 // on a page carrying a <pre>: trafilatura flattens a code block into nested
 // <code> elements and loses the line structure, while go-readability keeps
 // <pre><code> intact, so a page with code is read a second time and that
 // reading's content is the one kept. Two passes cost a parse; losing the
 // indentation of every code sample costs the article.
-func libraryExtractPage(source []byte, pageURL *url.URL) (libraryExtracted, error) {
+func libraryExtractPage(source []byte, pageURL *url.URL, contentType string) (libraryExtracted, error) {
 	result, err := trafilatura.Extract(bytes.NewReader(source), libraryExtractOptions(pageURL))
 	if err != nil {
 		return libraryExtracted{}, core.Permanent(fmt.Errorf("extracting the page: %w", err))
@@ -99,7 +105,7 @@ func libraryExtractPage(source []byte, pageURL *url.URL) (libraryExtracted, erro
 	sanitized := libraryExtractPolicy().Sanitize(libraryRenderFragment(content))
 	text := libraryTextFromHTML(sanitized)
 
-	extracted := libraryResolveMetadata(libraryReadDeclarations(source), result.Metadata, pageURL)
+	extracted := libraryResolveMetadata(libraryReadDeclarations(source, contentType), result.Metadata, pageURL)
 	extracted.ContentHTML = sanitized
 	extracted.ContentText = text
 	extracted.Headings = headings

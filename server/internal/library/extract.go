@@ -108,7 +108,22 @@ type librarySnapshotBytes struct {
 	html    []byte
 	hash    string
 	fetched bool
+	// finalURL is the address the fetch's redirect chain ended at, and
+	// contentType the header that fetch answered with. Both are empty for a
+	// snapshot that arrived without a fetch -- from the extension or the
+	// command line -- and for one stored before either was recorded.
+	finalURL    string
+	contentType string
 }
+
+// The meta keys the fetched snapshot's own provenance is written under, beside
+// snapshot_source. They are read back on a re-extraction from the stored
+// snapshot, so the second pass resolves links against the same page the first
+// one read instead of falling back to the address the person saved.
+const (
+	librarySnapshotFinalURLMetaKey    = "snapshot_final_url"
+	librarySnapshotContentTypeMetaKey = "snapshot_content_type"
+)
 
 // Handle runs one extraction.
 //
@@ -146,12 +161,12 @@ func (e *LibraryExtraction) Handle(ctx context.Context, job core.Job) error {
 		e.afterSnapshot()
 	}
 
-	pageURL, err := url.Parse(item.Url)
+	pageURL, err := librarySnapshotBaseURL(item.Url, snapshot.finalURL)
 	if err != nil {
 		return e.recordFailure(ctx, job, item, payload.Generation, core.Permanent(
 			fmt.Errorf("reading the item's address: %w", err)))
 	}
-	extracted, err := libraryExtractPage(snapshot.html, pageURL)
+	extracted, err := libraryExtractPage(snapshot.html, pageURL, snapshot.contentType)
 	if err != nil {
 		return e.recordFailure(ctx, job, item, payload.Generation, err)
 	}
@@ -198,6 +213,25 @@ func libraryDecodeExtractPayload(raw string) (libraryExtractPayload, error) {
 	return payload, nil
 }
 
+// librarySnapshotBaseURL is the address the extraction resolves links, images
+// and the site name against: the URL the fetch's redirect chain ended at, and
+// the address the person saved when there is no such record.
+//
+// A short link is the whole point. Saving a t.co or a bit.ly address and
+// resolving against it gives an article whose every in-text link points at the
+// redirector and whose site reads as the redirector's host, which is the
+// defect. A finalURL that does not parse is ignored rather than fatal: it is a
+// value read back out of open meta JSON, and a page that was extracted once is
+// still worth extracting from the address that is known good.
+func librarySnapshotBaseURL(itemURL, finalURL string) (*url.URL, error) {
+	if finalURL != "" {
+		if parsed, err := url.Parse(finalURL); err == nil && parsed.Host != "" {
+			return parsed, nil
+		}
+	}
+	return url.Parse(itemURL)
+}
+
 // resolveSnapshot produces the bytes this run reads: the stored snapshot when
 // there is one, a fresh fetch when there is not or when a refresh was asked
 // for. A fetch is stored before this returns, so the writer transaction only
@@ -213,7 +247,13 @@ func (e *LibraryExtraction) resolveSnapshot(
 		if err != nil {
 			return librarySnapshotBytes{}, fmt.Errorf("reading the stored snapshot of %s: %w", item.ID, err)
 		}
-		return librarySnapshotBytes{html: content, hash: item.HtmlHash.String}, nil
+		meta := libraryDecodeMeta(item.Meta)
+		return librarySnapshotBytes{
+			html:        content,
+			hash:        item.HtmlHash.String,
+			finalURL:    libraryMetaString(meta, librarySnapshotFinalURLMetaKey),
+			contentType: libraryMetaString(meta, librarySnapshotContentTypeMetaKey),
+		}, nil
 	}
 	if e.fetcher == nil {
 		return librarySnapshotBytes{}, core.Permanent(
@@ -231,7 +271,13 @@ func (e *LibraryExtraction) resolveSnapshot(
 	// fetch limit, and these are the numbers that choice waits on.
 	e.logger.Info("stored a fetched snapshot", "item_id", item.ID,
 		"bytes", blob.Size, "media_type", fetched.MediaType)
-	return librarySnapshotBytes{html: fetched.HTML, hash: blob.Hash, fetched: true}, nil
+	return librarySnapshotBytes{
+		html:        fetched.HTML,
+		hash:        blob.Hash,
+		fetched:     true,
+		finalURL:    fetched.FinalURL,
+		contentType: fetched.ContentType,
+	}, nil
 }
 
 // writeExtraction commits everything one pass produced, and reports whether a
@@ -271,6 +317,8 @@ func (e *LibraryExtraction) writeExtraction(
 	if snapshot.fetched {
 		htmlHash = sql.NullString{String: snapshot.hash, Valid: true}
 		meta["snapshot_source"] = "server_fetch"
+		librarySetMetaString(meta, librarySnapshotFinalURLMetaKey, snapshot.finalURL)
+		librarySetMetaString(meta, librarySnapshotContentTypeMetaKey, snapshot.contentType)
 		if err := librarySwapSnapshotRef(ctx, tx, item, snapshot.hash); err != nil {
 			return false, err
 		}
@@ -600,6 +648,25 @@ func libraryDecodeMeta(raw string) map[string]any {
 		return map[string]any{}
 	}
 	return decoded
+}
+
+// libraryMetaString reads one string out of an item's meta, answering empty for
+// a key that is absent or holds anything else. Meta is open by design, so a
+// value of the wrong shape is a value this reader does not have.
+func libraryMetaString(meta map[string]any, key string) string {
+	value, _ := meta[key].(string)
+	return value
+}
+
+// librarySetMetaString writes key, and deletes it when the value is empty, so a
+// refetch that learned less than the previous one does not leave the previous
+// one's answer behind as if it were this snapshot's.
+func librarySetMetaString(meta map[string]any, key, value string) {
+	if value == "" {
+		delete(meta, key)
+		return
+	}
+	meta[key] = value
 }
 
 func libraryEncodeMeta(meta map[string]any) string {

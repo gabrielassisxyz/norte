@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"golang.org/x/text/encoding/charmap"
+
 	"github.com/gabrielassisxyz/norte/server/internal/core"
 	"github.com/gabrielassisxyz/norte/server/internal/core/clocktest"
 	"github.com/gabrielassisxyz/norte/server/internal/library/db"
@@ -1093,5 +1095,134 @@ func TestAnEnqueuedRefreshStillDownloads(t *testing.T) {
 	}
 	if source := librarySnapshotSource(after.Meta); source != "server_fetch" {
 		t.Errorf("meta.snapshot_source = %q, want server_fetch", source)
+	}
+}
+
+// libraryRedirectTestHost is the second hostname the redirect tests use, and
+// libraryRedirectTestIP the public address a test resolver maps it to. A chain
+// has to cross hosts for the defect to be visible at all: resolving against the
+// address the person saved is only wrong when the page came from another one.
+const (
+	libraryRedirectTestHost = "final.test"
+	libraryRedirectTestIP   = "198.51.100.9"
+)
+
+// libraryServeRedirectToFixture answers /short with a redirect onto the second
+// test host and serves the fixture there, which is the shape of every short
+// link: one hop, another host, the article at the end of it.
+func libraryServeRedirectToFixture(t *testing.T, name, finalPath string) http.Handler {
+	t.Helper()
+	page, err := os.ReadFile("testdata/pages/" + name + ".html")
+	if err != nil {
+		t.Fatalf("reading the %s fixture: %v", name, err)
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == finalPath {
+			w.Header().Set("Content-Type", "text/html; charset=utf-8")
+			_, _ = w.Write(page)
+			return
+		}
+		http.Redirect(w, r, "http://"+libraryRedirectTestHost+finalPath, http.StatusFound)
+	})
+}
+
+// TestAFetchRecordsItsFinalURLAndExtractsAgainstIt is the redirect defect end to
+// end, in the two passes it takes to be sure of the fix.
+//
+// The first pass fetches through the chain: the site and every in-article link
+// have to come from the host the chain ended at, and that address has to be
+// written beside snapshot_source -- because the second pass reads the stored
+// snapshot and has nothing else to resolve against. A fix that only threaded
+// the final URL through the fetching run would leave the second pass putting
+// the links back on the redirector, which is why both are asserted here.
+func TestAFetchRecordsItsFinalURLAndExtractsAgainstIt(t *testing.T) {
+	harness := newLibraryExtractHarness(t, libraryHarnessOptions{
+		FetchHandler: libraryServeRedirectToFixture(t, "go-blog", "/blog/go1.22"),
+		Names:        map[string][]string{libraryRedirectTestHost: {libraryRedirectTestIP}},
+	})
+	shortLink := "http://" + libraryFetchTestHost + "/short"
+	id := harness.save(shortLink, nil)
+
+	if err := harness.run(id, 1, false, 1); err != nil {
+		t.Fatalf("the fetching extraction failed: %v", err)
+	}
+	fetched := harness.item(id)
+	wantFinal := "http://" + libraryRedirectTestHost + "/blog/go1.22"
+	if got := libraryMetaString(libraryDecodeMeta(fetched.Meta), librarySnapshotFinalURLMetaKey); got != wantFinal {
+		t.Errorf("meta.%s = %q, want %q", librarySnapshotFinalURLMetaKey, got, wantFinal)
+	}
+	libraryAssertExtractedAgainstTheFinalHost(t, "after the fetch", fetched)
+
+	// The same item again, with no refresh: the handler reads the snapshot it
+	// stored a moment ago and must resolve against the same page.
+	if err := harness.run(id, 1, false, 1); err != nil {
+		t.Fatalf("the re-extraction failed: %v", err)
+	}
+	reextracted := harness.item(id)
+	if reextracted.HtmlHash.String != fetched.HtmlHash.String {
+		t.Fatalf("the second pass refetched, so it proves nothing about the stored snapshot")
+	}
+	libraryAssertExtractedAgainstTheFinalHost(t, "after re-extracting the stored snapshot", reextracted)
+}
+
+// libraryAssertExtractedAgainstTheFinalHost is the pair of assertions both
+// passes make: the site is the host the chain ended at, and no address in the
+// article points back at the one the person saved.
+func libraryAssertExtractedAgainstTheFinalHost(t *testing.T, when string, item db.LibraryItem) {
+	t.Helper()
+	if item.Site.String != libraryRedirectTestHost {
+		t.Errorf("%s: site = %q, want %q", when, item.Site.String, libraryRedirectTestHost)
+	}
+	if !item.ContentHtml.Valid || item.ContentHtml.String == "" {
+		t.Fatalf("%s: content_html is empty, so the assertions above read off nothing", when)
+	}
+	if strings.Contains(item.ContentHtml.String, libraryFetchTestHost) {
+		t.Errorf("%s: the redirector's host survived into content_html:\n%s", when, item.ContentHtml.String)
+	}
+	if !strings.Contains(item.ContentHtml.String, "http://"+libraryRedirectTestHost+"/") {
+		t.Errorf("%s: no link resolved under the final host:\n%s", when, item.ContentHtml.String)
+	}
+}
+
+// TestALatin1SnapshotStoresAValidUTF8Title follows the decoded title into the
+// three places the defect spread it to.
+//
+// The title is not a column that stays in one table: the extraction copies it
+// into the item registry and the full-text index feeds off the row, so a
+// title stored as the raw ISO-8859-1 bytes it arrived as was invalid UTF-8 in
+// all three. Asserting on library_items alone would have passed before the fix
+// and after it.
+func TestALatin1SnapshotStoresAValidUTF8Title(t *testing.T) {
+	harness := newLibraryExtractHarness(t, libraryHarnessOptions{})
+	const accented = "Acentuação"
+	page := libraryEncodedPage(t, charmap.ISO8859_1, "iso-8859-1", accented)
+	id := harness.save("https://pages.example/latin1", page)
+
+	if err := harness.run(id, 1, false, 1); err != nil {
+		t.Fatalf("the extraction failed: %v", err)
+	}
+
+	if got := harness.item(id).Title; got != accented {
+		t.Errorf("library_items.title = %q (% x), want %q", got, got, accented)
+	}
+
+	var registryTitle string
+	if err := harness.database.Reader().QueryRow(
+		`SELECT title FROM core_items WHERE id = ?`, id).Scan(&registryTitle); err != nil {
+		t.Fatalf("reading core_items.title: %v", err)
+	}
+	if registryTitle != accented {
+		t.Errorf("core_items.title = %q (% x), want %q", registryTitle, registryTitle, accented)
+	}
+
+	entries, err := librarySearchEntries(context.Background(), harness.database, accented, 10)
+	if err != nil {
+		t.Fatalf("searching the library: %v", err)
+	}
+	if len(entries) != 1 {
+		t.Fatalf("%d search hits for %q, want 1", len(entries), accented)
+	}
+	if entries[0].Title != accented {
+		t.Errorf("the search hit's title = %q (% x), want %q", entries[0].Title, entries[0].Title, accented)
 	}
 }
