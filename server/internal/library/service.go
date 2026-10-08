@@ -68,6 +68,20 @@ type LibraryService struct {
 	// libraryExtractKind is the job kind saves enqueue. A test sets it empty
 	// to prove the save rolls back when the enqueue fails.
 	libraryExtractKind string
+	// focus is what the focus-ranked view and the weighted draw rank by, or
+	// nil in a process assembled without it -- both then refuse rather than
+	// answering an unranked list under a ranked name.
+	focus libraryFocusReader
+}
+
+// WithFocus hands the service the focus the now view and the serendipity draw
+// rank by. It is set apart from the constructor because every other caller of
+// the service -- norte save, the extraction worker, the Telegram adapter --
+// has no use for it, and a constructor argument none of them can fill is a nil
+// each of them has to pass.
+func (s *LibraryService) WithFocus(focus libraryFocusReader) *LibraryService {
+	s.focus = focus
+	return s
 }
 
 // NewLibraryService returns the service over the module's dependencies.

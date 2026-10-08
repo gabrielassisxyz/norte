@@ -64,10 +64,17 @@ paths:
         and a hash of the filters, and a cursor presented with different
         filters or sort is refused. With q the order is the full-text rank,
         then id, and an explicit sort together with q is refused.
+
+        view=now is not a shelf: it reads every status, keeps only unread
+        items and orders them by how closely they relate to what the person is
+        focused on, so it carries its own order and refuses q, an explicit
+        sort and unread=false.
       parameters:
         - name: view
           in: query
-          description: Which shelf to read; tudo is every status.
+          description: |
+            Which shelf to read; tudo is every status, and now is the
+            focus-ranked unread list rather than a shelf.
           schema:
             $ref: "#/components/schemas/LibraryView"
             default: inbox
@@ -131,6 +138,57 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LibraryCounts"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/items/random:
+    get:
+      operationId: drawLibraryItems
+      summary: Draw a random unread item
+      description: |
+        The serendipity button: one unread item, drawn at random, for the
+        moment when nothing on the shelf appeals. With away_from_focus the draw
+        is weighted by 1 / (1 + focus score), so an item unrelated to what the
+        person is focused on is the likelier one -- which is the point, the
+        focused ones already having their own view. With away_from_focus false
+        every unread item is equally likely.
+
+        This path is declared before /api/library/items/{id} because the two
+        overlap: a router that matched the wildcard first would validate a draw
+        against the detail endpoint.
+
+        Draws are with replacement, so the same item may come back twice in one
+        answer; with a seed the whole answer is reproducible, which is what
+        makes the weighting testable. A library with no unread item answers 404.
+      parameters:
+        - name: away_from_focus
+          in: query
+          description: Weight the draw away from the focus, rather than drawing uniformly.
+          schema:
+            type: boolean
+            default: true
+        - name: n
+          in: query
+          description: |
+            How many draws this call makes, from 1 to 100. Anything outside
+            that range is refused; the range is the service's, so the message
+            names it.
+          schema:
+            type: integer
+        - name: seed
+          in: query
+          description: |
+            Makes the draw reproducible: the same seed over the same data draws
+            the same items. Without one the draw uses a fresh source.
+          schema:
+            type: integer
+            format: int64
+      responses:
+        "200":
+          description: The items drawn, in draw order.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryDraw"
         default:
           $ref: "#/components/responses/Error"
   /api/library/items/{id}:
@@ -277,12 +335,17 @@ components:
         - import
     LibraryView:
       type: string
-      description: Which shelf a list reads; tudo is every status.
+      description: |
+        Which shelf a list reads; tudo is every status. now is not a shelf but
+        the focus-ranked unread list, which is why it sits here rather than in
+        ItemStatus: a status is something an item has, and now is a way of
+        looking at the library.
       enum:
         - inbox
         - depois
         - arquivo
         - tudo
+        - now
     LibrarySort:
       type: string
       description: The order a list comes back in.
@@ -565,6 +628,19 @@ components:
         next_cursor:
           type: string
           description: The cursor for the following page, absent on the last one.
+    LibraryDraw:
+      type: object
+      additionalProperties: false
+      required:
+        - items
+      properties:
+        items:
+          type: array
+          description: |
+            One summary per draw, in the order they were drawn. Draws are with
+            replacement, so an id may appear more than once.
+          items:
+            $ref: "#/components/schemas/LibraryItemSummary"
     LibraryCounts:
       type: object
       additionalProperties: false

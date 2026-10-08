@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
 import { buildMockData } from '@/mock/data'
-import { buildAnnotations, buildHighlights, buildNotesReferencedItems, buildQuestions } from '@/modules/notes/mock/notes'
 import { buildReviewCards, buildReviewReferencedItems } from '@/modules/review/mock/cards'
 import { buildStudyReferencedItems, curricula } from '@/modules/study/mock/curricula'
 
@@ -63,20 +62,11 @@ describe('each slice carries the library items it names', () => {
     expect(named.filter((id) => !own.has(id))).toEqual([])
   })
 
-  it('keeps every note target resolvable without the library slice', () => {
-    const own = new Set(buildNotesReferencedItems(TODAY).map((item) => item.id))
-    const named = [...buildHighlights(TODAY), ...buildAnnotations(TODAY), ...buildQuestions(TODAY)]
-      .map((note) => note.materialId)
-      .filter((id): id is string => Boolean(id))
-
-    expect(named.length).toBeGreaterThan(0)
-    expect(named.filter((id) => !own.has(id))).toEqual([])
-  })
-
   it('holds nothing but stand-ins, now that the library reads the API', () => {
     // The library has no mock slice any more, so every library record the mock
     // carries is a stand-in some other module's slice names by id. A record
-    // with another author would be a library slice growing back.
+    // with another author would be a library slice growing back. The notes have
+    // no slice either, so nothing here is a note's target.
     const records = buildMockData(TODAY).libraryItems
 
     expect(records.length).toBeGreaterThan(0)

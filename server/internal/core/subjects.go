@@ -260,6 +260,24 @@ func (s *Subjects) FocusSubjects(ctx context.Context) ([]SubjectRecord, error) {
 	return s.withCountsForAll(ctx, rows)
 }
 
+// FocusSubjectIDs lists the ids of the flagged subjects and nothing else.
+//
+// It exists next to FocusSubjects rather than being derived from it because
+// the caller that ranks rows by the focus runs on every list request and wants
+// the ids only: FocusSubjects counts what is linked to each subject, which is
+// several queries this one does not need.
+func (s *Subjects) FocusSubjectIDs(ctx context.Context) ([]string, error) {
+	rows, err := db.New(s.database.Reader()).ListFocusCoreSubjects(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("listing the focus subject ids: %w", err)
+	}
+	ids := make([]string, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.ID)
+	}
+	return ids, nil
+}
+
 // List reads one page of subjects.
 //
 // With no query the order is the slug then the id. With one, the match is

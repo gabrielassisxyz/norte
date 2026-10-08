@@ -4,12 +4,16 @@ package library
 
 import (
 	"context"
+	"database/sql"
+	"errors"
+	"fmt"
 	"io/fs"
 
 	"github.com/spf13/cobra"
 
 	"github.com/gabrielassisxyz/norte/server/internal/app"
 	"github.com/gabrielassisxyz/norte/server/internal/core"
+	"github.com/gabrielassisxyz/norte/server/internal/library/db"
 	"github.com/gabrielassisxyz/norte/server/internal/library/migrations"
 )
 
@@ -87,9 +91,26 @@ func (*LibraryModule) Start(ctx context.Context, deps app.Deps) error {
 	return adapter.Run(ctx)
 }
 
-// Text owns no readable text yet: the reader bead adds the provider that
-// renders an item.
-func (*LibraryModule) Text(context.Context, string) (string, bool, error) { return "", false, nil }
+// Text is the extracted article text of a saved link, which is what notes
+// anchors its highlights against.
+//
+// Only a finished extraction answers: a pending one has no text yet and a
+// failed one never will, and in both cases the second result is false so the
+// core reports ErrNoText rather than anchoring a passage against an empty
+// article.
+func (*LibraryModule) Text(ctx context.Context, deps app.Deps, id string) (string, bool, error) {
+	item, err := db.New(deps.Database.Reader()).GetLibraryItemByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("reading the library item %s: %w", id, err)
+	}
+	if item.ExtractStatus != "done" || !item.ContentText.Valid {
+		return "", false, nil
+	}
+	return item.ContentText.String, true, nil
+}
 
 // FocusTargets reports nothing. "In progress" is each module's own idea, and
 // the library has none: a saved link is not something being worked through,
@@ -106,7 +127,14 @@ func (*LibraryModule) SearchEntries(context.Context, string, int) ([]core.Search
 // newLibraryServiceFromDeps wires the service over what the registry handed the
 // module.
 func newLibraryServiceFromDeps(deps app.Deps) *LibraryService {
-	return NewLibraryService(deps.Database, deps.Files, deps.Jobs, deps.Clock)
+	service := NewLibraryService(deps.Database, deps.Files, deps.Jobs, deps.Clock)
+	// Checked rather than passed through: a nil *core.FocusAPI stored in an
+	// interface field is not a nil interface, so the service would believe it
+	// has a focus and call through it.
+	if deps.Focus != nil {
+		service = service.WithFocus(deps.Focus)
+	}
+	return service
 }
 
 // newLibraryExtractionFromDeps wires the extraction handler, with the fetcher
