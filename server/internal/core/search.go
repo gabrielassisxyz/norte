@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"unicode/utf8"
 )
 
 // How much one search answers.
@@ -18,6 +19,10 @@ const (
 	// the best answers to a word someone is still typing; a second page of
 	// them is a different question, asked on a module's own screen.
 	SearchTotalLimit = 30
+	// SearchQueryMaxLength is the longest q the contract accepts, in
+	// characters. A palette query is a word or two; a pasted paragraph would
+	// be handed to every module's full-text index.
+	SearchQueryMaxLength = 200
 )
 
 // SearchAPI answers GET /api/core/search: every enabled module's hits plus the
@@ -55,6 +60,10 @@ func (s *SearchAPI) Search(ctx context.Context, query string) ([]SearchEntry, er
 	}
 	if strings.TrimSpace(query) == "" {
 		return nil, apiBadRequest("invalid_request", "the query holds no searchable word", "q")
+	}
+	if utf8.RuneCountInString(query) > SearchQueryMaxLength {
+		return nil, apiBadRequest("invalid_request",
+			fmt.Sprintf("the query is longer than %d characters", SearchQueryMaxLength), "q")
 	}
 	merged := []SearchEntry{}
 	subjects, err := s.subjects.SubjectSearchEntries(ctx, query, SearchProviderLimit)

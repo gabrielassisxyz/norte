@@ -2,7 +2,9 @@ package core_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -223,6 +225,22 @@ func TestAProviderThatIgnoresItsLimitStillContributesExactlyTen(t *testing.T) {
 	}
 	if loudCount != 10 {
 		t.Fatalf("the loud provider contributed %d entries, want exactly 10", loudCount)
+	}
+}
+
+// TestAQueryOverTwoHundredCharactersIsRefused pins the contract's maxLength
+// by its edge: 200 characters is searched, 201 is a 400 on q. Accented runes
+// are used so a byte count instead of a character count fails too.
+func TestAQueryOverTwoHundredCharactersIsRefused(t *testing.T) {
+	api, _ := newSearchAPI(t, &searchProviderFake{})
+
+	if _, err := api.Search(context.Background(), strings.Repeat("é", 200)); err != nil {
+		t.Fatalf("a 200-character query was refused: %v", err)
+	}
+	_, err := api.Search(context.Background(), strings.Repeat("é", 201))
+	var refusal *core.APIError
+	if !errors.As(err, &refusal) || refusal.Status != http.StatusBadRequest || refusal.Field != "q" {
+		t.Fatalf("a 201-character query gave %v, want a 400 on q", err)
 	}
 }
 
