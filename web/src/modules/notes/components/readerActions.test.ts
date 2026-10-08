@@ -182,6 +182,38 @@ describe("the reader's notes actions", () => {
     expect(sent.suffix).toContain('Depois do trecho.')
   })
 
+  it('tells the reader when the highlight was kept without a position', async () => {
+    const { wrapper, notes } = await mountReader()
+    notes.addHighlight = async (highlight) =>
+      highlightRecord({
+        id: 'h-new',
+        item_id: highlight.item_id,
+        exact: highlight.exact,
+        status: 'orphaned',
+        ambiguous: true
+      })
+
+    selectInArticle('O trecho marcado.')
+    await wrapper.get('.reader-scroll').trigger('mouseup')
+    await flushReads()
+    await wrapper.get('[data-action="destacar"]').trigger('click')
+    await flushReads()
+
+    expect(wrapper.get('[data-notes-ambiguous]').text()).toBe('trecho repetido: destaque guardado sem posição')
+  })
+
+  it('says nothing about repetition when the highlight was anchored', async () => {
+    const { wrapper } = await mountReader()
+
+    selectInArticle('O trecho marcado.')
+    await wrapper.get('.reader-scroll').trigger('mouseup')
+    await flushReads()
+    await wrapper.get('[data-action="destacar"]').trigger('click')
+    await flushReads()
+
+    expect(wrapper.find('[data-notes-ambiguous]').exists()).toBe(false)
+  })
+
   it('marks an anchored passage in the text', async () => {
     const { wrapper } = await mountReader({
       notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'O trecho marcado.' })] }

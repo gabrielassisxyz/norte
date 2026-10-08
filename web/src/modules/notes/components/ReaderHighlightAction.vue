@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import Button from '@/components/ds/Button.vue'
 import { useAsyncAction } from '@/lib/asyncResource'
@@ -31,6 +31,9 @@ const { data: notesOfItem, applyHighlight } = useItemNotes(
   () => allowed.value
 )
 
+/** True after a create that the server stored without a position. */
+const keptWithoutPosition = ref(false)
+
 const anchored = computed(() =>
   (notesOfItem.value?.highlights ?? []).filter((highlight) => highlight.status === 'anchored')
 )
@@ -38,6 +41,7 @@ const anchored = computed(() =>
 async function highlightSelection(): Promise<void> {
   const selected = props.liveSelection
   if (!selected) return
+  keptWithoutPosition.value = false
   const created = await writing.run(() =>
     notes.addHighlight({
       item_id: props.itemId,
@@ -48,6 +52,7 @@ async function highlightSelection(): Promise<void> {
   )
   if (!created) return
   applyHighlight(created)
+  keptWithoutPosition.value = created.ambiguous === true
   notesGainedNote()
   props.clearSelection()
 }
@@ -91,6 +96,9 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
       </Button>
       <Button variant="secondary" size="sm" @click="clearSelection">Cancelar</Button>
     </div>
+    <p v-if="keptWithoutPosition" class="notes-highlight-notice" role="status" data-notes-ambiguous>
+      trecho repetido: destaque guardado sem posição
+    </p>
     <p v-if="writing.error.value" class="notes-highlight-error" role="alert">
       Não foi possível destacar: {{ writing.error.value }}
     </p>
@@ -116,5 +124,6 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
   font-size: 14px;
   line-height: 22px;
 }
+.notes-highlight-notice { margin: var(--space-2) 0 0; color: var(--ink-2); font-size: 13px; line-height: 20px; }
 .notes-highlight-error { margin: var(--space-2) 0 0; color: var(--danger); font-size: 13px; line-height: 20px; }
 </style>
