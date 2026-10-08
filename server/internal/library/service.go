@@ -407,7 +407,13 @@ func (s *LibraryService) replaceLibrarySnapshot(ctx context.Context, tx *sql.Tx,
 			return fmt.Errorf("referencing the new snapshot: %w", err)
 		}
 	}
-	if err := s.enqueueLibraryExtract(ctx, tx, existing.ID, generation, true); err != nil {
+	// Not a refresh: the bytes this save carried are the ones to extract. A
+	// refresh downloads the page instead, which throws away a capture the
+	// server cannot make for itself -- anything behind a login or a paywall
+	// then ends failed, and a public page is silently replaced by whatever the
+	// server sees. Downloading again is the retry endpoint's explicit option,
+	// never an implication of a save.
+	if err := s.enqueueLibraryExtract(ctx, tx, existing.ID, generation, false); err != nil {
 		return err
 	}
 	return nil
