@@ -73,10 +73,13 @@ describe('each slice carries the library items it names', () => {
     expect(named.filter((id) => !own.has(id))).toEqual([])
   })
 
-  it('does not let a stand-in displace the library entry it stands in for', () => {
-    // The library's own slice is merged first, so its richer entry wins while it
-    // exists; a stand-in leaking into the visible data would show up here as an
-    // item carrying the stand-in's author.
-    expect(buildMockData(TODAY).libraryItems.filter((item) => item.author === 'Material referenciado')).toEqual([])
+  it('holds nothing but stand-ins, now that the library reads the API', () => {
+    // The library has no mock slice any more, so every library record the mock
+    // carries is a stand-in some other module's slice names by id. A record
+    // with another author would be a library slice growing back.
+    const records = buildMockData(TODAY).libraryItems
+
+    expect(records.length).toBeGreaterThan(0)
+    expect(records.filter((item) => item.author !== 'Material referenciado')).toEqual([])
   })
 })

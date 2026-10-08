@@ -1,4 +1,4 @@
-import { createStandInLibraryItem } from '@/mock/standins'
+import { createStandInLibraryItem, createUnreadStandInLibraryItem } from '@/mock/standins'
 import type { Curriculum, LibraryItem } from '@/mock/types'
 
 export const curricula: Curriculum[] = [
@@ -427,8 +427,32 @@ export const curricula: Curriculum[] = [
  * Stand-ins for every library item a curriculum module names, so this slice
  * stays readable on its own once the library's mock slice is deleted.
  */
+/**
+ * Which of the referenced items have been read.
+ *
+ * This is the study module's own fixture, not a copy of a library slice: the
+ * curriculum screen derives every material's marker, each module's status and
+ * the progress line from whether its item has been read, so the slice that
+ * names the materials has to say which of them are behind the reader. The ones
+ * left out sit unread in the inbox, which is what makes one of them current.
+ */
+const READ_MATERIAL_IDS = new Set([
+  'post-garden',
+  'book-type',
+  'paper-reading',
+  'paper-compost',
+  'video-budget',
+  'podcast-drawing',
+  'course-finance',
+  'course-writing'
+])
+
 export function buildStudyReferencedItems(today: string): LibraryItem[] {
   return [
     ...new Set(curricula.flatMap((curriculum) => curriculum.modules.flatMap((module) => module.materials.map((material) => material.libraryItemId))))
-  ].map((id) => createStandInLibraryItem(id, today))
+  ].map((id) =>
+    READ_MATERIAL_IDS.has(id)
+      ? createStandInLibraryItem(id, today)
+      : createUnreadStandInLibraryItem(id, today)
+  )
 }

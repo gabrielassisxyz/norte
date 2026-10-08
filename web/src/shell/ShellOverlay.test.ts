@@ -1,20 +1,26 @@
 import { flushPromises, mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it } from 'vitest'
 
 import ShellOverlay from '@/shell/ShellOverlay.vue'
+import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { routes } from '@/router'
-import { createMockSources } from '@/sources/mock'
-import { flushReads, sourcesPlugin } from '@/sources/testing'
+import { appSourcesWithLibrary, flushReads, sourcesPlugin } from '@/sources/testing'
 import { setTheme } from '@/theme'
 
+afterEach(() => {
+  resetModuleMounting()
+})
+
 async function mountOverlay(open: 'busca' | 'prefs') {
+  // The palette offers the library's items, and the library is `api`-backed.
+  setEnabledModules(['library'])
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push('/')
   await router.isReady()
   const wrapper = mount(ShellOverlay, {
     props: { open },
-    global: { plugins: [router, sourcesPlugin(createMockSources())] }
+    global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary())] }
   })
   // The palette offers what each mounted module answered with.
   await flushReads()
@@ -35,7 +41,7 @@ describe('shell overlay', () => {
     const { wrapper, router } = await mountOverlay('busca')
     const search = wrapper.get('input[aria-label="Buscar"]')
 
-    await search.setValue('Mapas')
+    await search.setValue('Um livro guardado')
     expect(wrapper.findAll('.shell-palette-row')).toHaveLength(1)
     await search.trigger('keydown', { key: 'ArrowDown' })
     expect(wrapper.get('.shell-palette-row').classes()).toContain('is-highlighted')
@@ -45,7 +51,7 @@ describe('shell overlay', () => {
     // reasons that have nothing to do with the screen under test.
     const navigated = new Promise<void>((resolve) => {
       const stop = router.afterEach((to) => {
-        if (to.name !== 'material') return
+        if (to.name !== 'leitor') return
         stop()
         resolve()
       })
@@ -55,8 +61,8 @@ describe('shell overlay', () => {
     // The overlay closes itself once its own push resolves, one turn later.
     await flushPromises()
 
-    expect(router.currentRoute.value.name).toBe('material')
-    expect(router.currentRoute.value.params).toMatchObject({ kind: 'post', id: 'post-compilation' })
+    expect(router.currentRoute.value.name).toBe('leitor')
+    expect(router.currentRoute.value.params).toMatchObject({ id: 'lib-livro' })
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 

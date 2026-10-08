@@ -25,17 +25,20 @@ describe('the mount rule', () => {
   })
 
   it('reads a module backing from its manifest until a test overrides it', () => {
-    expect(moduleBacking('library')).toBe('mock')
-    overrideModuleBacking('library', 'api')
+    // Study still reads the mock and the library reads the API, so the two
+    // together say the backing comes from the manifest and not from a default.
+    expect(moduleBacking('study')).toBe('mock')
     expect(moduleBacking('library')).toBe('api')
+    overrideModuleBacking('study', 'api')
+    expect(moduleBacking('study')).toBe('api')
     resetModuleMounting()
-    expect(moduleBacking('library')).toBe('mock')
+    expect(moduleBacking('study')).toBe('mock')
   })
 })
 
 describe('the cross-module gating rule', () => {
   it('offers an action between two mounted modules that read from the same place', () => {
-    expect(crossModuleActionAllowed('library', 'study')).toBe(true)
+    expect(crossModuleActionAllowed('study', 'review')).toBe(true)
   })
 
   it('refuses an action from an api-backed module into a mock-backed one', () => {

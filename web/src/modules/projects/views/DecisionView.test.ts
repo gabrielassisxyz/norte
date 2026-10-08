@@ -93,7 +93,10 @@ describe('decision view over the mock source', () => {
     for (const link of wrapper.findAll('.decision-blocked-task')) {
       expect(router.resolve(link.attributes('href')!).name).toBe('tarefa')
     }
-    expect(wrapper.findAll('.decision-reference')).not.toHaveLength(0)
+    // The reading behind a decision lives in the library, which reads the
+    // server while this module reads the mock: the section is there and names
+    // nothing, because a mock id cannot be looked up against the API.
+    expect(wrapper.findAll('.decision-reference')).toHaveLength(0)
   })
 
   it('keeps Decidir disabled until a choice is complete and persists it', async () => {

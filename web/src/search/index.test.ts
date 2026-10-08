@@ -3,9 +3,8 @@ import { defineComponent, h, type ComputedRef } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { createMockStore, type MockStore } from '@/mock/store'
-import { resetModuleMounting } from '@/modules/mounting'
-import { createMockSources } from '@/sources/mock'
-import { flushReads, sourcesPlugin } from '@/sources/testing'
+import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
+import { appSourcesWithLibrary, flushReads, sourcesPlugin } from '@/sources/testing'
 
 import { filterSearchIndex, groupSearchResults, useSearchIndex, type SearchEntry } from './index'
 
@@ -18,6 +17,9 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
   store = createMockStore()
+  // The library is `api`-backed, so the palette carries its items only while
+  // the server says the module is there.
+  setEnabledModules(['library'])
 })
 
 afterEach(() => {
@@ -41,7 +43,7 @@ async function readIndex(): Promise<SearchEntry[]> {
     }
   })
 
-  mount(host, { global: { plugins: [sourcesPlugin(createMockSources(store))] } })
+  mount(host, { global: { plugins: [sourcesPlugin(appSourcesWithLibrary({ store }))] } })
   await flushReads()
   if (!captured) throw new Error('The host component never ran its setup')
   return (captured as ComputedRef<SearchEntry[]>).value
@@ -52,9 +54,9 @@ describe('search index', () => {
     const index = await readIndex()
 
     expect(index.find((entry) => entry.title === 'Biblioteca')?.to).toEqual({ name: 'biblioteca' })
-    expect(index.find((entry) => entry.title === 'Mapas de símbolos em compiladores pequenos')?.to).toEqual({
-      name: 'material',
-      params: { kind: 'post', id: 'post-compilation' }
+    expect(index.find((entry) => entry.title === 'Um texto guardado')?.to).toEqual({
+      name: 'leitor',
+      params: { id: 'lib-post' }
     })
     expect(index.find((entry) => entry.title === 'Horta da varanda')?.to).toEqual({
       name: 'projeto',
@@ -75,7 +77,7 @@ describe('search index', () => {
       }
     })
 
-    mount(host, { global: { plugins: [sourcesPlugin(createMockSources(store))] } })
+    mount(host, { global: { plugins: [sourcesPlugin(appSourcesWithLibrary({ store }))] } })
 
     // No flush: every module's read is still in flight.
     const index = (captured as unknown as ComputedRef<SearchEntry[]>).value

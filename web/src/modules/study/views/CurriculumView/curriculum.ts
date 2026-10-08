@@ -1,6 +1,7 @@
 import type { MaterialStatus } from '@/components/ds/MaterialRow.vue'
 import type { ModuleStatus } from '@/components/ds/ModuleItem.vue'
 import type { Curriculum, CurriculumModule, LibraryItem, LibraryKind, MaterialKind } from '@/mock/types'
+import { crossModuleActionAllowed } from '@/modules/mounting'
 
 /** The slug that opens the screen as an empty "novo currículo" form. */
 export const NEW_CURRICULUM_SLUG = 'nova'
@@ -83,8 +84,18 @@ function libraryStatus(item: LibraryItem | undefined): MaterialStatus | undefine
   return undefined
 }
 
+/**
+ * Where a material's title leads.
+ *
+ * A readable kind opens in the app, but only while the library reads from the
+ * same place this module does: these ids come from the study slice, and the
+ * library's own reader resolves ids against the server. Sending a mock id to
+ * an API-backed screen produces a reader with nothing in it, so the crossing
+ * is gated by the same rule as any other, and the source stands in for it.
+ */
 export function materialHref(item: LibraryItem): string {
-  if ((READABLE_KINDS as LibraryKind[]).includes(item.kind)) return `/material/${item.kind}/${item.id}`
+  const readable = (READABLE_KINDS as LibraryKind[]).includes(item.kind)
+  if (readable && crossModuleActionAllowed('study', 'library')) return `/material/${item.kind}/${item.id}`
   return item.url
 }
 
@@ -114,7 +125,10 @@ export function buildCurriculumView(curriculum: Curriculum, libraryItems: Librar
       const isCurrent = resolved === undefined && material.required && !currentTaken
       if (isCurrent) currentTaken = true
       const status: MaterialStatus = resolved ?? (isCurrent ? 'current' : 'next')
-      const readable = (READABLE_KINDS as LibraryKind[]).includes(item.kind)
+      const href = materialHref(item)
+      // The trailing source icon only makes sense beside a title that stays in
+      // the app; when the title already leads to the source, it would repeat it.
+      const staysInApp = href !== item.url
       const view: MaterialView = {
         id: material.id,
         n: index + 1,
@@ -123,8 +137,8 @@ export function buildCurriculumView(curriculum: Curriculum, libraryItems: Librar
         type: `${material.required ? 'O' : 'P'} · ${KIND_LABELS[item.kind]}`,
         optional: !material.required,
         status,
-        href: materialHref(item),
-        ...(readable ? { url: item.url } : {})
+        href,
+        ...(staysInApp ? { url: item.url } : {})
       }
       if (material.required) {
         moduleRequired += 1

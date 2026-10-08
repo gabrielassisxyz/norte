@@ -1,19 +1,26 @@
 import { mount, type DOMWrapper, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter, type Router } from 'vue-router'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import App from '@/App.vue'
 import AppSidebar from '@/shell/AppSidebar.vue'
 import sidebarSource from '@/shell/AppSidebar.vue?raw'
+import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { routes } from '@/router'
-import { createMockSources } from '@/sources/mock'
-import { flushReads, sourcesPlugin } from '@/sources/testing'
+import { appSourcesWithLibrary, flushReads, sourcesPlugin } from '@/sources/testing'
+
+afterEach(() => {
+  resetModuleMounting()
+})
 
 async function mountAt(path: string) {
+  // The library is `api`-backed, so a shell with a library line in it is a
+  // shell mounted against a server that lists the module.
+  setEnabledModules(['library'])
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(App, { global: { plugins: [router, sourcesPlugin(createMockSources())] } })
+  const wrapper = mount(App, { global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary())] } })
   await flushReads()
   return { wrapper, router }
 }
@@ -263,10 +270,10 @@ describe('app shell', () => {
     expect(wrapper.find('input[aria-label="Buscar"]').exists()).toBe(true)
   })
 
-  it('renders bare material routes without the sidebar', async () => {
-    const { wrapper } = await mountAt('/material/post/post-compilation')
+  it('renders the bare reader route without the sidebar', async () => {
+    const { wrapper } = await mountAt('/biblioteca/lib-post')
 
     expect(wrapper.find('.app-sidebar').exists()).toBe(false)
-    expect(wrapper.find('.app-content h1').text()).toBe('Mapas de símbolos em compiladores pequenos')
+    expect(wrapper.find('.app-content h1').text()).toBe('Um texto guardado')
   })
 })
