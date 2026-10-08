@@ -203,7 +203,7 @@ describe('app shell', () => {
     }
 
     expect(targets['Inbox']).toBe('/biblioteca?v=inbox')
-    expect(targets['Artigos']).toBe('/biblioteca?tipo=artigos')
+    expect(targets['Artigos']).toBe('/biblioteca?v=tudo&tipo=post')
     expect(targets['Shortlist']).toBe('/biblioteca?v=tudo')
     expect(targets['Currículos']).toBe('/estudo')
 

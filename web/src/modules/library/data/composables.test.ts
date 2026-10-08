@@ -124,6 +124,22 @@ describe('useLibraryItems after a write moves a row', () => {
     expect(everything.data.value?.items.map((item) => item.id)).toEqual(['a', 'b'])
   })
 
+  it('keeps an unread row on view=now across a shelf change, and drops it once read', async () => {
+    const records = [libraryRecord({ id: 'a', status: 'inbox', unread: true }), libraryRecord({ id: 'b', status: 'inbox', unread: true })]
+    const items = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'now' }))
+
+    items.applyItem({ ...records[0], status: 'depois' })
+    expect(items.data.value?.items.map((item) => item.id)).toEqual(['a', 'b'])
+    expect(items.data.value?.items[0]).toMatchObject({ id: 'a', status: 'depois' })
+
+    items.applyItem({ ...records[0], status: 'arquivo' })
+    expect(items.data.value?.items.map((item) => item.id)).toEqual(['a', 'b'])
+    expect(items.data.value?.items[0]).toMatchObject({ id: 'a', status: 'arquivo' })
+
+    items.applyItem({ ...records[0], status: 'arquivo', unread: false })
+    expect(items.data.value?.items.map((item) => item.id)).toEqual(['b'])
+  })
+
   it('drops a row marked read while only unread rows are asked for', async () => {
     const records = [libraryRecord({ id: 'a', unread: true }), libraryRecord({ id: 'b', unread: true })]
     const items = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'tudo', unread: true }))

@@ -16,14 +16,13 @@ export function readerHref(item: Pick<LibraryItemSummary, 'id'>): string {
 }
 
 /**
- * Who to credit a row to.
+ * Who to credit a row to, or null when extraction found no author.
  *
- * `author` is what extraction found and is often absent; `site` is the
- * publication, and the canonical URL's host is what is left when neither
- * arrived.
+ * The site is printed on its own line, so falling back to it here would print
+ * it twice on rows with no author.
  */
-export function sourceOf(item: LibraryItemSummary): string {
-  return item.author ?? siteOf(item)
+export function sourceOf(item: LibraryItemSummary): string | null {
+  return item.author ?? null
 }
 
 /** The publication, or the host that served the page when there is none. */
@@ -36,9 +35,21 @@ export function siteOf(item: LibraryItemSummary): string {
   }
 }
 
-/** The reading time extraction measured, or a plausible one until it has. */
-export function minutesFor(item: LibraryItemSummary): number {
-  return item.minutes ?? 8
+/** The reading time extraction measured, or null while unknown — never an invention. */
+export function minutesFor(item: LibraryItemSummary): number | null {
+  return item.minutes ?? null
+}
+
+/**
+ * What is left to read, not the whole: the measured minutes scaled by the
+ * unread share, rounded up. Null when the length is unknown, which is when
+ * the row shows no duration at all.
+ */
+export function minutesRemainingFor(item: LibraryItemSummary): number | null {
+  if (item.minutes == null) return null
+  const percent = item.read_position?.percent ?? 0
+  const clamped = Math.min(1, Math.max(0, percent))
+  return Math.ceil(item.minutes * (1 - clamped))
 }
 
 /** How far into the item reading got, as a whole percentage. */

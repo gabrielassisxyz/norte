@@ -8,6 +8,7 @@ import type {
   LibraryKind,
   LibraryListQuery,
   LibraryPatch,
+  LibrarySaveOutcome,
   LibrarySource,
   NewSavedLink
 } from './source'
@@ -174,8 +175,15 @@ export function fakeLibrarySource(
       }
     },
 
-    async saveLink(link: NewSavedLink): Promise<LibraryItemRecord> {
+    async saveLink(link: NewSavedLink): Promise<LibrarySaveOutcome> {
       calls.save.push(link)
+      // Like the server, a save whose canonical URL is already held folds into
+      // the existing item instead of creating a second copy.
+      const existing = held.find((record) => record.canonical_url === link.url || record.url === link.url)
+      if (existing) {
+        if (link.why?.trim()) existing.why = link.why.trim()
+        return { record: { ...existing }, duplicate: true }
+      }
       const created = libraryRecord({
         id: `item-${held.length + 1}`,
         url: link.url,
@@ -185,7 +193,7 @@ export function fakeLibrarySource(
         extract_status: 'pending'
       })
       held.unshift(created)
-      return created
+      return { record: created, duplicate: false }
     },
 
     async patchItem(id: string, patch: LibraryPatch): Promise<LibraryItemRecord> {

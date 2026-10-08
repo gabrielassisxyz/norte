@@ -38,10 +38,14 @@ const recentItems = computed(() => page.value?.items ?? [])
           <span class="home-save-title">{{ item.title }}</span>
           <span class="home-save-meta">
             <span>{{ siteOf(item) }}</span>
-            <span aria-hidden="true">·</span>
-            <span>{{ sourceOf(item) }}</span>
-            <span aria-hidden="true">·</span>
-            <span class="home-mono home-save-minutes">{{ minutesFor(item) }} min</span>
+            <template v-if="sourceOf(item)">
+              <span aria-hidden="true">·</span>
+              <span>{{ sourceOf(item) }}</span>
+            </template>
+            <template v-if="minutesFor(item) !== null">
+              <span aria-hidden="true">·</span>
+              <span class="home-mono home-save-minutes">{{ minutesFor(item) }} min</span>
+            </template>
             <span aria-hidden="true">·</span>
             <span>{{ LIBRARY_KIND_LABELS[item.kind] }}</span>
           </span>

@@ -17,8 +17,15 @@ import type {
  *
  * Only the shelf and the unread flag can change under a write, so those are
  * the two checked; the kind and the search text are not touched by one.
+ * `now` is not a shelf but a ranking over every unread item, so a row stays
+ * on it while it is unread, whatever shelf a write moved it to.
  */
 function matchesFilters(item: LibraryItemSummary, filters: LibraryListQuery): boolean {
+  if (filters.view === 'now') {
+    if (!item.unread) return false
+    if (filters.unread !== null && filters.unread !== undefined && item.unread !== filters.unread) return false
+    return true
+  }
   if (filters.view && filters.view !== 'tudo' && item.status !== filters.view) return false
   if (filters.unread !== null && filters.unread !== undefined && item.unread !== filters.unread) return false
   return true

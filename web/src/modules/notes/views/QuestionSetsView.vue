@@ -103,7 +103,7 @@ async function createSet(): Promise<void> {
           <p v-if="rows.length === 0" class="sets-state">Nenhum conjunto ainda.</p>
           <article v-for="set in rows" :key="set.id" class="sets-row">
             <RouterLink :to="{ name: 'notas-conjunto', params: { id: set.id } }">{{ set.topic }}</RouterLink>
-            <span class="sets-mono">{{ set.question_count }} perguntas</span>
+            <span class="sets-mono">{{ set.question_count === 1 ? '1 pergunta' : `${set.question_count} perguntas` }}</span>
             <span class="sets-mono">{{ formatShortDate(set.created_at) }}</span>
           </article>
           <Button
