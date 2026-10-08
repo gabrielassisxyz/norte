@@ -169,9 +169,10 @@ func notesDistance(offset, hint int) int {
 // both sides can agree on, so the comparison stops looking at whitespace
 // altogether rather than at a particular rendering of it.
 //
-// It cannot turn a wrong occurrence into a match: the passage itself must still
-// occur in the text, and the context only chooses among the occurrences that
-// were found.
+// Ignoring whitespace only ever adds matches: a context that matched before
+// still matches. So a passage the old rule placed uniquely is either placed on
+// the same occurrence or, when a decoy now matches too ("a bc" against "ab c"),
+// reported as ambiguous. It never moves to a different occurrence.
 func notesDropContextWhitespace(value []rune) []rune {
 	kept := make([]rune, 0, len(value))
 	for _, candidate := range value {
