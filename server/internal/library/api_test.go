@@ -736,6 +736,63 @@ func TestLibraryPatchTitleAndKindFollowRegistry(t *testing.T) {
 	}
 }
 
+// TestLibraryPatchRefusesAnEmptyOrBlankTitle proves a title cannot be
+// emptied: an empty patch would mark the title edited and block every later
+// extraction from restoring one. A non-empty title is accepted as today.
+func TestLibraryPatchRefusesAnEmptyOrBlankTitle(t *testing.T) {
+	clock := libraryTestClock()
+	database, dataDir := newLibraryTestDB(t, clock)
+	handler := newLibraryTestRouter(t, database, dataDir, clock)
+	service := newLibraryTestService(t, database, dataDir, clock)
+	outcome := librarySaveOne(t, service, "https://example.org/untitled", "")
+
+	kept := doLibraryRequest(t, handler, http.MethodPatch, "/api/library/items/"+outcome.ID,
+		map[string]any{"title": "Kept title"})
+	if kept.Code != http.StatusOK {
+		t.Fatalf("PATCH a non-empty title = %d, want 200 (%q)", kept.Code, kept.Body.String())
+	}
+
+	for _, title := range []string{"", "   "} {
+		response := doLibraryRequest(t, handler, http.MethodPatch, "/api/library/items/"+outcome.ID,
+			map[string]any{"title": title})
+		if response.Code != http.StatusBadRequest {
+			t.Errorf("PATCH title %q = %d, want 400 (%q)", title, response.Code, response.Body.String())
+			continue
+		}
+		var body struct {
+			Error struct {
+				Code  string `json:"code"`
+				Field string `json:"field"`
+			} `json:"error"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatalf("the refusal is not JSON: %v", err)
+		}
+		if body.Error.Field != "title" {
+			t.Errorf("PATCH title %q names field %q, want title", title, body.Error.Field)
+		}
+	}
+
+	detail := doLibraryRequest(t, handler, http.MethodGet, "/api/library/items/"+outcome.ID, nil)
+	if detail.Code != http.StatusOK {
+		t.Fatalf("GET the item = %d (%q)", detail.Code, detail.Body.String())
+	}
+	var item map[string]any
+	if err := json.Unmarshal(detail.Body.Bytes(), &item); err != nil {
+		t.Fatalf("the detail answer is not JSON: %v", err)
+	}
+	if item["title"] != "Kept title" {
+		t.Errorf("title = %v after the refused patches, want the Kept title", item["title"])
+	}
+
+	renamed := doLibraryRequest(t, handler, http.MethodPatch, "/api/library/items/"+outcome.ID,
+		map[string]any{"title": "A new title"})
+	if renamed.Code != http.StatusOK {
+		t.Errorf("PATCH a non-empty title after the refusals = %d, want 200 (%q)",
+			renamed.Code, renamed.Body.String())
+	}
+}
+
 // TestLibraryCursorPagination120 proves three pages of 50, 50 and 20 hold
 // every item exactly once, and a cursor from one view is refused in another.
 func TestLibraryCursorPagination120(t *testing.T) {
