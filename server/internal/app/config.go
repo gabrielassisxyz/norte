@@ -11,6 +11,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/BurntSushi/toml"
 )
@@ -122,15 +123,25 @@ var settings = []setting{
 	},
 	{
 		name: "timezone", env: "NORTE_TIMEZONE", flag: "timezone",
-		def:   func(*LoadOptions) (string, error) { return systemZone(os.Getenv("TZ"), "/etc/localtime"), nil },
-		parse: func(c *Config, v string) error { c.Timezone = v; return nil },
-		show:  func(c *Config) string { return c.Timezone },
+		def: func(*LoadOptions) (string, error) { return systemZone(os.Getenv("TZ"), "/etc/localtime"), nil },
+		parse: func(c *Config, v string) error {
+			if v == "" {
+				c.Timezone = v
+				return nil
+			}
+			if _, err := time.LoadLocation(v); err != nil {
+				return fmt.Errorf("unknown timezone %q: %w", v, err)
+			}
+			c.Timezone = v
+			return nil
+		},
+		show: func(c *Config) string { return c.Timezone },
 	},
 	{
 		name: "llm_url", env: "NORTE_LLM_URL", flag: "llm-url",
 		def:   func(*LoadOptions) (string, error) { return "", nil },
 		parse: func(c *Config, v string) error { c.LLMURL = v; return nil },
-		show:  func(c *Config) string { return c.LLMURL },
+		show:  func(c *Config) string { return redactLLMURLUserinfoAndQuery(c.LLMURL) },
 	},
 	{
 		name: "llm_model", env: "NORTE_LLM_MODEL", flag: "llm-model",
@@ -385,6 +396,45 @@ func tomlValueToString(value any) (string, error) {
 
 // RedactedValue is printed in place of a secret's value.
 const RedactedValue = "<hidden>"
+
+// redactLLMURLUserinfoAndQuery hides the credentials a URL can carry: the
+// userinfo in front of the host and everything after the query marker. The
+// raw value stays untouched for the client; only the display is redacted. A
+// URL with neither prints unchanged. It works on the text rather than through
+// net/url so the placeholder stays literal instead of percent-encoded.
+func redactLLMURLUserinfoAndQuery(raw string) string {
+	if raw == "" {
+		return ""
+	}
+	redacted := raw
+	if query := strings.Index(redacted, "?"); query >= 0 {
+		rest := redacted[query+1:]
+		fragment := ""
+		if hash := strings.Index(rest, "#"); hash >= 0 {
+			fragment = rest[hash:]
+			rest = rest[:hash]
+		}
+		if rest != "" {
+			redacted = redacted[:query+1] + RedactedValue + fragment
+		}
+	}
+	schemeEnd := strings.Index(redacted, "://")
+	authorityStart := 0
+	if schemeEnd >= 0 {
+		authorityStart = schemeEnd + len("://")
+	}
+	authorityEnd := len(redacted)
+	for i := authorityStart; i < len(redacted); i++ {
+		if c := redacted[i]; c == '/' || c == '?' || c == '#' {
+			authorityEnd = i
+			break
+		}
+	}
+	if at := strings.LastIndex(redacted[authorityStart:authorityEnd], "@"); at >= 0 {
+		redacted = redacted[:authorityStart] + RedactedValue + redacted[authorityStart+at:]
+	}
+	return redacted
+}
 
 // Report renders the effective configuration with the origin of each value and
 // every secret replaced, which is what `norte config` prints.

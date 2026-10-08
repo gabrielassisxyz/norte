@@ -252,6 +252,103 @@ func TestConfigCommandPrintsTheReport(t *testing.T) {
 	}
 }
 
+func TestLoadRejectsAnUnknownTimezoneFromEnvFlagAndFile(t *testing.T) {
+	_, _, err := Load(LoadOptions{
+		Env:  envFromMap(map[string]string{"NORTE_TIMEZONE": "Mars/Olympus"}),
+		Home: "/home/tester",
+	})
+	if err == nil {
+		t.Fatal("Load accepted an unknown timezone from the environment")
+	}
+	if !strings.Contains(err.Error(), "timezone") || !strings.Contains(err.Error(), "Mars/Olympus") {
+		t.Errorf("error does not name the setting and the bad value: %v", err)
+	}
+
+	_, _, err = Load(LoadOptions{
+		Env:   envFromMap(nil),
+		Home:  "/home/tester",
+		Flags: map[string]string{"timezone": "Mars/Olympus"},
+	})
+	if err == nil {
+		t.Fatal("Load accepted an unknown timezone from the flag")
+	}
+	if !strings.Contains(err.Error(), "timezone") || !strings.Contains(err.Error(), "Mars/Olympus") {
+		t.Errorf("error does not name the setting and the bad value: %v", err)
+	}
+
+	file := writeConfigFile(t, "timezone = \"Mars/Olympus\"\n", 0o600)
+	_, _, err = Load(LoadOptions{Env: envFromMap(nil), Home: "/home/tester", ConfigPath: file})
+	if err == nil {
+		t.Fatal("Load accepted an unknown timezone from the config file")
+	}
+	if !strings.Contains(err.Error(), "timezone") || !strings.Contains(err.Error(), "Mars/Olympus") {
+		t.Errorf("error does not name the setting and the bad value: %v", err)
+	}
+}
+
+func TestLoadAcceptsAKnownTimezoneAndAnEmptyOne(t *testing.T) {
+	for _, zone := range []string{"America/Sao_Paulo", "UTC"} {
+		cfg, _, err := Load(LoadOptions{
+			Env:  envFromMap(map[string]string{"NORTE_TIMEZONE": zone}),
+			Home: "/home/tester",
+		})
+		if err != nil {
+			t.Errorf("Load rejected the known zone %q: %v", zone, err)
+			continue
+		}
+		if cfg.Timezone != zone {
+			t.Errorf("Timezone = %q, want %q", cfg.Timezone, zone)
+		}
+	}
+
+	cfg, _, err := Load(LoadOptions{
+		Env:   envFromMap(nil),
+		Home:  "/home/tester",
+		Flags: map[string]string{"timezone": ""},
+	})
+	if err != nil {
+		t.Fatalf("Load rejected an empty timezone: %v", err)
+	}
+	if cfg.Timezone != "" {
+		t.Errorf("Timezone = %q, want the empty system default", cfg.Timezone)
+	}
+}
+
+func TestReportRedactsTheCredentialsInTheLLMURL(t *testing.T) {
+	raw := "http://u:pw@127.0.0.1:1/v1?api_key=SECRET"
+	cfg, _, err := Load(LoadOptions{
+		Env:  envFromMap(map[string]string{"NORTE_LLM_URL": raw}),
+		Home: "/home/tester",
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.LLMURL != raw {
+		t.Errorf("LLMURL = %q, want the raw value kept for the client", cfg.LLMURL)
+	}
+
+	report := cfg.Report()
+	for _, leaked := range []string{"u:pw@", "api_key=SECRET", "SECRET"} {
+		if strings.Contains(report, leaked) {
+			t.Errorf("report leaks %q:\n%s", leaked, report)
+		}
+	}
+	if !strings.Contains(report, "http://<hidden>@127.0.0.1:1/v1?<hidden>") {
+		t.Errorf("report does not redact the userinfo and the query:\n%s", report)
+	}
+
+	plain := "http://127.0.0.1:1/v1"
+	cfg, _, err = Load(LoadOptions{
+		Env:  envFromMap(map[string]string{"NORTE_LLM_URL": plain}),
+		Home: "/home/tester",
+	})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if report := cfg.Report(); !strings.Contains(report, plain) {
+		t.Errorf("report changed a URL with no credentials %q:\n%s", plain, report)
+	}
+}
 func TestSystemZoneNamesALoadableZone(t *testing.T) {
 	if got := systemZone("America/Sao_Paulo", "/nonexistent"); got != "America/Sao_Paulo" {
 		t.Errorf("from TZ: got %q", got)
