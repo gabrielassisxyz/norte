@@ -3,6 +3,7 @@ package app_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -151,13 +152,14 @@ type subjectListBody struct {
 }
 
 type linkBody struct {
-	ID        string  `json:"id"`
-	Kind      string  `json:"kind"`
-	Source    string  `json:"source"`
-	Status    string  `json:"status"`
-	CreatedAt string  `json:"created_at"`
-	DecidedAt *string `json:"decided_at"`
-	Src       struct {
+	ID         string   `json:"id"`
+	Kind       string   `json:"kind"`
+	Source     string   `json:"source"`
+	Status     string   `json:"status"`
+	Confidence *float64 `json:"confidence"`
+	CreatedAt  string   `json:"created_at"`
+	DecidedAt  *string  `json:"decided_at"`
+	Src        struct {
 		ID     string `json:"id"`
 		Module string `json:"module"`
 		Type   string `json:"type"`
@@ -644,6 +646,34 @@ func TestCreateLinkTakesOverARejectedOrSuggestedPair(t *testing.T) {
 		if rows != 1 {
 			t.Errorf("the pair (%s, subject) holds %d rows, want 1", src, rows)
 		}
+	}
+}
+
+// TestCreateLinkClearsTheModelsConfidenceOverASuggestion proves a manual
+// confirmation over a suggestion keeps no model confidence: the row is the
+// person's decision now, not a suggestion with a score.
+func TestCreateLinkClearsTheModelsConfidenceOverASuggestion(t *testing.T) {
+	env := newSubjectsTestEnv(t)
+	subject := env.createSubject(t, "Escrita")
+	item := env.saveLink(t, "https://example.com/sugerido", "Sugerido")
+	env.suggest(t, item, subject.ID, 0.85)
+
+	created := decodeSubjectsAnswer[linkBody](t, env.do(t, http.MethodPost, "/api/core/links",
+		map[string]any{"src_id": item, "dst_id": subject.ID, "kind": "about"}), http.StatusCreated)
+	if created.Status != "confirmed" || created.Source != "manual" {
+		t.Fatalf("the link is %s/%s, want confirmed/manual", created.Status, created.Source)
+	}
+	if created.Confidence != nil {
+		t.Errorf("confidence = %v on a manually confirmed link, want it absent", *created.Confidence)
+	}
+	var confidence sql.NullFloat64
+	if err := env.database.Reader().QueryRow(
+		`SELECT confidence FROM core_links WHERE src_id = ? AND dst_id = ? AND kind = 'about'`,
+		item, subject.ID).Scan(&confidence); err != nil {
+		t.Fatalf("reading the stored confidence: %v", err)
+	}
+	if confidence.Valid {
+		t.Errorf("the stored confidence = %v, want NULL", confidence.Float64)
 	}
 }
 

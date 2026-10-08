@@ -16,6 +16,7 @@ VALUES (?, ?, ?, ?, 'manual', 'confirmed', NULL, ?, ?)
 ON CONFLICT (src_id, dst_id, kind) DO UPDATE SET
     source     = 'manual',
     status     = 'confirmed',
+    confidence = NULL,
     decided_at = excluded.decided_at
 WHERE core_links.status <> 'confirmed'
 `
@@ -30,8 +31,10 @@ type ConfirmCoreLinkParams struct {
 }
 
 // Insert a manual, confirmed link, or take over whatever decision was on that
-// triple before. The WHERE on the conflict branch is what makes confirming an
-// already confirmed link a no-op, rather than moving the date it was decided.
+// triple before. A manual confirmation clears the model's confidence: the row
+// is the person's decision now, not a suggestion with a score. The WHERE on
+// the conflict branch is what makes confirming an already confirmed link a
+// no-op, rather than moving the date it was decided.
 func (q *Queries) ConfirmCoreLink(ctx context.Context, arg ConfirmCoreLinkParams) error {
 	_, err := q.db.ExecContext(ctx, confirmCoreLink,
 		arg.ID,
