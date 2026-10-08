@@ -1,17 +1,30 @@
 import { flushPromises, mount, type VueWrapper } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 
 import App from '@/App.vue'
-import { store } from '@/mock/store'
+import { createMockStore, type MockStore } from '@/mock/store'
 import { routes } from '@/router'
+import type { AppSources } from '@/sources'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 
-async function mountAt(path: string) {
+import type { CurriculumDetail, StudySource } from '../data/source'
+
+let store: MockStore
+
+beforeEach(() => {
+  store = createMockStore()
+})
+
+async function mountAt(path: string, sources?: Partial<AppSources>) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
-  const wrapper = mount(App, { global: { plugins: [router] } })
-  await wrapper.vm.$nextTick()
+  const wrapper = mount(App, {
+    global: { plugins: [router, sourcesPlugin(sources ?? createMockSources(store))] }
+  })
+  await flushReads()
   return { wrapper, router }
 }
 
@@ -122,6 +135,7 @@ describe('curriculum screen', () => {
     await fieldByLabel(wrapper, 'Objetivo').setValue('Manter serviços simples de pé sem vigiá-los.')
     await fieldByLabel(wrapper, 'Módulo 1').setValue('A rede da casa')
     await wrapper.find('.editor-actions .nt-btn-primary').trigger('click')
+    await flushReads()
 
     expect(wrapper.find('.editor').exists()).toBe(false)
     expect(wrapper.find('.app-content h1').text()).toBe('Casa em rede')
@@ -141,6 +155,7 @@ describe('curriculum screen', () => {
     await fieldByLabel(wrapper, 'Objetivo').setValue('Construir móveis simples com ferramentas manuais.')
     await wrapper.find('.editor-actions .nt-btn-primary').trigger('click')
     await flushPromises()
+    await flushReads()
 
     expect(store.curricula[0]).toMatchObject({ slug: 'marcenaria-de-fim-de-semana', title: 'Marcenaria de fim de semana' })
     expect(router.currentRoute.value.fullPath).toBe('/curriculos/marcenaria-de-fim-de-semana')
@@ -153,5 +168,77 @@ describe('curriculum screen', () => {
     expect(wrapper.find('.app-content h1').text()).toBe('Currículo não encontrado')
     expect(wrapper.findAll('.nt-mod-head')).toHaveLength(0)
     expect(router.resolve(wrapper.find('.curriculum-back').attributes('href')!).name).toBe('estudo')
+  })
+
+  it('says it is loading before the curriculum answers', async () => {
+    const router = createRouter({ history: createMemoryHistory(), routes })
+    await router.push('/curriculos/horta-caseira')
+    await router.isReady()
+    const wrapper = mount(App, {
+      global: {
+        plugins: [
+          router,
+          sourcesPlugin({
+            study: {
+              getCurriculum: () => new Promise<CurriculumDetail | null>(() => {}),
+              studyHome: () => new Promise(() => {}),
+              materialContext: async () => null,
+              summary: async () => ({ counts: { curricula: 0, modules: 0, subjects: 0 }, curricula: [] })
+            } as unknown as AppSources['study']
+          })
+        ]
+      }
+    })
+    await flushReads()
+
+    expect(wrapper.get('.app-content [role="status"]').text()).toBe('Carregando o currículo…')
+    expect(wrapper.findAll('.nt-mod-head')).toHaveLength(0)
+  })
+
+  it('says why the curriculum could not be read, and reads again when asked', async () => {
+    let attempts = 0
+    const sources = createMockSources(store)
+    const { wrapper } = await mountAt('/curriculos/horta-caseira', {
+      ...sources,
+      study: {
+        ...sources.study,
+        getCurriculum: ((slug: string, signal: AbortSignal) => {
+          attempts += 1
+          if (attempts === 1) return Promise.reject(new Error('rede indisponível'))
+          return sources.study.getCurriculum(slug, signal)
+        }) as StudySource['getCurriculum']
+      }
+    })
+
+    expect(wrapper.get('.app-content [role="alert"]').text()).toContain(
+      'Não foi possível carregar o currículo: rede indisponível'
+    )
+
+    await wrapper.get('.app-content [role="alert"] button').trigger('click')
+    await flushReads()
+
+    expect(wrapper.get('.app-content h1').text()).toBe('Horta caseira')
+  })
+
+  it('keeps the editor open with the reason when saving fails', async () => {
+    const sources = createMockSources(store)
+    const { wrapper } = await mountAt('/curriculos/casa-conectada', {
+      ...sources,
+      study: {
+        ...sources.study,
+        updateCurriculum: async () => {
+          throw new Error('conflito no servidor')
+        }
+      }
+    })
+
+    await wrapper.find('.curriculum-actions .nt-btn').trigger('click')
+    await fieldByLabel(wrapper, 'Título').setValue('Casa em rede')
+    await wrapper.find('.editor-actions .nt-btn-primary').trigger('click')
+    await flushReads()
+
+    expect(wrapper.get('.curriculum-write-error').text()).toContain('Não foi possível salvar: conflito no servidor')
+    expect(wrapper.find('.editor').exists()).toBe(true)
+    expect(store.curricula.find((candidate) => candidate.slug === 'casa-conectada')?.title).not.toBe('Casa em rede')
   })
 })

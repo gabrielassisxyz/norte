@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import Button from '@/components/ds/Button.vue'
 import Icon from '@/components/ds/Icon.vue'
@@ -9,7 +9,10 @@ import ModuleItem from '@/components/ds/ModuleItem.vue'
 import PageTitle from '@/components/ds/PageTitle.vue'
 import ProgressBar from '@/components/ds/ProgressBar.vue'
 import Stat from '@/components/ds/Stat.vue'
-import { store } from '@/mock/store'
+import { useAsyncAction } from '@/lib/asyncResource'
+import { useSources } from '@/sources'
+
+import { useCurriculum } from '../data/composables'
 import CurriculumEditor from './CurriculumView/CurriculumEditor.vue'
 import InstrumentTable from './CurriculumView/InstrumentTable.vue'
 import ModuleRuler from './CurriculumView/ModuleRuler.vue'
@@ -18,11 +21,20 @@ import type { CurriculumDraft } from './CurriculumView/curriculum'
 
 const route = useRoute()
 const router = useRouter()
+const { study } = useSources()
 
 const slug = computed(() => String(route.params.slug ?? ''))
 const isNew = computed(() => slug.value === NEW_CURRICULUM_SLUG)
-const curriculum = computed(() => store.curricula.find((candidate) => candidate.slug === slug.value))
-const view = computed(() => (curriculum.value ? buildCurriculumView(curriculum.value, store.libraryItems) : undefined))
+
+// The empty form has no slug to read, so nothing is asked for it.
+const { data: detail, loading, error, refresh, apply } = useCurriculum(slug, () => !isNew.value)
+const writing = useAsyncAction()
+
+const firstLoad = computed(() => !isNew.value && loading.value && detail.value === null)
+const curriculum = computed(() => detail.value?.curriculum)
+const view = computed(() =>
+  detail.value ? buildCurriculumView(detail.value.curriculum, detail.value.materials) : undefined
+)
 
 const shortTitle = computed(() => curriculum.value?.title.split(/[,:]/)[0] ?? 'Novo currículo')
 
@@ -61,17 +73,37 @@ function revealModule(id: string): void {
   document.getElementById(id)?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
 }
 
-function save(draft: CurriculumDraft): void {
+/**
+ * Saving awaits the source and then shows the curriculum it answered with. A
+ * module rename is a write of its own, so the last answer is the one the screen
+ * keeps; a failure leaves the editor open with the reason.
+ */
+async function save(draft: CurriculumDraft): Promise<void> {
   if (isNew.value) {
-    const created = store.addCurriculum({ title: draft.title, goal: draft.goal })
+    const created = await writing.run(() => study.addCurriculum({ title: draft.title, goal: draft.goal }))
+    if (!created) return
     editing.value = false
     void router.replace(`/curriculos/${created.slug}`)
     return
   }
+
   const current = curriculum.value
   if (!current) return
-  store.updateCurriculum(current.slug, { title: draft.title, goal: draft.goal, status: current.status })
-  for (const module of draft.modules) store.updateCurriculumModule(current.slug, module.id, { title: module.title })
+
+  const updated = await writing.run(async () => {
+    let latest = await study.updateCurriculum(current.slug, {
+      title: draft.title,
+      goal: draft.goal,
+      status: current.status
+    })
+    for (const module of draft.modules) {
+      latest = await study.updateCurriculumModule(current.slug, module.id, { title: module.title })
+    }
+    return latest
+  })
+  if (!updated) return
+
+  apply(updated)
   editing.value = false
 }
 
@@ -86,7 +118,16 @@ function cancel(): void {
 
 <template>
   <main class="curriculum">
-    <div v-if="!curriculum && !isNew" class="curriculum-inner curriculum-missing">
+    <div v-if="firstLoad" class="curriculum-inner curriculum-missing" role="status">
+      <p>Carregando o currículo…</p>
+    </div>
+
+    <div v-else-if="error" class="curriculum-inner curriculum-missing" role="alert">
+      <p>Não foi possível carregar o currículo: {{ error }}</p>
+      <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+    </div>
+
+    <div v-else-if="!curriculum && !isNew" class="curriculum-inner curriculum-missing">
       <PageTitle
         title="Currículo não encontrado"
         objective="Nenhum currículo responde por este endereço. Ele pode ter sido renomeado."
@@ -136,6 +177,10 @@ function cancel(): void {
             @cancel="cancel"
           />
           <PageTitle v-else-if="curriculum" :title="curriculum.title" :objective="curriculum.goal" />
+
+          <p v-if="writing.error.value" class="curriculum-write-error" role="alert">
+            Não foi possível salvar: {{ writing.error.value }}
+          </p>
 
           <template v-if="view">
             <p class="curriculum-summary">{{ view.summaryLine }}</p>
@@ -238,6 +283,13 @@ function cancel(): void {
 .curriculum-inner {
   max-width: 1120px;
   margin: 0 auto;
+}
+
+.curriculum-write-error {
+  margin: var(--space-3) 0 0;
+  color: var(--danger);
+  font-size: 13px;
+  line-height: 20px;
 }
 
 .curriculum-missing {

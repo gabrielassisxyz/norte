@@ -27,6 +27,18 @@ function mergeLibraryItems(...slices: LibraryItem[][]): LibraryItem[] {
 }
 
 /**
+ * Each store gets its own copy of the undated slices.
+ *
+ * They are module constants, so handing the same array to two stores lets a
+ * write in one appear in the other — which, in a test suite, means one case
+ * editing a curriculum changes what the next case reads. The dated slices are
+ * built fresh per call and need no copy.
+ */
+function ownCopy<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
+}
+
+/**
  * Every mock record, dated against one day: the caller passes the day the app
  * is on, so a screen that says "ontem" means yesterday rather than the day this
  * file was written.
@@ -39,18 +51,18 @@ export function buildMockData(today: string): MockData {
       buildReviewReferencedItems(today),
       buildNotesReferencedItems(today)
     ),
-    curricula,
-    reviewDecks,
+    curricula: ownCopy(curricula),
+    reviewDecks: ownCopy(reviewDecks),
     reviewCards: buildReviewCards(today),
     highlights: buildHighlights(today),
     annotations: buildAnnotations(today),
     questions: buildQuestions(today),
-    areas,
-    projects,
+    areas: ownCopy(areas),
+    projects: ownCopy(projects),
     decisions: buildDecisions(today),
-    tasks,
+    tasks: ownCopy(tasks),
     sessions: buildSessions(today),
-    subjects,
+    subjects: ownCopy(subjects),
     studyDays: buildStudyDays(today)
   }
 }

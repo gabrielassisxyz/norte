@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import { store } from '@/mock/store'
+import { useStudyHome } from '../data/composables'
+
+const { data: home, loading, error } = useStudyHome()
+
+const firstLoad = computed(() => loading.value && home.value === null)
 
 const studies = computed(() =>
-  store.curricula
+  (home.value?.items ?? [])
     .filter((curriculum) => curriculum.status === 'active')
     .map((curriculum, index) => {
       const materialCount = curriculum.modules.flatMap((module) => module.materials).length
@@ -30,7 +34,10 @@ const studies = computed(() =>
       <h2 id="continue-study">Continuar estudando</h2>
       <RouterLink :to="{ name: 'estudo' }" class="home-see-all">Todos os currículos</RouterLink>
     </div>
-    <div class="home-list">
+    <p v-if="firstLoad" class="home-study-state" role="status">Carregando os currículos…</p>
+    <p v-else-if="error" class="home-study-state" role="alert">Não foi possível carregar os currículos: {{ error }}</p>
+    <p v-else-if="studies.length === 0" class="home-study-state">Nenhum currículo em andamento.</p>
+    <div v-else class="home-list">
       <RouterLink v-for="study in studies" :key="study.slug" :to="`/curriculos/${study.slug}`" class="home-study-row">
         <span class="home-study-main">
           <span class="home-study-title">{{ study.title }}</span>
@@ -61,6 +68,7 @@ const studies = computed(() =>
 
 <style scoped>
 .home-study { margin-top: 56px; }
+.home-study-state { margin: 0; color: var(--muted); font-size: 14px; line-height: 22px; }
 .home-study-row { display: grid; grid-template-columns: minmax(0, 1fr) 200px 120px; gap: var(--space-6); align-items: center; padding: 14px 12px; border-bottom: 1px solid var(--line); color: inherit; text-decoration: none; transition: background-color 120ms cubic-bezier(.2, 0, 0, 1); }
 .home-study-row:hover { background: var(--surface); }
 .home-study-row:hover .home-study-title { color: var(--norte); }

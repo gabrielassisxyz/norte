@@ -32,16 +32,25 @@ export interface CurriculumResource extends AsyncResource<CurriculumDetail | nul
   apply: (curriculum: Curriculum) => void
 }
 
-export function useCurriculum(slug: MaybeRefOrGetter<string>): CurriculumResource {
+/**
+ * One curriculum, with the library items its modules name already resolved.
+ *
+ * `enabled` is false while the screen is the empty "novo currículo" form: there
+ * is nothing to read yet, and reading would answer "not found" for a slug that
+ * is not meant to exist.
+ */
+export function useCurriculum(
+  slug: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true
+): CurriculumResource {
   const { study } = useSources()
-  const resource = useAsyncResource((signal) => study.getCurriculum(toValue(slug), signal))
+  const resource = useAsyncResource((signal) => study.getCurriculum(toValue(slug), signal), {
+    immediate: toValue(enabled)
+  })
 
-  watch(
-    () => toValue(slug),
-    () => {
-      void resource.refresh()
-    }
-  )
+  watch([() => toValue(slug), () => toValue(enabled)], () => {
+    if (toValue(enabled)) void resource.refresh()
+  })
 
   function apply(curriculum: Curriculum): void {
     const detail = resource.data.value

@@ -8,23 +8,33 @@ import PageTitle from '@/components/ds/PageTitle.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import Stat from '@/components/ds/Stat.vue'
 import StreakGrid from '@/components/ds/StreakGrid.vue'
-import { store } from '@/mock/store'
 import { formatLongWeekdayDate, formatMonthName, todayIsoDate } from '@/lib/clock'
+import type { StudyDay, Subject } from '@/mock/types'
+import { crossModuleActionAllowed } from '@/modules/mounting'
+import { useReviewSummary } from '@/modules/review/data/composables'
 import {
-  WEEKLY_FOCUS,
   completedThisMonth,
   currentStreak,
   hoursInWindow,
   levelForMinutes,
   recordStreak
 } from '@/modules/study/mock/study'
-import type { Subject } from '@/mock/types'
-import { crossModuleActionAllowed } from '@/modules/mounting'
+
+import { useStudyHome } from '../data/composables'
 
 /** A way into another product is offered only while that product is mounted. */
 const canReachLibrary = computed(() => crossModuleActionAllowed('study', 'library'))
 const canReachNotes = computed(() => crossModuleActionAllowed('study', 'notes'))
 const canReachReview = computed(() => crossModuleActionAllowed('study', 'review'))
+
+const { data: home, loading, error, refresh } = useStudyHome()
+const { data: reviewCounts } = useReviewSummary(canReachReview)
+
+const firstLoad = computed(() => loading.value && home.value === null)
+const curricula = computed(() => home.value?.items ?? [])
+const subjects = computed(() => home.value?.subjects ?? [])
+const studyDays = computed<StudyDay[]>(() => home.value?.studyDays ?? [])
+const focus = computed(() => home.value?.focus ?? '')
 
 type SubjectsView = 'capas' | 'tabela'
 
@@ -51,16 +61,16 @@ const title = computed(() => formatLongWeekdayDate(todayIsoDate()))
 const addOpen = ref(false)
 const subjectsView = ref<SubjectsView>('capas')
 
-const levels = computed(() => store.studyDays.map((day) => levelForMinutes(day.minutes)))
-const streak = computed(() => currentStreak(store.studyDays))
-const record = computed(() => recordStreak(store.studyDays))
-const weekHours = computed(() => hoursInWindow(store.studyDays))
-const previousWeekHours = computed(() => hoursInWindow(store.studyDays.slice(0, store.studyDays.length - 7)))
+const levels = computed(() => studyDays.value.map((day) => levelForMinutes(day.minutes)))
+const streak = computed(() => currentStreak(studyDays.value))
+const record = computed(() => recordStreak(studyDays.value))
+const weekHours = computed(() => hoursInWindow(studyDays.value))
+const previousWeekHours = computed(() => hoursInWindow(studyDays.value.slice(0, studyDays.value.length - 7)))
 const weekDelta = computed(() => weekHours.value - previousWeekHours.value)
-const dueCount = computed(() => store.reviewCards.filter((card) => card.dueAt <= todayIsoDate()).length)
-const monthly = computed(() => completedThisMonth(store.studyDays))
+const dueCount = computed(() => reviewCounts.value?.due ?? 0)
+const monthly = computed(() => completedThisMonth(studyDays.value))
 const monthLabel = computed(() => {
-  const last = store.studyDays[store.studyDays.length - 1]
+  const last = studyDays.value[studyDays.value.length - 1]
   return last === undefined ? '' : formatMonthName(last.date)
 })
 
@@ -123,8 +133,16 @@ function selectView(value: string): void {
         </RouterLink>
       </div>
 
-      <PageTitle class="study-title" :title="title" :objective="WEEKLY_FOCUS" />
+      <PageTitle class="study-title" :title="title" :objective="focus" />
 
+      <p v-if="firstLoad" class="study-state" role="status">Carregando o estudo…</p>
+
+      <div v-else-if="error" class="study-state" role="alert">
+        <p>Não foi possível carregar o estudo: {{ error }}</p>
+        <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+      </div>
+
+      <template v-else>
       <section aria-label="Streak e estatísticas" class="study-band">
         <StreakGrid
           :days="levels"
@@ -149,9 +167,10 @@ function selectView(value: string): void {
         <div class="study-section-head">
           <h2 id="study-curricula">Currículos</h2>
         </div>
-        <Carousel label="Currículos" :item-width="248" :visible="4" :step="2">
+        <p v-if="curricula.length === 0" class="study-state">Nenhum currículo ainda. Comece criando um.</p>
+        <Carousel v-else label="Currículos" :item-width="248" :visible="4" :step="2">
           <CoverCard
-            v-for="curriculum in store.curricula"
+            v-for="curriculum in curricula"
             :key="curriculum.slug"
             :title="curriculum.title"
             :description="curriculum.goal"
@@ -176,9 +195,11 @@ function selectView(value: string): void {
           />
         </div>
 
-        <div v-if="subjectsView === 'capas'" class="study-grid">
+        <p v-if="subjects.length === 0" class="study-state">Nenhum assunto ainda.</p>
+
+        <div v-else-if="subjectsView === 'capas'" class="study-grid">
           <CoverCard
-            v-for="subject in store.subjects"
+            v-for="subject in subjects"
             :key="subject.id"
             :title="subject.name"
             :meta="`${subjectTotal(subject)} itens · ${subject.activity}`"
@@ -198,7 +219,7 @@ function selectView(value: string): void {
             <span class="study-th study-col-questions" role="columnheader">Perguntas</span>
             <span class="study-th" role="columnheader">Atividade</span>
           </div>
-          <div v-for="subject in store.subjects" :key="subject.id" class="study-row" role="row">
+          <div v-for="subject in subjects" :key="subject.id" class="study-row" role="row">
             <div role="cell" class="study-first">
               <RouterLink :to="subjectHref()" class="study-row-link">{{ subject.name }}</RouterLink>
             </div>
@@ -212,6 +233,7 @@ function selectView(value: string): void {
           </div>
         </div>
       </section>
+      </template>
     </div>
   </main>
 </template>
@@ -219,6 +241,15 @@ function selectView(value: string): void {
 <style scoped>
 .study-view {
   min-width: 0;
+}
+.study-state {
+  margin: 32px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 24px;
+}
+.study-state p {
+  margin: 0 0 var(--space-2);
 }
 .study-inner {
   max-width: 1120px;
