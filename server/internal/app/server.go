@@ -50,17 +50,22 @@ type RouterOptions struct {
 // a route answers 404 to a frontend that was compiled against it.
 func NewRouter(opts RouterOptions) (http.Handler, error) {
 	mux := http.NewServeMux()
-	if err := mountCoreAPI(mux, opts); err != nil {
+	// The API routes live on a mux of their own so that a request no route
+	// matched stays distinguishable from one whose method is wrong:
+	// http.ServeMux answers 405 only when no pattern at all matches, and the
+	// /api/ fallback below matches every one of them.
+	apiMux := http.NewServeMux()
+	if err := mountCoreAPI(apiMux, opts); err != nil {
 		return nil, err
 	}
 	for _, module := range opts.Modules {
-		module.Register(NewNorteModuleRouter(mux, module.Name()), opts.ModuleDeps)
+		module.Register(NewNorteModuleRouter(apiMux, module.Name()), opts.ModuleDeps)
 	}
-	mux.Handle("/api/", http.HandlerFunc(handleAPINotFound))
-	mux.Handle("/", newFrontendHandler(opts.Assets))
 	if opts.TestRoutes {
-		registerNorteTestOnlyRoutes(mux)
+		registerNorteTestOnlyRoutes(apiMux)
 	}
+	mux.Handle("/api/", newNorteAPIHandler(apiMux))
+	mux.Handle("/", newFrontendHandler(opts.Assets))
 	return withStandardMiddleware(opts, mux), nil
 }
 
@@ -80,10 +85,64 @@ func withStandardMiddleware(opts RouterOptions, handler http.Handler) http.Handl
 	return handler
 }
 
-// handleAPINotFound answers unknown /api/ paths with the error envelope, so an
-// API client never receives the frontend's HTML.
-func handleAPINotFound(w http.ResponseWriter, r *http.Request) {
-	core.WriteJSONError(w, r, http.StatusNotFound, "not_found", "no such endpoint")
+// newNorteAPIHandler serves everything under /api/, and answers a request no
+// route matched in the error envelope -- never in the frontend's HTML, and
+// never in the plain text net/http would have written.
+func newNorteAPIHandler(apiMux *http.ServeMux) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, pattern := apiMux.Handler(r); pattern != "" {
+			// Served through the mux rather than through the handler it just
+			// returned: only ServeHTTP binds a pattern's wildcards, so a
+			// handler reached any other way reads every path value as empty.
+			apiMux.ServeHTTP(w, r)
+			return
+		}
+		writeNorteAPIRoutingError(w, r, apiMux)
+	})
+}
+
+// writeNorteAPIRoutingError answers an /api/ request that matched no route. It
+// asks the mux what it would have said rather than consulting a route table of
+// Norte's own: the mux already tells a wrong method apart from an unknown path
+// and already knows which methods that path does answer, and the table would
+// be a second copy of the generated routes, free to drift from them.
+func writeNorteAPIRoutingError(w http.ResponseWriter, r *http.Request, apiMux *http.ServeMux) {
+	verdict := &norteDiscardedResponse{header: http.Header{}, status: http.StatusOK}
+	apiMux.ServeHTTP(verdict, r)
+	if verdict.status != http.StatusMethodNotAllowed {
+		core.WriteJSONError(w, r, http.StatusNotFound, "not_found", "no such endpoint")
+		return
+	}
+	// RFC 9110 section 15.5.6 makes Allow mandatory on a 405, and it is the
+	// only way a client learns what the path does accept.
+	if allow := verdict.header.Get("Allow"); allow != "" {
+		w.Header().Set("Allow", allow)
+	}
+	core.WriteJSONError(w, r, http.StatusMethodNotAllowed, "method_not_allowed",
+		"this endpoint does not answer "+r.Method)
+}
+
+// norteDiscardedResponse records the status and the headers of an answer that
+// is never sent, which is how the mux's verdict on an unmatched request is
+// read without that answer reaching the client.
+type norteDiscardedResponse struct {
+	header http.Header
+	status int
+	wrote  bool
+}
+
+func (d *norteDiscardedResponse) Header() http.Header { return d.header }
+
+func (d *norteDiscardedResponse) WriteHeader(status int) {
+	if !d.wrote {
+		d.status = status
+		d.wrote = true
+	}
+}
+
+func (d *norteDiscardedResponse) Write(b []byte) (int, error) {
+	d.wrote = true
+	return len(b), nil
 }
 
 // newFrontendHandler serves the embedded frontend, falling back to index.html
