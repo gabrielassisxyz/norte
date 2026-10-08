@@ -50,7 +50,7 @@ type RouterOptions struct {
 // a route answers 404 to a frontend that was compiled against it.
 func NewRouter(opts RouterOptions) (http.Handler, error) {
 	mux := http.NewServeMux()
-	if err := mountCoreAPI(mux, opts.Config); err != nil {
+	if err := mountCoreAPI(mux, opts); err != nil {
 		return nil, err
 	}
 	for _, module := range opts.Modules {

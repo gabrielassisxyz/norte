@@ -236,7 +236,7 @@ func NorteTextProviders(modules []Module) map[string]core.TextProvider {
 }
 
 // NorteFocusProviders exposes the enabled focus providers in the configured
-// order. The endpoint merging them arrives in a later bead.
+// order, which is what GET /api/core/focus merges with the flagged subjects.
 func NorteFocusProviders(modules []Module) []core.FocusProvider {
 	providers := make([]core.FocusProvider, 0, len(modules))
 	for _, module := range modules {

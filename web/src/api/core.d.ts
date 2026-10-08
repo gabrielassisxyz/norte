@@ -49,10 +49,292 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/subjects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List subjects, optionally matching a search
+         * @description One page of subjects, ordered by slug then id so the order is total and
+         *     no page boundary can split it. With q the match is accent-insensitive
+         *     over the normalised name and over the aliases, exact before prefix
+         *     before substring, and a subject whose name and whose alias both match
+         *     comes back once. The cursor encodes the filter it was issued under, and
+         *     a cursor presented with a different q is refused.
+         */
+        get: operations["listCoreSubjects"];
+        put?: never;
+        /**
+         * Create a subject
+         * @description Derives the slug from the name -- lowercased, accents stripped,
+         *     punctuation removed, spaces to hyphens -- and registers the subject in
+         *     the item registry so a link can point at it. A name whose slug is
+         *     already taken is refused with 409 rather than creating a second
+         *     vocabulary entry for the same thing.
+         */
+        post: operations["createCoreSubject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/subjects/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one subject, with what is linked to it
+         * @description The subject plus the per-kind counts of the items linked to it by a
+         *     confirmed link, and the number of links touching it in either
+         *     direction -- which is the figure the delete confirmation names.
+         */
+        get: operations["getCoreSubject"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete a subject and everything linking to it
+         * @description Removes the subject, its aliases and its registry row in one
+         *     transaction; the registry cascade takes every link to and from it with
+         *     it. There is no undo, which is why the screen names the number of
+         *     links before it calls this.
+         */
+        delete: operations["deleteCoreSubject"];
+        options?: never;
+        head?: never;
+        /**
+         * Rename a subject or set whether it is a current focus
+         * @description Only the fields present are applied. A rename derives a new slug and
+         *     updates the registry row the links render from; a slug already taken is
+         *     refused with 409.
+         */
+        patch: operations["patchCoreSubject"];
+        trace?: never;
+    };
+    "/api/core/subjects/by-slug/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one subject by its slug
+         * @description The same answer as reading by id, for the address bar: the subject
+         *     screen is reached at /assuntos/<slug> and has no id to open with.
+         */
+        get: operations["getCoreSubjectBySlug"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/focus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Report what the person is working on now
+         * @description The subjects marked as a focus, plus what every enabled module reports
+         *     as in progress. Focus is derived rather than declared: each module
+         *     decides what "in progress" means for the things it owns, and the
+         *     subject flag is the one explicit part of it.
+         */
+        get: operations["getCoreFocus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List links between items
+         * @description One page of links, newest first with the id breaking ties. Every
+         *     filter is optional; status on its own is the suggestion queue. Both
+         *     ends come back resolved from the item registry, so a client renders a
+         *     link without asking the owning module anything.
+         */
+        get: operations["listCoreLinks"];
+        put?: never;
+        /**
+         * Assert that a link holds
+         * @description Records a manual, confirmed link. An end that is not in the item
+         *     registry is refused with 400. A suggested or rejected row for the same
+         *     (src, dst, kind) is flipped to confirmed rather than refused by the
+         *     unique index, because a person overriding the model and a person
+         *     changing their mind are the same operation.
+         */
+        post: operations["createCoreLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/core/links/{id}/decide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept or reject a suggested link
+         * @description Accepting confirms the link; rejecting records that the pair was
+         *     rejected and keeps the row, so the same suggestion does not come back.
+         *     Either way the date the person decided is recorded.
+         */
+        post: operations["decideCoreLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description One entry of the stable vocabulary the library groups by. */
+        Subject: {
+            id: string;
+            name: string;
+            /** @description Derived from the name; unique across subjects. */
+            slug: string;
+            /** @description Whether this subject is one the person is working on now. */
+            focus: boolean;
+            created_at: string;
+            counts: components["schemas"]["SubjectCounts"];
+            /**
+             * @description Links touching this subject in either direction, whatever their
+             *     status. It is what the delete confirmation names, so it counts
+             *     every row the cascade would remove and not only the confirmed ones.
+             */
+            link_count: number;
+        };
+        /**
+         * @description What is linked to this subject by a confirmed `about` link, counted per
+         *     item type. The types are not enumerated here: they belong to whichever
+         *     modules this binary was built with, and the core does not know them.
+         */
+        SubjectCounts: {
+            total: number;
+            /** @description One entry per type that has at least one item, ordered by type. */
+            by_type: components["schemas"]["SubjectTypeCount"][];
+        };
+        SubjectTypeCount: {
+            /** @description The module owning the counted items. */
+            module: string;
+            /** @description The item type, as that module spells it. */
+            type: string;
+            count: number;
+        };
+        SubjectList: {
+            items: components["schemas"]["Subject"][];
+            /** @description The cursor for the following page, absent on the last one. */
+            next_cursor?: string;
+        };
+        CreateSubjectRequest: {
+            /** @description The subject as a person writes it; the slug is derived from it. */
+            name: string;
+            /** @description Mark it as a current focus straight away. */
+            focus?: boolean;
+        };
+        PatchSubjectRequest: {
+            name?: string;
+            focus?: boolean;
+        };
+        /**
+         * @description What the person is working on now: the subjects they flagged, and what
+         *     each enabled module reports as in progress.
+         */
+        Focus: {
+            subjects: components["schemas"]["Subject"][];
+            /** @description One entry per thing a module considers in progress. */
+            targets: components["schemas"]["FocusTarget"][];
+        };
+        FocusTarget: {
+            id: string;
+            /** @description The item type, as the owning module spells it. */
+            type: string;
+            title: string;
+        };
+        /**
+         * @description What a link asserts about the pair it joins.
+         * @enum {string}
+         */
+        LinkKind: "about" | "material_of" | "derived_from" | "blocks";
+        /**
+         * @description Who proposed the link.
+         * @enum {string}
+         */
+        LinkSource: "manual" | "llm";
+        /**
+         * @description Where the link stands.
+         * @enum {string}
+         */
+        LinkStatus: "confirmed" | "suggested" | "rejected";
+        /**
+         * @description One end of a link, as the item registry holds it: only what is needed
+         *     to open the thing, never what is needed to read it.
+         */
+        RegistryItem: {
+            id: string;
+            module: string;
+            type: string;
+            title: string;
+            url?: string;
+        };
+        Link: {
+            id: string;
+            kind: components["schemas"]["LinkKind"];
+            source: components["schemas"]["LinkSource"];
+            status: components["schemas"]["LinkStatus"];
+            /** @description The model's confidence, present only on a suggestion it made. */
+            confidence?: number;
+            created_at: string;
+            /** @description When a person decided this link; absent while it is only suggested. */
+            decided_at?: string;
+            src: components["schemas"]["RegistryItem"];
+            dst: components["schemas"]["RegistryItem"];
+        };
+        LinkList: {
+            items: components["schemas"]["Link"][];
+            /** @description The cursor for the following page, absent on the last one. */
+            next_cursor?: string;
+        };
+        CreateLinkRequest: {
+            src_id: string;
+            dst_id: string;
+            kind?: components["schemas"]["LinkKind"];
+        };
+        DecideLinkRequest: {
+            /** @enum {string} */
+            decision: "accept" | "reject";
+        };
         Config: {
             /** @description Enabled feature modules in the configured order. */
             modules: string[];
@@ -155,6 +437,260 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listCoreSubjects: {
+        parameters: {
+            query?: {
+                /** @description Match the name or an alias, ignoring accents and case. */
+                q?: string;
+                /** @description The next_cursor of the previous page. */
+                cursor?: string;
+                /** @description How many subjects a page holds. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of subjects. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubjectList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createCoreSubject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateSubjectRequest"];
+            };
+        };
+        responses: {
+            /** @description The subject that was created. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCoreSubject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The subject. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteCoreSubject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The subject is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    patchCoreSubject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchSubjectRequest"];
+            };
+        };
+        responses: {
+            /** @description The subject after the change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCoreSubjectBySlug: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The subject. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Subject"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    getCoreFocus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The current focus. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Focus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listCoreLinks: {
+        parameters: {
+            query?: {
+                /** @description Keep only links out of this item. */
+                src_id?: string;
+                /** @description Keep only links into this item. */
+                dst_id?: string;
+                /** @description Keep only links of this kind. */
+                kind?: components["schemas"]["LinkKind"];
+                /** @description Keep only links in this state. */
+                status?: components["schemas"]["LinkStatus"];
+                /** @description The next_cursor of the previous page. */
+                cursor?: string;
+                /** @description How many links a page holds. */
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One page of links. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LinkList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    createCoreLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description The link as it now stands. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Link"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    decideCoreLink: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DecideLinkRequest"];
+            };
+        };
+        responses: {
+            /** @description The link after the decision. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Link"];
                 };
             };
             default: components["responses"]["Error"];

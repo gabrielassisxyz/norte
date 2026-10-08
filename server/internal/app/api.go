@@ -9,18 +9,28 @@ import (
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 
 	coreapi "github.com/gabrielassisxyz/norte/server/gen/api/core"
+	"github.com/gabrielassisxyz/norte/server/internal/core"
 )
 
 // mountCoreAPI registers the core module's routes on mux. Every module lands
 // the same way once it exists: its own contract, its own validator built from
 // that contract, its own routes -- which is what makes switching a module off
 // a matter of not mounting it.
-func mountCoreAPI(mux *http.ServeMux, cfg *Config) error {
+func mountCoreAPI(mux *http.ServeMux, opts RouterOptions) error {
 	spec, err := coreapi.GetSwagger()
 	if err != nil {
 		return fmt.Errorf("loading the embedded core contract: %w", err)
 	}
-	strict := coreapi.NewStrictHandlerWithOptions(coreHandlers{config: cfg}, nil, coreapi.StrictHTTPServerOptions{
+	// The focus endpoint merges what each enabled module reports as in
+	// progress, so the registry injects the modules as providers here. The
+	// core never looks them up: it is this package that knows what a module
+	// is, and the dependency has to keep pointing one way.
+	handlers := coreHandlers{
+		config: opts.Config,
+		APIHandlers: core.NewAPIHandlers(
+			opts.ModuleDeps.Database, opts.ModuleDeps.Clock, NorteFocusProviders(opts.Modules)),
+	}
+	strict := coreapi.NewStrictHandlerWithOptions(handlers, nil, coreapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  writeRequestDecodeError,
 		ResponseErrorHandlerFunc: writeHandlerError,
 	})
@@ -56,7 +66,12 @@ func newContractValidator(spec *openapi3.T) func(http.Handler) http.Handler {
 // only hand-written HTTP code the core has: plain functions taking a typed
 // request and returning a typed response, with routing, decoding and
 // contract validation already done by the time one is called.
+// The subjects, focus and link endpoints are embedded from the core, next to
+// the services they call; what stays here are the two a client reaches before
+// it knows which modules exist, and both answer from this process's
+// configuration rather than from storage.
 type coreHandlers struct {
+	core.APIHandlers
 	config *Config
 }
 

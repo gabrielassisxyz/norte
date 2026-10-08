@@ -44,6 +44,82 @@ func (q *Queries) ConfirmCoreLink(ctx context.Context, arg ConfirmCoreLinkParams
 	return err
 }
 
+const countCoreLinksTouching = `-- name: CountCoreLinksTouching :one
+SELECT COUNT(*) FROM core_links WHERE src_id = ? OR dst_id = ?
+`
+
+type CountCoreLinksTouchingParams struct {
+	SrcID string
+	DstID string
+}
+
+// Every link the registry cascade would remove with this item, in either
+// direction and whatever its status. The delete confirmation shows this
+// figure, so a suggested link counts: it is a row that would disappear too.
+func (q *Queries) CountCoreLinksTouching(ctx context.Context, arg CountCoreLinksTouchingParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countCoreLinksTouching, arg.SrcID, arg.DstID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countCoreSubjectItemsByType = `-- name: CountCoreSubjectItemsByType :many
+SELECT core_items.module, core_items.type, COUNT(*) AS count
+FROM core_links
+JOIN core_items ON core_items.id = core_links.src_id
+WHERE core_links.dst_id = ? AND core_links.kind = 'about' AND core_links.status = 'confirmed'
+GROUP BY core_items.module, core_items.type
+ORDER BY core_items.module, core_items.type
+`
+
+type CountCoreSubjectItemsByTypeRow struct {
+	Module string
+	Type   string
+	Count  int64
+}
+
+// What is linked to a subject by a confirmed `about` link, counted per owning
+// module and item type. The core does not know any module's types, so the
+// grouping is by whatever is in the registry rather than by a fixed list.
+func (q *Queries) CountCoreSubjectItemsByType(ctx context.Context, dstID string) ([]CountCoreSubjectItemsByTypeRow, error) {
+	rows, err := q.db.QueryContext(ctx, countCoreSubjectItemsByType, dstID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CountCoreSubjectItemsByTypeRow{}
+	for rows.Next() {
+		var i CountCoreSubjectItemsByTypeRow
+		if err := rows.Scan(&i.Module, &i.Type, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const decideCoreLink = `-- name: DecideCoreLink :execresult
+UPDATE core_links SET status = ?, decided_at = ? WHERE id = ?
+`
+
+type DecideCoreLinkParams struct {
+	Status    string
+	DecidedAt sql.NullString
+	ID        string
+}
+
+// Accept or reject a suggestion. The status is the caller's; decided_at is set
+// either way, because rejecting is a decision as much as accepting is.
+func (q *Queries) DecideCoreLink(ctx context.Context, arg DecideCoreLinkParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, decideCoreLink, arg.Status, arg.DecidedAt, arg.ID)
+}
+
 const deleteCollectableCoreFile = `-- name: DeleteCollectableCoreFile :execresult
 DELETE FROM core_files WHERE core_files.hash = ?
   AND NOT EXISTS (SELECT 1 FROM core_file_refs WHERE core_file_refs.hash = ?)
@@ -66,6 +142,114 @@ DELETE FROM core_items WHERE id = ?
 
 func (q *Queries) DeleteCoreItem(ctx context.Context, id string) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteCoreItem, id)
+}
+
+const deleteCoreSubject = `-- name: DeleteCoreSubject :execresult
+DELETE FROM core_subjects WHERE id = ?
+`
+
+func (q *Queries) DeleteCoreSubject(ctx context.Context, id string) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteCoreSubject, id)
+}
+
+const getCoreItem = `-- name: GetCoreItem :one
+SELECT id, module, type, title, url, created_at FROM core_items WHERE id = ?
+`
+
+func (q *Queries) GetCoreItem(ctx context.Context, id string) (CoreItem, error) {
+	row := q.db.QueryRowContext(ctx, getCoreItem, id)
+	var i CoreItem
+	err := row.Scan(
+		&i.ID,
+		&i.Module,
+		&i.Type,
+		&i.Title,
+		&i.Url,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getCoreLink = `-- name: GetCoreLink :one
+SELECT id, src_id, dst_id, kind, source, status, confidence, created_at, decided_at FROM core_links WHERE id = ?
+`
+
+func (q *Queries) GetCoreLink(ctx context.Context, id string) (CoreLink, error) {
+	row := q.db.QueryRowContext(ctx, getCoreLink, id)
+	var i CoreLink
+	err := row.Scan(
+		&i.ID,
+		&i.SrcID,
+		&i.DstID,
+		&i.Kind,
+		&i.Source,
+		&i.Status,
+		&i.Confidence,
+		&i.CreatedAt,
+		&i.DecidedAt,
+	)
+	return i, err
+}
+
+const getCoreLinkByTriple = `-- name: GetCoreLinkByTriple :one
+SELECT id, src_id, dst_id, kind, source, status, confidence, created_at, decided_at FROM core_links WHERE src_id = ? AND dst_id = ? AND kind = ?
+`
+
+type GetCoreLinkByTripleParams struct {
+	SrcID string
+	DstID string
+	Kind  string
+}
+
+func (q *Queries) GetCoreLinkByTriple(ctx context.Context, arg GetCoreLinkByTripleParams) (CoreLink, error) {
+	row := q.db.QueryRowContext(ctx, getCoreLinkByTriple, arg.SrcID, arg.DstID, arg.Kind)
+	var i CoreLink
+	err := row.Scan(
+		&i.ID,
+		&i.SrcID,
+		&i.DstID,
+		&i.Kind,
+		&i.Source,
+		&i.Status,
+		&i.Confidence,
+		&i.CreatedAt,
+		&i.DecidedAt,
+	)
+	return i, err
+}
+
+const getCoreSubject = `-- name: GetCoreSubject :one
+SELECT id, name, slug, focus, created_at FROM core_subjects WHERE id = ?
+`
+
+func (q *Queries) GetCoreSubject(ctx context.Context, id string) (CoreSubject, error) {
+	row := q.db.QueryRowContext(ctx, getCoreSubject, id)
+	var i CoreSubject
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Focus,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getCoreSubjectBySlug = `-- name: GetCoreSubjectBySlug :one
+SELECT id, name, slug, focus, created_at FROM core_subjects WHERE slug = ?
+`
+
+func (q *Queries) GetCoreSubjectBySlug(ctx context.Context, slug string) (CoreSubject, error) {
+	row := q.db.QueryRowContext(ctx, getCoreSubjectBySlug, slug)
+	var i CoreSubject
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Slug,
+		&i.Focus,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const insertCoreFile = `-- name: InsertCoreFile :exec
@@ -122,6 +306,47 @@ func (q *Queries) InsertCoreItem(ctx context.Context, arg InsertCoreItemParams) 
 	return err
 }
 
+const insertCoreSubject = `-- name: InsertCoreSubject :exec
+INSERT INTO core_subjects (id, name, slug, focus, created_at)
+VALUES (?, ?, ?, ?, ?)
+`
+
+type InsertCoreSubjectParams struct {
+	ID        string
+	Name      string
+	Slug      string
+	Focus     int64
+	CreatedAt string
+}
+
+func (q *Queries) InsertCoreSubject(ctx context.Context, arg InsertCoreSubjectParams) error {
+	_, err := q.db.ExecContext(ctx, insertCoreSubject,
+		arg.ID,
+		arg.Name,
+		arg.Slug,
+		arg.Focus,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertCoreSubjectAlias = `-- name: InsertCoreSubjectAlias :exec
+INSERT INTO core_subject_aliases (alias_slug, subject_id) VALUES (?, ?)
+`
+
+type InsertCoreSubjectAliasParams struct {
+	AliasSlug string
+	SubjectID string
+}
+
+// A spelling that means an existing subject. Nothing in this delivery writes
+// one; the classifier and the import that will are what this exists for, and
+// the search already reads it.
+func (q *Queries) InsertCoreSubjectAlias(ctx context.Context, arg InsertCoreSubjectAliasParams) error {
+	_, err := q.db.ExecContext(ctx, insertCoreSubjectAlias, arg.AliasSlug, arg.SubjectID)
+	return err
+}
+
 const listCollectableCoreFiles = `-- name: ListCollectableCoreFiles :many
 SELECT core_files.hash, core_files.size FROM core_files
 WHERE core_files.created_at < ?
@@ -144,6 +369,41 @@ func (q *Queries) ListCollectableCoreFiles(ctx context.Context, createdAt string
 	for rows.Next() {
 		var i ListCollectableCoreFilesRow
 		if err := rows.Scan(&i.Hash, &i.Size); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFocusCoreSubjects = `-- name: ListFocusCoreSubjects :many
+SELECT id, name, slug, focus, created_at FROM core_subjects WHERE focus = 1 ORDER BY slug, id
+`
+
+// The explicit half of the focus: the subjects a person flagged. Ordered by
+// slug so two calls answer in the same order.
+func (q *Queries) ListFocusCoreSubjects(ctx context.Context) ([]CoreSubject, error) {
+	rows, err := q.db.QueryContext(ctx, listFocusCoreSubjects)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []CoreSubject{}
+	for rows.Next() {
+		var i CoreSubject
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.Focus,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -200,4 +460,24 @@ type UpdateCoreItemParams struct {
 
 func (q *Queries) UpdateCoreItem(ctx context.Context, arg UpdateCoreItemParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, updateCoreItem, arg.Title, arg.Type, arg.ID)
+}
+
+const updateCoreSubject = `-- name: UpdateCoreSubject :execresult
+UPDATE core_subjects SET name = ?, slug = ?, focus = ? WHERE id = ?
+`
+
+type UpdateCoreSubjectParams struct {
+	Name  string
+	Slug  string
+	Focus int64
+	ID    string
+}
+
+func (q *Queries) UpdateCoreSubject(ctx context.Context, arg UpdateCoreSubjectParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateCoreSubject,
+		arg.Name,
+		arg.Slug,
+		arg.Focus,
+		arg.ID,
+	)
 }

@@ -56,8 +56,11 @@ func TestMigrateCreatesThePrivateDataDirectoryAndIsIdempotent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("norte migrate: %v\n%s", err, first)
 	}
-	if !strings.Contains(first, "applied 1 core migration") {
-		t.Errorf("the first run said %q, want it to report the migration it applied", strings.TrimSpace(first))
+	// The number is deliberately not pinned: the point is that a fresh run
+	// reports what it applied rather than claiming to be up to date, and every
+	// later core migration would otherwise have to edit this line.
+	if !strings.Contains(first, "core migration(s) to") || strings.Contains(first, "applied 0 core migration") {
+		t.Errorf("the first run said %q, want it to report the migrations it applied", strings.TrimSpace(first))
 	}
 
 	databasePath := filepath.Join(dataDir, core.DatabaseFileName)
