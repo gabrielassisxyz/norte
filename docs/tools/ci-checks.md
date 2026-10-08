@@ -32,6 +32,15 @@ broken checks rather than just the first.
 
 ## Narrowing further than a check
 
+The whole first delivery -- save, extract, classify, accept, highlight,
+question, and the item turning up on the subject's panel and first in
+`view=now` -- is walked by one test inside `go-test`, with its own negative
+control. It needs no separate check, and it is the first thing to run when a
+change crosses two modules:
+
+    cd server && go test ./internal/app/ -run TestTheFirstDeliveryWalks
+    cd server && go test ./internal/app/ -run TestTheWalkStopsAtTheAcceptStepWithNoClassifier
+
 Within `go-test`, two tests rerun on their own:
 
     cd server && go test ./internal/app/ -run TestSIGTERMLetsAnInFlightRequestFinish
