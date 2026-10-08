@@ -57,6 +57,30 @@ type notesAnnotationBody struct {
 	} `json:"source"`
 }
 
+// TestAQuestionCannotCiteAnAnnotationOfAnotherItem keeps a question's margin
+// note on the same text as the question.
+func TestAQuestionCannotCiteAnAnnotationOfAnotherItem(t *testing.T) {
+	harness := newNotesHarness(t)
+	first := harness.saveArticle("Primeiro", "Antes. O trecho marcado. Depois.")
+	second := harness.saveArticle("Segundo", "Outro texto inteiro.")
+	annotation := notesDecode[notesAnnotationBody](t, harness.request(http.MethodPost, "/api/notes/annotations",
+		map[string]any{"item_id": first, "text": "uma nota"}), http.StatusCreated)
+
+	recorder := harness.request(http.MethodPost, "/api/notes/questions", map[string]any{
+		"item_id":       second,
+		"annotation_id": annotation.ID,
+		"text":          "Isto pertence a outro texto?",
+	})
+	if recorder.Code != http.StatusBadRequest {
+		t.Fatalf("status %d, want 400: %s", recorder.Code, recorder.Body.String())
+	}
+	listed := notesDecode[notesQuestionListBody](t,
+		harness.request(http.MethodGet, "/api/notes/questions?item_id="+second, nil), http.StatusOK)
+	if len(listed.Items) != 0 {
+		t.Fatalf("the refused question was stored: %+v", listed.Items)
+	}
+}
+
 type notesAnnotationListBody struct {
 	Items      []notesAnnotationBody `json:"items"`
 	NextCursor string                `json:"next_cursor"`

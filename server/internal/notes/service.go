@@ -359,11 +359,18 @@ func (s *NotesService) prepareQuestion(ctx context.Context, in NewQuestionInput)
 		}
 	}
 	if in.AnnotationID != "" {
-		if _, err := db.New(s.database.Reader()).GetNotesAnnotationByID(ctx, in.AnnotationID); err != nil {
+		annotation, err := db.New(s.database.Reader()).GetNotesAnnotationByID(ctx, in.AnnotationID)
+		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return db.InsertNotesQuestionParams{}, notesNotFound("annotation", in.AnnotationID)
 			}
 			return db.InsertNotesQuestionParams{}, fmt.Errorf("reading the annotation %s: %w", in.AnnotationID, err)
+		}
+		// A question that cites a margin note from another text would show,
+		// beside one article, a note the person wrote about a different one.
+		if in.ItemID != "" && annotation.ItemID != in.ItemID {
+			return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
+				"the annotation belongs to another item", "annotation_id")
 		}
 	}
 	if in.SetID != "" {
