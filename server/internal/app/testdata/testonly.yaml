@@ -6,6 +6,10 @@
 # contract with a route nothing serves, the tests mount this file through the
 # same validator and the same error handler production uses.
 #
+# The GET on the same path carries the query parameter the field-naming cases
+# need: a parameter violation is the one schema failure the validator reports
+# with no JSON pointer at all, so it cannot be driven through a body.
+#
 # It lives under testdata/ on purpose: the Go tool ignores that directory, and
 # it is outside api/openapi/, so no generator and no gate check ever sees it.
 openapi: 3.0.3
@@ -14,6 +18,31 @@ info:
   version: 0.0.0
 paths:
   /api/core/test-notes:
+    get:
+      operationId: listTestNotes
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+        - name: kind
+          in: query
+          schema:
+            type: string
+            enum:
+              - note
+              - quote
+      responses:
+        "200":
+          description: The notes the query selected.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TestNote"
     post:
       operationId: createTestNote
       requestBody:

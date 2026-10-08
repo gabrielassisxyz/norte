@@ -5,12 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/http"
-	"strings"
 
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/getkin/kin-openapi/openapi3filter"
-	"github.com/getkin/kin-openapi/routers"
 	nethttpmiddleware "github.com/oapi-codegen/nethttp-middleware"
 
 	libraryapi "github.com/gabrielassisxyz/norte/server/gen/api/library"
@@ -331,19 +329,19 @@ func (a libraryRouterAdapter) ServeHTTP(http.ResponseWriter, *http.Request) {
 // mountLibraryAPI registers the library's routes behind the same validator,
 // the same error mapping and the same envelope production uses, so what the
 // core proves about the contract holds for this module too.
-func mountLibraryAPI(router *app.Router, handlers LibraryHandlers) {
+func mountLibraryAPI(router *app.Router, logger *slog.Logger, handlers LibraryHandlers) {
 	spec, err := libraryapi.GetSwagger()
 	if err != nil {
 		panic(fmt.Sprintf("loading the embedded library contract: %v", err))
 	}
 	strict := libraryapi.NewStrictHandlerWithOptions(handlers, nil, libraryapi.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc:  writeLibraryDecodeError,
-		ResponseErrorHandlerFunc: writeLibraryHandlerError,
+		RequestErrorHandlerFunc:  core.WriteRequestDecodeError,
+		ResponseErrorHandlerFunc: core.NewInternalErrorResponder(logger),
 	})
 	libraryapi.HandlerWithOptions(strict, libraryapi.StdHTTPServerOptions{
 		BaseRouter:       libraryRouterAdapter{router: router},
 		Middlewares:      []libraryapi.MiddlewareFunc{newLibraryContractValidator(spec)},
-		ErrorHandlerFunc: writeLibraryDecodeError,
+		ErrorHandlerFunc: core.WriteRequestDecodeError,
 	})
 }
 
@@ -357,123 +355,11 @@ func mountLibraryAPI(router *app.Router, handlers LibraryHandlers) {
 // than one that refuses to start.
 func newLibraryContractValidator(spec *openapi3.T) func(http.Handler) http.Handler {
 	return nethttpmiddleware.OapiRequestValidatorWithOptions(spec, &nethttpmiddleware.Options{
-		ErrorHandlerWithOpts: writeLibraryValidationError,
+		ErrorHandlerWithOpts: core.WriteContractValidationError,
 		// Norte is reached over whatever host the browser used; the Host
 		// allowlist in core is what decides that, with the configured public
 		// URL in view, which the contract has no way to know.
 		DoNotValidateServers:  true,
 		SilenceServersWarning: true,
 	})
-}
-
-// The rest of this file mirrors the core's error mapping: the validator
-// reports a wrong content type, an unparseable body and a schema violation as
-// one RequestError, so the cases that are not a plain 400 are recognised from
-// the error itself rather than from its suggestion. The reasons below come
-// from the kin-openapi version server/go.mod pins; a rename there surfaces as
-// the content-type case answering 400 instead of 415.
-const (
-	libraryUnexpectedContentTypeReason = "header Content-Type has unexpected value"
-	libraryUndecodableBodyReason       = "failed to decode request body"
-)
-
-// writeLibraryValidationError answers a request the contract rejected, in the
-// same envelope a domain failure comes back in, so a client parses one shape.
-func writeLibraryValidationError(
-	_ context.Context,
-	err error,
-	w http.ResponseWriter,
-	r *http.Request,
-	opts nethttpmiddleware.ErrorHandlerOpts,
-) {
-	status, code, field := libraryClassifyValidationError(err, opts.StatusCode)
-	core.WriteJSONFieldError(w, r, status, code, libraryValidationMessage(err), field)
-}
-
-// writeLibraryDecodeError answers a request the generated router could not
-// decode -- a path or query parameter of the wrong type, before any contract
-// validation gets a say.
-func writeLibraryDecodeError(w http.ResponseWriter, r *http.Request, err error) {
-	core.WriteJSONError(w, r, http.StatusBadRequest, "invalid_request", librarySingleLine(err.Error()))
-}
-
-// writeLibraryHandlerError answers a handler that returned an error it had no
-// response for. The message is deliberately not the error: that one is for
-// the log.
-func writeLibraryHandlerError(w http.ResponseWriter, r *http.Request, _ error) {
-	core.WriteJSONError(w, r, http.StatusInternalServerError, "internal", "internal error")
-}
-
-// libraryClassifyValidationError picks the status, the code and the offending
-// field. The validator suggests 400 for every bad request, so the cases that
-// are not one -- a content type the contract does not declare, a body past
-// the cap -- are recognised from the error itself rather than its suggestion.
-func libraryClassifyValidationError(err error, suggested int) (status int, code, field string) {
-	var tooLarge *http.MaxBytesError
-	if errors.As(err, &tooLarge) {
-		return http.StatusRequestEntityTooLarge, "body_too_large", ""
-	}
-
-	var requestErr *openapi3filter.RequestError
-	if errors.As(err, &requestErr) {
-		return libraryClassifyRequestError(requestErr)
-	}
-
-	if errors.Is(err, routers.ErrPathNotFound) {
-		return http.StatusNotFound, "not_found", ""
-	}
-	if errors.Is(err, routers.ErrMethodNotAllowed) {
-		return http.StatusMethodNotAllowed, "method_not_allowed", ""
-	}
-
-	if suggested == 0 {
-		suggested = http.StatusBadRequest
-	}
-	return suggested, "invalid_request", ""
-}
-
-func libraryClassifyRequestError(requestErr *openapi3filter.RequestError) (status int, code, field string) {
-	if requestErr.RequestBody != nil && strings.HasPrefix(requestErr.Reason, libraryUnexpectedContentTypeReason) {
-		return http.StatusUnsupportedMediaType, "unsupported_media_type", ""
-	}
-
-	var schemaErr *openapi3.SchemaError
-	if errors.As(requestErr.Err, &schemaErr) {
-		return http.StatusBadRequest, "invalid_request", strings.Join(schemaErr.JSONPointer(), ".")
-	}
-
-	if requestErr.Reason == libraryUndecodableBodyReason {
-		return http.StatusBadRequest, "invalid_json", ""
-	}
-	if requestErr.Parameter != nil {
-		return http.StatusBadRequest, "invalid_request", requestErr.Parameter.Name
-	}
-	return http.StatusBadRequest, "invalid_request", ""
-}
-
-// libraryValidationMessage keeps the envelope's message to one readable line.
-// The validator's own Error() embeds the offending schema and the value it
-// rejected across several lines, which belongs in a log and not in a JSON
-// field a screen may show.
-func libraryValidationMessage(err error) string {
-	var schemaErr *openapi3.SchemaError
-	if errors.As(err, &schemaErr) {
-		if at := strings.Join(schemaErr.JSONPointer(), "."); at != "" {
-			return fmt.Sprintf("%s: %s", at, librarySingleLine(schemaErr.Reason))
-		}
-		return librarySingleLine(schemaErr.Reason)
-	}
-
-	var requestErr *openapi3filter.RequestError
-	if errors.As(err, &requestErr) {
-		if requestErr.Err != nil {
-			return librarySingleLine(requestErr.Reason + ": " + requestErr.Err.Error())
-		}
-		return librarySingleLine(requestErr.Reason)
-	}
-	return librarySingleLine(err.Error())
-}
-
-func librarySingleLine(message string) string {
-	return strings.Join(strings.Fields(message), " ")
 }

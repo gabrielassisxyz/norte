@@ -36,7 +36,13 @@ func testRouter(t *testing.T) http.Handler {
 // get sends a request through the router with an allowed Host.
 func get(t *testing.T, handler http.Handler, path string) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequest(http.MethodGet, path, nil)
+	return send(t, handler, http.MethodGet, path)
+}
+
+// send is get for a method the route does not answer.
+func send(t *testing.T, handler http.Handler, method, path string) *httptest.ResponseRecorder {
+	t.Helper()
+	request := httptest.NewRequest(method, path, nil)
 	request.Host = "localhost:8080"
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)

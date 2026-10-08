@@ -67,10 +67,11 @@ func NewRouter(opts RouterOptions) (http.Handler, error) {
 // withStandardMiddleware wraps a handler in the chain every request goes
 // through. The order is deliberate: the request id and the access log see every
 // request, the security headers are set even on the responses the allowlist and
-// the body cap reject, and the body cap is innermost so only handlers run under
-// it.
+// the body cap reject, the media type is folded before any contract validator
+// reads it, and the body cap is innermost so only handlers run under it.
 func withStandardMiddleware(opts RouterOptions, handler http.Handler) http.Handler {
 	handler = core.WithBodyLimit(opts.Config.BodyMaxBytes, handler)
+	handler = core.WithCanonicalMediaType(handler)
 	handler = core.WithHostAllowlist(opts.Config.AllowedHosts(), handler)
 	handler = core.WithSecurityHeaders(handler)
 	handler = core.WithPanicRecovery(opts.Logger, handler)

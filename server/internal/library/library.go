@@ -40,7 +40,7 @@ func (*LibraryModule) Migrations() fs.FS { return migrations.FS }
 
 // Register mounts the library's routes under /api/library/.
 func (*LibraryModule) Register(router *app.Router, deps app.Deps) {
-	mountLibraryAPI(router, LibraryHandlers{service: newLibraryServiceFromDeps(deps)})
+	mountLibraryAPI(router, deps.Logger, LibraryHandlers{service: newLibraryServiceFromDeps(deps)})
 }
 
 // Commands returns the module's subcommands: saving a link, and asking for its

@@ -32,13 +32,13 @@ func mountCoreAPI(mux *http.ServeMux, opts RouterOptions) error {
 			NorteSearchProviders(opts.Modules, opts.ModuleDeps), norteModuleNames(opts.Modules)),
 	}
 	strict := coreapi.NewStrictHandlerWithOptions(handlers, nil, coreapi.StrictHTTPServerOptions{
-		RequestErrorHandlerFunc:  writeRequestDecodeError,
-		ResponseErrorHandlerFunc: writeHandlerError,
+		RequestErrorHandlerFunc:  core.WriteRequestDecodeError,
+		ResponseErrorHandlerFunc: core.NewInternalErrorResponder(opts.Logger),
 	})
 	coreapi.HandlerWithOptions(strict, coreapi.StdHTTPServerOptions{
 		BaseRouter:       mux,
 		Middlewares:      []coreapi.MiddlewareFunc{newContractValidator(spec)},
-		ErrorHandlerFunc: writeRequestDecodeError,
+		ErrorHandlerFunc: core.WriteRequestDecodeError,
 	})
 	return nil
 }
@@ -54,7 +54,7 @@ func mountCoreAPI(mux *http.ServeMux, opts RouterOptions) error {
 // than one that refuses to start.
 func newContractValidator(spec *openapi3.T) func(http.Handler) http.Handler {
 	return nethttpmiddleware.OapiRequestValidatorWithOptions(spec, &nethttpmiddleware.Options{
-		ErrorHandlerWithOpts: writeContractValidationError,
+		ErrorHandlerWithOpts: core.WriteContractValidationError,
 		// Norte is reached over whatever host the browser used; the Host
 		// allowlist in core is what decides that, with the configured public
 		// URL in view, which the contract has no way to know.
