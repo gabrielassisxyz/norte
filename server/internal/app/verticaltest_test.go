@@ -107,30 +107,13 @@ func newNorteVerticalHarness(t *testing.T, options norteVerticalOptions) *norteV
 		t.Fatalf("applying the module migrations: %v", err)
 	}
 
-	queue := core.NewJobs(database.Writer(), clock, nil)
-	texts := core.NewTexts(database.Reader(), nil)
-	deps := app.Deps{
-		Database:      database,
-		Jobs:          queue,
-		Files:         core.NewFiles(dataDir, database.Writer(), clock),
-		Clock:         clock,
-		Events:        core.NewEvents(),
-		Texts:         texts,
-		Logger:        slog.New(slog.NewJSONHandler(io.Discard, nil)),
-		FetchMaxBytes: cfg.FetchMaxBytes,
-		LLMURL:        cfg.LLMURL,
-		LLM:           core.NewLLM(cfg.LLMURL, cfg.LLMModel, cfg.LLMKey),
-		LinkCandidates: core.NewLinkCandidates(database,
-			app.NorteFocusProviders(modules)),
-		Focus: core.NewFocusAPI(core.NewSubjects(database, clock),
-			app.NorteFocusProviders(modules)),
-	}
-	texts.SetProviders(app.NorteTextProviders(modules, deps))
-	app.RegisterNorteJobHandlers(queue, modules, deps)
+	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	cfg.Data = dataDir
+	_, deps := app.BuildNorteRuntime(cfg, database, clock, logger, modules)
 
 	router, err := app.NewRouter(app.RouterOptions{
 		Config: cfg,
-		Logger: deps.Logger,
+		Logger: logger,
 		Assets: fstest.MapFS{"index.html": {Data: []byte("<!doctype html><title>Norte</title>")}},
 		// The frontend is a placeholder here: this test is about the API the
 		// frontend calls, and embedding the real one would make the whole
