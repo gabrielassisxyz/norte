@@ -7,6 +7,8 @@ import { createRouteTable, routes } from '@/router'
 import type { AppSources } from '@/sources'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
+import { coreLink, fakeCoreSource, registryItem } from '@/shell/data/testing'
+
 import { libraryGainedItem } from '../data/revision'
 import type { LibraryItemList, LibraryItemRecord, LibrarySource } from '../data/source'
 import { fakeLibrarySource, libraryRecord, type FakeLibrarySource } from '../data/testing'
@@ -39,13 +41,24 @@ function companionSources(): Partial<AppSources> {
   }
 }
 
-async function mountAt(path: string, library: Partial<AppSources['library']>) {
+async function mountAt(
+  path: string,
+  library: Partial<AppSources['library']>,
+  core?: AppSources['core']
+) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
   const wrapper = mount(LibraryView, {
     global: {
-      plugins: [router, sourcesPlugin({ ...companionSources(), library: library as AppSources['library'] })]
+      plugins: [
+        router,
+        sourcesPlugin({
+          ...companionSources(),
+          library: library as AppSources['library'],
+          ...(core ? { core } : {})
+        })
+      ]
     }
   })
   await flushReads()
@@ -56,10 +69,17 @@ function titles(wrapper: VueWrapper): string[] {
   return wrapper.findAll('.item-title').map((node) => node.text())
 }
 
+/**
+ * The counted tabs and their counts. A tab with no count is left out rather
+ * than reported as zero: the review queue is one, and "0 sugestões" is a
+ * different claim from "nobody counts the suggestions".
+ */
 function segCounts(wrapper: VueWrapper): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const button of wrapper.findAll('.nt-seg-btn')) {
-    counts[button.find('span').text()] = Number(button.find('.nt-seg-count').text())
+    const count = button.find('.nt-seg-count')
+    if (!count.exists()) continue
+    counts[button.find('span').text()] = Number(count.text())
   }
   return counts
 }
@@ -427,5 +447,46 @@ describe('LibraryView superseding a read it no longer needs', () => {
     await flushReads()
 
     expect(signals[0].aborted).toBe(true)
+  })
+
+  it('offers the review queue as a tab, and reads no shelf while it is on screen', async () => {
+    const library = fakeLibrarySource(shelf())
+    const core = fakeCoreSource({
+      links: [
+        coreLink({
+          id: 'link-sugerido',
+          status: 'suggested',
+          source: 'llm',
+          confidence: 0.8,
+          src: registryItem({ id: 'item-consenso', title: 'Notas sobre consenso' }),
+          dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Sistemas distribuídos' })
+        })
+      ]
+    })
+    const { wrapper } = await mountAt('/biblioteca?v=sugestoes', library, core)
+
+    // The tab is selected, the shelf was never asked for, and the queue is on
+    // screen instead of the item list.
+    expect(wrapper.get('[aria-selected="true"]').text()).toContain('Sugestões')
+    expect(library.calls.list).toHaveLength(0)
+    expect(wrapper.find('.library-list').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Notas sobre consenso')
+    // The queue carries no count, because the only number this screen could
+    // print is the size of the first page.
+    expect(segCounts(wrapper)).toEqual({ Inbox: 1, Depois: 1, Arquivo: 1, Tudo: 3 })
+  })
+
+  it('reads the shelf when the person leaves the review queue', async () => {
+    const library = fakeLibrarySource(shelf())
+    const core = fakeCoreSource({})
+    const { wrapper, router } = await mountAt('/biblioteca?v=sugestoes', library, core)
+
+    expect(library.calls.list).toHaveLength(0)
+
+    await router.push('/biblioteca?v=tudo')
+    await flushReads()
+
+    expect(lastQuery(library)?.view).toBe('tudo')
+    expect(titles(wrapper)).toHaveLength(3)
   })
 })
