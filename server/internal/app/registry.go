@@ -27,7 +27,11 @@ type Module interface {
 	Commands() []*cobra.Command
 	JobHandlers(deps Deps) map[string]core.JobHandler
 	Start(ctx context.Context, deps Deps) error
-	Text(ctx context.Context, id string) (string, bool, error)
+	// Text is the module's answer for core.Text. It takes Deps rather than
+	// catching them from Register, because the core's resolver is built at
+	// startup from the same dependencies a route is mounted with and the
+	// interface promises no order between the two.
+	Text(ctx context.Context, deps Deps, id string) (string, bool, error)
 	FocusTargets(ctx context.Context) ([]core.FocusTarget, error)
 	SearchEntries(ctx context.Context, q string, limit int) ([]core.SearchEntry, error)
 }
@@ -45,6 +49,9 @@ type Deps struct {
 	Clock    core.Clock
 	// Events is the in-process bus modules publish to and subscribe on.
 	Events *core.Events
+	// Texts resolves an item's readable text across module lines, so a module
+	// reads another module's text without reading its table.
+	Texts *core.Texts
 	// Logger is the server's logger, for what a background job has to report.
 	Logger *slog.Logger
 	// FetchMaxBytes is the largest response a module's fetcher may download.
@@ -227,10 +234,18 @@ func RegisterNorteJobHandlers(queue *core.Jobs, modules []Module, deps Deps) {
 
 // NorteTextProviders hands the enabled modules to the core as text providers
 // keyed by module name, so core.Text can route by core_items.module.
-func NorteTextProviders(modules []Module) map[string]core.TextProvider {
+//
+// Each provider is the module's own Text closed over deps, which is how a
+// stateless module answers for an item without the core knowing what a module
+// needs to read it.
+func NorteTextProviders(modules []Module, deps Deps) map[string]core.TextProvider {
 	providers := make(map[string]core.TextProvider, len(modules))
 	for _, module := range modules {
-		providers[module.Name()] = module
+		owner := module
+		providers[owner.Name()] = core.TextProviderFunc(
+			func(ctx context.Context, id string) (string, bool, error) {
+				return owner.Text(ctx, deps, id)
+			})
 	}
 	return providers
 }

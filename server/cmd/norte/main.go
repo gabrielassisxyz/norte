@@ -10,6 +10,7 @@ import (
 	// init; main pulls them into the binary with these blank imports, which
 	// is what makes them compiled in and switchable through NORTE_MODULES.
 	_ "github.com/gabrielassisxyz/norte/server/internal/library"
+	_ "github.com/gabrielassisxyz/norte/server/internal/notes"
 )
 
 func main() {

@@ -43,6 +43,16 @@ type TextProvider interface {
 	Text(ctx context.Context, id string) (string, bool, error)
 }
 
+// TextProviderFunc adapts a plain function to TextProvider, which is how the
+// module registry hands a module's method over together with the dependencies
+// that method needs.
+type TextProviderFunc func(ctx context.Context, id string) (string, bool, error)
+
+// Text calls the function.
+func (f TextProviderFunc) Text(ctx context.Context, id string) (string, bool, error) {
+	return f(ctx, id)
+}
+
 // FocusProvider lists what the person is working on now.
 type FocusProvider interface {
 	FocusTargets(ctx context.Context) ([]FocusTarget, error)

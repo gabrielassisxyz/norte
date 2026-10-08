@@ -8,6 +8,12 @@ UPDATE core_items SET title = ?, type = ? WHERE id = ?;
 -- name: DeleteCoreItem :execresult
 DELETE FROM core_items WHERE id = ?;
 
+-- The registry row behind one id, which is how a module renders an item it does
+-- not own: the title and the type are here, so a note shows where it came from
+-- with the owning module switched off.
+-- name: GetCoreItemByID :one
+SELECT id, module, type, title, url, created_at FROM core_items WHERE id = ?;
+
 -- Insert a manual, confirmed link, or take over whatever decision was on that
 -- triple before. The WHERE on the conflict branch is what makes confirming an
 -- already confirmed link a no-op, rather than moving the date it was decided.

@@ -68,6 +68,27 @@ func (q *Queries) DeleteCoreItem(ctx context.Context, id string) (sql.Result, er
 	return q.db.ExecContext(ctx, deleteCoreItem, id)
 }
 
+const getCoreItemByID = `-- name: GetCoreItemByID :one
+SELECT id, module, type, title, url, created_at FROM core_items WHERE id = ?
+`
+
+// The registry row behind one id, which is how a module renders an item it does
+// not own: the title and the type are here, so a note shows where it came from
+// with the owning module switched off.
+func (q *Queries) GetCoreItemByID(ctx context.Context, id string) (CoreItem, error) {
+	row := q.db.QueryRowContext(ctx, getCoreItemByID, id)
+	var i CoreItem
+	err := row.Scan(
+		&i.ID,
+		&i.Module,
+		&i.Type,
+		&i.Title,
+		&i.Url,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertCoreFile = `-- name: InsertCoreFile :exec
 INSERT INTO core_files (hash, media_type, size, created_at)
 VALUES (?, ?, ?, ?)
