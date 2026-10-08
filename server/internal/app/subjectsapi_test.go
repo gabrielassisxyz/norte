@@ -159,7 +159,7 @@ type linkBody struct {
 	Confidence *float64 `json:"confidence"`
 	CreatedAt  string   `json:"created_at"`
 	DecidedAt  *string  `json:"decided_at"`
-	Src       struct {
+	Src        struct {
 		ID     string `json:"id"`
 		Module string `json:"module"`
 		Type   string `json:"type"`
