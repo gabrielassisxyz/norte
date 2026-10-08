@@ -1,0 +1,79 @@
+# Example deployment for Norte: one container, one named volume.
+#
+# Start it with:
+#
+#   docker compose -f docker-compose.example.yml up --build
+#
+# and open http://127.0.0.1:8080. Copy this file to docker-compose.yml to keep
+# local changes out of version control.
+#
+# The image already sets NORTE_LISTEN=0.0.0.0:8080 and NORTE_DATA=/data; only
+# the choices that differ per install live here.
+
+services:
+  norte:
+    build: .
+    image: norte:latest
+    environment:
+      # Comma-separated feature modules to enable. Only the modules listed
+      # here are mounted: /api/config reports exactly these, and the frontend
+      # mounts only what it reports.
+      NORTE_MODULES: "library,notes"
+      # IANA timezone dates are rendered in. The binary embeds the zone
+      # database, so any IANA name resolves even though the image carries no
+      # zoneinfo files.
+      NORTE_TIMEZONE: "America/Sao_Paulo"
+    ports:
+      # Published on 127.0.0.1 only. This version has no authentication: the
+      # boundary is localhost (or the Tailscale network below), so binding
+      # 0.0.0.0 would expose an unauthenticated server to the local network.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      # One named volume holds the database plus the content-addressed files.
+      # A named volume is required rather than a bind mount: a bind mount
+      # arrives root-owned and the first start as the image's non-root user
+      # fails with EACCES, while a named volume is initialised from the
+      # image's /data directory, which the Dockerfile already chowns to that
+      # user, so the ownership comes along.
+      - norte-data:/data
+    restart: unless-stopped
+
+volumes:
+  norte-data:
+
+# Phone over Tailscale (commented second example). The phone cannot reach
+# 127.0.0.1 on this machine, so bind the container to this machine's Tailscale
+# address instead and tell the server the exact origin the phone uses:
+#
+# services:
+#   norte:
+#     build: .
+#     image: norte:latest
+#     environment:
+#       NORTE_MODULES: "library,notes"
+#       NORTE_TIMEZONE: "America/Sao_Paulo"
+#       # The server's Host allowlist rejects any host it was not told about
+#       # with 421, and inside the container NORTE_LISTEN is 0.0.0.0, so this
+#       # URL is the only way the phone's host is allowed. It must be the
+#       # exact origin the phone opens, scheme, host and port included.
+#       NORTE_PUBLIC_URL: "http://100.64.0.1:8080"
+#     ports:
+#       # Still bound to one address, now the Tailscale one: the server stays
+#       # off the local network, reachable only from this machine and the tailnet.
+#       - "100.64.0.1:8080:8080"
+#     volumes:
+#       - norte-data:/data
+#     restart: unless-stopped
+#
+# Replace 100.64.0.1 with this machine's Tailscale IP (tailscale ip -4), then
+# check reachability with the Host the phone will send:
+#
+#   curl -H "Host: 100.64.0.1" http://100.64.0.1:8080/api/health
+#
+# No mem_limit is set: it gets one once the study module's PDF ingestion
+# exists and its memory is measured (estimated at about 250 MB per PDF job).
+#
+# Before upgrading, stop Norte and archive the named volume:
+#
+#   docker run --rm -v norte-data:/data -v "$PWD":/backup alpine \
+#     tar czf /backup/norte-data.tgz -C /data .

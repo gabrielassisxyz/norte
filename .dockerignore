@@ -1,0 +1,21 @@
+# Build context for the Norte image. Everything the image build needs is the
+# checked-in source; the rest is rebuilt (web/dist, server/norte) or local
+# state that must never ship (.git, design prototypes, local notes).
+.git
+.beads
+.bv
+.github
+design/prototypes/
+web/node_modules/
+web/dist/
+web/coverage/
+server/norte
+server/internal/webassets/dist/*
+!server/internal/webassets/dist/placeholder.html
+server/internal/webassets/dist.new/
+server/internal/webassets/dist.old/
+local/
+docs/reviews/
+docs/backend-plan.md
+*.local
+.DS_Store
