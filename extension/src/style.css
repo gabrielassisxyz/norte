@@ -1,0 +1,19 @@
+@import url('tokens.css');
+* { box-sizing: border-box; }
+body { width: 360px; margin: 0; background: var(--ground); color: var(--ink); font: 14px/1.5 var(--font-sans); }
+header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); }
+header strong { font: 650 20px var(--font-display); letter-spacing: -.03em; }
+main { padding: 20px; }
+h1 { font: 600 18px/1.4 var(--font-display); margin: 0 0 20px; overflow-wrap: anywhere; }
+a { color: var(--link); }
+label { display: block; font-weight: 550; margin: 16px 0 6px; }
+label span, .muted { color: var(--muted); font-weight: 400; font-size: 12px; }
+input, select, button { width: 100%; font: inherit; border-radius: var(--radius-sm); padding: 10px; }
+input, select { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); }
+select { margin-top: 8px; }
+button { margin-top: 16px; border: 0; font-weight: 600; background: var(--norte); color: var(--on-norte); cursor: pointer; }
+button:hover { background: var(--norte-hover); }
+button:disabled { opacity: .55; cursor: default; }
+:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+#status { overflow-wrap: anywhere; }
+[hidden] { display: none; }
