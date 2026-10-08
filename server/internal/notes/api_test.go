@@ -3,8 +3,11 @@ package notes
 import (
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"testing"
+
+	"github.com/gabrielassisxyz/norte/server/internal/core"
 )
 
 // notesHighlightBody is the answer to a highlight call, read loosely so a test
@@ -577,6 +580,24 @@ func notesListPath(base, cursor string) string {
 	return base + "?cursor=" + url.QueryEscape(cursor)
 }
 
+// notesRefusalBody is the error envelope as a test reads it, for the two fields
+// a refusal is asserted on: the code and the field it is attributed to.
+type notesRefusalBody struct {
+	Error struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+		Field   string `json:"field"`
+	} `json:"error"`
+}
+
+// notesRefusal reads one refusal, failing with the body when the status is not
+// the one expected, and answers the field the refusal names.
+func notesRefusal(t *testing.T, recorder *httptest.ResponseRecorder, want int) string {
+	t.Helper()
+	body := notesDecode[notesRefusalBody](t, recorder, want)
+	return body.Error.Field
+}
+
 // TestTheTextFilterIgnoresCaseOnAnAccentedLetter is the criterion about the
 // filter box: a person typing a word in capitals, or without its accents, is
 // asking the same question as one typing it the way the note spells it. SQLite's
@@ -687,3 +708,86 @@ func TestAFoldedTextFilterStillPagesWithoutRepeatingARow(t *testing.T) {
 	}
 }
 
+// TestAKindWithoutASetIsRefused is the contract's rule about the kind column: a
+// kind means "this question came from that prompt of that set", so a loose
+// question carrying one claims a provenance it does not have.
+func TestAKindWithoutASetIsRefused(t *testing.T) {
+	harness := newNotesHarness(t)
+	field := notesRefusal(t, harness.request(http.MethodPost, "/api/notes/questions",
+		map[string]any{"text": "solta", "kind": "why"}), http.StatusBadRequest)
+	if field != "kind" {
+		t.Fatalf("the refusal named the field %q, want kind", field)
+	}
+	if notesCount(t, harness, `SELECT COUNT(*) FROM notes_questions`) != 0 {
+		t.Fatal("the refused question was stored anyway")
+	}
+}
+
+// TestASecondQuestionOfTheSameKindInASetIsRefused is the other half of the same
+// rule, which the set's own creation already enforced: the six prompts are six
+// boxes, so a set holding two answers to one of them has no prompt they both
+// came from.
+func TestASecondQuestionOfTheSameKindInASetIsRefused(t *testing.T) {
+	harness := newNotesHarness(t)
+	set := notesDecode[notesQuestionSetBody](t, harness.request(http.MethodPost, "/api/notes/question-sets",
+		map[string]any{
+			"topic":     "Memória",
+			"questions": []map[string]string{{"kind": "what", "text": "O que é?"}},
+		}), http.StatusCreated)
+
+	field := notesRefusal(t, harness.request(http.MethodPost, "/api/notes/questions",
+		map[string]any{"text": "de novo", "set_id": set.ID, "kind": "what"}), http.StatusConflict)
+	if field != "kind" {
+		t.Fatalf("the refusal named the field %q, want kind", field)
+	}
+	if notesCount(t, harness,
+		`SELECT COUNT(*) FROM notes_questions WHERE set_id = ? AND kind = 'what'`, set.ID) != 1 {
+		t.Fatal("the set holds two questions of the kind what")
+	}
+
+	// A kind the set has no question of is still accepted, so the rule refuses
+	// the duplicate rather than every question written into an existing set.
+	free := notesDecode[notesQuestionBody](t, harness.request(http.MethodPost, "/api/notes/questions",
+		map[string]any{"text": "Por que importa?", "set_id": set.ID, "kind": "why"}), http.StatusCreated)
+	if free.Kind == nil || *free.Kind != "why" {
+		t.Fatalf("the second prompt came back as %+v", free)
+	}
+}
+
+// TestAHighlightNeedsATargetThatCanHaveText is the criterion about the highlight
+// target: a subject and a question set are a name and a topic, not something to
+// read, so a passage marked "in" one was stored anchored at an offset of a text
+// that does not exist.
+func TestAHighlightNeedsATargetThatCanHaveText(t *testing.T) {
+	harness := newNotesHarness(t)
+	subjectID := harness.registerItem(core.SubjectItemModule, core.SubjectItemType, "Teste")
+	field := notesRefusal(t, harness.request(http.MethodPost, "/api/notes/highlights",
+		map[string]any{"item_id": subjectID, "exact": "palavras"}), http.StatusBadRequest)
+	if field != "item_id" {
+		t.Fatalf("the refusal named the field %q, want item_id", field)
+	}
+
+	set := notesDecode[notesQuestionSetBody](t, harness.request(http.MethodPost, "/api/notes/question-sets",
+		map[string]any{"topic": "Memória"}), http.StatusCreated)
+	field = notesRefusal(t, harness.request(http.MethodPost, "/api/notes/highlights",
+		map[string]any{"item_id": set.ID, "exact": "palavras"}), http.StatusBadRequest)
+	if field != "item_id" {
+		t.Fatalf("the refusal on a question set named the field %q, want item_id", field)
+	}
+	if notesCount(t, harness, `SELECT COUNT(*) FROM notes_highlights`) != 0 {
+		t.Fatal("a highlight on a target with no text was stored anyway")
+	}
+}
+
+// TestAHighlightOnASwitchedOffModuleIsStillAnchored is the documented answer
+// this bead must not break: the library being off tonight is not evidence that
+// the passage is gone, so the highlight is stored as the person marked it.
+func TestAHighlightOnASwitchedOffModuleIsStillAnchored(t *testing.T) {
+	harness := newNotesHarness(t, "notes")
+	itemID := harness.registerItem("library", "post", "Um artigo que a biblioteca guardou")
+	highlight := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
+		map[string]any{"item_id": itemID, "exact": "palavras"}), http.StatusCreated)
+	if highlight.Status != NotesAnchored {
+		t.Fatalf("the highlight came back %q, want anchored", highlight.Status)
+	}
+}

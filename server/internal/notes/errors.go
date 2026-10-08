@@ -27,3 +27,9 @@ func notesNotFound(what, id string) *NotesError {
 		Message: fmt.Sprintf("no %s %s", what, id),
 	}
 }
+
+// notesConflict refuses a write that the rows already stored leave no room
+// for, as opposed to one the request itself got wrong.
+func notesConflict(code, message, field string) *NotesError {
+	return &NotesError{Status: http.StatusConflict, Code: code, Message: message, Field: field}
+}
