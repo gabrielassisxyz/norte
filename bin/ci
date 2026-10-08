@@ -20,7 +20,7 @@ cd "$repo" || exit 1
 # check that regenerates the tree: contracts-test runs the real bin/generate, and
 # placed earlier it rewrote stale generated files before the freshness snapshot
 # was taken, letting a contract edited without regeneration pass the gate.
-checks=(pins pins-test contracts sqlc generate contracts-test gofmt go-vet go-build go-test go-test-race web-test extension-test extension-e2e extension-firefox web-e2e-csp web-e2e-phone web-e2e-library-search-sort web-e2e-shell-boot)
+checks=(pins pins-test contracts sqlc generate contracts-test gofmt go-vet go-build go-test go-test-race web-test extension-test extension-e2e extension-firefox web-e2e-csp web-e2e-phone web-e2e-library-search-sort web-e2e-shell-boot web-e2e-anchoring)
 
 # A temporary NORTE_DATA keeps the suite off the real data directory, so a test
 # that writes cannot touch whatever is installed on the machine running the gate.
@@ -177,6 +177,11 @@ check_web_e2e_library_search_sort() {
 check_web_e2e_shell_boot() {
     norte_playwright_browser || return 1
     (cd web && npx --no-install playwright test e2e/shell-boot.spec.ts)
+}
+
+check_web_e2e_anchoring() {
+    norte_playwright_browser || return 1
+    (cd web && npx --no-install playwright test e2e/highlight-anchoring.spec.ts)
 }
 
 # run_check <name> — run one check, announce the verdict, return its status.
