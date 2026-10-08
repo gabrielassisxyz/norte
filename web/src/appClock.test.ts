@@ -46,19 +46,27 @@ const WEEKDAYS = 'segunda|terça|quarta|quinta|sexta|sábado|domingo'
 const MONTHS = 'janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro'
 const WRITTEN_DAY_LITERAL = new RegExp(`['"\`](?:${WEEKDAYS})[^'"\`]*\\bde (?:${MONTHS})`, 'i')
 
+/**
+ * A `testing.ts` is a test-support file (the in-memory fakes), only ever
+ * imported by tests, and pins dates the way a test does.
+ */
 function isProduction(path: string): boolean {
-  return !path.includes('.test.') && !path.includes('.fixture.')
+  return !path.includes('.test.') && !path.includes('.fixture.') && !path.endsWith('/testing.ts')
 }
 
 /**
  * The areas where a written-in date would be a lie rather than a constant: the
- * mock data, which has to keep ageing against the clock, and the screens, which
- * must not decide what day it is for themselves.
+ * mock data, which has to keep ageing against the clock, and the screens and
+ * every other production file of a module, which must not decide what day it is
+ * for themselves.
  */
 function isDatedArea(path: string): boolean {
   const segments = path.split('/')
   if (segments.includes('mock')) return true
   if (segments.includes('views')) return true
+  // Everything a module ships: its home blocks, data layers and components date
+  // things just as a screen does, and the early scan let them through.
+  if (segments.includes('modules')) return true
   return path.startsWith('./shell/')
 }
 
@@ -89,6 +97,8 @@ describe('no production file carries a date of its own', () => {
     expect(dated.length).toBeGreaterThan(20)
     expect(dated.some((path) => path.includes('/mock/'))).toBe(true)
     expect(dated.some((path) => path.includes('/views/'))).toBe(true)
+    expect(dated.some((path) => /\/modules\/[^/]+\/home\//.test(path))).toBe(true)
+    expect(dated.some((path) => /\/modules\/[^/]+\/data\//.test(path))).toBe(true)
   })
 
   it.each(production)('%s names none of the retired date constants', (path) => {
@@ -125,6 +135,20 @@ describe('the scan itself rejects a planted date', () => {
       '2026-10-10',
       'Sábado, 3 de outubro'
     ])
+  })
+
+  it('catches a date in a module home block and in a module data layer', () => {
+    const block = FIXTURES['./__fixtures__/moduleHomeBlock.fixture.vue']
+    const layer = FIXTURES['./__fixtures__/moduleDataLayer.fixture.ts']
+
+    expect(block, 'the planted fixture is missing').toBeTypeOf('string')
+    expect(layer, 'the planted fixture is missing').toBeTypeOf('string')
+    expect(dateLiteralsIn(block)).toEqual(['2026-10-03'])
+    expect(dateLiteralsIn(layer)).toEqual(['2026-10-01', '20261001'])
+    // The planted files only mean something if the scan would read where such
+    // files live.
+    expect(isDatedArea('./modules/library/home/LibraryReadingBlock.vue')).toBe(true)
+    expect(isDatedArea('./modules/library/data/composables.ts')).toBe(true)
   })
 
   it('leaves a format string and a parser alone', () => {
