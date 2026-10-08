@@ -42,27 +42,39 @@ func TestCanonicalURLStripsTrackersFragmentAndLowercasesTheHost(t *testing.T) {
 			valid: true,
 		},
 		{
+			name:  "a space spelled %20 and + is one key, as under url.Values.Encode",
+			raw:   "https://example.org/s?q=a%20b",
+			want:  "https://example.org/s?q=a+b",
+			valid: true,
+		},
+		{
+			name:  "the + spelling of the same query",
+			raw:   "https://example.org/s?q=a+b",
+			want:  "https://example.org/s?q=a+b",
+			valid: true,
+		},
+		{
 			name:  "a semicolon pair is kept",
 			raw:   "https://example.com/?page=1;lang=pt",
-			want:  "https://example.com/?page=1;lang=pt",
+			want:  "https://example.com/?page=1%3Blang%3Dpt",
 			valid: true,
 		},
 		{
 			name:  "a different semicolon pair is a different key",
 			raw:   "https://example.com/?page=2;lang=en",
-			want:  "https://example.com/?page=2;lang=en",
+			want:  "https://example.com/?page=2%3Blang%3Den",
 			valid: true,
 		},
 		{
 			name:  "a tracker goes but a semicolon pair stays",
 			raw:   "https://example.com/?utm_source=x&page=1;lang=pt",
-			want:  "https://example.com/?page=1;lang=pt",
+			want:  "https://example.com/?page=1%3Blang%3Dpt",
 			valid: true,
 		},
 		{
 			name:  "a fragment goes with a semicolon pair",
 			raw:   "https://example.com/?page=1;lang=pt#top",
-			want:  "https://example.com/?page=1;lang=pt",
+			want:  "https://example.com/?page=1%3Blang%3Dpt",
 			valid: true,
 		},
 		{

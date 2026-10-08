@@ -79,19 +79,20 @@ func CanonicalizeItemURL(parsed *url.URL) string {
 			if pair == "" {
 				continue
 			}
-			key := pair
-			if idx := strings.IndexByte(pair, '='); idx >= 0 {
-				key = pair[:idx]
-			}
-			decodedKey := key
-			if unescaped, err := url.QueryUnescape(key); err == nil {
-				decodedKey = unescaped
-			}
+			key, value, hasValue := strings.Cut(pair, "=")
+			decodedKey := libraryUnescapeQueryPart(key)
 			lowered := strings.ToLower(decodedKey)
 			if strings.HasPrefix(lowered, "utm_") || libraryTrackingParams[lowered] {
 				continue
 			}
-			kept = append(kept, pair)
+			// Re-encoding each part the way url.Values.Encode does keeps
+			// "%20" and "+" one key, as they were before pairs were kept raw,
+			// so a page saved under the old rule still dedupes.
+			normalized := url.QueryEscape(decodedKey)
+			if hasValue {
+				normalized += "=" + url.QueryEscape(libraryUnescapeQueryPart(value))
+			}
+			kept = append(kept, normalized)
 		}
 		sort.Strings(kept)
 		trimmed.RawQuery = strings.Join(kept, "&")
@@ -99,4 +100,13 @@ func CanonicalizeItemURL(parsed *url.URL) string {
 	trimmed.Fragment = ""
 	trimmed.RawFragment = ""
 	return trimmed.String()
+}
+
+// libraryUnescapeQueryPart decodes one key or value of a query pair, keeping
+// the raw text when it is not valid percent-encoding.
+func libraryUnescapeQueryPart(part string) string {
+	if unescaped, err := url.QueryUnescape(part); err == nil {
+		return unescaped
+	}
+	return part
 }
