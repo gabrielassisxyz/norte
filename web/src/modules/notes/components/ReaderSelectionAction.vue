@@ -7,6 +7,7 @@ import type { ReaderSlotProps } from '@/modules/library/readerSlots'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 import { useSources } from '@/sources'
 
+import { useItemNotes } from '../data/composables'
 import { notesGainedNote } from '../data/revision'
 
 /**
@@ -21,12 +22,33 @@ const props = defineProps<ReaderSlotProps>()
 
 const { notes } = useSources()
 const writing = useAsyncAction()
-const stored = ref(false)
 
 const allowed = computed(() => crossModuleActionAllowed('library', 'notes'))
 const selection = computed(() => {
   const exact = props.savedSelection?.exact?.trim()
   return exact ? props.savedSelection : null
+})
+
+const { data: itemNotes } = useItemNotes(
+  () => props.itemId,
+  () => allowed.value
+)
+
+/** True between the create answering and the re-read of the item's notes landing. */
+const justStored = ref(false)
+
+/**
+ * Whether this passage is already one of the item's highlights.
+ *
+ * It is asked of the item's own notes rather than remembered in a ref, because
+ * a ref is gone on the next page load: the button came back after a reload and
+ * offered to store a second copy of a passage that was already there.
+ */
+const stored = computed(() => {
+  if (justStored.value) return true
+  const captured = selection.value?.exact?.trim()
+  if (!captured) return false
+  return (itemNotes.value?.highlights ?? []).some((highlight) => highlight.exact.trim() === captured)
 })
 
 /**
@@ -48,7 +70,9 @@ async function turnIntoHighlight(): Promise<void> {
     })
   )
   if (!created) return
-  stored.value = true
+  justStored.value = true
+  // The passage layer over the article is another copy of this item's notes, so
+  // the new mark only appears in the text once every copy has been re-read.
   notesGainedNote()
 }
 </script>

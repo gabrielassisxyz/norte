@@ -36,6 +36,17 @@ function record(overrides: Partial<LibraryItemRecord> = {}): LibraryItemRecord {
   })
 }
 
+/**
+ * Everything mounted by a case, so `afterEach` can take it down.
+ *
+ * The reader listens for `selectionchange` on the document and reads the range
+ * a fifth of a second later, and selecting a passage is what most of these
+ * cases do: a reader left mounted keeps that timer, and it fires once the file
+ * is over and jsdom is gone, which surfaces as `window is not defined` against
+ * whichever file runs next.
+ */
+const mounted: Array<{ unmount: () => void }> = []
+
 /** The reader, with whatever this module registered for its slots. */
 async function mountReader(
   options: { item?: LibraryItemRecord; notes?: FakeNotesRecords; modules?: string[] } = {}
@@ -50,6 +61,7 @@ async function mountReader(
     global: { plugins: [router, sourcesPlugin({ library, notes })] },
     attachTo: document.body
   })
+  mounted.push(wrapper)
   await flushReads()
   return { wrapper, notes, library }
 }
@@ -87,6 +99,7 @@ beforeEach(() => {
 })
 
 afterEach(() => {
+  for (const wrapper of mounted.splice(0)) wrapper.unmount()
   resetModuleMounting()
   document.body.innerHTML = ''
 })
@@ -99,10 +112,12 @@ async function markedArticle(html: string, highlights: Array<Parameters<typeof h
   const notes = fakeNotesSource({
     highlights: highlights.map((overrides) => highlightRecord({ item_id: 'item-1', ...overrides }))
   })
-  mount(ReaderHighlightAction, {
-    props: readerSlotProps({ articleRoot: root }),
-    global: { plugins: [sourcesPlugin({ notes })] }
-  })
+  mounted.push(
+    mount(ReaderHighlightAction, {
+      props: readerSlotProps({ articleRoot: root }),
+      global: { plugins: [sourcesPlugin({ notes })] }
+    })
+  )
   await flushReads()
   const marks = Array.from(root.querySelectorAll('mark[data-notes-passage]'))
   return { root, marks, markedText: marks.map((mark) => mark.textContent).join('|') }
@@ -175,36 +190,50 @@ describe("the reader's notes actions", () => {
     expect(sent.suffix).toContain('Depois do trecho.')
   })
 
-  it('tells the reader when the highlight was kept without a position', async () => {
-    const { wrapper, notes } = await mountReader()
-    notes.addHighlight = async (highlight) =>
+  /** Destacar against a server that answers with `orphan`, which is what it stores. */
+  async function destacarAnsweredWith(orphan: Partial<Parameters<typeof highlightRecord>[0]>) {
+    const mounted = await mountReader()
+    mounted.notes.addHighlight = async (highlight) =>
       highlightRecord({
         id: 'h-new',
         item_id: highlight.item_id,
         exact: highlight.exact,
-        status: 'orphaned',
-        ambiguous: true
+        ...orphan
       })
 
     selectInArticle('O trecho marcado.')
-    await wrapper.get('.reader-scroll').trigger('mouseup')
+    await mounted.wrapper.get('.reader-scroll').trigger('mouseup')
     await flushReads()
-    await wrapper.get('[data-action="destacar"]').trigger('click')
+    await mounted.wrapper.get('[data-action="destacar"]').trigger('click')
     await flushReads()
+    return mounted
+  }
 
-    expect(wrapper.get('[data-notes-ambiguous]').text()).toBe('trecho repetido: destaque guardado sem posição')
+  it('tells the reader the passage is repeated when that is why it has no position', async () => {
+    const { wrapper } = await destacarAnsweredWith({ status: 'orphaned', ambiguous: true })
+
+    expect(wrapper.get('[data-notes-unplaced="repeated"]').text()).toBe(
+      'trecho repetido: destaque guardado sem posição'
+    )
   })
 
-  it('says nothing about repetition when the highlight was anchored', async () => {
-    const { wrapper } = await mountReader()
+  it('tells the reader the passage was not found when the answer carries no reason', async () => {
+    // The server sends `ambiguous` only for a repeated passage: one it simply
+    // could not find comes back `orphaned` and nothing else, which showed the
+    // person no mark and no message at all.
+    const { wrapper } = await destacarAnsweredWith({ status: 'orphaned' })
 
-    selectInArticle('O trecho marcado.')
-    await wrapper.get('.reader-scroll').trigger('mouseup')
-    await flushReads()
-    await wrapper.get('[data-action="destacar"]').trigger('click')
-    await flushReads()
+    expect(wrapper.get('[data-notes-unplaced="missing"]').text()).toBe(
+      'trecho não encontrado neste texto: destaque guardado sem posição'
+    )
+  })
 
-    expect(wrapper.find('[data-notes-ambiguous]').exists()).toBe(false)
+  it('says nothing about a position when the highlight was anchored', async () => {
+    const { wrapper } = await destacarAnsweredWith({ status: 'anchored', ambiguous: true })
+
+    // `ambiguous` on an anchored answer is not a reason to warn: the passage is
+    // in the text, and the mark is on it.
+    expect(wrapper.find('[data-notes-unplaced]').exists()).toBe(false)
   })
 
   it('marks an anchored passage in the text', async () => {
@@ -232,6 +261,7 @@ describe("the reader's notes actions", () => {
       props: readerSlotProps({ articleRoot: root }),
       global: { plugins: [sourcesPlugin({ notes })] }
     })
+    mounted.push(wrapper)
     await flushReads()
     expect(root.querySelectorAll('mark[data-notes-passage]')).toHaveLength(1)
 
@@ -290,7 +320,12 @@ describe("the reader's notes actions", () => {
 
     const orphans = wrapper.get('[aria-labelledby="notes-orphans-title"]')
     expect(orphans.text()).toContain('Um trecho que saiu do texto.')
-    expect(orphans.text()).toContain('não estão mais neste texto')
+    expect(orphans.text()).toContain('não foram encontrados neste texto')
+    // The reader cannot know why a stored passage has no position, so it must
+    // not name a reason: `ambiguous` rides the create response and is never
+    // stored, and a re-extraction is only one of the two ways this list fills.
+    expect(orphans.text()).not.toContain('extraído de novo')
+    expect(orphans.text()).toContain('Podem estar repetidos no texto ou não estar mais nele')
     // An orphaned passage is not marked in the text: that is the whole reason
     // it is listed here.
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(0)
@@ -344,6 +379,71 @@ describe("the reader's notes actions", () => {
         suffix: ' Depois do trecho.'
       }
     ])
+  })
+
+  it('marks the saved selection in the text as soon as it is stored, with no reload', async () => {
+    const { wrapper } = await mountReader({ item: record({ selection: SELECTION }) })
+    expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(0)
+
+    await wrapper.get('[data-action="virar-highlight"]').trigger('click')
+    await flushReads()
+
+    // The passage layer is a second copy of the item's notes, held by the
+    // action under the article: it only learns about the new highlight because
+    // the creation makes every copy read again.
+    const marked = wrapper.findAll('mark[data-notes-passage]')
+    expect(marked).toHaveLength(1)
+    expect(marked[0].text()).toBe('O trecho marcado.')
+  })
+
+  it('stops offering "Virar highlight" once the passage is stored', async () => {
+    const { wrapper } = await mountReader({ item: record({ selection: SELECTION }) })
+
+    await wrapper.get('[data-action="virar-highlight"]').trigger('click')
+    await flushReads()
+
+    expect(wrapper.find('[data-action="virar-highlight"]').exists()).toBe(false)
+    expect(wrapper.get('.notes-selection-done').text()).toBe('Trecho guardado nos highlights.')
+  })
+
+  it('does not offer "Virar highlight" for a passage the item already holds', async () => {
+    // What a reload looks like: the highlight is on the server and the action is
+    // mounted knowing nothing of the click that made it. Offering the button
+    // again is how a second copy of one passage got stored.
+    const { wrapper } = await mountReader({
+      item: record({ selection: SELECTION }),
+      notes: {
+        highlights: [
+          highlightRecord({
+            id: 'h-stored',
+            item_id: 'item-1',
+            exact: 'O trecho marcado.',
+            prefix: 'Antes do trecho. ',
+            suffix: ' Depois do trecho.'
+          })
+        ]
+      }
+    })
+
+    expect(wrapper.find('[data-action="virar-highlight"]').exists()).toBe(false)
+    expect(wrapper.get('.notes-selection-done').text()).toBe('Trecho guardado nos highlights.')
+  })
+
+  it('puts a passage highlighted with Destacar in the margin list, with no reload', async () => {
+    const { wrapper } = await mountReader()
+    expect(wrapper.findAll('.nt-ann')).toHaveLength(0)
+
+    selectInArticle('O trecho marcado.')
+    await wrapper.get('.reader-scroll').trigger('mouseup')
+    await flushReads()
+    await wrapper.get('[data-action="destacar"]').trigger('click')
+    await flushReads()
+
+    // The panel under the article holds its own copy of the item's notes, so
+    // this row is only here because the creation made that copy read again.
+    const rows = wrapper.findAll('.nt-ann')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].text()).toContain('O trecho marcado.')
   })
 
   it('renders none of the five actions when the server lists only the library', async () => {
