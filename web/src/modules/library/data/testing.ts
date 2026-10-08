@@ -1,6 +1,7 @@
 import type {
   ExtractAck,
   LibraryCounts,
+  LibraryDrawQuery,
   LibraryItemList,
   LibraryItemRecord,
   LibraryItemSummary,
@@ -64,6 +65,7 @@ export interface FakeLibraryCalls {
   patch: Array<{ id: string; patch: LibraryPatch }>
   open: string[]
   extract: string[]
+  draw: LibraryDrawQuery[]
 }
 
 export interface FakeLibrarySource extends LibrarySource {
@@ -72,12 +74,28 @@ export interface FakeLibrarySource extends LibrarySource {
 }
 
 function matchesQuery(record: LibraryItemRecord, query: LibraryListQuery): boolean {
+  // view=now is not a shelf: it reads every status and keeps only what is
+  // unread, which is the one filter the screen never sends alongside it.
+  if (query.view === 'now') return record.unread
   if (query.view && query.view !== 'tudo' && record.status !== query.view) return false
   if (query.tipo && record.kind !== query.tipo) return false
   if (query.unread !== null && query.unread !== undefined && record.unread !== query.unread) return false
   const needle = query.q?.trim().toLocaleLowerCase('pt-BR')
   if (needle && !record.title.toLocaleLowerCase('pt-BR').includes(needle)) return false
   return true
+}
+
+/**
+ * The focus score a test gave a record, or none.
+ *
+ * The fake holds no links, so the score cannot be derived here the way the
+ * server derives it. A test that cares about the ranking states the score it
+ * means on the record's `why` as `focus:<number>`, which keeps the shape of
+ * the record the contract's and the fixture readable in one line.
+ */
+function fakeFocusScore(record: LibraryItemRecord): number {
+  const marked = /(?:^|\s)focus:(\d+(?:\.\d+)?)/.exec(record.why ?? '')
+  return marked ? Number(marked[1]) : 0
 }
 
 function ordered(records: LibraryItemRecord[], sort: LibraryListQuery['sort']): LibraryItemRecord[] {
@@ -97,7 +115,16 @@ export function fakeLibrarySource(
   overrides: Partial<LibrarySource> = {}
 ): FakeLibrarySource {
   const held = [...records]
-  const calls: FakeLibraryCalls = { list: [], get: [], counts: 0, save: [], patch: [], open: [], extract: [] }
+  const calls: FakeLibraryCalls = {
+    list: [],
+    get: [],
+    counts: 0,
+    save: [],
+    patch: [],
+    open: [],
+    extract: [],
+    draw: []
+  }
 
   function requireRecord(id: string): LibraryItemRecord {
     const found = held.find((record) => record.id === id)
@@ -111,10 +138,11 @@ export function fakeLibrarySource(
 
     async listItems(query: LibraryListQuery): Promise<LibraryItemList> {
       calls.list.push({ ...query })
-      const selected = ordered(
-        held.filter((record) => matchesQuery(record, query)),
-        query.sort
-      )
+      const matching = held.filter((record) => matchesQuery(record, query))
+      const selected =
+        query.view === 'now'
+          ? ordered(matching, 'saved_desc').sort((left, right) => fakeFocusScore(right) - fakeFocusScore(left))
+          : ordered(matching, query.sort)
       // The cursor is the offset it was issued at, which is the simplest thing
       // that still makes a second page a different page.
       const from = query.cursor ? Number(query.cursor) : 0
@@ -183,6 +211,18 @@ export function fakeLibrarySource(
       record.extract_generation += 1
       delete record.extract_error
       return { item_id: id, job_id: `job-${record.extract_generation}`, extract_generation: record.extract_generation }
+    },
+
+    /**
+     * A draw over the unread records, taken from the front rather than at
+     * random: a test asserting which item the button opened needs to know
+     * which one came back, and randomness here would only be the server's
+     * randomness badly imitated.
+     */
+    async drawItems(query: LibraryDrawQuery): Promise<LibraryItemSummary[]> {
+      calls.draw.push({ ...query })
+      const unread = held.filter((record) => record.unread)
+      return unread.slice(0, query.n ?? 1).map(librarySummaryOf)
     },
 
     ...overrides

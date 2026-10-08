@@ -120,7 +120,14 @@ func (*LibraryModule) SearchEntries(context.Context, string, int) ([]core.Search
 // newLibraryServiceFromDeps wires the service over what the registry handed the
 // module.
 func newLibraryServiceFromDeps(deps app.Deps) *LibraryService {
-	return NewLibraryService(deps.Database, deps.Files, deps.Jobs, deps.Clock)
+	service := NewLibraryService(deps.Database, deps.Files, deps.Jobs, deps.Clock)
+	// Checked rather than passed through: a nil *core.FocusAPI stored in an
+	// interface field is not a nil interface, so the service would believe it
+	// has a focus and call through it.
+	if deps.Focus != nil {
+		service = service.WithFocus(deps.Focus)
+	}
+	return service
 }
 
 // newLibraryExtractionFromDeps wires the extraction handler, with the fetcher

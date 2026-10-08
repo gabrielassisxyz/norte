@@ -68,6 +68,13 @@ type Deps struct {
 	// validated by whoever uses them, because the rule is theirs.
 	TelegramChat string
 	PublicURL    string
+	// Focus answers what the person is working on now: the flagged subjects
+	// merged with what every enabled module reports as in progress. Only this
+	// package can build it, because the providers are the enabled modules, so
+	// a module ranking its own rows by the focus is handed the merged answer
+	// rather than deriving half of it from the subjects table and calling
+	// that the focus.
+	Focus *core.FocusAPI
 }
 
 // Router wraps the server's *http.ServeMux with the prefix one module owns.

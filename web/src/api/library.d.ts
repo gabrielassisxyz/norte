@@ -18,6 +18,11 @@ export interface paths {
          *     and a hash of the filters, and a cursor presented with different
          *     filters or sort is refused. With q the order is the full-text rank,
          *     then id, and an explicit sort together with q is refused.
+         *
+         *     view=now is not a shelf: it reads every status, keeps only unread
+         *     items and orders them by how closely they relate to what the person is
+         *     focused on, so it carries its own order and refuses q, an explicit
+         *     sort and unread=false.
          */
         get: operations["listLibraryItems"];
         put?: never;
@@ -52,6 +57,39 @@ export interface paths {
          *     never recomputes them.
          */
         get: operations["getLibraryCounts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/items/random": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Draw a random unread item
+         * @description The serendipity button: one unread item, drawn at random, for the
+         *     moment when nothing on the shelf appeals. With away_from_focus the draw
+         *     is weighted by 1 / (1 + focus score), so an item unrelated to what the
+         *     person is focused on is the likelier one -- which is the point, the
+         *     focused ones already having their own view. With away_from_focus false
+         *     every unread item is equally likely.
+         *
+         *     This path is declared before /api/library/items/{id} because the two
+         *     overlap: a router that matched the wildcard first would validate a draw
+         *     against the detail endpoint.
+         *
+         *     Draws are with replacement, so the same item may come back twice in one
+         *     answer; with a seed the whole answer is reproducible, which is what
+         *     makes the weighting testable. A library with no unread item answers 404.
+         */
+        get: operations["drawLibraryItems"];
         put?: never;
         post?: never;
         delete?: never;
@@ -153,10 +191,13 @@ export interface components {
          */
         ItemSource: "app" | "extension" | "cli" | "telegram" | "import";
         /**
-         * @description Which shelf a list reads; tudo is every status.
+         * @description Which shelf a list reads; tudo is every status. now is not a shelf but
+         *     the focus-ranked unread list, which is why it sits here rather than in
+         *     ItemStatus: a status is something an item has, and now is a way of
+         *     looking at the library.
          * @enum {string}
          */
-        LibraryView: "inbox" | "depois" | "arquivo" | "tudo";
+        LibraryView: "inbox" | "depois" | "arquivo" | "tudo" | "now";
         /**
          * @description The order a list comes back in.
          * @enum {string}
@@ -298,6 +339,13 @@ export interface components {
             /** @description The cursor for the following page, absent on the last one. */
             next_cursor?: string;
         };
+        LibraryDraw: {
+            /**
+             * @description One summary per draw, in the order they were drawn. Draws are with
+             *     replacement, so an id may appear more than once.
+             */
+            items: components["schemas"]["LibraryItemSummary"][];
+        };
         LibraryCounts: {
             views: {
                 inbox: number;
@@ -374,7 +422,10 @@ export interface operations {
     listLibraryItems: {
         parameters: {
             query?: {
-                /** @description Which shelf to read; tudo is every status. */
+                /**
+                 * @description Which shelf to read; tudo is every status, and now is the
+                 *     focus-ranked unread list rather than a shelf.
+                 */
                 view?: components["schemas"]["LibraryView"];
                 /** @description Keep only this kind. */
                 tipo?: components["schemas"]["ItemKind"];
@@ -461,6 +512,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryCounts"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    drawLibraryItems: {
+        parameters: {
+            query?: {
+                /** @description Weight the draw away from the focus, rather than drawing uniformly. */
+                away_from_focus?: boolean;
+                /**
+                 * @description How many draws this call makes, from 1 to 100. Anything outside
+                 *     that range is refused; the range is the service's, so the message
+                 *     names it.
+                 */
+                n?: number;
+                /**
+                 * @description Makes the draw reproducible: the same seed over the same data draws
+                 *     the same items. Without one the draw uses a fresh source.
+                 */
+                seed?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The items drawn, in draw order. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryDraw"];
                 };
             };
             default: components["responses"]["Error"];
