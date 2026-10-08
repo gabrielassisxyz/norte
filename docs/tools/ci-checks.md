@@ -22,6 +22,9 @@ for an answer one command gives in seconds.
 | `go-test` | The Go suite, under a temporary `NORTE_DATA` so nothing touches the real data directory. | `cd server && NORTE_DATA="$(mktemp -d)" go test ./...` |
 | `go-test-race` | Two worker loops against one database never run one job twice, under the race detector. | `cd server && go test -race ./internal/core -run TestWorkersDoNotDoubleClaim -count=1` |
 | `web-test` | The Vitest suite. Needs `web/node_modules`, which `bin/generate` installs. | `cd web && npm test` |
+| `extension-test` | Extension unit tests, permission-free release build and ZIP. Needs `extension/node_modules`, which the check installs when it is missing. | `bin/ci extension-test` |
+| `extension-e2e` | Loaded Chromium extension against a cookie-protected fixture and a real temporary Norte server, including extraction and reader display. Builds the server binary, but not the frontend: run `bin/generate web` first when the reader changed. Downloads Chromium into ignored extension artifacts only if no system browser is available. | `bin/ci extension-e2e` |
+| `extension-firefox` | `web-ext lint`, then temporary Firefox installation and background startup; prints a skip reason if Firefox is absent. | `bin/ci extension-firefox` |
 
 `bin/ci --list` prints the names, and `bin/ci <name>...` runs only the ones
 given. Every check runs even after one fails, so a single red run names all the
