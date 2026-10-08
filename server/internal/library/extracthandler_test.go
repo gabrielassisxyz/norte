@@ -92,10 +92,18 @@ func newLibraryExtractHarness(t *testing.T, opts libraryHarnessOptions) *library
 // save puts an item in the library the way a request would.
 func (h *libraryExtractHarness) save(pageURL string, html []byte) string {
 	h.t.Helper()
+	return h.saveFrom(pageURL, html, LibrarySourceCLI)
+}
+
+// saveFrom is save for a test that needs the capturer to be a particular one,
+// because the snapshot the save stores and the one it replaces both depend on
+// who captured the bytes.
+func (h *libraryExtractHarness) saveFrom(pageURL string, html []byte, source string) string {
+	h.t.Helper()
 	outcome, err := h.service.Save(context.Background(), SaveInput{
 		URL:    pageURL,
 		HTML:   html,
-		Source: LibrarySourceCLI,
+		Source: source,
 	})
 	if err != nil {
 		h.t.Fatalf("saving %s: %v", pageURL, err)
@@ -126,6 +134,34 @@ func (h *libraryExtractHarness) run(id string, generation int64, refresh bool, a
 		ID:          "job-" + id,
 		Kind:        LibraryExtractJobKind,
 		Payload:     string(payload),
+		Attempt:     attempt,
+		MaxAttempts: core.JobsMaxAttempts,
+	})
+}
+
+// enqueuedExtractPayload reads back the payload of the job a save or a retry
+// queued for one generation. A test that builds the payload itself proves
+// nothing about what was enqueued, which is exactly how a save that asked for a
+// download stayed invisible to a green suite.
+func (h *libraryExtractHarness) enqueuedExtractPayload(id string, generation int64) string {
+	h.t.Helper()
+	var payload string
+	if err := h.database.Reader().QueryRow(
+		`SELECT payload FROM core_jobs WHERE kind = ? AND dedupe_key = ?`,
+		LibraryExtractJobKind, fmt.Sprintf("extract:%s:%d", id, generation)).Scan(&payload); err != nil {
+		h.t.Fatalf("reading the enqueued extract job of %s generation %d: %v", id, generation, err)
+	}
+	return payload
+}
+
+// runAsEnqueued runs the handler over the payload that is in the jobs table,
+// which is the only way to exercise what the save actually asked for.
+func (h *libraryExtractHarness) runAsEnqueued(id string, generation int64, attempt int) error {
+	h.t.Helper()
+	return h.extraction.Handle(context.Background(), core.Job{
+		ID:          "job-" + id,
+		Kind:        LibraryExtractJobKind,
+		Payload:     h.enqueuedExtractPayload(id, generation),
 		Attempt:     attempt,
 		MaxAttempts: core.JobsMaxAttempts,
 	})
@@ -896,5 +932,166 @@ func TestAMalformedPayloadFailsPermanently(t *testing.T) {
 		if !core.IsPermanent(err) {
 			t.Errorf("the payload %s gave a retryable error: %v", payload, err)
 		}
+	}
+}
+
+// TestADuplicateSaveExtractsItsCarriedSnapshot is the whole point of a save
+// that carries HTML: the browser already has the page, often behind a login the
+// server cannot pass, so the job the save queues reads those bytes instead of
+// downloading the address again. The job is read back from the table rather
+// than built here, because the defect was in what the save enqueued and a
+// hand-built payload cannot see it.
+func TestADuplicateSaveExtractsItsCarriedSnapshot(t *testing.T) {
+	harness := newLibraryExtractHarness(t, libraryHarnessOptions{})
+	// A host the harness resolver has no mapping for, so any download fails:
+	// that is what a login-walled page looks like from the server's side.
+	const pageURL = "https://fixtures.invalid/resave"
+	first := []byte(`<!doctype html><html><head><title>Primeira</title></head><body><article><h1>Primeira</h1><p>` +
+		strings.Repeat("The first capture of this page, taken by the command line. ", 20) +
+		`</p></article></body></html>`)
+	id := harness.saveFrom(pageURL, first, LibrarySourceCLI)
+	if err := harness.runAsEnqueued(id, 1, 1); err != nil {
+		t.Fatalf("the first extraction failed: %v", err)
+	}
+	if status := harness.item(id).ExtractStatus; status != "done" {
+		t.Fatalf("extract_status = %q after the first save, want done", status)
+	}
+
+	second := []byte(`<!doctype html><html><head><title>Segunda</title></head><body><article><h1>Segunda</h1><p>` +
+		strings.Repeat("The second capture, the one the extension had on screen. ", 20) +
+		`</p></article></body></html>`)
+	if sameID := harness.saveFrom(pageURL, second, LibrarySourceExtension); sameID != id {
+		t.Fatalf("the duplicate save created %s instead of folding into %s", sameID, id)
+	}
+	stored := harness.item(id)
+	if stored.ExtractGeneration != 2 {
+		t.Fatalf("extract_generation = %d after the duplicate save, want 2", stored.ExtractGeneration)
+	}
+
+	raw := harness.enqueuedExtractPayload(id, 2)
+	var payload libraryExtractPayload
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("the enqueued payload is not JSON: %v\n%s", err, raw)
+	}
+	if payload.Refresh {
+		t.Errorf("the duplicate save enqueued refresh:true, which downloads the page: %s", raw)
+	}
+
+	if err := harness.runAsEnqueued(id, 2, 1); err != nil {
+		t.Fatalf("the extraction of the carried snapshot failed: %v", err)
+	}
+	final := harness.item(id)
+	if final.ExtractStatus != "done" {
+		t.Errorf("extract_status = %q, want done (extract_error %q)", final.ExtractStatus, final.ExtractError.String)
+	}
+	if final.Title != "Segunda" {
+		t.Errorf("title = %q, want the second capture's", final.Title)
+	}
+	if final.ExtractGeneration != 2 {
+		t.Errorf("extract_generation = %d, want 2", final.ExtractGeneration)
+	}
+	if !strings.Contains(final.ContentText.String, "the one the extension had on screen") {
+		t.Errorf("content_text is not the second capture's:\n%s", final.ContentText.String)
+	}
+	if strings.Contains(final.ContentText.String, "taken by the command line") {
+		t.Errorf("content_text still carries the first capture:\n%s", final.ContentText.String)
+	}
+	// A download would have stored its own blob, moved the hash and rewritten
+	// the capturer as server_fetch. None of the three may have happened.
+	if final.HtmlHash.String != stored.HtmlHash.String {
+		t.Errorf("html_hash moved from %q to %q, so a snapshot was fetched",
+			stored.HtmlHash.String, final.HtmlHash.String)
+	}
+	if source := librarySnapshotSource(final.Meta); source != LibrarySourceExtension {
+		t.Errorf("meta.snapshot_source = %q, want extension", source)
+	}
+	if lookups, dialed := harness.probe.snapshot(); len(lookups) != 0 || len(dialed) != 0 {
+		t.Errorf("the extraction reached the network: looked up %v, dialed %v", lookups, dialed)
+	}
+}
+
+// TestADuplicateSaveWithoutHTMLQueuesNoExtraction keeps the fix narrow: a save
+// that carries no bytes has nothing to extract, so it must still leave the
+// snapshot, the generation and the queue exactly as they were.
+func TestADuplicateSaveWithoutHTMLQueuesNoExtraction(t *testing.T) {
+	harness := newLibraryExtractHarness(t, libraryHarnessOptions{})
+	const pageURL = "https://fixtures.invalid/note-only"
+	page := []byte(`<!doctype html><html><head><title>Primeira</title></head><body><article><h1>Primeira</h1><p>` +
+		strings.Repeat("The only capture this item will ever have stored. ", 20) +
+		`</p></article></body></html>`)
+	// A CLI capture, not an extension one: a stored extension snapshot is
+	// protected by a rule of its own, and this test is about the absent bytes.
+	id := harness.saveFrom(pageURL, page, LibrarySourceCLI)
+	if err := harness.runAsEnqueued(id, 1, 1); err != nil {
+		t.Fatalf("the first extraction failed: %v", err)
+	}
+	before := harness.item(id)
+	queuedBefore := harness.countJobs(LibraryExtractJobKind)
+
+	note := "a thought I had on the second reading"
+	if _, err := harness.service.Save(context.Background(), SaveInput{
+		URL:    pageURL,
+		Why:    note,
+		Source: LibrarySourceApp,
+	}); err != nil {
+		t.Fatalf("the duplicate save without HTML failed: %v", err)
+	}
+
+	after := harness.item(id)
+	if after.ExtractGeneration != before.ExtractGeneration {
+		t.Errorf("extract_generation moved from %d to %d", before.ExtractGeneration, after.ExtractGeneration)
+	}
+	if after.HtmlHash.String != before.HtmlHash.String {
+		t.Errorf("html_hash moved from %q to %q", before.HtmlHash.String, after.HtmlHash.String)
+	}
+	if after.Title != before.Title {
+		t.Errorf("title moved from %q to %q", before.Title, after.Title)
+	}
+	if after.Why.String != note {
+		t.Errorf("why = %q, want the duplicate's note", after.Why.String)
+	}
+	if got := harness.countJobs(LibraryExtractJobKind) - queuedBefore; got != 0 {
+		t.Errorf("a duplicate save without HTML enqueued %d extract jobs, want 0", got)
+	}
+}
+
+// TestAnEnqueuedRefreshStillDownloads is the other side of the same flag: the
+// retry endpoint's explicit refresh must still reach the handler as a download,
+// read from the row it enqueued rather than from a payload written here.
+func TestAnEnqueuedRefreshStillDownloads(t *testing.T) {
+	harness := newLibraryExtractHarness(t, libraryHarnessOptions{
+		FetchHandler: libraryServeFixture(t, "bliki"),
+	})
+	original := []byte(`<!doctype html><html><head><title>The Stored Snapshot</title></head><body><article>` +
+		`<h1>The Stored Snapshot</h1><p>` +
+		strings.Repeat("The snapshot the extension captured when the link was saved. ", 20) +
+		`</p></article></body></html>`)
+	id := harness.saveFrom("http://"+libraryFetchTestHost+"/page", original, LibrarySourceExtension)
+
+	outcome, err := harness.service.RequestExtraction(context.Background(), id, true)
+	if err != nil {
+		t.Fatalf("RequestExtraction: %v", err)
+	}
+	raw := harness.enqueuedExtractPayload(id, outcome.Generation)
+	var payload libraryExtractPayload
+	if err := json.Unmarshal([]byte(raw), &payload); err != nil {
+		t.Fatalf("the enqueued payload is not JSON: %v\n%s", err, raw)
+	}
+	if !payload.Refresh {
+		t.Errorf("the retry with refresh enqueued refresh:false: %s", raw)
+	}
+
+	if err := harness.runAsEnqueued(id, outcome.Generation, 1); err != nil {
+		t.Fatalf("the refreshing extraction failed: %v", err)
+	}
+	if lookups, _ := harness.probe.snapshot(); len(lookups) == 0 {
+		t.Error("the refresh read the stored snapshot instead of downloading the page")
+	}
+	after := harness.item(id)
+	if after.Title != "Reversible Migration" {
+		t.Errorf("title = %q, want the downloaded page's", after.Title)
+	}
+	if source := librarySnapshotSource(after.Meta); source != "server_fetch" {
+		t.Errorf("meta.snapshot_source = %q, want server_fetch", source)
 	}
 }
