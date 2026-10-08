@@ -118,7 +118,7 @@ const query = computed<LibraryListQuery>(() => ({
   q: search.value.trim() || undefined
 }))
 
-const { data: page, loading, error, refresh, hasMore, loadingMore, loadMore, applyItem } = useLibraryItems(query)
+const { data: page, loading, error, refresh, hasMore, loadingMore, loadMoreError, loadMore, applyItem } = useLibraryItems(query)
 const { data: counts } = useLibraryCounts()
 const writing = useAsyncAction()
 
@@ -422,6 +422,9 @@ async function makeTask(item: LibraryItemSummary, projectId: string): Promise<vo
       >
         {{ loadingMore ? 'Carregando…' : 'Carregar mais' }}
       </button>
+      <span v-if="loadMoreError" class="library-more-error" role="alert">
+        Não foi possível carregar mais: {{ loadMoreError }}
+      </span>
       <span class="mono library-count">{{ countText }}</span>
     </div>
   </main>
@@ -748,6 +751,7 @@ async function makeTask(item: LibraryItemSummary, projectId: string): Promise<vo
   padding: 12px;
 }
 
+.library-more-error { color: var(--danger); font-size: 12px; }
 .library-more { height: 32px; border: 1px solid var(--line-strong); }
 
 .library-count {

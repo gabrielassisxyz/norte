@@ -205,6 +205,26 @@ describe('LibraryView growing its list', () => {
     expect(wrapper.find('.library-count').text()).toBe('120 itens')
   })
 
+  it('keeps the rows and says why next to the button when a further page fails', async () => {
+    const records = manyRecords(120)
+    const base = fakeLibrarySource(records)
+    const library = fakeLibrarySource(records, {
+      listItems: async (query, signal) => {
+        if (query.cursor) throw new Error('rede caiu')
+        return base.listItems(query, signal)
+      }
+    })
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    await wrapper.get('.library-more').trigger('click')
+    await flushReads()
+
+    expect(wrapper.findAll('article.item')).toHaveLength(50)
+    expect(wrapper.find('.library-error').exists()).toBe(false)
+    expect(wrapper.get('.library-more-error').text()).toContain('rede caiu')
+    expect(wrapper.find('.library-more').exists()).toBe(true)
+  })
+
   it('keeps the whole-library counts while the page grows', async () => {
     const library = fakeLibrarySource(manyRecords(120))
     const { wrapper } = await mountAt('/biblioteca?v=tudo', library)

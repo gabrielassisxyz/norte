@@ -112,6 +112,49 @@ describe('useLibraryItems over a paginated list', () => {
   })
 })
 
+describe('useLibraryItems after a write moves a row', () => {
+  it('drops a row archived from the inbox, and keeps it on the whole shelf', async () => {
+    const records = [libraryRecord({ id: 'a', status: 'inbox' }), libraryRecord({ id: 'b', status: 'inbox' })]
+    const inbox = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'inbox' }))
+    inbox.applyItem({ ...records[0], status: 'arquivo' })
+    expect(inbox.data.value?.items.map((item) => item.id)).toEqual(['b'])
+
+    const everything = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'tudo' }))
+    everything.applyItem({ ...records[0], status: 'arquivo' })
+    expect(everything.data.value?.items.map((item) => item.id)).toEqual(['a', 'b'])
+  })
+
+  it('drops a row marked read while only unread rows are asked for', async () => {
+    const records = [libraryRecord({ id: 'a', unread: true }), libraryRecord({ id: 'b', unread: true })]
+    const items = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'tudo', unread: true }))
+
+    items.applyItem({ ...records[0], unread: false })
+
+    expect(items.data.value?.items.map((item) => item.id)).toEqual(['b'])
+  })
+})
+
+describe('useLibraryItems when the next page fails', () => {
+  it('keeps the loaded rows and reports the failure apart from the list error', async () => {
+    const records = manyRecords(120)
+    const base = fakeLibrarySource(records)
+    const library = fakeLibrarySource(records, {
+      listItems: async (query, signal) => {
+        if (query.cursor) throw new Error('rede caiu')
+        return base.listItems(query, signal)
+      }
+    })
+    const items = await hold(library, () => useLibraryItems({ view: 'tudo' }))
+
+    await items.loadMore()
+
+    expect(items.data.value?.items).toHaveLength(50)
+    expect(items.error.value).toBeNull()
+    expect(items.loadMoreError.value).toContain('rede caiu')
+    expect(items.hasMore.value).toBe(true)
+  })
+})
+
 describe('useLibraryCounts', () => {
   it('answers with the counts endpoint, over the whole library and not one page', async () => {
     const library = fakeLibrarySource([
@@ -180,7 +223,7 @@ describe('the list resource', () => {
     const library = fakeLibrarySource(manyRecords(3))
     const items: LibraryItemsResource = await hold(library, () => useLibraryItems())
 
-    for (const key of ['data', 'loading', 'error', 'refresh', 'loadingMore', 'hasMore', 'loadMore', 'applyItem']) {
+    for (const key of ['data', 'loading', 'error', 'refresh', 'loadingMore', 'loadMoreError', 'hasMore', 'loadMore', 'applyItem']) {
       expect(items, `the list resource has no ${key}`).toHaveProperty(key)
     }
   })

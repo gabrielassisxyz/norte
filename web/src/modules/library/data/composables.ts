@@ -12,14 +12,31 @@ import type {
   LibraryListQuery
 } from './source'
 
+/**
+ * Whether a row still belongs to the list a query describes.
+ *
+ * Only the shelf and the unread flag can change under a write, so those are
+ * the two checked; the kind and the search text are not touched by one.
+ */
+function matchesFilters(item: LibraryItemSummary, filters: LibraryListQuery): boolean {
+  if (filters.view && filters.view !== 'tudo' && item.status !== filters.view) return false
+  if (filters.unread !== null && filters.unread !== undefined && item.unread !== filters.unread) return false
+  return true
+}
+
 export interface LibraryItemsResource extends AsyncResource<LibraryItemList> {
   /** True while a further page is on its way, which is not the first load. */
   loadingMore: Ref<boolean>
+  /** Why the last "carregar mais" failed, or null; the loaded rows stay. */
+  loadMoreError: Ref<string | null>
   /** Whether the server said there is another page. */
   hasMore: ComputedRef<boolean>
   /** Ask for the page after the one being held, and append it. */
   loadMore: () => Promise<void>
-  /** Put a write's response into the page, in place of the row it replaces. */
+  /**
+   * Put a write's response into the page, in place of the row it replaces — or
+   * take the row out when the write moved it off the shelf being shown.
+   */
   applyItem: (item: LibraryItemSummary) => void
 }
 
@@ -41,6 +58,7 @@ export function useLibraryItems(
 ): LibraryItemsResource {
   const { library } = useSources()
   const loadingMore = ref(false)
+  const loadMoreError = ref<string | null>(null)
 
   const resource = useAsyncResource<LibraryItemList>(
     // A fresh read always starts at the first page: a cursor belongs to the
@@ -63,6 +81,7 @@ export function useLibraryItems(
     const held = resource.data.value
     if (!held?.next_cursor || loadingMore.value) return
     loadingMore.value = true
+    loadMoreError.value = null
     const controller = new AbortController()
     try {
       const page = await library.listItems({ ...toValue(query), cursor: held.next_cursor }, controller.signal)
@@ -76,7 +95,9 @@ export function useLibraryItems(
         next_cursor: page.next_cursor
       }
     } catch (cause) {
-      resource.error.value = describeFailure(cause)
+      // Kept apart from `error`: that one replaces the whole list with the
+      // load-error panel, and the rows already loaded are still good.
+      loadMoreError.value = describeFailure(cause)
     } finally {
       loadingMore.value = false
     }
@@ -85,13 +106,17 @@ export function useLibraryItems(
   function applyItem(item: LibraryItemSummary): void {
     const held = resource.data.value
     if (!held) return
+    const filters = toValue(query)
+    const stays = matchesFilters(item, filters)
     resource.data.value = {
       ...held,
-      items: held.items.map((existing) => (existing.id === item.id ? item : existing))
+      items: stays
+        ? held.items.map((existing) => (existing.id === item.id ? item : existing))
+        : held.items.filter((existing) => existing.id !== item.id)
     }
   }
 
-  return { ...resource, loadingMore, hasMore, loadMore, applyItem }
+  return { ...resource, loadingMore, loadMoreError, hasMore, loadMore, applyItem }
 }
 
 export interface LibraryItemResource extends AsyncResource<LibraryItemRecord | null> {
