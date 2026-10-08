@@ -1,5 +1,5 @@
 import { configuredOrigin } from './settings.js';
-import { CANNOT_READ, CONFIGURE, readableURL, resultKey } from './service.js';
+import { CANNOT_READ, CONFIGURE, readableURL, resultKey, settleStale } from './service.js';
 
 const browserAPI = globalThis.browser ?? chrome;
 const element = (id) => document.getElementById(id);
@@ -8,7 +8,11 @@ let available = false;
 let submitting = false;
 let searchVersion = 0;
 
-function render(result) {
+let staleTimer;
+function render(stored) {
+  clearTimeout(staleTimer);
+  const result = settleStale(stored, Date.now());
+  if (result?.state === 'saving') staleTimer = setTimeout(() => render(result), Math.max(result.deadline - Date.now(), 0) + 1);
   submitting = result?.state === 'saving';
   element('save').disabled = !available || submitting;
   element('status').textContent = submitting ? 'Salvando…' : result?.state === 'saved' ? 'salvo' : result?.message ?? '';

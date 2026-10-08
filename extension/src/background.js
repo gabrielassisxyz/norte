@@ -1,8 +1,9 @@
-import { createSaveService, loadTargets } from './service.js';
+import { clearOrphanedSaving, createSaveService, loadTargets } from './service.js';
 import { configuredOrigin } from './settings.js';
 
 const browserAPI = globalThis.browser ?? chrome;
 const save = createSaveService(browserAPI);
+clearOrphanedSaving(browserAPI).catch(() => {});
 
 browserAPI.runtime.onMessage.addListener((message, sender, respond) => {
   if (sender.id !== browserAPI.runtime.id) return false;

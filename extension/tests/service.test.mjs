@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createSaveService, loadTargets, CANNOT_READ, SERVER_ERROR, CONFIGURE, resultKey } from '../src/service.js';
+import { createSaveService, loadTargets, CANNOT_READ, SERVER_ERROR, CONFIGURE, INTERRUPTED, resultKey,
+  saveTimeoutMs, settleStale, clearOrphanedSaving } from '../src/service.js';
 
 const tab = { id: 17, url: 'https://example.test/article' };
 function saveAPI({ permission = true, injection = true } = {}) {
@@ -77,4 +78,51 @@ test('target wire shapes, subject search, and all pages are honored', async () =
   assert.equal(new URL(urls[1]).searchParams.get('q'), 'science & art');
   assert.equal(new URL(urls[2]).searchParams.get('cursor'), 'next token');
   await assert.rejects(loadTargets('http://host', '', async () => ({ ok: false })), /não respondeu/);
+});
+
+test('upload timeout scales with body size and is capped', () => {
+  assert.equal(saveTimeoutMs(0), 25000);
+  assert.equal(saveTimeoutMs(1), 26000);
+  assert.equal(saveTimeoutMs(512 * 1024), 26000);
+  assert.equal(saveTimeoutMs(512 * 1024 + 1), 27000);
+  assert.equal(saveTimeoutMs(10 * 1024 * 1024), 45000);
+  assert.equal(saveTimeoutMs(10 ** 12), 300000);
+});
+
+test('the request uses the scaled timeout and the saving entry records its deadline', async () => {
+  const api = saveAPI(), writes = [];
+  const set = api.storage.local.set;
+  api.storage.local.set = async (value) => { writes.push(structuredClone(value)); return set(value); };
+  const html = 'x'.repeat(2 * 1024 * 1024);
+  api.scripting.executeScript = async () => [{ result: { url: tab.url, title: 'T', html } }];
+  const timeouts = [], realTimeout = AbortSignal.timeout;
+  AbortSignal.timeout = (ms) => { timeouts.push(ms); return realTimeout.call(AbortSignal, ms); };
+  try {
+    await createSaveService(api, async () => ({ ok: true, status: 201, json: async () => ({ id: 'i' }) }), () => 1000)(tab);
+  } finally { AbortSignal.timeout = realTimeout; }
+  const saving = writes.map((write) => write[resultKey(tab.url)]).filter((entry) => entry.state === 'saving');
+  assert.equal(saving[0].startedAt, 1000);
+  assert.equal(saving.at(-1).deadline, 1000 + saveTimeoutMs(2 * 1024 * 1024 + 200) + 10000, 'deadline follows the body size');
+  assert.ok(saving.at(-1).deadline > 1000 + 25000 + 10000);
+  assert.deepEqual(timeouts, [saveTimeoutMs(2 * 1024 * 1024 + 200)]);
+});
+
+test('a saving entry past its deadline settles as a retryable error', () => {
+  const fresh = { state: 'saving', startedAt: 0, deadline: 1000 };
+  assert.deepEqual(settleStale(fresh, 1000), fresh);
+  assert.deepEqual(settleStale(fresh, 1001), { state: 'error', message: INTERRUPTED });
+  assert.deepEqual(settleStale({ state: 'saving' }, 5), { state: 'error', message: INTERRUPTED });
+  const saved = { state: 'saved', id: 'x' };
+  assert.equal(settleStale(saved, 10 ** 9), saved);
+  assert.equal(settleStale(undefined, 1), undefined);
+});
+
+test('worker startup turns orphaned saving entries into errors and leaves the rest alone', async () => {
+  const store = { serverOrigin: 'http://host', 'save:a': { state: 'saving', startedAt: 1, deadline: 9e12 },
+    'save:b': { state: 'saved', id: 'b' }, 'save:c': { state: 'error', message: 'm' } };
+  const api = { storage: { local: { get: async () => ({ ...store }), set: async (value) => Object.assign(store, value) } } };
+  await clearOrphanedSaving(api);
+  assert.deepEqual(store['save:a'], { state: 'error', message: INTERRUPTED });
+  assert.deepEqual(store['save:b'], { state: 'saved', id: 'b' });
+  assert.equal(store.serverOrigin, 'http://host');
 });

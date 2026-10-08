@@ -4,7 +4,37 @@ import { capturePage } from './capture.js';
 export const CANNOT_READ = 'Não foi possível ler esta página. Abra uma página http ou https fora da loja de extensões.';
 export const SERVER_ERROR = 'O servidor não respondeu. Confira se o Norte está aberto e tente novamente.';
 export const CONFIGURE = 'configure o servidor';
+export const INTERRUPTED = 'O salvamento foi interrompido. Tente novamente.';
 export const resultKey = (url) => `save:${url}`;
+
+const BASE_TIMEOUT_MS = 25000;
+const MAX_TIMEOUT_MS = 300000;
+const BYTES_PER_EXTRA_SECOND = 512 * 1024;
+// Covers page capture and storage round trips around the upload itself.
+const SAVING_MARGIN_MS = 10000;
+
+// A large page needs longer to upload than the flat base allows; the cap keeps a dead server bounded.
+export function saveTimeoutMs(bodyBytes) {
+  return Math.min(BASE_TIMEOUT_MS + Math.ceil(bodyBytes / BYTES_PER_EXTRA_SECOND) * 1000, MAX_TIMEOUT_MS);
+}
+
+export const savingEntry = (now, timeoutMs = 0) => ({ state: 'saving', startedAt: now, deadline: now + timeoutMs + SAVING_MARGIN_MS });
+
+// A "saving" entry outlives its worker if the worker dies or the browser quits mid-save.
+export function settleStale(result, now) {
+  if (result?.state !== 'saving' || now <= (result.deadline ?? 0)) return result;
+  return { state: 'error', message: INTERRUPTED };
+}
+
+// A freshly started worker has no request in flight, so every stored "saving" entry is orphaned.
+export async function clearOrphanedSaving(browserAPI) {
+  const all = await browserAPI.storage.local.get(null);
+  const fixes = {};
+  for (const [key, value] of Object.entries(all)) {
+    if (key.startsWith('save:') && value?.state === 'saving') fixes[key] = { state: 'error', message: INTERRUPTED };
+  }
+  if (Object.keys(fixes).length) await browserAPI.storage.local.set(fixes);
+}
 
 export function readableURL(url) {
   try {
@@ -15,7 +45,7 @@ export function readableURL(url) {
   } catch { return false; }
 }
 
-export function createSaveService(browserAPI, fetcher = fetch) {
+export function createSaveService(browserAPI, fetcher = fetch, now = Date.now) {
   const pending = new Map();
   async function save(tab, fields) {
     const key = resultKey(tab.url);
@@ -23,7 +53,7 @@ export function createSaveService(browserAPI, fetcher = fetch) {
       if (!readableURL(tab.url)) throw new Error(CANNOT_READ);
       const origin = await configuredOrigin(browserAPI);
       if (!origin) throw new Error(CONFIGURE);
-      await browserAPI.storage.local.set({ [key]: { state: 'saving' } });
+      await browserAPI.storage.local.set({ [key]: savingEntry(now()) });
       let capture;
       try {
         const results = await browserAPI.scripting.executeScript({ target: { tabId: tab.id }, func: capturePage });
@@ -33,11 +63,14 @@ export function createSaveService(browserAPI, fetcher = fetch) {
       const payload = { ...capture, source: 'extension' };
       if (fields.why?.trim()) payload.why = fields.why.trim();
       if (fields.link_to) payload.link_to = [fields.link_to];
+      const body = JSON.stringify(payload);
+      const timeout = saveTimeoutMs(new TextEncoder().encode(body).length);
+      await browserAPI.storage.local.set({ [key]: savingEntry(now(), timeout) });
       let response;
       try {
         response = await fetcher(`${origin}/api/library/items`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
-          signal: AbortSignal.timeout(25000), redirect: 'error',
+          method: 'POST', headers: { 'Content-Type': 'application/json' }, body,
+          signal: AbortSignal.timeout(timeout), redirect: 'error',
         });
       } catch { throw new Error(SERVER_ERROR); }
       if (response.status === 413) throw new Error('página grande demais para salvar');
