@@ -185,6 +185,20 @@ func TestLibraryNowViewLeavesOutReadItems(t *testing.T) {
 func TestLibraryNowViewPaginatesAndBindsItsCursor(t *testing.T) {
 	clock := libraryTestClock()
 	fixture := newLibraryFocusFixture(t, clock)
+	// A sixth unscored item whose saved date disagrees with its id order:
+	// saved last, so its id is the largest of all, and then back-dated to
+	// before every other. Without it a page boundary inside the run of equal
+	// scores could be continued by the id alone and still come out right,
+	// which is exactly the weaker reason this test could pass for -- the ids
+	// are time-ordered, so they agree with the saved order until something
+	// makes them disagree.
+	clock.Advance(time.Minute)
+	fixture.ids["u"] = librarySaveOne(t, fixture.service, "https://example.org/focus-u", "").ID
+	if _, err := fixture.database.Writer().ExecContext(context.Background(),
+		"UPDATE library_items SET saved_at = ? WHERE id = ?",
+		core.FormatTime(libraryFixedInstant.Add(-time.Hour)), fixture.ids["u"]); err != nil {
+		t.Fatalf("back-dating u: %v", err)
+	}
 
 	paged := []string{}
 	cursor := ""
@@ -219,9 +233,12 @@ func TestLibraryNowViewPaginatesAndBindsItsCursor(t *testing.T) {
 		cursor = next
 	}
 	got := fixture.letters(paged)
-	want := []string{"x", "y", "z", "w", "v"}
+	want := []string{"x", "y", "z", "w", "v", "u"}
 	if fmt.Sprint(got) != fmt.Sprint(want) {
 		t.Fatalf("paged view=now gave %v, want %v", got, want)
+	}
+	if len(paged) != len(want) {
+		t.Fatalf("the pages hold %d items, want %d", len(paged), len(want))
 	}
 
 	refused := doLibraryRequest(t, fixture.handler, http.MethodGet,

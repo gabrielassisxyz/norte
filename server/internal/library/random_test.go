@@ -88,16 +88,28 @@ func libraryExpectedDrawBands(scoresByID map[string]float64, awayFromFocus bool)
 	return ids, bounds
 }
 
-// libraryBandMidpoints turns the upper bounds into one draw value per band,
-// each safely inside its own.
-func libraryBandMidpoints(bounds []float64) []float64 {
-	draws := make([]float64, len(bounds))
-	lower := 0.0
+// libraryBandProbes turns the expected upper bounds into draw values that sit
+// on both sides of every boundary, with the item each one must land on.
+//
+// Probing the boundaries and not the middles is what makes the weights
+// themselves checkable. A midpoint lands on the right item under any formula
+// that ranks the items the same way, so a test built from midpoints proves the
+// order of the weights and says nothing about their size; a value a hair above
+// a boundary moves to the next item only if that boundary is where the
+// weighting actually puts it.
+func libraryBandProbes(ids []string, bounds []float64) ([]float64, []string) {
+	const hair = 1e-9
+	draws := []float64{}
+	wants := []string{}
 	for index, upper := range bounds {
-		draws[index] = (lower + upper) / 2
-		lower = upper
+		draws = append(draws, upper-hair)
+		wants = append(wants, ids[index])
+		if index+1 < len(ids) {
+			draws = append(draws, upper+hair)
+			wants = append(wants, ids[index+1])
+		}
 	}
-	return draws
+	return draws, wants
 }
 
 // libraryFocusScores is the fixture's hand-computed score per item: 1.0 for
@@ -115,7 +127,8 @@ func (f libraryFocusFixture) libraryFocusScores() map[string]float64 {
 
 // TestLibraryDrawFollowsTheWeightsFromAnInjectedSource is the second half of
 // the bead's fourth criterion: with the randomness fixed, the draw lands on
-// exactly the item the hand-computed weights put under each value.
+// exactly the item the hand-computed weights put under each value, on both
+// sides of every boundary between them.
 func TestLibraryDrawFollowsTheWeightsFromAnInjectedSource(t *testing.T) {
 	clock := libraryTestClock()
 	fixture := newLibraryFocusFixture(t, clock)
@@ -123,7 +136,7 @@ func TestLibraryDrawFollowsTheWeightsFromAnInjectedSource(t *testing.T) {
 
 	for _, away := range []bool{true, false} {
 		ids, bounds := libraryExpectedDrawBands(scores, away)
-		draws := libraryBandMidpoints(bounds)
+		draws, want := libraryBandProbes(ids, bounds)
 		count := len(draws)
 		result, err := fixture.service.Draw(context.Background(), DrawInput{
 			AwayFromFocus: away,
@@ -137,9 +150,9 @@ func TestLibraryDrawFollowsTheWeightsFromAnInjectedSource(t *testing.T) {
 		for _, item := range result.Items {
 			drawn = append(drawn, item.ID)
 		}
-		if fmt.Sprint(fixture.letters(drawn)) != fmt.Sprint(fixture.letters(ids)) {
+		if fmt.Sprint(fixture.letters(drawn)) != fmt.Sprint(fixture.letters(want)) {
 			t.Fatalf("away_from_focus=%v drew %v, want %v",
-				away, fixture.letters(drawn), fixture.letters(ids))
+				away, fixture.letters(drawn), fixture.letters(want))
 		}
 	}
 }
