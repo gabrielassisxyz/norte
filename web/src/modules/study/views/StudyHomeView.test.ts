@@ -7,6 +7,7 @@ import router from '@/router'
 import type { AppSources } from '@/sources'
 import { fakeCoreSource, subjectRecord } from '@/shell/data/testing'
 import { createMockSources } from '@/sources/mock'
+import { clearPaletteRequest, paletteRequest } from '@/shell/paletteRequest'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import type { StudyHomePage, StudySource } from '../data/source'
@@ -95,7 +96,21 @@ describe('StudyHomeView', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+    clearPaletteRequest()
     setClockTimeZone('UTC')
+  })
+
+  it('hands its search box over to the command palette instead of losing what was typed', async () => {
+    const wrapper = await mountStudy()
+    const search = wrapper.get('#study-search')
+
+    await search.setValue('memória')
+
+    // The box was an input bound to nothing at all before this: it took what
+    // was typed and dropped it. There is one search in Norte, and it is the
+    // palette's.
+    expect(paletteRequest().value?.query).toBe('memória')
+    expect((search.element as HTMLInputElement).value).toBe('')
   })
 
   it('renders its title and main regions from mock data', async () => {

@@ -33,7 +33,12 @@ type Module interface {
 	// interface promises no order between the two.
 	Text(ctx context.Context, deps Deps, id string) (string, bool, error)
 	FocusTargets(ctx context.Context) ([]core.FocusTarget, error)
-	SearchEntries(ctx context.Context, q string, limit int) ([]core.SearchEntry, error)
+	// SearchEntries is the module's answer for GET /api/core/search. It takes
+	// Deps for the same reason Text does: the providers are injected at
+	// startup from the same dependencies a route is mounted with, and a
+	// module that had kept what Register was handed would be reading a field
+	// another goroutine is still writing.
+	SearchEntries(ctx context.Context, deps Deps, q string, limit int) ([]core.SearchEntry, error)
 }
 
 // Deps is what the core offers a module at startup, so a module never reaches
@@ -289,11 +294,22 @@ func norteModuleNames(modules []Module) []string {
 }
 
 // NorteSearchProviders exposes the enabled search providers in the configured
-// order. The endpoint merging them arrives in a later bead.
-func NorteSearchProviders(modules []Module) []core.SearchProvider {
+// order, which is what GET /api/core/search merges with the subjects.
+//
+// Each provider is the module's own SearchEntries closed over deps, the same
+// way NorteTextProviders works: a stateless module answers a query without
+// the core knowing what a module needs to read to answer it. The merge sorts
+// before it answers, so this order decides nothing a caller can see -- it is
+// the configured order only so that a log line naming the slow provider
+// names the same one twice.
+func NorteSearchProviders(modules []Module, deps Deps) []core.SearchProvider {
 	providers := make([]core.SearchProvider, 0, len(modules))
 	for _, module := range modules {
-		providers = append(providers, module)
+		owner := module
+		providers = append(providers, core.SearchProviderFunc(
+			func(ctx context.Context, q string, limit int) ([]core.SearchEntry, error) {
+				return owner.SearchEntries(ctx, deps, q, limit)
+			}))
 	}
 	return providers
 }

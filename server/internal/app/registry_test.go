@@ -47,13 +47,20 @@ func loadNorteConfigForModules(t *testing.T, modules *string) *app.Config {
 
 func norteModulesValue(raw string) *string { return &raw }
 
+// The modules this test binary links in, in the order the registry sorts
+// them. It is spelled out rather than read back from the registry: comparing
+// the default against the registry is comparing the default against itself,
+// since the default *is* the registry's list. Linking a new module into this
+// package without naming it here is what this list is meant to catch.
+var norteLinkedModuleNames = []string{"library", "notes"}
+
 func TestNorteModulesDefaultIsEveryCompiledModule(t *testing.T) {
 	cfg, _, err := app.Load(app.LoadOptions{LookupEnv: envLookupFromMap(nil), Home: t.TempDir()})
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
-	if len(cfg.Modules) != 1 || cfg.Modules[0] != "library" {
-		t.Errorf("default Modules = %v, want [library]", cfg.Modules)
+	if strings.Join(cfg.Modules, ",") != strings.Join(norteLinkedModuleNames, ",") {
+		t.Errorf("default Modules = %v, want %v", cfg.Modules, norteLinkedModuleNames)
 	}
 }
 
@@ -196,7 +203,7 @@ func (f *norteAdapterFake) FocusTargets(context.Context) ([]core.FocusTarget, er
 	return nil, nil
 }
 
-func (f *norteAdapterFake) SearchEntries(context.Context, string, int) ([]core.SearchEntry, error) {
+func (f *norteAdapterFake) SearchEntries(context.Context, app.Deps, string, int) ([]core.SearchEntry, error) {
 	return nil, nil
 }
 

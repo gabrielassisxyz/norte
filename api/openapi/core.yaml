@@ -228,6 +228,40 @@ paths:
                 $ref: "#/components/schemas/Focus"
         default:
           $ref: "#/components/responses/Error"
+  /api/core/search:
+    get:
+      operationId: searchCore
+      summary: Search every enabled module and the subjects at once
+      description: |
+        One query across the whole app. Each enabled module answers with at
+        most ten hits of its own, the subjects add theirs, and the merge is
+        deterministic: every entry carries a score in [0, 1] comparable across
+        modules, and the order is the score descending, then the title, then
+        the id. The total is capped so the caller can render the answer
+        without paging it.
+
+        A module's score is its own relevance mapped onto that range, so a
+        module whose raw ranking is a bm25 value and one whose ranking is a
+        name match can be read on the same list. The caller never sees the raw
+        value, because no two modules' raw values mean the same thing.
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: The words to look for. Every word must match.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 200
+      responses:
+        "200":
+          description: The merged hits, best first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SearchResults"
+        default:
+          $ref: "#/components/responses/Error"
   /api/core/links:
     get:
       operationId: listCoreLinks
@@ -480,6 +514,56 @@ components:
           description: The item type, as the owning module spells it.
         title:
           type: string
+    SearchResults:
+      type: object
+      additionalProperties: false
+      description: |
+        One page of search hits, already merged and ordered. There is no
+        cursor: the merge caps the total, because a palette shows the best
+        answers and a second page of them is a different question.
+      required:
+        - entries
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: "#/components/schemas/SearchHit"
+    SearchHit:
+      type: object
+      additionalProperties: false
+      description: |
+        One thing the query found, as the module that owns it reports it.
+        `path` is the frontend route that opens the thing, so a client follows
+        a hit without knowing which module answered.
+      required:
+        - id
+        - module
+        - type
+        - title
+        - path
+        - score
+      properties:
+        id:
+          type: string
+        module:
+          type: string
+          description: The module that owns the thing, or "core" for a subject.
+        type:
+          type: string
+          description: The item type, as the owning module spells it.
+        title:
+          type: string
+        subtitle:
+          type: string
+          description: One line of context, absent when the module has none.
+        path:
+          type: string
+          description: The frontend route that opens it, for example /biblioteca/<id>.
+        score:
+          type: number
+          description: |
+            How well this hit matches, from 0 to 1, comparable across modules.
+            The best hit of a query scores 1.
     LinkKind:
       type: string
       description: What a link asserts about the pair it joins.

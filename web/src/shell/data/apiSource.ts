@@ -6,6 +6,7 @@ import type {
   CoreLinkKind,
   CoreLinkPage,
   CoreLinkQuery,
+  CoreSearchHit,
   CoreSource,
   Subject,
   SubjectListQuery,
@@ -132,6 +133,14 @@ export function createApiCoreSource(): CoreSource {
 
     async focus(signal: AbortSignal): Promise<CoreFocus> {
       return unwrap((await coreClient.GET('/api/core/focus', { signal })) as Answered<CoreFocus>)
+    },
+
+    async search(query: string, signal: AbortSignal): Promise<CoreSearchHit[]> {
+      const answered = await coreClient.GET('/api/core/search', {
+        params: { query: { q: query } },
+        signal
+      })
+      return unwrap(answered as Answered<{ entries: CoreSearchHit[] }>).entries
     },
 
     async listLinks(query: CoreLinkQuery, signal: AbortSignal): Promise<CoreLinkPage> {

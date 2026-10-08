@@ -7,10 +7,12 @@ import AppSidebar from '@/shell/AppSidebar.vue'
 import sidebarSource from '@/shell/AppSidebar.vue?raw'
 import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { routes } from '@/router'
+import { clearPaletteRequest, requestPaletteSearch } from '@/shell/paletteRequest'
 import { appSourcesWithLibrary, flushReads, sourcesPlugin } from '@/sources/testing'
 
 afterEach(() => {
   resetModuleMounting()
+  clearPaletteRequest()
 })
 
 async function mountAt(path: string) {
@@ -268,6 +270,31 @@ describe('app shell', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.find('input[aria-label="Buscar"]').exists()).toBe(true)
+  })
+
+  it('opens the palette with the text a screen handed over', async () => {
+    const { wrapper } = await mountAt('/')
+
+    requestPaletteSearch('memória')
+    await flushReads()
+
+    const search = wrapper.find('input[aria-label="Buscar"]')
+    expect(search.exists()).toBe(true)
+    expect((search.element as HTMLInputElement).value).toBe('memória')
+  })
+
+  it('opens the palette empty from the shortcut, whatever a screen handed over before', async () => {
+    const { wrapper } = await mountAt('/')
+
+    requestPaletteSearch('memória')
+    await flushReads()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.vm.$nextTick()
+
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
+    await wrapper.vm.$nextTick()
+
+    expect((wrapper.find('input[aria-label="Buscar"]').element as HTMLInputElement).value).toBe('')
   })
 
   it('renders the bare reader route without the sidebar', async () => {

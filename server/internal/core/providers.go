@@ -62,3 +62,13 @@ type FocusProvider interface {
 type SearchProvider interface {
 	SearchEntries(ctx context.Context, q string, limit int) ([]SearchEntry, error)
 }
+
+// SearchProviderFunc adapts a plain function to SearchProvider, which is how
+// the module registry hands a module's method over together with the
+// dependencies that method needs.
+type SearchProviderFunc func(ctx context.Context, q string, limit int) ([]SearchEntry, error)
+
+// SearchEntries calls the function.
+func (f SearchProviderFunc) SearchEntries(ctx context.Context, q string, limit int) ([]SearchEntry, error) {
+	return f(ctx, q, limit)
+}

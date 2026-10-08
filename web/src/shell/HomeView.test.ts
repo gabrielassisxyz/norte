@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { formatShortDate, setClockTimeZone, shiftIsoDate, todayIsoDate } from '@/lib/clock'
 import { createMockStore, type MockStore } from '@/mock/store'
-import { fakeLibrarySource } from '@/modules/library/data/testing'
+import { fakeLibrarySource, libraryRecord } from '@/modules/library/data/testing'
 import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import router from '@/router'
 import type { AppSources } from '@/sources'
@@ -11,6 +11,7 @@ import { appSourcesWithLibrary, flushReads, shellLibraryRecords, sourcesPlugin }
 
 import { fakeCoreSource, subjectRecord } from './data/testing'
 import HomeView from './HomeView.vue'
+import { clearPaletteRequest, paletteRequest } from './paletteRequest'
 
 /** The day the mock data is built against, so a date on screen is a known date. */
 const TODAY = '2026-10-03'
@@ -50,7 +51,86 @@ describe('HomeView', () => {
 
   afterEach(() => {
     resetModuleMounting()
+    clearPaletteRequest()
     vi.useRealTimers()
+  })
+
+  it('reads both library bands from the API, each with the order its band promises', async () => {
+    await mountHome()
+
+    // "Salvos recentemente" is the inbox newest-saved first; "continuar
+    // lendo" is the whole shelf ordered by when it was last opened, which is
+    // also the only order the server filters the never-opened out of.
+    expect(library.calls.list).toEqual(
+      expect.arrayContaining([
+        { view: 'inbox', sort: 'saved_desc', limit: 5 },
+        { view: 'tudo', sort: 'last_opened_desc', limit: 6 }
+      ])
+    )
+  })
+
+  it('lists the recent saves newest first and leaves the never-opened out of continuar lendo', async () => {
+    // Its own fixtures, because the shared ones have all been opened and the
+    // claim under test is about an item that has not.
+    library = fakeLibrarySource([
+      libraryRecord({
+        id: 'lib-novo',
+        title: 'Salvo agora',
+        status: 'inbox',
+        saved_at: `${TODAY}T11:00:00Z`
+      }),
+      libraryRecord({
+        id: 'lib-antigo',
+        title: 'Salvo ontem',
+        status: 'inbox',
+        saved_at: `${shiftIsoDate(TODAY, -1)}T11:00:00Z`,
+        last_opened_at: `${TODAY}T09:00:00Z`
+      }),
+      libraryRecord({
+        id: 'lib-arquivado',
+        title: 'Lido e arquivado',
+        status: 'arquivo',
+        saved_at: `${shiftIsoDate(TODAY, -4)}T11:00:00Z`,
+        last_opened_at: `${TODAY}T10:00:00Z`
+      })
+    ])
+    const wrapper = await mountHome()
+
+    // Newest saved first, and the inbox only: an archived item is not a
+    // recent save however recently it was read.
+    expect(wrapper.findAll('.home-save-title').map((node) => node.text())).toEqual([
+      'Salvo agora',
+      'Salvo ontem'
+    ])
+    // Last opened first, and never an item that was never opened -- which is
+    // the one claim this band makes about itself.
+    expect(wrapper.findAll('.home-reading-title').map((node) => node.text())).toEqual([
+      'Lido e arquivado',
+      'Salvo ontem'
+    ])
+  })
+
+  it('hands the first keystroke in its search box to the command palette', async () => {
+    const wrapper = await mountHome()
+    const search = wrapper.get('#home-search')
+
+    await search.setValue('memória')
+
+    expect(paletteRequest().value?.query).toBe('memória')
+    // The box empties itself: the palette owns the query now, and a copy left
+    // here would still be showing the last search the next time Início opens.
+    expect((search.element as HTMLInputElement).value).toBe('')
+  })
+
+  it('asks again for the same text, because submitting it twice is two asks', async () => {
+    const wrapper = await mountHome()
+    const search = wrapper.get('#home-search')
+
+    await search.setValue('memória')
+    const first = paletteRequest().value?.count
+    await search.setValue('memória')
+
+    expect(paletteRequest().value?.count).not.toBe(first)
   })
 
   it('renders its title and the main home regions', async () => {

@@ -17,8 +17,8 @@ beforeEach(() => {
   vi.useFakeTimers()
   vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
   store = createMockStore()
-  // The library is `api`-backed, so the palette carries its items only while
-  // the server says the module is there.
+  // The library is `api`-backed, so it contributes to the index only while the
+  // server says the module is there.
   setEnabledModules(['library'])
 })
 
@@ -54,10 +54,6 @@ describe('search index', () => {
     const index = await readIndex()
 
     expect(index.find((entry) => entry.title === 'Biblioteca')?.to).toEqual({ name: 'biblioteca' })
-    expect(index.find((entry) => entry.title === 'Um texto guardado')?.to).toEqual({
-      name: 'leitor',
-      params: { id: 'lib-post' }
-    })
     expect(index.find((entry) => entry.title === 'Horta da varanda')?.to).toEqual({
       name: 'projeto',
       params: { id: 'project-horta' }
@@ -66,6 +62,17 @@ describe('search index', () => {
       name: 'tarefa',
       params: { id: 'task-backup' }
     })
+  })
+
+  it('offers no saved item of its own, because the server searches those', async () => {
+    const index = await readIndex()
+
+    // An `api`-backed module contributes its screens here and nothing else:
+    // its rows are found through GET /api/core/search, over everything saved
+    // rather than over the first page the shell happened to have read.
+    const fromLibrary = index.filter((entry) => entry.group === 'Biblioteca')
+    expect(fromLibrary.map((entry) => entry.title)).toEqual(['Biblioteca'])
+    expect(index.find((entry) => entry.title === 'Um texto guardado')).toBeUndefined()
   })
 
   it('offers nothing but the shell and the module screens before the reads answer', async () => {
@@ -108,12 +115,13 @@ describe('search index', () => {
     expect(filterSearchIndex(index, 'decisao').some((entry) => entry.kind === 'decisão')).toBe(true)
     expect(filterSearchIndex(index, 'flashcards').some((entry) => entry.title === 'Revisão')).toBe(true)
     expect(filterSearchIndex(index, 'arquivo').some((entry) => entry.title === 'Biblioteca')).toBe(true)
+    expect(filterSearchIndex(index, 'materiais').some((entry) => entry.title === 'Biblioteca')).toBe(true)
   })
 
   it('keeps matching results in their product groups', async () => {
     const grouped = groupSearchResults(filterSearchIndex(await readIndex(), 'horta'))
 
-    expect(grouped.map((group) => group.label)).toEqual(['Estudo', 'Projetos', 'Biblioteca'])
+    expect(grouped.map((group) => group.label)).toEqual(['Estudo', 'Projetos'])
     expect(
       grouped.flatMap((group) => group.items).every((entry) => ['Biblioteca', 'Estudo', 'Projetos'].includes(entry.group))
     ).toBe(true)

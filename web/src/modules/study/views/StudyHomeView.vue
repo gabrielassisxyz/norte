@@ -15,6 +15,7 @@ import { useReviewSummary } from '@/modules/review/data/composables'
 import { useSubjects } from '@/shell/data/composables'
 import type { Subject } from '@/shell/data/source'
 import NewSubjectButton from '@/shell/NewSubjectButton.vue'
+import { requestPaletteSearch } from '@/shell/paletteRequest'
 import { useStudyHome } from '../data/composables'
 import { completedThisMonth, currentStreak, hoursInWindow, levelForMinutes, recordStreak } from './studyDays'
 
@@ -116,6 +117,19 @@ function closeAdd(): void {
 function selectView(value: string): void {
   if (isSubjectsView(value)) subjectsView.value = value
 }
+
+const searchQuery = ref('')
+
+/**
+ * This box used to be an input bound to nothing at all -- it took what was
+ * typed and lost it. It hands the query to the command palette instead, the
+ * same way Início's does, because the one search Norte has reaches every
+ * module and the subjects and lives on the server.
+ */
+function openPaletteWith(typed: string): void {
+  requestPaletteSearch(typed)
+  searchQuery.value = ''
+}
 </script>
 
 <template>
@@ -123,7 +137,15 @@ function selectView(value: string): void {
     <div class="study-inner">
       <div class="study-topbar">
         <label class="study-search-label" for="study-search">Buscar</label>
-        <input id="study-search" class="study-search" type="search" placeholder="Buscar cursos, notas, perguntas…" />
+        <input
+          id="study-search"
+          v-model="searchQuery"
+          class="study-search"
+          type="search"
+          placeholder="Buscar cursos, notas, perguntas…"
+          @input="openPaletteWith(($event.target as HTMLInputElement).value)"
+          @keydown.enter.prevent="openPaletteWith(searchQuery)"
+        />
         <div class="study-add">
           <Button variant="secondary" icon="plus" aria-haspopup="menu" :aria-expanded="addOpen" @click="toggleAdd">
             Adicionar

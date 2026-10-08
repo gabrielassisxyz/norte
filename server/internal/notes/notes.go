@@ -89,9 +89,10 @@ func (*NotesModule) FocusTargets(context.Context) ([]core.FocusTarget, error) {
 	return nil, nil
 }
 
-// SearchEntries reports no hits: the search bead adds the provider.
-func (*NotesModule) SearchEntries(context.Context, string, int) ([]core.SearchEntry, error) {
-	return nil, nil
+// SearchEntries reports the person's own writing whose text matches. The
+// implementation is in search.go.
+func (*NotesModule) SearchEntries(ctx context.Context, deps app.Deps, q string, limit int) ([]core.SearchEntry, error) {
+	return notesSearchEntries(ctx, deps.Database, q, limit)
 }
 
 // newNotesServiceFromDeps wires the service over what the registry handed the

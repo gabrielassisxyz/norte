@@ -2,22 +2,26 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { filterSearchIndex, groupSearchResults, useSearchIndex, type SearchEntry } from '@/search'
+import { filterSearchIndex, useSearchIndex, type SearchEntry } from '@/search'
 import { getTheme, setTheme, type Theme } from '@/theme'
+
+import { mergePaletteResults, usePaletteSearch, type PaletteGroup, type PaletteRow } from './paletteSearch'
 
 export type ShellOverlayMode = 'busca' | 'prefs' | null
 
-type PaletteAction = {
-  action: 'theme' | 'prefs'
-  title: string
-  subtitle: string
-  kind: string
-}
-
-type PaletteEntry = SearchEntry | PaletteAction
+/**
+ * The listbox and its options are addressed by id because that is the only
+ * way `aria-activedescendant` can name the highlighted row: the focus never
+ * leaves the input, so a screen reader is told which option is current rather
+ * than being moved onto it.
+ */
+const LISTBOX_ID = 'shell-palette-listbox'
+const optionID = (position: number): string => `shell-palette-option-${position}`
 
 const props = defineProps<{
   open: ShellOverlayMode
+  /** What a screen's own search box had typed when it asked for the palette. */
+  initialQuery?: string
 }>()
 
 const emit = defineEmits<{
@@ -39,24 +43,48 @@ const theme = ref<Theme>(getTheme())
 const index = useSearchIndex()
 const screenEntries = computed<SearchEntry[]>(() => index.value.filter((entry) => entry.kind === 'tela'))
 
-const defaultGroups = computed<Array<{ label: string; items: PaletteEntry[] }>>(() => [
-  { label: 'Ir para', items: screenEntries.value },
+/** What the server found, which is everything the static index cannot know. */
+const remote = usePaletteSearch()
+
+const ACTION_ROWS: PaletteRow[] = [
+  { key: 'acao:tema', action: 'theme', title: 'Alternar tema', subtitle: 'Claro ou escuro', kind: 'ação' },
+  { key: 'acao:prefs', action: 'prefs', title: 'Preferências', subtitle: 'Tema e dados', kind: 'ação' }
+]
+
+const defaultGroups = computed<PaletteGroup[]>(() => [
   {
-    label: 'Ações',
-    items: [
-      { action: 'theme', title: 'Alternar tema', subtitle: 'Claro ou escuro', kind: 'ação' },
-      { action: 'prefs', title: 'Preferências', subtitle: 'Tema e dados', kind: 'ação' }
-    ]
-  }
+    label: 'Ir para',
+    items: screenEntries.value.map((entry) => ({
+      key: `tela:${entry.title}`,
+      title: entry.title,
+      subtitle: entry.subtitle,
+      kind: entry.kind,
+      to: entry.to
+    }))
+  },
+  { label: 'Ações', items: ACTION_ROWS }
 ])
 
-const results = computed(() => filterSearchIndex(index.value, query.value))
-const groups = computed(() => (query.value.trim() ? groupSearchResults(results.value) : defaultGroups.value))
-const entries = computed<PaletteEntry[]>(() => groups.value.flatMap((group) => group.items))
+/**
+ * The screens matching the query, which is the half of the answer the palette
+ * owns. Only screens: the items, the notes and the subjects come from the
+ * server now, so an index that also held them would offer the same thing
+ * twice and offer a stale copy of it.
+ */
+const screenResults = computed(() => filterSearchIndex(screenEntries.value, query.value))
+const searching = computed(() => query.value.trim().length > 0)
+const groups = computed<PaletteGroup[]>(() =>
+  searching.value ? mergePaletteResults(screenResults.value, remote.hits.value) : defaultGroups.value
+)
+const entries = computed<PaletteRow[]>(() => groups.value.flatMap((group) => group.items))
+const activeDescendant = computed(() =>
+  entries.value[highlighted.value] ? optionID(highlighted.value) : undefined
+)
 
 function close(): void {
   query.value = ''
   highlighted.value = 0
+  remote.reset()
   emit('close')
 }
 
@@ -69,8 +97,8 @@ function toggleTheme(): void {
   changeTheme(theme.value === 'dark' ? 'light' : 'dark')
 }
 
-async function run(entry: PaletteEntry): Promise<void> {
-  if ('action' in entry) {
+async function run(entry: PaletteRow): Promise<void> {
+  if (entry.action) {
     if (entry.action === 'theme') {
       toggleTheme()
       close()
@@ -79,6 +107,7 @@ async function run(entry: PaletteEntry): Promise<void> {
     }
     return
   }
+  if (entry.to === undefined) return
 
   await router.push(entry.to)
   close()
@@ -109,16 +138,18 @@ watch(
   () => props.open,
   (open) => {
     if (open === 'busca') {
-      query.value = ''
+      query.value = props.initialQuery ?? ''
       highlighted.value = 0
+      void remote.search(query.value)
       void nextTick(() => input.value?.focus())
     }
     if (open === 'prefs') theme.value = getTheme()
   }
 )
 
-watch(query, () => {
+watch(query, (typed) => {
   highlighted.value = 0
+  void remote.search(typed)
 })
 
 onMounted(() => window.addEventListener('keydown', handleWindowKeydown))
@@ -133,19 +164,27 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleWindowKeydown)
         v-model="query"
         class="shell-palette-input"
         type="text"
-        placeholder="Buscar telas, artigos, projetos, tarefas…"
+        placeholder="Buscar telas, artigos, notas, assuntos…"
         aria-label="Buscar"
+        role="combobox"
+        aria-autocomplete="list"
+        :aria-expanded="entries.length > 0"
+        :aria-controls="LISTBOX_ID"
+        :aria-activedescendant="activeDescendant"
         @keydown="handleSearchKeydown"
       />
-      <div class="shell-palette-results">
-        <template v-for="group in groups" :key="group.label">
-          <div class="shell-palette-heading">{{ group.label }}</div>
+      <div :id="LISTBOX_ID" class="shell-palette-results" role="listbox" aria-label="Resultados">
+        <div v-for="group in groups" :key="group.label" role="group" :aria-label="group.label">
+          <div class="shell-palette-heading" aria-hidden="true">{{ group.label }}</div>
           <button
-            v-for="(entry, entryIndex) in group.items"
-            :key="`${group.label}-${entry.title}`"
+            v-for="entry in group.items"
+            :id="optionID(entries.indexOf(entry))"
+            :key="entry.key"
             type="button"
+            role="option"
             class="shell-palette-row"
             :class="{ 'is-highlighted': entries.indexOf(entry) === highlighted }"
+            :aria-selected="entries.indexOf(entry) === highlighted"
             @mouseenter="select(entries.indexOf(entry))"
             @click="run(entry)"
           >
@@ -155,8 +194,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleWindowKeydown)
             </span>
             <span class="shell-palette-kind">{{ entry.kind }}</span>
           </button>
-        </template>
-        <p v-if="query.trim() && results.length === 0" class="shell-palette-empty">Nada encontrado para “{{ query }}”.</p>
+        </div>
+        <p v-if="remote.failure.value" class="shell-palette-empty" role="status">{{ remote.failure.value }}</p>
+        <p v-else-if="searching && remote.pending.value && entries.length === 0" class="shell-palette-empty" role="status">
+          Buscando…
+        </p>
+        <p v-else-if="searching && !remote.pending.value && entries.length === 0" class="shell-palette-empty" role="status">
+          Nada encontrado para “{{ query }}”.
+        </p>
       </div>
       <footer class="shell-palette-footer"><span><kbd>↑↓</kbd> navegar</span><span><kbd>↵</kbd> abrir</span><span><kbd>esc</kbd> fechar</span></footer>
     </section>

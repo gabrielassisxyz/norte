@@ -6,11 +6,16 @@ import { usePhoneViewport } from '@/lib/phoneViewport'
 
 import AppSidebar from './AppSidebar.vue'
 import AppTopBar from './AppTopBar.vue'
+import { paletteRequest } from './paletteRequest'
 import ShellOverlay, { type ShellOverlayMode } from './ShellOverlay.vue'
 
 const route = useRoute()
 const bare = computed(() => route.meta.layout === 'bare')
 const overlay = ref<ShellOverlayMode>(null)
+/** What a screen's own search box typed before handing the query over. */
+const handedOverQuery = ref('')
+/** The last hand-over this shell acted on, so it acts on each one once. */
+const handledHandOver = ref(0)
 // Session-only: collapsing hides the sidebar rail-wide and survives route
 // changes because the shell outlives every route view.
 const collapsed = ref(false)
@@ -43,7 +48,25 @@ function open(mode: Exclude<ShellOverlayMode, null>): void {
 
 function close(): void {
   overlay.value = null
+  // Forgotten on the way out, so the next palette is the empty one the
+  // shortcut promises rather than the last thing a search box handed over.
+  handedOverQuery.value = ''
 }
+
+/**
+ * A screen asking for the palette, with what it had typed.
+ *
+ * The counter is what makes one ask open the palette once. The shell does not
+ * clear the request it read: clearing shared state from a watcher makes the
+ * shell the owner of something it only consumes, and a second shell watching
+ * the same state would then see the request already gone.
+ */
+watch(paletteRequest(), (request) => {
+  if (!request || request.count === handledHandOver.value) return
+  handledHandOver.value = request.count
+  handedOverQuery.value = request.query
+  overlay.value = 'busca'
+})
 
 function handleWindowKeydown(event: KeyboardEvent): void {
   if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
@@ -95,7 +118,12 @@ onBeforeUnmount(() => {
         <slot />
       </div>
     </div>
-    <ShellOverlay :open="overlay" @close="close" @open-preferences="open('prefs')" />
+    <ShellOverlay
+      :open="overlay"
+      :initial-query="handedOverQuery"
+      @close="close"
+      @open-preferences="open('prefs')"
+    />
   </div>
 </template>
 

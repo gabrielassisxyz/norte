@@ -119,9 +119,10 @@ func (*LibraryModule) FocusTargets(context.Context) ([]core.FocusTarget, error) 
 	return nil, nil
 }
 
-// SearchEntries reports no hits: the search bead adds the provider.
-func (*LibraryModule) SearchEntries(context.Context, string, int) ([]core.SearchEntry, error) {
-	return nil, nil
+// SearchEntries reports the saved items whose text matches, ranked by the
+// module's own full-text index. The implementation is in search.go.
+func (*LibraryModule) SearchEntries(ctx context.Context, deps app.Deps, q string, limit int) ([]core.SearchEntry, error) {
+	return librarySearchEntries(ctx, deps.Database, q, limit)
 }
 
 // newLibraryServiceFromDeps wires the service over what the registry handed the

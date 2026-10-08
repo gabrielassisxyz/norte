@@ -230,3 +230,61 @@ describe('the core API source: links', () => {
     await expect(createApiCoreSource().decideLink('l1', 'accept')).rejects.toThrow('só uma sugestão pode ser decidida')
   })
 })
+
+describe('the core API source: search', () => {
+  it('sends the query as q and unwraps the entries', async () => {
+    fetchStub.mockResolvedValue(
+      json({
+        entries: [
+          { id: 's1', module: 'core', type: 'subject', title: 'Memória', path: '/assuntos/memoria', score: 1 },
+          {
+            id: 'i1',
+            module: 'library',
+            type: 'post',
+            title: 'Sobre hábitos',
+            subtitle: 'Uma autora',
+            path: '/biblioteca/i1',
+            score: 0.4
+          }
+        ]
+      })
+    )
+
+    const entries = await createApiCoreSource().search('memória de trabalho', signal)
+
+    expect(lastRequest().method).toBe('GET')
+    expect(lastUrl().pathname).toBe('/api/core/search')
+    expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ q: 'memória de trabalho' })
+    expect(entries.map((entry) => entry.id)).toEqual(['s1', 'i1'])
+    expect(entries[1]).toMatchObject({ path: '/biblioteca/i1', subtitle: 'Uma autora', score: 0.4 })
+  })
+
+  it('throws the server sentence when the query holds no searchable word', async () => {
+    fetchStub.mockResolvedValue(failure('invalid_request', 'a busca não tem palavra nenhuma', 400))
+
+    await expect(createApiCoreSource().search('...', signal)).rejects.toThrow(
+      'a busca não tem palavra nenhuma'
+    )
+  })
+
+  it('throws the status when the answer carries no envelope at all', async () => {
+    fetchStub.mockResolvedValue(new Response('', { status: 502 }))
+
+    await expect(createApiCoreSource().search('memória', signal)).rejects.toThrow('502')
+  })
+
+  it('passes the abort signal through, so a superseded query never lands', async () => {
+    const controller = new AbortController()
+    fetchStub.mockImplementation(
+      (request: Request) =>
+        new Promise((_resolve, reject) => {
+          request.signal.addEventListener('abort', () => reject(new Error('aborted')))
+        })
+    )
+
+    const pending = createApiCoreSource().search('mem', controller.signal)
+    controller.abort()
+
+    await expect(pending).rejects.toThrow('aborted')
+  })
+})
