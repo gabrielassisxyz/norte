@@ -405,7 +405,9 @@ for (const phone of PHONES) {
       await expect(drawer.locator('nav[aria-label="Principal"]')).toBeVisible()
       const width = await drawer.locator('.app-sidebar').evaluate((node) => node.getBoundingClientRect().width)
       expect(width).toBeGreaterThan(200)
-      expect(await hits(drawer.locator('a.app-line-link', { hasText: 'Biblioteca' }))).toBe(true)
+      // The drawer slides in, so the link reaches its place a moment after the
+      // tap; a single hit test can land while it is still off the left edge.
+      await expect.poll(() => hits(drawer.locator('a.app-line-link', { hasText: 'Biblioteca' }))).toBe(true)
     })
   })
 }
