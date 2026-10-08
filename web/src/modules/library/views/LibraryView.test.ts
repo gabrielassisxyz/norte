@@ -197,6 +197,46 @@ describe('LibraryView over the API', () => {
     expect(lastQuery(library)).toMatchObject({ sort: 'title' })
   })
 
+  it('sends q without sort while a search text is active, and hides the sort toggle', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    // Blank text sends the default sort, the way it always did.
+    expect(lastQuery(library)).toMatchObject({ sort: 'saved_desc' })
+    expect(lastQuery(library)?.q).toBeUndefined()
+
+    await wrapper.get('#library-search').setValue('paper')
+    await flushReads()
+
+    // The server refuses sort alongside q, so the screen sends q alone.
+    expect(lastQuery(library)).toMatchObject({ q: 'paper' })
+    expect(lastQuery(library)?.sort).toBeUndefined()
+    expect('sort' in (lastQuery(library) ?? {})).toBe(false)
+    // While the text is active the toggle has nothing to do, so it is gone.
+    expect(wrapper.find('.library-sort').exists()).toBe(false)
+  })
+
+  it('sends the chosen sort again once the search text is cleared', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    await wrapper.get('.library-sort').trigger('click')
+    await flushReads()
+    expect(lastQuery(library)).toMatchObject({ sort: 'title' })
+
+    await wrapper.get('#library-search').setValue('paper')
+    await flushReads()
+    expect(lastQuery(library)?.sort).toBeUndefined()
+
+    // Whitespace-only counts as blank: the chosen sort is back, and so is the toggle.
+    await wrapper.get('#library-search').setValue('   ')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ sort: 'title' })
+    expect(lastQuery(library)?.q).toBeUndefined()
+    expect(wrapper.find('.library-sort').exists()).toBe(true)
+  })
+
   it('points every row at the reader', async () => {
     const library = fakeLibrarySource(shelf())
     const { wrapper, router } = await mountAt('/biblioteca', library)

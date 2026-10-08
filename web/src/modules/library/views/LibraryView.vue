@@ -157,6 +157,16 @@ const activeKind = computed<LibraryKind | null>(() => {
 const title = computed(() => (activeKind.value === null ? 'Biblioteca' : TYPE_TITLES[activeKind.value]))
 
 /**
+ * A text search is active, which the server answers ranked by relevance.
+ *
+ * The server refuses an explicit `sort` alongside `q` because the rank is the
+ * order, so while text is in the box the screen sends no sort and hides the
+ * toggle that would set one — the same way the focus-ranked view hides the
+ * controls it supersedes.
+ */
+const hasSearchText = computed(() => search.value.trim() !== '')
+
+/**
  * What the list is asked for — every filter of it a query parameter.
  *
  * None of this is applied over the rows already held. The server sends one page
@@ -171,12 +181,23 @@ const query = computed<LibraryListQuery>(() => {
   if (focusRanked.value) {
     return { view: 'now', tipo: activeKind.value, unread: null }
   }
+  const text = search.value.trim()
+  // A text query orders by full-text rank, and the server refuses a sort
+  // alongside it: while one is active no sort is sent.
+  if (text) {
+    return {
+      view: activeView.value,
+      tipo: activeKind.value,
+      unread: unreadOnly.value ? true : null,
+      q: text
+    }
+  }
   return {
     view: activeView.value,
     tipo: activeKind.value,
     unread: unreadOnly.value ? true : null,
     sort: sort.value,
-    q: search.value.trim() || undefined
+    q: undefined
   }
 })
 
@@ -444,7 +465,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
           type="search"
           placeholder="Buscar por título ou autor…"
         />
-        <button v-if="!focusRanked" type="button" class="ghost library-sort" @click="toggleSort">
+        <button v-if="!focusRanked && !hasSearchText" type="button" class="ghost library-sort" @click="toggleSort">
           {{ sortLabel }}
           <Icon name="chevronDown" :size="14" />
         </button>
