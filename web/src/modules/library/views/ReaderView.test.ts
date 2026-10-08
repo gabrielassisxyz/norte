@@ -66,10 +66,15 @@ let scrollGeometry = { scrollHeight: 2000, clientHeight: 500 }
 
 function installLayout(geometry: { scrollHeight: number; clientHeight: number }): void {
   scrollGeometry = geometry
-  Object.defineProperty(HTMLElement.prototype, 'offsetTop', {
+  // A heading's rectangle is its offset minus how far its container has
+  // scrolled, which is what a browser reports. `offsetTop` is deliberately not
+  // stubbed: the reader must not depend on which ancestor is positioned.
+  Object.defineProperty(HTMLElement.prototype, 'getBoundingClientRect', {
     configurable: true,
-    get(this: HTMLElement) {
-      return HEADING_OFFSETS[this.id] ?? 0
+    value(this: HTMLElement) {
+      const container = this.closest('.reader-scroll') as HTMLElement | null
+      const top = container && container !== this ? (HEADING_OFFSETS[this.id] ?? 0) - container.scrollTop : 0
+      return { top, bottom: top, left: 0, right: 0, width: 0, height: 0, x: 0, y: top, toJSON: () => ({}) }
     }
   })
   Object.defineProperty(HTMLElement.prototype, 'scrollHeight', {
@@ -92,7 +97,7 @@ function installLayout(geometry: { scrollHeight: number; clientHeight: number })
 }
 
 function removeLayout(): void {
-  for (const property of ['offsetTop', 'scrollHeight', 'clientHeight', 'scrollTop']) {
+  for (const property of ['getBoundingClientRect', 'scrollHeight', 'clientHeight', 'scrollTop']) {
     delete (HTMLElement.prototype as unknown as Record<string, unknown>)[property]
   }
   for (const anchor of Object.keys(HEADING_OFFSETS)) delete HEADING_OFFSETS[anchor]
@@ -331,6 +336,39 @@ describe('the reader and the place reading stopped', () => {
   })
 })
 
+describe('the reader and the restore guard', () => {
+  it('still ignores the scroll event a browser delivers after a zero-delay timer', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame'] })
+    HEADING_OFFSETS['outra-secao'] = 1200
+    const library = fakeLibrarySource([
+      record({ read_position: { v: 1, anchor: 'outra-secao', percent: 0.2 } })
+    ])
+    const { wrapper } = await mountReader(library)
+    const view = scroller(wrapper)
+
+    // The old guard dropped on this tick; the event below arrives after it.
+    await vi.advanceTimersByTimeAsync(0)
+    view.nudge()
+    await vi.advanceTimersByTimeAsync(3000)
+    expect(positionPatches(library)).toEqual([])
+  })
+
+  it('reads again once the restore has settled', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'requestAnimationFrame', 'cancelAnimationFrame'] })
+    const library = fakeLibrarySource([
+      record({ read_position: { v: 1, anchor: 'uma-secao', percent: 0.2 } })
+    ])
+    const { wrapper } = await mountReader(library)
+    const view = scroller(wrapper)
+
+    await vi.advanceTimersByTimeAsync(100)
+    view.scrollTo(600)
+    await vi.advanceTimersByTimeAsync(3000)
+    await flushPromises()
+    expect(positionPatches(library)).toHaveLength(1)
+  })
+})
+
 describe('the reader and what was selected when the link was saved', () => {
   it('shows the passage, read-only, under its own label', async () => {
     const library = fakeLibrarySource([
@@ -391,6 +429,25 @@ describe('the reader and the shelf an item sits on', () => {
     await wrapper.findAll('.reader-chip').find((chip) => chip.text() === 'Depois')!.trigger('click')
     await flushReads()
     expect(library.calls.patch).toHaveLength(1)
+  })
+})
+
+describe('the reader moving between items', () => {
+  it('does not show the answer of the item it has already left', async () => {
+    let release: (value: LibraryItemRecord) => void = () => {}
+    const library = fakeLibrarySource([record({ id: 'item-1', title: 'Primeiro' }), record({ id: 'item-2', title: 'Segundo' })])
+    const realOpen = library.openItem.bind(library)
+    library.openItem = (id: string) =>
+      id === 'item-1' ? new Promise<LibraryItemRecord>((resolve) => (release = resolve)) : realOpen(id)
+    const { wrapper, router } = await mountReader(library, 'item-1')
+
+    await router.push('/biblioteca/item-2')
+    await flushReads()
+    release(record({ id: 'item-1', title: 'Primeiro' }))
+    await flushReads()
+
+    expect(wrapper.text()).toContain('Segundo')
+    expect(wrapper.text()).not.toContain('Primeiro')
   })
 })
 

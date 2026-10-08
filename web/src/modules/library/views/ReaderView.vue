@@ -73,6 +73,9 @@ watch(
   async (id) => {
     if (!id) return
     const opened = await writing.run(() => library.openItem(id))
+    // The reader may have moved to another item while this one was answering;
+    // applying it would put the item just left on the screen of the one asked for.
+    if (itemId.value !== id) return
     if (opened) apply(opened)
   },
   { immediate: true }
@@ -151,13 +154,25 @@ function clearPositionTimer(): void {
  * text changed points somewhere else — so it is the position's first answer and
  * the percent is the fallback.
  */
+/**
+ * Where an element sits inside the scroll container, in the container's own
+ * scroll coordinates.
+ *
+ * `offsetTop` is measured from the nearest positioned ancestor, which is the
+ * container only while the stylesheet happens to position it; the rectangles
+ * do not depend on that.
+ */
+function offsetWithin(container: HTMLElement, element: HTMLElement): number {
+  return container.scrollTop + element.getBoundingClientRect().top - container.getBoundingClientRect().top
+}
+
 function anchorAboveViewport(container: HTMLElement): string | undefined {
   const headings = parseHeadings(item.value?.content_headings)
   let found: string | undefined
   for (const heading of headings) {
     const element = container.querySelector(`[id="${CSS.escape(heading.anchor)}"]`)
     if (!(element instanceof HTMLElement)) continue
-    if (element.offsetTop > container.scrollTop + 1) break
+    if (offsetWithin(container, element) > container.scrollTop + 1) break
     found = heading.anchor
   }
   return found
@@ -222,16 +237,21 @@ async function restorePosition(): Promise<void> {
     ? container.querySelector(`[id="${CSS.escape(position.anchor)}"]`)
     : null
   if (anchor instanceof HTMLElement) {
-    container.scrollTop = anchor.offsetTop
+    container.scrollTop = offsetWithin(container, anchor)
   } else if (typeof position.percent === 'number') {
     const scrollable = Math.max(0, container.scrollHeight - container.clientHeight)
     container.scrollTop = Math.min(1, Math.max(0, position.percent)) * scrollable
   }
   // The guard outlives this task: the scroll event the assignment above causes
   // is delivered later, and it is exactly the one that must be ignored.
-  setTimeout(() => {
-    restoring = false
-  }, 0)
+  // Two frames, because a browser delivers the scroll event at the next
+  // rendering opportunity, which a zero-delay timer can beat.
+  const settledFor = restoredFor
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      if (restoredFor === settledFor) restoring = false
+    })
+  })
 }
 
 watch(
