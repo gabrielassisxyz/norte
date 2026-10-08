@@ -4,6 +4,7 @@ import type {
   CoreLinkKind,
   CoreLinkPage,
   CoreLinkQuery,
+  CoreSearchHit,
   CoreSource,
   RegistryItem,
   Subject,
@@ -93,12 +94,31 @@ export interface FakeCoreCalls {
   listLinks: CoreLinkQuery[]
   createLink: Array<{ srcId: string; dstId: string; kind: CoreLinkKind }>
   decideLink: Array<{ id: string; decision: 'accept' | 'reject' }>
+  search: string[]
 }
 
 export interface FakeCoreSource extends CoreSource {
   subjects: Subject[]
   links: CoreLink[]
+  hits: CoreSearchHit[]
   calls: FakeCoreCalls
+}
+
+/**
+ * One search hit a module would have reported, for a test that needs the
+ * palette to find something the fake core has no table for.
+ */
+export function coreSearchHit(overrides: Partial<CoreSearchHit> = {}): CoreSearchHit {
+  const id = overrides.id ?? 'hit-1'
+  return {
+    id,
+    module: 'library',
+    type: 'post',
+    title: `Texto ${id}`,
+    path: `/biblioteca/${id}`,
+    score: 1,
+    ...overrides
+  }
 }
 
 /** 0 exact, 1 prefix, 2 substring, null no match — the server's ranking. */
@@ -110,11 +130,12 @@ function rankOf(subject: Subject, needle: string): number | null {
 }
 
 export function fakeCoreSource(
-  seed: { subjects?: Subject[]; links?: CoreLink[] } = {},
+  seed: { subjects?: Subject[]; links?: CoreLink[]; hits?: CoreSearchHit[] } = {},
   overrides: Partial<CoreSource> = {}
 ): FakeCoreSource {
   const subjects = [...(seed.subjects ?? [])]
   const links = [...(seed.links ?? [])]
+  const hits = [...(seed.hits ?? [])]
   const calls: FakeCoreCalls = {
     listSubjects: [],
     getSubjectBySlug: [],
@@ -125,7 +146,8 @@ export function fakeCoreSource(
     focus: 0,
     listLinks: [],
     createLink: [],
-    decideLink: []
+    decideLink: [],
+    search: []
   }
 
   function requireSubject(id: string): Subject {
@@ -137,6 +159,7 @@ export function fakeCoreSource(
   const source: FakeCoreSource = {
     subjects,
     links,
+    hits,
     calls,
 
     async listSubjects(query: SubjectListQuery): Promise<SubjectPage> {
@@ -202,6 +225,38 @@ export function fakeCoreSource(
     async focus(): Promise<CoreFocus> {
       calls.focus += 1
       return { subjects: subjects.filter((subject) => subject.focus), targets: [] }
+    },
+
+    async search(query: string, signal: AbortSignal): Promise<CoreSearchHit[]> {
+      calls.search.push(query)
+      // The real endpoint's answer never lands after the caller gave up, so
+      // the fake must not either: a palette test that passes here only
+      // because the fake resolved an aborted request proves nothing.
+      if (signal.aborted) throw signal.reason ?? new Error('aborted')
+      const needle = slugify(query)
+      if (!needle) return []
+      const fromSubjects = subjects
+        .map((subject) => ({ subject, rank: rankOf(subject, needle) }))
+        .filter((entry): entry is { subject: Subject; rank: number } => entry.rank !== null)
+        .map(({ subject, rank }) => ({
+          id: subject.id,
+          module: 'core',
+          type: 'subject',
+          title: subject.name,
+          path: `/assuntos/${subject.slug}`,
+          score: [1, 0.8, 0.6][rank] ?? 0.6
+        }))
+      const fromModules = hits.filter((hit) =>
+        `${slugify(hit.title)}-${slugify(hit.subtitle ?? '')}`.includes(needle)
+      )
+      return [...fromSubjects, ...fromModules]
+        .sort(
+          (left, right) =>
+            right.score - left.score ||
+            left.title.localeCompare(right.title) ||
+            left.id.localeCompare(right.id)
+        )
+        .slice(0, 30)
     },
 
     async listLinks(query: CoreLinkQuery): Promise<CoreLinkPage> {

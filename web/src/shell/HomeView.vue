@@ -5,9 +5,31 @@ import PageTitle from '@/components/ds/PageTitle.vue'
 import { formatLongWeekdayDate, todayIsoDate } from '@/lib/clock'
 
 import { homeBlocks } from './composition'
+import { requestPaletteSearch } from './paletteRequest'
 import './home.css'
 
 const searchQuery = ref('')
+
+/**
+ * The box hands what was typed to the command palette rather than searching
+ * on its own. There is one search in Norte -- every module plus the subjects,
+ * merged and ranked by the server -- and a second one living on this screen
+ * would be a second place for the ranking, the keyboard handling and the
+ * routes to be wrong in.
+ *
+ * The first keystroke is the handover, and the text goes with it, so the
+ * palette opens already answering rather than empty. It reads the value off
+ * the event rather than off `searchQuery`, because both this listener and
+ * `v-model`'s are `input` listeners and nothing promises which runs first.
+ * The box is then emptied: the palette owns the query from here, and a copy
+ * left behind would still be showing the last search the next time Início is
+ * opened.
+ */
+function openPaletteWith(typed: string): void {
+  requestPaletteSearch(typed)
+  searchQuery.value = ''
+}
+
 /** The day the server is on, which is the only day this screen is about. */
 const title = computed(() => formatLongWeekdayDate(todayIsoDate()))
 const actionBlocks = computed(() => homeBlocks('actions'))
@@ -25,6 +47,8 @@ const mainBlocks = computed(() => homeBlocks('main'))
           class="home-search"
           type="search"
           placeholder="Buscar artigos, notas, cursos…"
+          @input="openPaletteWith(($event.target as HTMLInputElement).value)"
+          @keydown.enter.prevent="openPaletteWith(searchQuery)"
         />
         <component :is="block.component" v-for="block in actionBlocks" :key="block.id" />
       </div>

@@ -19,6 +19,7 @@ export type CoreLinkKind = components['schemas']['LinkKind']
 export type CoreLinkStatus = components['schemas']['LinkStatus']
 export type RegistryItem = components['schemas']['RegistryItem']
 export type CoreFocus = components['schemas']['Focus']
+export type CoreSearchHit = components['schemas']['SearchHit']
 
 /** The filters a subject list is read with — each one a query parameter. */
 export interface SubjectListQuery {
@@ -74,6 +75,15 @@ export interface CoreSource {
   patchSubject(id: string, patch: SubjectPatch): Promise<Subject>
   deleteSubject(id: string): Promise<void>
   focus(signal: AbortSignal): Promise<CoreFocus>
+  /**
+   * One query across every enabled module and the subjects, best first.
+   *
+   * The signal is not a convenience here. The palette asks on every keystroke,
+   * so the answer to a word someone has already finished typing over must
+   * never be allowed to land: the caller aborts the previous request and this
+   * one rejects rather than resolving with stale rows.
+   */
+  search(query: string, signal: AbortSignal): Promise<CoreSearchHit[]>
   listLinks(query: CoreLinkQuery, signal: AbortSignal): Promise<CoreLinkPage>
   createLink(srcId: string, dstId: string, kind?: CoreLinkKind): Promise<CoreLink>
   decideLink(id: string, decision: 'accept' | 'reject'): Promise<CoreLink>

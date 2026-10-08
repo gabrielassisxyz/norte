@@ -3,7 +3,7 @@ import { computed, type ComputedRef } from 'vue'
 import type { SearchEntry } from '@/search'
 
 import type { ModuleSidebar, NorteModule, SidebarLink, SidebarRow } from '../types'
-import { useLibraryCounts, useLibraryItems } from './data/composables'
+import { useLibraryCounts } from './data/composables'
 import type { LibraryKind, LibraryShelf } from './data/source'
 import LibraryReadingBlock from './home/LibraryReadingBlock.vue'
 import LibrarySaveAction from './home/LibrarySaveAction.vue'
@@ -136,22 +136,17 @@ const SCREEN_ENTRY: SearchEntry = {
 }
 
 /**
- * The library's screen, plus the items the palette can offer without a search
- * of its own: the first page of the whole shelf, newest first.
+ * The library's screen, and only its screen.
+ *
+ * The items used to be here too -- the first page of the whole shelf, offered
+ * to the palette as a stand-in for a search the server could not answer yet.
+ * GET /api/core/search answers it now, over every saved item rather than the
+ * fifty most recent, so keeping them here would offer the same thing twice
+ * and offer a stale copy of it, on a read the shell paid for whether anyone
+ * opened the palette or not.
  */
 export function useSearchEntries(): ComputedRef<SearchEntry[]> {
-  const { data: page } = useLibraryItems({ view: 'tudo' })
-  return computed(() => [
-    SCREEN_ENTRY,
-    ...(page.value?.items ?? []).map<SearchEntry>((item) => ({
-      group: 'Biblioteca',
-      title: item.title,
-      subtitle: item.author ?? item.site ?? '',
-      kind: item.kind,
-      keywords: `${item.status} ${item.why ?? ''}`,
-      to: { name: 'leitor', params: { id: item.id } }
-    }))
-  ])
+  return computed(() => [SCREEN_ENTRY])
 }
 
 const libraryModule: NorteModule = { manifest, routes, useSidebar, homeBlocks, useSearchEntries }
