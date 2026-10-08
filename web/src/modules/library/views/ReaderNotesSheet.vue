@@ -44,8 +44,14 @@ defineEmits<{ close: [] }>()
   position: fixed;
   left: 0;
   right: 0;
-  /* Clear of the action bar, which stays reachable while the sheet is open. */
-  bottom: 62px;
+  /*
+    Clear of the action bar, which stays reachable while the sheet is open. The
+    bar measures itself and publishes the height, because a number written here
+    cannot know how tall it is: it is two rows, one of them another module's,
+    plus the device's safe-area inset. The fallback is one row's worth, for the
+    frame between this sheet mounting and the bar's first measurement.
+  */
+  bottom: var(--norte-library-reader-bar-height, 62px);
   z-index: 45;
   display: flex;
   flex-direction: column;

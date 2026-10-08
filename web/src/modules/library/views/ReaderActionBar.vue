@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+
 import type { LibraryStatus } from '../data/source'
 
 /**
@@ -20,10 +22,47 @@ defineEmits<{
   'toggle-read': []
   move: [LibraryStatus]
 }>()
+
+/**
+ * The bar's own height, published so the notes sheet can sit on top of it.
+ *
+ * It is measured rather than written down because nothing here knows it: the
+ * bar is two rows, one of them filled by whatever another module puts in the
+ * slot, and the bottom padding grows by the device's safe-area inset. The
+ * number that was written down was 62px against a bar that measures 103, which
+ * is how the sheet came to cover the status buttons it was placed to clear.
+ *
+ * The property goes on the document root because the sheet is a sibling under
+ * a different fixed container, so there is no shared box to scope it to. The
+ * bar is a singleton -- one reader, one bar -- and it takes the property back
+ * on the way out so a screen without a bar cannot read a stale height.
+ */
+const LIBRARY_READER_BAR_HEIGHT = '--norte-library-reader-bar-height'
+const bar = ref<HTMLElement>()
+let observer: ResizeObserver | null = null
+
+function publishHeight(): void {
+  const height = bar.value?.getBoundingClientRect().height
+  if (height === undefined) return
+  document.documentElement.style.setProperty(LIBRARY_READER_BAR_HEIGHT, `${Math.round(height)}px`)
+}
+
+onMounted(() => {
+  publishHeight()
+  if (typeof ResizeObserver === 'undefined' || !bar.value) return
+  observer = new ResizeObserver(publishHeight)
+  observer.observe(bar.value)
+})
+
+onBeforeUnmount(() => {
+  observer?.disconnect()
+  observer = null
+  document.documentElement.style.removeProperty(LIBRARY_READER_BAR_HEIGHT)
+})
 </script>
 
 <template>
-  <nav class="reader-bar" aria-label="Ações da leitura">
+  <nav ref="bar" class="reader-bar" aria-label="Ações da leitura">
     <div class="reader-bar-row">
       <button
         v-for="action in statuses"

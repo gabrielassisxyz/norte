@@ -40,6 +40,14 @@ function select(value: string): void {
 <style scoped>
 .nt-seg {
   display: inline-flex;
+  /*
+    A control with five options is wider than a phone, and a row that cannot
+    wrap puts the last ones past the edge of the screen -- where they are not
+    merely clipped but drag the document wider, so every other screen scrolls
+    sideways too. Wrapping keeps each option inside the viewport; above the
+    breakpoint there is room for one line and nothing wraps.
+  */
+  flex-wrap: wrap;
   gap: 2px;
   padding: 2px;
   border: 1px solid var(--line);

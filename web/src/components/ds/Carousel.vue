@@ -153,4 +153,20 @@ function next(): void {
 .nt-carousel-btn.is-next {
   right: -20px;
 }
+
+/*
+  The arrows hang 20px outside the track on purpose, which a wide screen has the
+  margin for. A phone does not: the content column is 16px from the edge, so an
+  arrow placed there is 4px past the viewport and the whole document scrolls
+  sideways. Inside the frame on a phone, over the first and last card.
+*/
+@media (max-width: 900px) {
+  .nt-carousel-btn.is-prev {
+    left: 0;
+  }
+
+  .nt-carousel-btn.is-next {
+    right: 0;
+  }
+}
 </style>

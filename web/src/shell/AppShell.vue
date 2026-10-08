@@ -21,6 +21,15 @@ const handledHandOver = ref(0)
 const collapsed = ref(false)
 const phone = usePhoneViewport()
 /**
+ * Whether the sidebar is the narrow rail.
+ *
+ * Only above the breakpoint. Below it the sidebar is the drawer's panel, where
+ * a rail is a 52px strip with no navigation in it -- so the flag is ignored
+ * there rather than reset, and a window narrowed and widened again comes back
+ * to the rail the reader left it in.
+ */
+const railed = computed(() => collapsed.value && !phone.value)
+/**
  * Whether the navigation drawer is showing.
  *
  * Below the phone breakpoint the sidebar is off-canvas and this is what slides
@@ -44,6 +53,11 @@ function closeDrawer(): void {
 
 function open(mode: Exclude<ShellOverlayMode, null>): void {
   overlay.value = mode
+  // The palette and the preferences are opened from inside the drawer, and on a
+  // phone the drawer is a panel over the content rather than a column beside it:
+  // left standing it covers the left 300px of whatever it just opened, so its
+  // rows answer the taps the overlay's own rows should be getting.
+  closeDrawer()
 }
 
 function close(): void {
@@ -65,7 +79,7 @@ watch(paletteRequest(), (request) => {
   if (!request || request.count === handledHandOver.value) return
   handledHandOver.value = request.count
   handedOverQuery.value = request.query
-  overlay.value = 'busca'
+  open('busca')
 })
 
 function handleWindowKeydown(event: KeyboardEvent): void {
@@ -96,10 +110,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="app-shell" :class="{ 'is-collapsed': collapsed, 'is-bare': bare }">
+  <div class="app-shell" :class="{ 'is-collapsed': railed, 'is-bare': bare }">
     <div v-if="!bare" id="app-drawer" class="app-drawer" :class="{ 'is-open': drawerOpen }">
       <AppSidebar
-        :collapsed="collapsed"
+        :collapsed="railed"
+        :drawer="phone"
         @search="open('busca')"
         @preferences="open('prefs')"
         @toggle-collapse="toggleCollapse"

@@ -40,7 +40,7 @@ function sidebarSubjects() {
   ]
 }
 
-async function mountSidebar(subjects = sidebarSubjects()) {
+async function mountSidebar(subjects = sidebarSubjects(), props: { collapsed?: boolean; drawer?: boolean } = {}) {
   // The library and the notes are `api`-backed in their own manifests, so a
   // sidebar with their lines is one mounted against a server that lists them.
   for (const name of ['library', 'notes'] as ModuleName[]) {
@@ -50,6 +50,7 @@ async function mountSidebar(subjects = sidebarSubjects()) {
   await router.push('/')
   await router.isReady()
   const wrapper = mount(AppSidebar, {
+    props,
     global: {
       plugins: [router, sourcesPlugin(appSourcesWithLibrary({ core: fakeCoreSource({ subjects }) }))]
     }
@@ -68,6 +69,20 @@ function topLevelLabels(wrapper: { findAll: (selector: string) => Array<{ text: 
 async function expand(wrapper: Awaited<ReturnType<typeof mountSidebar>>, label: string) {
   await wrapper.get(`button[aria-label="Expandir ${label}"]`).trigger('click')
 }
+
+describe('the sidebar as the phone drawer\'s panel', () => {
+  it('offers no collapse button, because a rail holds no navigation', async () => {
+    const wide = await mountSidebar()
+    // The control exists where it means something, so its absence below is the
+    // drawer's doing rather than the button having been dropped altogether.
+    expect(wide.find('button.app-collapse').exists()).toBe(true)
+
+    const drawer = await mountSidebar(sidebarSubjects(), { drawer: true })
+
+    expect(drawer.find('button.app-collapse').exists()).toBe(false)
+    expect(drawer.get('nav[aria-label="Principal"]').text()).toContain('Biblioteca')
+  })
+})
 
 describe('Revisão in the sidebar', () => {
   it('nests under Estudo when both are mounted', async () => {
