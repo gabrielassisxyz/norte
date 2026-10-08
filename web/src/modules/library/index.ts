@@ -70,7 +70,7 @@ export function useSidebar(): ModuleSidebar {
       {
         id: 'atalho-artigos',
         label: 'Artigos',
-        to: { name: 'biblioteca', query: { v: 'tudo', tipo: 'artigos' } },
+        to: { name: 'biblioteca', query: { tipo: 'artigos' } },
         count: kindCount('post')
       },
       // The prototype links Shortlist at the library root (v=tudo); the library

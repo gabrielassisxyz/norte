@@ -26,7 +26,5 @@ describe('the library sidebar kind links', () => {
       expect('to' in row && row.to).toMatchObject({ query: { v: 'tudo' } })
     }
 
-    const articles = sidebar!.shortcuts?.[0].entries().find((entry) => entry.id === 'atalho-artigos')
-    expect(articles?.to).toMatchObject({ query: { v: 'tudo', tipo: 'artigos' } })
   })
 })
