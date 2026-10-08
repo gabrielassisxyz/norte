@@ -2,6 +2,6 @@ import type { ModuleManifest } from '../types'
 
 export const manifest: ModuleManifest = {
   name: 'notes',
-  backing: 'mock',
-  routePaths: ['/notas']
+  backing: 'api',
+  routePaths: ['/notas', '/notas/conjuntos', '/notas/conjuntos/:id']
 }

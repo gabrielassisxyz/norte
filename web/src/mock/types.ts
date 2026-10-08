@@ -97,32 +97,6 @@ export interface ReviewCard {
   lastRating?: CardRating
 }
 
-export interface Highlight {
-  id: string
-  materialId: string
-  text: string
-  createdAt: string
-}
-
-export interface Annotation {
-  id: string
-  materialId: string
-  text: string
-  highlightId?: string
-  createdAt: string
-}
-
-export type QuestionKind = 'what' | 'why' | 'who' | 'when' | 'where' | 'how'
-
-export interface Question {
-  id: string
-  materialId?: string
-  kind: QuestionKind
-  text: string
-  answer?: string
-  createdAt: string
-}
-
 export interface Area {
   id: string
   title: string
@@ -238,9 +212,6 @@ export interface MockData {
   curricula: Curriculum[]
   reviewDecks: ReviewDeck[]
   reviewCards: ReviewCard[]
-  highlights: Highlight[]
-  annotations: Annotation[]
-  questions: Question[]
   areas: Area[]
   projects: Project[]
   decisions: Decision[]

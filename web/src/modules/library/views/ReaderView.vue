@@ -11,6 +11,7 @@ import { useSources } from '@/sources'
 import ArticleContent from '../components/ArticleContent.vue'
 import { useLibraryItem } from '../data/composables'
 import { libraryItemChanged } from '../data/revision'
+import { readerSlotEntries, type ReaderLiveSelection } from '../readerSlots'
 import { parseHeadings, type LibraryStatus, type ReadPosition } from '../data/source'
 
 /**
@@ -48,6 +49,15 @@ const { data: item, loading, error, refresh, apply } = useLibraryItem(itemId)
 const writing = useAsyncAction()
 
 const scroller = ref<HTMLElement>()
+
+/**
+ * How much context travels with a selected passage, in code points.
+ *
+ * It matches what the server stores on each side of a highlight. Sending less
+ * would make two occurrences of the same sentence indistinguishable, which is
+ * exactly the case the server refuses to guess at.
+ */
+const SELECTION_CONTEXT = 32
 
 /** Nothing has answered yet, as opposed to an answer saying the item is gone. */
 const firstLoad = computed(() => loading.value && item.value === null)
@@ -296,6 +306,99 @@ async function moveTo(status: LibraryStatus): Promise<void> {
   libraryItemChanged()
 }
 
+/* ----------------------------------------------------------- reader slots */
+
+/**
+ * The article's root element and a counter of how many times it has rendered.
+ *
+ * Another module decorates the text from a slot, and `v-html` replaces the
+ * whole subtree on every new value of `content_html`, so the counter is what
+ * tells a slot that its decoration is gone and has to be applied again.
+ */
+const articleRoot = ref<HTMLElement | null>(null)
+const renderedAt = ref(0)
+const liveSelection = ref<ReaderLiveSelection | null>(null)
+
+function handleArticleRendered(root: HTMLElement): void {
+  articleRoot.value = root
+  renderedAt.value += 1
+}
+
+/**
+ * What the person has selected inside the article, as words rather than as
+ * offsets.
+ *
+ * The context is measured against the article's own text: a range's offsets
+ * belong to the DOM the browser built, and the server anchors against the text
+ * it extracted, which is not the same string.
+ */
+function readSelection(): void {
+  const root = articleRoot.value
+  const selection = window.getSelection()
+  if (!root || !selection || selection.rangeCount === 0 || selection.isCollapsed) {
+    liveSelection.value = null
+    return
+  }
+  const range = selection.getRangeAt(0)
+  if (!root.contains(range.commonAncestorContainer)) {
+    liveSelection.value = null
+    return
+  }
+  const exact = range.toString().trim()
+  if (!exact) {
+    liveSelection.value = null
+    return
+  }
+  const before = document.createRange()
+  before.selectNodeContents(root)
+  before.setEnd(range.startContainer, range.startOffset)
+  const after = document.createRange()
+  after.selectNodeContents(root)
+  after.setStart(range.endContainer, range.endOffset)
+  liveSelection.value = {
+    exact,
+    prefix: [...before.toString()].slice(-SELECTION_CONTEXT).join(''),
+    suffix: [...after.toString()].slice(0, SELECTION_CONTEXT).join('')
+  }
+}
+
+function clearSelection(): void {
+  liveSelection.value = null
+}
+
+/**
+ * Put a passage in view.
+ *
+ * It measures with the same rectangles the reading position does, because
+ * `offsetTop` is relative to the nearest positioned ancestor and that is the
+ * scroll container only while the stylesheet happens to position it.
+ */
+function scrollToPassage(exact: string): void {
+  const container = scroller.value
+  const root = articleRoot.value
+  if (!container || !root) return
+  const marked = root.querySelectorAll('[data-notes-passage]')
+  for (const element of marked) {
+    if (!(element instanceof HTMLElement)) continue
+    if (element.dataset.notesPassage !== exact) continue
+    container.scrollTop = offsetWithin(container, element) - 80
+    return
+  }
+}
+
+const selectionSlots = computed(() => readerSlotEntries('selection-actions'))
+const notesSlots = computed(() => readerSlotEntries('notes'))
+
+const slotProps = computed(() => ({
+  itemId: itemId.value,
+  savedSelection: item.value?.selection ?? null,
+  liveSelection: liveSelection.value,
+  clearSelection,
+  articleRoot: articleRoot.value,
+  renderedAt: renderedAt.value,
+  scrollToPassage
+}))
+
 async function retryExtraction(): Promise<void> {
   const record = item.value
   if (!record) return
@@ -355,7 +458,7 @@ async function retryExtraction(): Promise<void> {
       <button type="button" class="reader-clear" @click="writing.clear()">Fechar</button>
     </p>
 
-    <div ref="scroller" class="reader-scroll" @scroll="handleScroll">
+    <div ref="scroller" class="reader-scroll" @scroll="handleScroll" @mouseup="readSelection" @keyup="readSelection">
       <div class="reader-column">
         <div class="reader-meta">
           <span class="reader-mono">{{ item.site ?? item.canonical_url }}</span>
@@ -371,6 +474,12 @@ async function retryExtraction(): Promise<void> {
         <section v-if="selection" class="reader-selection" aria-labelledby="reader-selection-label">
           <h2 id="reader-selection-label">Trecho selecionado ao salvar</h2>
           <blockquote>{{ selection }}</blockquote>
+          <component
+            :is="entry.component"
+            v-for="entry in selectionSlots"
+            :key="entry.id"
+            v-bind="slotProps"
+          />
         </section>
 
         <p v-if="item.why" class="reader-why">{{ item.why }}</p>
@@ -393,7 +502,9 @@ async function retryExtraction(): Promise<void> {
 
         <p v-else-if="!articleHtml" class="reader-pending">Este material não tem texto extraído.</p>
 
-        <ArticleContent v-else :html="articleHtml" />
+        <ArticleContent v-else :html="articleHtml" @rendered="handleArticleRendered" />
+
+        <component :is="entry.component" v-for="entry in notesSlots" :key="entry.id" v-bind="slotProps" />
       </div>
     </div>
   </main>

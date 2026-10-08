@@ -17,6 +17,16 @@ import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
  */
 const props = defineProps<{ html?: string }>()
 
+/**
+ * Said once per render, with the element the markup now lives in.
+ *
+ * A reader action that decorates the text — wrapping a highlighted passage, for
+ * one — has nothing to hook without it: `v-html` replaces the whole subtree, so
+ * every node such a decoration touched is gone by the time the new markup is
+ * on the page, and it has to be applied again rather than once.
+ */
+const emit = defineEmits<{ rendered: [root: HTMLElement] }>()
+
 const host = ref<HTMLElement>()
 
 /** Every `error` listener this component installed, so each one can come off. */
@@ -92,6 +102,7 @@ watch(
   async () => {
     await nextTick()
     decorate()
+    if (host.value) emit('rendered', host.value)
   },
   { immediate: true }
 )

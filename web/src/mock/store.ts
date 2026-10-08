@@ -4,16 +4,13 @@ import { nowTimestamp, shiftIsoDate, todayIsoDate } from '@/lib/clock'
 
 import { buildMockData } from './data'
 import type {
-  Annotation,
   Area,
   Bucket,
   CardRating,
   Curriculum,
   CurriculumModule,
   Decision,
-  Highlight,
   Project,
-  Question,
   ReviewCard,
   Session,
   Task
@@ -27,9 +24,6 @@ type NewTask = Omit<Task, 'id' | 'steps' | 'completed'> & Partial<Pick<Task, 'st
 type NewSession = Omit<Session, 'id'>
 type NewArea = Omit<Area, 'id' | 'archived'> & Partial<Pick<Area, 'archived'>>
 type NewCurriculum = Omit<Curriculum, 'slug' | 'status' | 'modules'> & Partial<Pick<Curriculum, 'status' | 'modules'>>
-type NewHighlight = Omit<Highlight, 'id' | 'createdAt'>
-type NewAnnotation = Omit<Annotation, 'id' | 'createdAt'>
-type NewQuestion = Omit<Question, 'id' | 'createdAt'>
 
 function requireItem<T extends { id: string }>(items: T[], id: string, label: string): T {
   const item = items.find((candidate) => candidate.id === id)
@@ -61,12 +55,6 @@ function nextId(prefix: string, items: { id: string }[]): string {
  */
 export function createMockStore(today: string = todayIsoDate()) {
   const state = reactive(buildMockData(today))
-
-  function addQuestion(question: NewQuestion): Question {
-    const created: Question = { id: nextId('question', state.questions), ...question, createdAt: nowTimestamp() }
-    state.questions.unshift(created)
-    return created
-  }
 
   function rateCard(id: string, rating: CardRating): ReviewCard {
     const card: ReviewCard = requireItem(state.reviewCards, id, 'Review card')
@@ -206,23 +194,7 @@ export function createMockStore(today: string = todayIsoDate()) {
     return created
   }
 
-  function addHighlight(highlight: NewHighlight): Highlight {
-    requireItem(state.libraryItems, highlight.materialId, 'Library item')
-    const created: Highlight = { id: nextId('highlight', state.highlights), ...highlight, createdAt: nowTimestamp() }
-    state.highlights.unshift(created)
-    return created
-  }
-
-  function addAnnotation(annotation: NewAnnotation): Annotation {
-    requireItem(state.libraryItems, annotation.materialId, 'Library item')
-    if (annotation.highlightId) requireItem(state.highlights, annotation.highlightId, 'Highlight')
-    const created: Annotation = { id: nextId('annotation', state.annotations), ...annotation, createdAt: nowTimestamp() }
-    state.annotations.unshift(created)
-    return created
-  }
-
   return Object.assign(state, {
-    addQuestion,
     rateCard,
     decideDecision,
     postponeDecision,
@@ -240,9 +212,7 @@ export function createMockStore(today: string = todayIsoDate()) {
     unarchiveArea,
     updateCurriculum,
     updateCurriculumModule,
-    addCurriculum,
-    addHighlight,
-    addAnnotation
+    addCurriculum
   })
 }
 

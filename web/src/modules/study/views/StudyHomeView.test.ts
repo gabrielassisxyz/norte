@@ -142,11 +142,11 @@ describe('StudyHomeView', () => {
 
     await wrapper.get('.study-add button').trigger('click')
     const items = wrapper.findAll('[role="menuitem"]')
-    expect(items.map((item) => item.attributes('href'))).toEqual([
-      '/curriculos/nova',
-      '/?save=1',
-      '/notas?tab=perguntas'
-    ])
+    // Writing a question is not offered: the notes module reads the API and
+    // this screen still reads the mock, so the id a question would be stored
+    // against is one neither side could resolve. The entry comes back when
+    // study moves to the API.
+    expect(items.map((item) => item.attributes('href'))).toEqual(['/curriculos/nova', '/?save=1'])
 
     await wrapper.get('[role="tablist"] [role="tab"]:last-child').trigger('click')
     expect(wrapper.get('.study-row-link').attributes('href')).toBe('/biblioteca?v=tudo')
