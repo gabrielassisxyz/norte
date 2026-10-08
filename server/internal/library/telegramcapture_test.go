@@ -315,7 +315,14 @@ func TestARestartDoesNotSaveTheMessageAgain(t *testing.T) {
 	harness.waitFor("saved the link", func() bool { return harness.itemCount() == 1 })
 	harness.waitFor("advanced the cursor", func() bool { return harness.cursor() == 21 })
 	saved := harness.onlyItem().ID
+	savedAt := harness.item(saved).UpdatedAt
 	stop()
+
+	// Time moves between the two runs, so a second save of the same message
+	// would be visible as a later updated_at rather than rewriting the same
+	// stamp over itself.
+	harness.clock.Advance(time.Minute)
+	polledBefore := len(harness.fake.Offsets())
 
 	// A second poller over the same database, as a restart of serve would be.
 	restarted := harness.startPoller()
@@ -328,6 +335,21 @@ func TestARestartDoesNotSaveTheMessageAgain(t *testing.T) {
 	})
 	harness.waitFor("saved the message sent after the restart", func() bool { return harness.itemCount() == 2 })
 
+	// The direct claim: every poll the restarted adapter made asked for the
+	// updates after the one the cursor had committed. A poller starting from
+	// zero asks for 1 here and is handed update 21 again.
+	for i, offset := range harness.fake.Offsets() {
+		if i < polledBefore {
+			continue
+		}
+		if offset < 22 {
+			t.Errorf("the restarted poller asked from offset %d, want 22 or later", offset)
+		}
+	}
+	if updated := harness.item(saved).UpdatedAt; updated != savedAt {
+		t.Errorf("the first item was written again after the restart: updated_at %s, was %s",
+			updated, savedAt)
+	}
 	if entries := harness.entries(saved); len(entries) != 1 {
 		t.Errorf("the restart recorded %d messages on the first item, want the original 1", len(entries))
 	}

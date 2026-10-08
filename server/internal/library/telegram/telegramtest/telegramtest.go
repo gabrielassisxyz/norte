@@ -43,6 +43,7 @@ type Server struct {
 	mu        sync.Mutex
 	updates   []Update
 	sends     []Send
+	offsets   []int64
 	failSends int
 	arrived   chan struct{}
 	sent      chan struct{}
@@ -83,6 +84,16 @@ func (s *Server) Sends() []Send {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return append([]Send(nil), s.sends...)
+}
+
+// Offsets reports the offset every poll asked for, in order. It is what a test
+// asserts on to show that a restarted poller resumed from the persisted cursor
+// instead of asking for everything again: re-asking is invisible in the saved
+// rows, because the same URL and the same message both deduplicate.
+func (s *Server) Offsets() []int64 {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]int64(nil), s.offsets...)
 }
 
 // FailSends makes the next count sendMessage calls answer 500. The send is
@@ -134,6 +145,9 @@ func (s *Server) route(w http.ResponseWriter, r *http.Request) {
 // holds the request while there are none.
 func (s *Server) getUpdates(w http.ResponseWriter, r *http.Request) {
 	offset, _ := strconv.ParseInt(r.URL.Query().Get("offset"), 10, 64)
+	s.mu.Lock()
+	s.offsets = append(s.offsets, offset)
+	s.mu.Unlock()
 	deadline := time.After(idlePoll)
 	for {
 		s.mu.Lock()
