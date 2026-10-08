@@ -1,0 +1,10 @@
+TITLE: O que é consenso distribuído
+WHY SAVED: para a aula de sistemas
+
+CANDIDATES:
+- subject-sistemas | Sistemas distribuídos
+- target-curso-sd | Curso: sistemas distribuídos
+
+<<<UNTRUSTED CONTENT>>>
+Consenso é o problema de concordar sobre um valor.
+<<<END UNTRUSTED CONTENT>>>

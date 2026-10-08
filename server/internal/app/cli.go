@@ -159,9 +159,14 @@ func newServeCommand() *cobra.Command {
 					Logger:        logger,
 					FetchMaxBytes: cfg.FetchMaxBytes,
 					LLMURL:        cfg.LLMURL,
-					TelegramToken: cfg.TelegramToken,
-					TelegramChat:  cfg.TelegramChat,
-					PublicURL:     cfg.PublicURL,
+					LLM:           core.NewLLM(cfg.LLMURL, cfg.LLMModel, cfg.LLMKey),
+					// The same providers GET /api/core/focus merges, so what a
+					// classifier may propose and what the focus screen shows
+					// are one list read twice rather than two lists.
+					LinkCandidates: core.NewLinkCandidates(database, NorteFocusProviders(modules)),
+					TelegramToken:  cfg.TelegramToken,
+					TelegramChat:   cfg.TelegramChat,
+					PublicURL:      cfg.PublicURL,
 				}
 				RegisterNorteJobHandlers(queue, modules, deps)
 				worker := core.NewJobsWorker(queue, clock, logger, core.NewID())
