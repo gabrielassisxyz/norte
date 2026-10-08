@@ -247,9 +247,14 @@ async function retry(): Promise<void> {
     </form>
 
     <section v-if="orphaned.length > 0" class="notes-reader-orphans" aria-labelledby="notes-orphans-title">
-      <h3 id="notes-orphans-title">Trechos que não estão mais neste texto</h3>
+      <h3 id="notes-orphans-title">Trechos que não foram encontrados neste texto</h3>
+      <!--
+        The reason is not claimed, because the reader cannot know it: `ambiguous`
+        travels on the create response and is never stored, so a passage listed
+        here may be one the text no longer holds or one it holds twice over.
+      -->
       <p class="notes-reader-empty">
-        O texto foi extraído de novo e estes trechos não foram encontrados. Eles continuam guardados.
+        Podem estar repetidos no texto ou não estar mais nele. Eles continuam guardados.
       </p>
       <blockquote v-for="highlight in orphaned" :key="highlight.id" class="notes-reader-orphan">
         {{ highlight.exact }}

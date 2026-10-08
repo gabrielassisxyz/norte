@@ -38,8 +38,23 @@ const { data: notesOfItem, applyHighlight } = useItemNotes(
   () => allowed.value
 )
 
-/** True after a create that the server stored without a position. */
-const keptWithoutPosition = ref(false)
+/**
+ * Why the server kept the passage without a position, or null when it placed it.
+ *
+ * The two reasons are different facts about the text and read differently to the
+ * person: a repeated passage is in the article more than once and the server
+ * refuses to choose, while a passage it could not find is not in the article at
+ * all. Only the create response tells them apart — `ambiguous` is not stored,
+ * so a later read cannot — which is why it is recorded here as it arrives.
+ */
+type UnplacedReason = 'repeated' | 'missing'
+
+const UNPLACED_NOTICES: Record<UnplacedReason, string> = {
+  repeated: 'trecho repetido: destaque guardado sem posição',
+  missing: 'trecho não encontrado neste texto: destaque guardado sem posição'
+}
+
+const unplacedReason = ref<UnplacedReason | null>(null)
 
 const anchored = computed(() =>
   (notesOfItem.value?.highlights ?? []).filter((highlight) => highlight.status === 'anchored')
@@ -48,7 +63,7 @@ const anchored = computed(() =>
 async function highlightSelection(): Promise<void> {
   const selected = props.liveSelection
   if (!selected) return
-  keptWithoutPosition.value = false
+  unplacedReason.value = null
   const created = await writing.run(() =>
     notes.addHighlight({
       item_id: props.itemId,
@@ -59,7 +74,9 @@ async function highlightSelection(): Promise<void> {
   )
   if (!created) return
   applyHighlight(created)
-  keptWithoutPosition.value = created.ambiguous === true
+  if (created.status === 'orphaned') {
+    unplacedReason.value = created.ambiguous === true ? 'repeated' : 'missing'
+  }
   notesGainedNote()
   props.clearSelection()
 }
@@ -103,8 +120,13 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
       </Button>
       <Button v-if="liveSelection" variant="secondary" size="sm" @click="clearSelection">Cancelar</Button>
     </div>
-    <p v-if="keptWithoutPosition" class="notes-highlight-notice" role="status" data-notes-ambiguous>
-      trecho repetido: destaque guardado sem posição
+    <p
+      v-if="unplacedReason"
+      class="notes-highlight-notice"
+      role="status"
+      :data-notes-unplaced="unplacedReason"
+    >
+      {{ UNPLACED_NOTICES[unplacedReason] }}
     </p>
     <p v-if="writing.error.value" class="notes-highlight-error" role="alert">
       Não foi possível destacar: {{ writing.error.value }}

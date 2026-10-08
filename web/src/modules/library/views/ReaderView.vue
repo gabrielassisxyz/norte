@@ -38,6 +38,20 @@ const STEADY_POLL_MS = 10_000
 const POSITION_DEBOUNCE_MS = 2000
 
 /**
+ * How far from the saved percent the saved heading may sit and still be taken
+ * as the better answer, as a fraction of the article's scrollable extent.
+ *
+ * The anchor is the last heading *above* the viewport, so on a long section it
+ * names a place far behind where reading stopped — following it put someone who
+ * stopped at 45% back at the top of the section, and at 90% back at the middle
+ * of the article. The percent is therefore the position, and the heading only
+ * sharpens it when the two already agree, which is the case the anchor was
+ * added for: a re-extraction that moved the text by a little and left the
+ * percent pointing a line or two off.
+ */
+const ANCHOR_CORRECTION = 0.01
+
+/**
  * How long a selection has to hold still before the reader reads it.
  *
  * A touch selection is the reason this exists: dragging a handle fires
@@ -161,7 +175,15 @@ onBeforeUnmount(stopPolling)
 /* ------------------------------------------------------- reading position */
 
 let positionTimer: ReturnType<typeof setTimeout> | null = null
-let pendingPosition: ReadPosition | null = null
+/**
+ * The position waiting to be written, and the item it was measured on.
+ *
+ * The id travels with the position rather than being read when the write goes
+ * out, because a write goes out from a move to another article and from the
+ * reader being torn down — and by then the route already names somewhere else,
+ * so reading the id at that moment stores one article's position on another.
+ */
+let pendingPosition: { id: string; position: ReadPosition } | null = null
 /** True while the reader is putting the view back where it was left. */
 let restoring = false
 /** The id whose saved position has already been applied. */
@@ -174,13 +196,6 @@ function clearPositionTimer(): void {
 }
 
 /**
- * The heading nearest above the top of the viewport.
- *
- * The anchor is what survives a re-extraction — a percent of an article whose
- * text changed points somewhere else — so it is the position's first answer and
- * the percent is the fallback.
- */
-/**
  * Where an element sits inside the scroll container, in the container's own
  * scroll coordinates.
  *
@@ -192,6 +207,13 @@ function offsetWithin(container: HTMLElement, element: HTMLElement): number {
   return container.scrollTop + element.getBoundingClientRect().top - container.getBoundingClientRect().top
 }
 
+/**
+ * The heading nearest above the top of the viewport.
+ *
+ * It is stored beside the percent, not instead of it: a percent of an article
+ * whose text changed points somewhere else, and the heading is what says where
+ * that somewhere else moved to.
+ */
 function anchorAboveViewport(container: HTMLElement): string | undefined {
   const headings = parseHeadings(item.value?.content_headings)
   let found: string | undefined
@@ -211,14 +233,13 @@ function scrollFraction(container: HTMLElement): number {
 }
 
 async function writePosition(): Promise<void> {
-  const id = itemId.value
-  const position = pendingPosition
+  const waiting = pendingPosition
   pendingPosition = null
-  if (!id || !position) return
+  if (!waiting) return
   // The response is not applied: a position is invisible on screen, and
   // replacing the record under the reader for it would restart the article's
   // decoration for no change the reader can see.
-  await writing.run(() => library.patchItem(id, { read_position: position }))
+  await writing.run(() => library.patchItem(waiting.id, { read_position: waiting.position }))
 }
 
 /**
@@ -231,9 +252,13 @@ async function writePosition(): Promise<void> {
 function handleScroll(): void {
   if (restoring) return
   const container = scroller.value
-  if (!container) return
+  const id = itemId.value
+  if (!container || !id) return
   const anchor = anchorAboveViewport(container)
-  pendingPosition = { v: 1, ...(anchor ? { anchor } : {}), percent: scrollFraction(container) }
+  pendingPosition = {
+    id,
+    position: { v: 1, ...(anchor ? { anchor } : {}), percent: scrollFraction(container) }
+  }
   if (positionTimer !== null) return
   positionTimer = setTimeout(() => {
     positionTimer = null
@@ -259,14 +284,19 @@ async function restorePosition(): Promise<void> {
 
   restoring = true
   await nextTick()
+  const scrollable = Math.max(0, container.scrollHeight - container.clientHeight)
   const anchor = position.anchor
     ? container.querySelector(`[id="${CSS.escape(position.anchor)}"]`)
     : null
-  if (anchor instanceof HTMLElement) {
-    container.scrollTop = offsetWithin(container, anchor)
-  } else if (typeof position.percent === 'number') {
-    const scrollable = Math.max(0, container.scrollHeight - container.clientHeight)
-    container.scrollTop = Math.min(1, Math.max(0, position.percent)) * scrollable
+  const anchorTop = anchor instanceof HTMLElement ? offsetWithin(container, anchor) : null
+  if (typeof position.percent === 'number') {
+    const fromPercent = Math.min(1, Math.max(0, position.percent)) * scrollable
+    // The heading is taken only when it is already where the percent points.
+    const corrects = anchorTop !== null && Math.abs(anchorTop - fromPercent) <= ANCHOR_CORRECTION * scrollable
+    container.scrollTop = corrects ? (anchorTop as number) : fromPercent
+  } else if (anchorTop !== null) {
+    // A position from before the percent was recorded: the heading is all there is.
+    container.scrollTop = anchorTop
   }
   // The guard outlives this task: the scroll event the assignment above causes
   // is delivered later, and it is exactly the one that must be ignored.
@@ -293,14 +323,28 @@ watch(
 watch(itemId, () => {
   restoredFor = ''
   restoring = false
-  pendingPosition = null
   clearPositionTimer()
+  // The article being left keeps the place reading reached in it. Dropping what
+  // the timer was holding is how moving straight to the next article used to
+  // lose the last scroll of the previous one.
+  void writePosition()
   // A new item is a new extraction to wait for, from the first short delay.
   pollAttempt = 0
   stopPolling()
 })
 
-onBeforeUnmount(clearPositionTimer)
+/**
+ * The place reading stopped is written on the way out, not dropped.
+ *
+ * Leaving the reader is exactly when the position matters most, and the
+ * debounce means the last scroll of a reading is almost always still waiting:
+ * clearing the timer without writing threw away the newest position every
+ * time, and the article reopened at the one before it.
+ */
+onBeforeUnmount(() => {
+  clearPositionTimer()
+  void writePosition()
+})
 
 /* --------------------------------------------------------------- actions */
 

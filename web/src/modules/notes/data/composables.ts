@@ -187,7 +187,17 @@ export function useItemNotes(
     immediate: toValue(enabled)
   })
 
-  watch([() => toValue(itemId), () => toValue(enabled)], () => {
+  /**
+   * A creation anywhere in the reader re-reads this, unlike the paginated lists.
+   *
+   * `notesRevision` exists because a screen cannot place a row it did not
+   * create, and both halves of the reader are that screen for each other: the
+   * passage layer over the article and the panel under it hold separate copies
+   * of one item's notes, so a highlight made in either was invisible in the
+   * other until the page was reloaded. Re-reading costs one request and throws
+   * nothing away here — this is every note of one item, not page one of fifty.
+   */
+  watch([() => toValue(itemId), () => toValue(enabled), notesRevision], () => {
     if (toValue(enabled)) void resource.refresh()
   })
 
