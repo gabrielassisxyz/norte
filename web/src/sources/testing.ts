@@ -3,6 +3,7 @@ import { nextTick, type App, type Plugin } from 'vue'
 import { createMockStore, type MockStore } from '@/mock/store'
 import type { LibraryItemRecord } from '@/modules/library/data/source'
 import { fakeLibrarySource, libraryRecord } from '@/modules/library/data/testing'
+import { fakeNotesSource } from '@/modules/notes/data/testing'
 import { fakeCoreSource } from '@/shell/data/testing'
 
 import { appSourcesKey, type AppSources } from '.'
@@ -146,24 +147,26 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
 }
 
 /**
- * The mock bundle with a library the test controls.
+ * The mock bundle with a library and a notes source the test controls.
  *
- * The library reads the API, so `createMockSources` has nothing to offer for
- * it; a screen outside the library that shows library rows still needs one, and
- * this is it. Mounting the module is a separate decision and stays with the
- * test: `setEnabledModules(['library'])`.
+ * Both read the API, so `createMockSources` has nothing to offer for either; a
+ * screen outside them that shows their rows still needs them, and these are it.
+ * Mounting a module is a separate decision and stays with the test:
+ * `setEnabledModules(['library', 'notes'])`.
  */
 export function appSourcesWithLibrary(
   options: {
     store?: MockStore
     records?: LibraryItemRecord[]
     library?: AppSources['library']
+    notes?: AppSources['notes']
     core?: AppSources['core']
   } = {}
 ): AppSources {
   return {
     ...createMockSources(options.store ?? createMockStore()),
     library: options.library ?? fakeLibrarySource(options.records ?? shellLibraryRecords()),
+    notes: options.notes ?? fakeNotesSource(),
     // The core is always on, so a screen mounted here can always reach it: an
     // empty one is the right default, never a refusing stand-in.
     core: options.core ?? fakeCoreSource()

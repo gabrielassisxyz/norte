@@ -19,12 +19,13 @@ afterEach(() => {
 
 /**
  * Switch the named modules to `api` and tell the app the server lists none of
- * them. The library stays listed: it is `api`-backed in its own manifest, and
- * a sidebar without it is not the sidebar these cases are about.
+ * them. The library and the notes stay listed: both are `api`-backed in their
+ * own manifests, and a sidebar without them is not the sidebar these cases are
+ * about.
  */
 function switchOff(...names: ModuleName[]): void {
   for (const name of names) overrideModuleBacking(name, 'api')
-  setEnabledModules(['library'])
+  setEnabledModules(['library', 'notes'])
 }
 
 /** The subjects the core answers with, which the shell lists on its own. */
@@ -40,9 +41,11 @@ function sidebarSubjects() {
 }
 
 async function mountSidebar(subjects = sidebarSubjects()) {
-  // The library is `api`-backed in its own manifest, so a sidebar with a
-  // library line is a sidebar mounted against a server that lists it.
-  if (!enabledModuleNames().includes('library')) setEnabledModules([...enabledModuleNames(), 'library'])
+  // The library and the notes are `api`-backed in their own manifests, so a
+  // sidebar with their lines is one mounted against a server that lists them.
+  for (const name of ['library', 'notes'] as ModuleName[]) {
+    if (!enabledModuleNames().includes(name)) setEnabledModules([...enabledModuleNames(), name])
+  }
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
   await router.push('/')
   await router.isReady()

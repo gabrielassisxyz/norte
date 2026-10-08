@@ -188,7 +188,7 @@ func (f *norteAdapterFake) Start(ctx context.Context, _ app.Deps) error {
 	return nil
 }
 
-func (f *norteAdapterFake) Text(context.Context, string) (string, bool, error) {
+func (f *norteAdapterFake) Text(context.Context, app.Deps, string) (string, bool, error) {
 	return "", false, nil
 }
 

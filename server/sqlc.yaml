@@ -35,3 +35,14 @@ sql:
         emit_prepared_queries: false
         emit_interface: false
         emit_empty_slices: true
+  - engine: sqlite
+    schema: internal/notes/migrations
+    queries: internal/notes/queries
+    gen:
+      go:
+        package: db
+        out: internal/notes/db
+        sql_package: database/sql
+        emit_prepared_queries: false
+        emit_interface: false
+        emit_empty_slices: true
