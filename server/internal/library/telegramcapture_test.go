@@ -840,3 +840,23 @@ func TestAnUpdateThatKeepsFailingIsSkippedAfterFiveTries(t *testing.T) {
 		t.Errorf("the skip line carries the token or the message:\n%s", logs)
 	}
 }
+
+// TestALinkInACaptionIsSaved: a photo or document sent with a note has no
+// text, only a caption.
+func TestALinkInACaptionIsSaved(t *testing.T) {
+	harness := newLibraryTelegramHarness(t)
+	stop := harness.startPoller()
+	defer stop()
+	harness.fake.Deliver(telegramtest.Update{
+		UpdateID: 3, ChatID: libraryTelegramTestChat, MessageID: 9,
+		Caption: "print do artigo HTTPS://ortaessays.example/essays/notes",
+	})
+	harness.waitFor("saved the captioned link", func() bool { return harness.itemCount() == 1 })
+	item := harness.onlyItem()
+	if !strings.EqualFold(item.Url, "https://ortaessays.example/essays/notes") {
+		t.Errorf("url = %q", item.Url)
+	}
+	if !item.Why.Valid || item.Why.String != "print do artigo" {
+		t.Errorf("why = %q", item.Why.String)
+	}
+}

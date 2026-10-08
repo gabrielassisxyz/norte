@@ -28,6 +28,9 @@ type Update struct {
 	ChatID    int64
 	MessageID int64
 	Text      string
+	// Caption is sent instead of text when Text is empty, the way Telegram
+	// sends a photo with a note.
+	Caption string
 }
 
 // Send is one sendMessage the fake received.
@@ -216,14 +219,17 @@ func (s *Server) sendMessage(w http.ResponseWriter, r *http.Request) {
 func writeUpdates(w http.ResponseWriter, updates []Update) {
 	result := make([]map[string]any, 0, len(updates))
 	for _, update := range updates {
-		result = append(result, map[string]any{
-			"update_id": update.UpdateID,
-			"message": map[string]any{
-				"message_id": update.MessageID,
-				"chat":       map[string]any{"id": update.ChatID},
-				"text":       update.Text,
-			},
-		})
+		message := map[string]any{
+			"message_id": update.MessageID,
+			"chat":       map[string]any{"id": update.ChatID},
+		}
+		if update.Text != "" || update.Caption == "" {
+			message["text"] = update.Text
+		}
+		if update.Caption != "" {
+			message["caption"] = update.Caption
+		}
+		result = append(result, map[string]any{"update_id": update.UpdateID, "message": message})
 	}
 	encoded, err := json.Marshal(map[string]any{"ok": true, "result": result})
 	if err != nil {

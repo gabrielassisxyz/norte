@@ -69,6 +69,9 @@ type Message struct {
 	MessageID int64  `json:"message_id"`
 	Chat      Chat   `json:"chat"`
 	Text      string `json:"text"`
+	// Caption is where the text of a photo, video or document lives; such a
+	// message has no Text.
+	Caption string `json:"caption"`
 }
 
 // Chat identifies where a message came from.

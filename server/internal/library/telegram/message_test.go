@@ -71,6 +71,13 @@ func TestFirstLinkReadsTheLinkAndTheNote(t *testing.T) {
 			ok:   true,
 		},
 		{
+			name: "the scheme is matched whatever its case",
+			text: "olha HTTPS://ortaessays.example/Essays/Notes",
+			link: "HTTPS://ortaessays.example/Essays/Notes",
+			why:  "olha",
+			ok:   true,
+		},
+		{
 			name: "a message with no link is not a save",
 			text: "bom dia",
 			ok:   false,

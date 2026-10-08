@@ -204,7 +204,7 @@ func (a *Adapter) deal(ctx context.Context, update Update) error {
 	if message == nil || message.Chat.ID != a.settings.ChatID {
 		return a.store.SkipUpdate(ctx, update.UpdateID)
 	}
-	link, why, ok := FirstLink(message.Text)
+	link, why, ok := FirstLink(messageText(message))
 	if !ok {
 		return a.store.SkipUpdate(ctx, update.UpdateID)
 	}
@@ -215,6 +215,15 @@ func (a *Adapter) deal(ctx context.Context, update Update) error {
 		URL:       link,
 		Why:       why,
 	})
+}
+
+// messageText is what a person wrote: the text, or the caption of a message
+// whose body is media.
+func messageText(message *Message) string {
+	if message.Text != "" {
+		return message.Text
+	}
+	return message.Caption
 }
 
 // pause waits on the injected clock and reports whether the wait finished

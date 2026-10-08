@@ -8,7 +8,7 @@ import (
 // linkPattern finds an http(s) URL inside a message. A URL ends at the first
 // space, because that is the only delimiter a person typing into a chat can be
 // relied on to produce.
-var linkPattern = regexp.MustCompile(`https?://[^\s]+`)
+var linkPattern = regexp.MustCompile(`(?i)https?://[^\s]+`)
 
 // linkTrailers are the characters a URL at the end of a sentence collects.
 // They are taken off the address and dropped rather than folded back into the
