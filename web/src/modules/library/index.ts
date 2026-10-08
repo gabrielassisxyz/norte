@@ -55,7 +55,7 @@ export function useSidebar(): ModuleSidebar {
       rows.push({
         id: `tipo-${kind}`,
         label: KIND_LABELS[kind],
-        to: { name: 'biblioteca', query: { tipo: kind } },
+        to: { name: 'biblioteca', query: { v: 'tudo', tipo: kind } },
         count: kindCount(kind)
       })
     }
@@ -70,7 +70,7 @@ export function useSidebar(): ModuleSidebar {
       {
         id: 'atalho-artigos',
         label: 'Artigos',
-        to: { name: 'biblioteca', query: { tipo: 'artigos' } },
+        to: { name: 'biblioteca', query: { v: 'tudo', tipo: 'artigos' } },
         count: kindCount('post')
       },
       // The prototype links Shortlist at the library root (v=tudo); the library
