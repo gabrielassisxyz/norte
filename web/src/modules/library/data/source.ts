@@ -11,6 +11,15 @@ import type { components } from '@/api/library'
 export type LibraryKind = components['schemas']['ItemKind']
 export type LibraryStatus = components['schemas']['ItemStatus']
 export type LibraryViewName = components['schemas']['LibraryView']
+/**
+ * The shelves an item can sit on, which is every view except `now`.
+ *
+ * `now` is a value of the same parameter but not a shelf: it reads every
+ * status, nothing is counted under it, and no sidebar row addresses it. The
+ * distinction is a type rather than a comment so that a map keyed by shelf —
+ * the labels, the counts — cannot silently acquire an entry for it.
+ */
+export type LibraryShelf = Exclude<LibraryViewName, 'now'>
 export type LibrarySort = components['schemas']['LibrarySort']
 export type ExtractStatus = components['schemas']['ExtractStatus']
 export type TextSelection = components['schemas']['TextSelection']
@@ -18,6 +27,7 @@ export type ReadPosition = components['schemas']['ReadPosition']
 export type LibraryItemSummary = components['schemas']['LibraryItemSummary']
 export type LibraryItemRecord = components['schemas']['LibraryItem']
 export type LibraryCounts = components['schemas']['LibraryCounts']
+export type LibraryDraw = components['schemas']['LibraryDraw']
 export type LibraryPatch = components['schemas']['PatchItemRequest']
 export type ExtractAck = components['schemas']['ExtractItemResponse']
 
@@ -48,6 +58,20 @@ export interface LibraryListQuery {
 export interface LibraryItemList {
   items: LibraryItemSummary[]
   next_cursor: string | null
+}
+
+/**
+ * What a serendipity draw asks for.
+ *
+ * `away_from_focus` is the contract's own spelling and the button's whole
+ * point: the items related to what the person is focused on already have the
+ * “o que ler agora” view, so the draw leans the other way. `seed` exists for
+ * a test that needs the same answer twice.
+ */
+export interface LibraryDrawQuery {
+  away_from_focus?: boolean
+  n?: number
+  seed?: number
 }
 
 /**
@@ -82,6 +106,14 @@ export interface LibrarySource {
   patchItem(id: string, patch: LibraryPatch): Promise<LibraryItemRecord>
   openItem(id: string): Promise<LibraryItemRecord>
   extractItem(id: string): Promise<ExtractAck>
+  /**
+   * The items a random draw landed on, in draw order, or an empty list when
+   * there is nothing unread to draw from.
+   *
+   * An empty library is not a failure to report: the button has a sentence for
+   * it, and a thrown error would put that sentence in the error panel instead.
+   */
+  drawItems(query: LibraryDrawQuery, signal: AbortSignal): Promise<LibraryItemSummary[]>
 }
 
 /** One entry of `content_headings`, which is a JSON array on the wire. */

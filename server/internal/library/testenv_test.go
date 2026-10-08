@@ -47,13 +47,16 @@ func newLibraryTestDB(t *testing.T, clock core.Clock) (*core.Database, string) {
 }
 
 // newLibraryTestService wires the service the way serve does, over the test's
-// clock.
+// clock, with the focus read from the flagged subjects and no module provider
+// -- which is the library's own case, since the library reports nothing as in
+// progress.
 func newLibraryTestService(t *testing.T, database *core.Database, dataDir string, clock core.Clock) *LibraryService {
 	t.Helper()
 	return NewLibraryService(database,
 		core.NewFiles(dataDir, database.Writer(), clock),
 		core.NewJobs(database.Writer(), clock, nil),
-		clock)
+		clock).
+		WithFocus(core.NewFocusAPI(core.NewSubjects(database, clock), nil))
 }
 
 // newLibraryTestRouter builds the real router with the library enabled, so
@@ -88,6 +91,11 @@ func newLibraryTestRouter(t *testing.T, database *core.Database, dataDir string,
 			Jobs:     core.NewJobs(database.Writer(), clock, nil),
 			Files:    core.NewFiles(dataDir, database.Writer(), clock),
 			Clock:    clock,
+			// The focus-ranked view answers 503 without this, so leaving it
+			// out would make every list test pass against a server that
+			// cannot serve one of its views.
+			Focus: core.NewFocusAPI(core.NewSubjects(database, clock),
+				app.NorteFocusProviders(modules)),
 		},
 	})
 	if err != nil {

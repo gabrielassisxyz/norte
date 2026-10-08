@@ -7,6 +7,8 @@ import { createRouteTable, routes } from '@/router'
 import type { AppSources } from '@/sources'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
+import { coreLink, fakeCoreSource, registryItem } from '@/shell/data/testing'
+
 import { libraryGainedItem } from '../data/revision'
 import type { LibraryItemList, LibraryItemRecord, LibrarySource } from '../data/source'
 import { fakeLibrarySource, libraryRecord, type FakeLibrarySource } from '../data/testing'
@@ -39,13 +41,24 @@ function companionSources(): Partial<AppSources> {
   }
 }
 
-async function mountAt(path: string, library: Partial<AppSources['library']>) {
+async function mountAt(
+  path: string,
+  library: Partial<AppSources['library']>,
+  core?: AppSources['core']
+) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
   const wrapper = mount(LibraryView, {
     global: {
-      plugins: [router, sourcesPlugin({ ...companionSources(), library: library as AppSources['library'] })]
+      plugins: [
+        router,
+        sourcesPlugin({
+          ...companionSources(),
+          library: library as AppSources['library'],
+          ...(core ? { core } : {})
+        })
+      ]
     }
   })
   await flushReads()
@@ -56,10 +69,19 @@ function titles(wrapper: VueWrapper): string[] {
   return wrapper.findAll('.item-title').map((node) => node.text())
 }
 
+/**
+ * The counted tabs and their counts. A tab with no count is left out rather
+ * than reported as zero: the review queue is one, and "0 sugestões" is a
+ * different claim from "nobody counts the suggestions".
+ */
 function segCounts(wrapper: VueWrapper): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const button of wrapper.findAll('.nt-seg-btn')) {
-    counts[button.find('span').text()] = Number(button.find('.nt-seg-count').text())
+    // The screen carries a second segmented control, for the order, whose
+    // options are not counted; only the shelves answer this question.
+    const count = button.find('.nt-seg-count')
+    if (!count.exists()) continue
+    counts[button.find('span').text()] = Number(count.text())
   }
   return counts
 }
@@ -169,7 +191,7 @@ describe('LibraryView over the API', () => {
     expect(titles(wrapper)).toEqual(['Um paper guardado'])
 
     await wrapper.get('#library-search').setValue('')
-    await wrapper.findAll('.ghost')[0].trigger('click')
+    await wrapper.get('.library-sort').trigger('click')
     await flushReads()
 
     expect(lastQuery(library)).toMatchObject({ sort: 'title' })
@@ -427,5 +449,203 @@ describe('LibraryView superseding a read it no longer needs', () => {
     await flushReads()
 
     expect(signals[0].aborted).toBe(true)
+  })
+
+  it('offers the review queue as a tab, and reads no shelf while it is on screen', async () => {
+    const library = fakeLibrarySource(shelf())
+    const core = fakeCoreSource({
+      links: [
+        coreLink({
+          id: 'link-sugerido',
+          status: 'suggested',
+          source: 'llm',
+          confidence: 0.8,
+          src: registryItem({ id: 'item-consenso', title: 'Notas sobre consenso' }),
+          dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Sistemas distribuídos' })
+        })
+      ]
+    })
+    const { wrapper } = await mountAt('/biblioteca?v=sugestoes', library, core)
+
+    // The tab is selected, the shelf was never asked for, and the queue is on
+    // screen instead of the item list.
+    expect(wrapper.get('[aria-selected="true"]').text()).toContain('Sugestões')
+    expect(library.calls.list).toHaveLength(0)
+    expect(wrapper.find('.library-list').exists()).toBe(false)
+    expect(wrapper.text()).toContain('Notas sobre consenso')
+    // The queue carries no count, because the only number this screen could
+    // print is the size of the first page.
+    expect(segCounts(wrapper)).toEqual({ Inbox: 1, Depois: 1, Arquivo: 1, Tudo: 3 })
+  })
+
+  it('reads the shelf when the person leaves the review queue', async () => {
+    const library = fakeLibrarySource(shelf())
+    const core = fakeCoreSource({})
+    const { wrapper, router } = await mountAt('/biblioteca?v=sugestoes', library, core)
+
+    expect(library.calls.list).toHaveLength(0)
+
+    await router.push('/biblioteca?v=tudo')
+    await flushReads()
+
+    expect(lastQuery(library)?.view).toBe('tudo')
+    expect(titles(wrapper)).toHaveLength(3)
+  })
+})
+
+describe('LibraryView ranked by the focus', () => {
+  /** The order button carrying a label, which is not the shelf control. */
+  function orderingButton(wrapper: VueWrapper, label: string) {
+    const found = wrapper
+      .findAll('.library-ordering .nt-seg-btn')
+      .find((button) => button.text().includes(label))
+    if (!found) throw new Error(`no order option labelled ${label}`)
+    return found
+  }
+
+  /** Items the fake ranks: the score it means is stated on `why`. */
+  function focusShelf(): LibraryItemRecord[] {
+    return [
+      libraryRecord({
+        id: 'sem-foco',
+        title: 'Guardado sem assunto',
+        status: 'inbox',
+        unread: true,
+        saved_at: `${TODAY}T11:00:00Z`
+      }),
+      libraryRecord({
+        id: 'no-foco',
+        title: 'Ligado ao foco de agora',
+        status: 'arquivo',
+        unread: true,
+        why: 'focus:1',
+        saved_at: '2026-09-20T10:00:00Z'
+      })
+    ]
+  }
+
+  it('reads the date order first and asks for view=now only once it is chosen', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper } = await mountAt('/biblioteca', library)
+
+    expect(library.calls.list).toHaveLength(1)
+    expect(library.calls.list[0].view).toBe('inbox')
+    expect(library.calls.list.some((query) => query.view === 'now')).toBe(false)
+
+    await orderingButton(wrapper, 'O que ler agora').trigger('click')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+    // The ranked view carries its own order: the three parameters the server
+    // refuses alongside it must not be sent.
+    expect(lastQuery(library)?.sort).toBeUndefined()
+    expect(lastQuery(library)?.q).toBeUndefined()
+    expect(lastQuery(library)?.unread).toBeNull()
+    // Ranked above the newer item, and from another shelf than the one open.
+    expect(titles(wrapper)).toEqual(['Ligado ao foco de agora', 'Guardado sem assunto'])
+
+    await orderingButton(wrapper, 'Por data').trigger('click')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ view: 'inbox' })
+  })
+
+  it('hides the search, the sort and the unread filter while the ranking is on', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper } = await mountAt('/biblioteca', library)
+
+    expect(wrapper.find('#library-search').exists()).toBe(true)
+    await orderingButton(wrapper, 'O que ler agora').trigger('click')
+    await flushReads()
+
+    expect(wrapper.find('#library-search').exists()).toBe(false)
+    expect(wrapper.find('.library-sort').exists()).toBe(false)
+  })
+
+  it('draws away from the focus and opens the item the server picked', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library)
+    // The navigation itself is asserted on the call rather than on the route
+    // that follows: the reader's component is loaded lazily, so the route
+    // settles on the module loader's schedule and not on this test's.
+    const pushed = vi.spyOn(router, 'push')
+
+    await wrapper.get('.library-surprise').trigger('click')
+    await flushReads()
+
+    expect(library.calls.draw).toEqual([{ away_from_focus: true }])
+    expect(pushed).toHaveBeenCalledWith({ name: 'leitor', params: { id: 'sem-foco' } })
+  })
+
+  it('says there is nothing to read when the draw comes back empty', async () => {
+    const library = fakeLibrarySource(focusShelf(), {
+      drawItems: async () => []
+    } as Partial<LibrarySource>)
+    const { wrapper, router } = await mountAt('/biblioteca', library)
+    const pushed = vi.spyOn(router, 'push')
+
+    await wrapper.get('.library-surprise').trigger('click')
+    await flushReads()
+
+    expect(wrapper.find('.library-nothing').text()).toBe('Nada para ler')
+    expect(pushed).not.toHaveBeenCalled()
+  })
+})
+
+describe('LibraryView with the review queue and the focus ranking together', () => {
+  function tabLabelled(wrapper: VueWrapper, label: string) {
+    return wrapper.findAll('.nt-seg-btn').find((button) => button.text().includes(label))
+  }
+
+  it('keeps the order control and the draw on the shelves, off the review queue', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    expect(wrapper.find('.library-ordering').exists()).toBe(true)
+    expect(wrapper.find('.library-surprise').exists()).toBe(true)
+
+    await router.push('/biblioteca?v=sugestoes')
+    await flushReads()
+
+    expect(wrapper.find('.library-ordering').exists()).toBe(false)
+    expect(wrapper.find('.library-surprise').exists()).toBe(false)
+    expect(wrapper.find('#library-search').exists()).toBe(false)
+  })
+
+  it('shows the tabs on the review queue though the ranking was on, and ranks again on the way back', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    await tabLabelled(wrapper, 'O que ler agora')!.trigger('click')
+    await flushReads()
+    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+    expect(tabLabelled(wrapper, 'Sugestões')).toBeUndefined()
+
+    // Reached from outside the hidden control, as the sidebar would.
+    await router.push('/biblioteca?v=sugestoes')
+    await flushReads()
+
+    // The order control is not on this screen, so the tabs are the only way off it.
+    expect(wrapper.get('[aria-selected="true"]').text()).toContain('Sugestões')
+    expect(wrapper.text()).not.toContain('primeiro o que está ligado ao foco')
+
+    await router.push('/biblioteca?v=inbox')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+  })
+
+  it('drops the unread notice on the review queue', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    await wrapper.get('[aria-label="Só não lidos"]').trigger('click')
+    await flushReads()
+    expect(wrapper.text()).toContain('Mostrando só não lidos')
+
+    await router.push('/biblioteca?v=sugestoes')
+    await flushReads()
+
+    expect(wrapper.text()).not.toContain('Mostrando só não lidos')
   })
 })

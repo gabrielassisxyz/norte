@@ -17,6 +17,9 @@ concurrency:
 jobs:
   gate:
     runs-on: ubuntu-latest
+    env:
+      # The hosted image ships Firefox; a missing one must fail, not skip silently.
+      NORTE_REQUIRE_FIREFOX: '1'
     steps:
       - uses: actions/checkout@v4
 

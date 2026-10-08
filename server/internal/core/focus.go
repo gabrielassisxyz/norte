@@ -49,3 +49,43 @@ func (s *FocusAPI) Current(ctx context.Context) (FocusResult, error) {
 	}
 	return result, nil
 }
+
+// TargetIDs lists the registry ids of everything in focus, flagged subjects
+// first and then each provider's in-progress items, with a duplicate dropped.
+//
+// It answers the one question a module ranking its own rows by the focus has:
+// which core_items ids a link has to point at to count. The records behind
+// those ids are deliberately not returned -- a ranking joins on the id, and
+// handing it the titles would invite a second copy of what the focus endpoint
+// already renders.
+//
+// A provider that fails fails the whole call, for the same reason Current
+// does: a ranking computed from a focus that silently lost one module's work
+// would quietly bury exactly the items that module is working through.
+func (s *FocusAPI) TargetIDs(ctx context.Context) ([]string, error) {
+	ids, err := s.subjects.FocusSubjectIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	seen := make(map[string]bool, len(ids))
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+	}
+	for _, provider := range s.providers {
+		targets, err := provider.FocusTargets(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("reading a module's focus targets: %w", err)
+		}
+		for _, target := range targets {
+			if !seen[target.ID] {
+				seen[target.ID] = true
+				out = append(out, target.ID)
+			}
+		}
+	}
+	return out, nil
+}

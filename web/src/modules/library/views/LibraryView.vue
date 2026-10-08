@@ -15,22 +15,34 @@ import { useSources } from '@/sources'
 
 import { useLibraryCounts, useLibraryItems } from '../data/composables'
 import { libraryItemChanged } from '../data/revision'
+import LibrarySuggestions from './LibrarySuggestions.vue'
 import type {
   LibraryItemSummary,
   LibraryKind,
   LibraryListQuery,
   LibrarySort,
-  LibraryStatus,
-  LibraryViewName
+  LibraryShelf,
+  LibraryStatus
 } from '../data/source'
 
-const VIEWS: LibraryViewName[] = ['inbox', 'depois', 'arquivo', 'tudo']
-const VIEW_LABELS: Record<LibraryViewName, string> = {
+const VIEWS: LibraryShelf[] = ['inbox', 'depois', 'arquivo', 'tudo']
+const VIEW_LABELS: Record<LibraryShelf, string> = {
   inbox: 'Inbox',
   depois: 'Depois',
   arquivo: 'Arquivo',
   tudo: 'Tudo'
 }
+
+/**
+ * The review queue's tab, which is addressed like a shelf and is not one.
+ *
+ * It shares the `v` parameter with the shelves because it is one more thing the
+ * Biblioteca shows, and a person switching to it and back expects the browser's
+ * own back button to do that. It is not a `LibraryShelf`: no library list is
+ * read for it, and sending `v=sugestoes` to `/api/library/items` would be
+ * asking the server for a shelf that does not exist.
+ */
+const SUGGESTIONS_TAB = 'sugestoes'
 
 /**
  * The spellings the `tipo` query parameter accepts.
@@ -90,11 +102,47 @@ const sort = ref<LibrarySort>('saved_desc')
 const unreadOnly = ref(false)
 const search = ref('')
 
-const activeView = computed<LibraryViewName>(() => {
+/** The `v` parameter as it was written, whether or not it names anything. */
+const requestedTab = computed<string>(() => {
   const raw = route.query.v
   const value = Array.isArray(raw) ? raw[0] : raw
-  return typeof value === 'string' && (VIEWS as string[]).includes(value) ? (value as LibraryViewName) : 'inbox'
+  return typeof value === 'string' ? value : ''
 })
+
+const showSuggestions = computed(() => requestedTab.value === SUGGESTIONS_TAB)
+
+/** Which tab the control shows as selected, the queue included. */
+const activeTab = computed<string>(() => (showSuggestions.value ? SUGGESTIONS_TAB : activeView.value))
+
+const activeView = computed<LibraryShelf>(() =>
+  (VIEWS as string[]).includes(requestedTab.value) ? (requestedTab.value as LibraryShelf) : 'inbox'
+)
+
+/**
+ * How the list is read: by the date each item was saved, or ranked by how
+ * closely it relates to what the person is focused on.
+ *
+ * It is local state and not an address, unlike the shelf: the shelf is
+ * something the sidebar links to and a bookmark should survive, while the
+ * ranking is a way of looking at whatever shelf is open — and the ranked view
+ * answers over every shelf at once, so there is no address it would belong to.
+ */
+type LibraryOrdering = 'data' | 'agora'
+
+const ORDERING_OPTIONS: Array<{ value: LibraryOrdering; label: string }> = [
+  { value: 'data', label: 'Por data' },
+  { value: 'agora', label: 'O que ler agora' }
+]
+
+const ordering = ref<LibraryOrdering>('data')
+// The review queue is not a list of shelf items, so the ranking does not apply
+// to it: an ordering chosen on a shelf waits there instead of hiding the tabs
+// on a screen whose own tools no longer include the control that would undo it.
+const focusRanked = computed(() => ordering.value === 'agora' && !showSuggestions.value)
+
+function setOrdering(value: string): void {
+  if (value === 'data' || value === 'agora') ordering.value = value
+}
 
 /** The requested type filter, or null for every kind. */
 const activeKind = computed<LibraryKind | null>(() => {
@@ -113,28 +161,51 @@ const title = computed(() => (activeKind.value === null ? 'Biblioteca' : TYPE_TI
  * at a time, so a shelf or an unread filter computed here would narrow the
  * first fifty rows and present the result as the whole shelf.
  */
-const query = computed<LibraryListQuery>(() => ({
-  view: activeView.value,
-  tipo: activeKind.value,
-  unread: unreadOnly.value ? true : null,
-  sort: sort.value,
-  q: search.value.trim() || undefined
-}))
+const query = computed<LibraryListQuery>(() => {
+  // The ranked view carries its own order over every shelf, and the server
+  // refuses a sort, a text query or unread=false alongside it. The screen
+  // sends none of the three rather than relying on that refusal, and hides
+  // the controls that would produce them.
+  if (focusRanked.value) {
+    return { view: 'now', tipo: activeKind.value, unread: null }
+  }
+  return {
+    view: activeView.value,
+    tipo: activeKind.value,
+    unread: unreadOnly.value ? true : null,
+    sort: sort.value,
+    q: search.value.trim() || undefined
+  }
+})
 
-const { data: page, loading, error, refresh, hasMore, loadingMore, loadMoreError, loadMore, applyItem } = useLibraryItems(query)
+// The shelf is not read while the review queue is on screen: the list is not
+// rendered then, and asking for a page nothing displays is a request paid for
+// twice over -- once on the way out and again when the person comes back.
+const { data: page, loading, error, refresh, hasMore, loadingMore, loadMoreError, loadMore, applyItem } =
+  useLibraryItems(query, () => !showSuggestions.value)
 const { data: counts } = useLibraryCounts()
 const writing = useAsyncAction()
 
 const items = computed<LibraryItemSummary[]>(() => page.value?.items ?? [])
 
-const segOptions = computed(() =>
-  VIEWS.map((view) => ({ value: view, label: VIEW_LABELS[view], count: counts.value?.views[view] ?? 0 }))
-)
+/**
+ * The tabs, the shelves counted and the queue not.
+ *
+ * The queue carries no count on purpose. The only number this screen could
+ * print is how many suggestions the first page happens to hold, and labelling
+ * that as the size of the queue would be wrong on the second page; there is no
+ * endpoint that counts links, and inventing one is not this bead's.
+ */
+const segOptions = computed(() => [
+  ...VIEWS.map((view) => ({ value: view, label: VIEW_LABELS[view], count: counts.value?.views[view] ?? 0 })),
+  { value: SUGGESTIONS_TAB, label: 'Sugestões' }
+])
 
 /** Nothing has arrived yet, as opposed to nothing matching what was asked. */
 const firstLoad = computed(() => loading.value && page.value === null)
 
 const emptyText = computed(() => {
+  if (focusRanked.value) return 'Nada por ler ligado ao que está em foco agora.'
   if (search.value.trim()) return `Nada encontrado para “${search.value.trim()}”.`
   if (unreadOnly.value) return 'Tudo lido por aqui.'
   if (activeView.value === 'inbox') return 'Inbox vazia. O que entrar pela extensão, upload ou feed aparece aqui.'
@@ -154,7 +225,7 @@ const countText = computed(() => `${items.value.length} ${items.value.length ===
 const sortLabel = computed(() => (sort.value === 'title' ? 'Título' : 'Data salva'))
 
 function setView(view: string): void {
-  if ((VIEWS as string[]).includes(view)) {
+  if ((VIEWS as string[]).includes(view) || view === SUGGESTIONS_TAB) {
     void router.push({ query: { ...route.query, v: view } })
   }
 }
@@ -169,6 +240,32 @@ function readerTarget(item: LibraryItemSummary): { name: string; params: { id: s
 
 function openItem(item: LibraryItemSummary, event: MouseEvent): void {
   if ((event.target as HTMLElement).closest('button, a')) return
+  void router.push(readerTarget(item))
+}
+
+/**
+ * The serendipity button: one unread item, drawn at random and weighted away
+ * from the focus, opened in the reader.
+ *
+ * `away_from_focus` is sent explicitly rather than left to the server's
+ * default, because the button exists for the bored moment and the focused
+ * items already have the ranked view. An empty draw is the library's own
+ * state, not a failure, so it gets its own sentence next to the button.
+ */
+const drawing = useAsyncAction()
+const nothingToDraw = ref(false)
+
+async function openSurprise(): Promise<void> {
+  nothingToDraw.value = false
+  const drawn = await drawing.run(() =>
+    library.drawItems({ away_from_focus: true }, new AbortController().signal)
+  )
+  if (drawn === null) return
+  const [item] = drawn
+  if (!item) {
+    nothingToDraw.value = true
+    return
+  }
   void router.push(readerTarget(item))
 }
 
@@ -286,22 +383,46 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
     <div class="library-head">
       <div class="library-title-row">
         <h1>{{ title }}</h1>
-        <SegmentedControl :options="segOptions" :model-value="activeView" label="Estado" @change="setView" />
+        <SegmentedControl
+          v-if="!focusRanked"
+          :options="segOptions"
+          :model-value="activeTab"
+          label="Estado"
+          @change="setView"
+        />
       </div>
-      <div class="library-tools">
-        <label class="library-search-label" for="library-search">Buscar na biblioteca</label>
+      <div v-if="!showSuggestions" class="library-tools">
+        <SegmentedControl
+          class="library-ordering"
+          :options="ORDERING_OPTIONS"
+          :model-value="ordering"
+          label="Ordem"
+          @change="setOrdering"
+        />
+        <button
+          type="button"
+          class="ghost library-surprise"
+          :disabled="drawing.pending.value"
+          title="Abrir um item não lido ao acaso, de preferência longe do foco"
+          @click="openSurprise()"
+        >
+          {{ drawing.pending.value ? 'Sorteando…' : 'Surpresa' }}
+        </button>
+        <label v-if="!focusRanked" class="library-search-label" for="library-search">Buscar na biblioteca</label>
         <input
+          v-if="!focusRanked"
           id="library-search"
           v-model="search"
           class="library-search"
           type="search"
           placeholder="Buscar por título ou autor…"
         />
-        <button type="button" class="ghost" @click="toggleSort">
+        <button v-if="!focusRanked" type="button" class="ghost library-sort" @click="toggleSort">
           {{ sortLabel }}
           <Icon name="chevronDown" :size="14" />
         </button>
         <button
+          v-if="!focusRanked"
           type="button"
           class="ghost ghost-icon"
           :class="{ 'is-active': unreadOnly }"
@@ -327,17 +448,32 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
       </div>
     </div>
 
-    <div v-if="unreadOnly" class="library-unread">
+    <div v-if="unreadOnly && !showSuggestions && !focusRanked" class="library-unread">
       Mostrando só não lidos
       <button type="button" class="ghost ghost-clear" @click="unreadOnly = false">Limpar</button>
     </div>
+
+    <div v-if="focusRanked" class="library-unread">
+      Não lidos, primeiro o que está ligado ao foco de agora
+    </div>
+
+    <p v-if="nothingToDraw" class="library-unread library-nothing" role="status">
+      Nada para ler
+    </p>
+
+    <p v-if="drawing.error.value" class="library-write-error" role="alert">
+      Não foi possível sortear: {{ drawing.error.value }}
+      <button type="button" class="ghost ghost-clear" @click="drawing.clear()">Fechar</button>
+    </p>
 
     <p v-if="writing.error.value" class="library-write-error" role="alert">
       Não foi possível salvar: {{ writing.error.value }}
       <button type="button" class="ghost ghost-clear" @click="writing.clear()">Fechar</button>
     </p>
 
-    <div v-if="firstLoad" class="library-loading" role="status">Carregando a biblioteca…</div>
+    <LibrarySuggestions v-if="showSuggestions" />
+
+    <div v-else-if="firstLoad" class="library-loading" role="status">Carregando a biblioteca…</div>
 
     <div v-else-if="error" class="library-error" role="alert">
       <p>Não foi possível carregar a biblioteca: {{ error }}</p>
@@ -458,7 +594,7 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
       <div v-if="items.length === 0" class="library-empty">{{ emptyText }}</div>
     </div>
 
-    <div v-if="!firstLoad && !error" class="library-foot">
+    <div v-if="!showSuggestions && !firstLoad && !error" class="library-foot">
       <button
         v-if="hasMore"
         type="button"
@@ -799,6 +935,9 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
 }
 
 .library-more-error { color: var(--danger); font-size: 12px; }
+.library-ordering { margin-right: var(--space-2); }
+.library-surprise { height: 30px; border: 1px solid var(--line-strong); }
+.library-nothing { margin-top: var(--space-4); }
 .library-more { height: 32px; border: 1px solid var(--line-strong); }
 
 .library-count {
