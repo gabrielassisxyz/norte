@@ -7,8 +7,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/pressly/goose/v3"
+
 	"github.com/gabrielassisxyz/norte/server/internal/core"
 	"github.com/gabrielassisxyz/norte/server/internal/core/clocktest"
+	"github.com/gabrielassisxyz/norte/server/internal/library/migrations"
 )
 
 // librarySearchFixture is one saved item the search tests put in place: a
@@ -19,6 +22,10 @@ type librarySearchFixture struct {
 	author string
 	why    string
 	text   string
+	// headings is the JSON the extraction job writes into
+	// library_items.content_headings, verbatim: the index must hold the
+	// titles in it and nothing else from it.
+	headings string
 }
 
 // seedLibrarySearchFixtures writes the fixtures with ids the test controls,
@@ -31,14 +38,15 @@ func seedLibrarySearchFixtures(t *testing.T, database *core.Database, fixtures [
 		if _, err := database.Writer().Exec(
 			`INSERT INTO library_items
 			   (id, kind, url, canonical_url, title, title_edited, author, site, why, status,
-			    unread, saved_at, source, content_text, extract_status, extract_generation,
-			    extracted_at, meta, created_at, updated_at)
-			 VALUES (?, 'post', ?, ?, ?, 0, ?, 'example.test', ?, 'inbox', 1, ?, 'cli', ?,
+			    unread, saved_at, source, content_text, content_headings, extract_status,
+			    extract_generation, extracted_at, meta, created_at, updated_at)
+			 VALUES (?, 'post', ?, ?, ?, 0, ?, 'example.test', ?, 'inbox', 1, ?, 'cli', ?, ?,
 			         'done', 1, ?, '{}', ?, ?)`,
 			fixture.id, "https://example.test/"+fixture.id, "https://example.test/"+fixture.id,
 			fixture.title, sql.NullString{String: fixture.author, Valid: fixture.author != ""},
 			sql.NullString{String: fixture.why, Valid: fixture.why != ""}, stamp,
 			sql.NullString{String: fixture.text, Valid: fixture.text != ""},
+			sql.NullString{String: fixture.headings, Valid: fixture.headings != ""},
 			stamp, stamp, stamp); err != nil {
 			t.Fatalf("seeding %q: %v", fixture.id, err)
 		}
@@ -273,5 +281,238 @@ func TestEveryLibraryScoreIsInTheContractsRange(t *testing.T) {
 		if !core.ValidSearchScore(entry.Score) {
 			t.Fatalf("%s scored %v, outside [0, 1]", entry.ID, entry.Score)
 		}
+	}
+}
+
+// libraryHeadingFixtureJSON is the shape the extraction job writes: one
+// object per heading, with the keys level, text and anchor. The anchors carry
+// a fragment ("xjjzglossario") that appears in no heading title, so a test
+// can tell "the anchor was indexed" apart from "the title was indexed".
+const libraryHeadingFixtureJSON = `[{"level":1,"text":"Repetição espaçada","anchor":"xjjzglossario"},` +
+	`{"level":2,"text":"Curva do esquecimento","anchor":"xjjzcurva"}`
+
+// libraryHeadingSearchFixture is the item every heading test searches over:
+// a title, a note and an article text that between them contain none of the
+// words the JSON keys and the anchors would contribute.
+func libraryHeadingSearchFixture() librarySearchFixture {
+	return librarySearchFixture{
+		id:       "item-headings",
+		title:    "Sobre memória",
+		why:      "para reler em janeiro",
+		text:     "Um parágrafo qualquer sobre memória e sobre hábitos.",
+		headings: libraryHeadingFixtureJSON + `]`,
+	}
+}
+
+// TestAHeadingsStorageFormatIsNotSearchable is the defect itself: the index
+// held the JSON of content_headings, so "anchor", "level" and "text" -- the
+// object keys -- and every slug fragment of every anchor matched any item
+// that had a heading at all.
+func TestAHeadingsStorageFormatIsNotSearchable(t *testing.T) {
+	database := newLibrarySearchDatabase(t, []librarySearchFixture{libraryHeadingSearchFixture()})
+
+	for _, query := range []string{"anchor", "level", "text", "xjjzglossario", "xjjzcurva"} {
+		entries, err := librarySearchEntries(context.Background(), database, query, 10)
+		if err != nil {
+			t.Fatalf("searching %q: %v", query, err)
+		}
+		if got := librarySearchIDs(entries); len(got) != 0 {
+			t.Errorf("%q matched %v; it appears in no title, note or text", query, got)
+		}
+	}
+}
+
+// TestAWordOnlyInAHeadingStillFindsTheItem is the other half of the fix: the
+// headings column still has to be searchable, otherwise the cheapest way to
+// stop indexing the JSON would be to stop indexing the headings at all.
+func TestAWordOnlyInAHeadingStillFindsTheItem(t *testing.T) {
+	database := newLibrarySearchDatabase(t, []librarySearchFixture{
+		libraryHeadingSearchFixture(),
+		{id: "item-plain", title: "Outra coisa", text: "Nada a ver com o assunto."},
+	})
+
+	for _, query := range []string{"espaçada", "esquecimento"} {
+		entries, err := librarySearchEntries(context.Background(), database, query, 10)
+		if err != nil {
+			t.Fatalf("searching %q: %v", query, err)
+		}
+		got := librarySearchIDs(entries)
+		if len(got) != 1 || got[0] != "item-headings" {
+			t.Errorf("%q matched %v, want only item-headings", query, got)
+		}
+	}
+}
+
+// TestHeadingsThatAreNotJSONLeaveTheItemSavable guards the trigger's own
+// failure mode: json_each raises on input it cannot parse, and a raising
+// trigger would make an INSERT into library_items fail outright. NULL and
+// garbage both have to index as nothing.
+func TestHeadingsThatAreNotJSONLeaveTheItemSavable(t *testing.T) {
+	database := newLibrarySearchDatabase(t, []librarySearchFixture{
+		{id: "item-null", title: "Sem cabeçalhos", text: "zarabatana"},
+		{id: "item-garbage", title: "Cabeçalhos quebrados", text: "zarabatana",
+			headings: libraryHeadingFixtureJSON},
+	})
+
+	entries, err := librarySearchEntries(context.Background(), database, "zarabatana", 10)
+	if err != nil {
+		t.Fatalf("searching: %v", err)
+	}
+	if got := librarySearchIDs(entries); len(got) != 2 {
+		t.Fatalf("the word matched %v, want both items", got)
+	}
+	for _, query := range []string{"anchor", "xjjzglossario"} {
+		entries, err := librarySearchEntries(context.Background(), database, query, 10)
+		if err != nil {
+			t.Fatalf("searching %q: %v", query, err)
+		}
+		if got := librarySearchIDs(entries); len(got) != 0 {
+			t.Errorf("%q matched %v, want nothing from unparseable headings", query, got)
+		}
+	}
+}
+
+// TestAnUpdatedItemReindexesItsHeadingTitles covers the update trigger,
+// which carries the same expression as the insert one and would otherwise be
+// proved by nothing: an extraction that reruns writes the headings through an
+// UPDATE, never an INSERT.
+func TestAnUpdatedItemReindexesItsHeadingTitles(t *testing.T) {
+	database := newLibrarySearchDatabase(t, []librarySearchFixture{
+		{id: "item-headings", title: "Sobre memória", text: "Um parágrafo qualquer."},
+	})
+	if _, err := database.Writer().Exec(
+		`UPDATE library_items SET content_headings = ? WHERE id = 'item-headings'`,
+		libraryHeadingFixtureJSON+`]`); err != nil {
+		t.Fatalf("writing the headings: %v", err)
+	}
+
+	entries, err := librarySearchEntries(context.Background(), database, "esquecimento", 10)
+	if err != nil {
+		t.Fatalf("searching: %v", err)
+	}
+	if got := librarySearchIDs(entries); len(got) != 1 || got[0] != "item-headings" {
+		t.Fatalf("the heading word matched %v, want only item-headings", got)
+	}
+	for _, query := range []string{"anchor", "level", "xjjzglossario"} {
+		entries, err := librarySearchEntries(context.Background(), database, query, 10)
+		if err != nil {
+			t.Fatalf("searching %q: %v", query, err)
+		}
+		if got := librarySearchIDs(entries); len(got) != 0 {
+			t.Errorf("%q matched %v after an update, want nothing", query, got)
+		}
+	}
+}
+
+// libraryHeadingMigrationProvider builds a goose provider over the library's
+// own migrations, which is what lets a test stop at a version instead of
+// going all the way up the way newLibraryTestDB does.
+func libraryHeadingMigrationProvider(t *testing.T, writer *sql.DB) *goose.Provider {
+	t.Helper()
+	provider, err := goose.NewProvider(goose.DialectSQLite3, writer, migrations.FS,
+		goose.WithTableName("goose_"+ModuleName),
+		goose.WithDisableGlobalRegistry(true))
+	if err != nil {
+		t.Fatalf("preparing the library migrations: %v", err)
+	}
+	return provider
+}
+
+// libraryHeadingIndexedValue reads what the FTS table holds for one item in
+// the headings column. A standard FTS5 table stores the column, so it can be
+// selected back and compared, which is stronger than asking MATCH whether a
+// word is absent.
+func libraryHeadingIndexedValue(t *testing.T, database *core.Database, id string) string {
+	t.Helper()
+	var indexed sql.NullString
+	if err := database.Reader().QueryRow(
+		`SELECT content_headings FROM library_fts WHERE id = ?`, id).Scan(&indexed); err != nil {
+		t.Fatalf("reading the indexed headings of %s: %v", id, err)
+	}
+	return indexed.String
+}
+
+// TestTheMigrationCorrectsItemsSavedBeforeIt is the upgrade path: a database
+// at the previous version already has rows whose indexed headings are the
+// JSON, and the Go code never rewrites them, so the only thing that can fix
+// them is the migration's own rebuild.
+func TestTheMigrationCorrectsItemsSavedBeforeIt(t *testing.T) {
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := core.OpenDatabase(ctx, dataDir)
+	if err != nil {
+		t.Fatalf("opening a database in %s: %v", dataDir, err)
+	}
+	t.Cleanup(func() {
+		if err := database.Close(ctx); err != nil {
+			t.Errorf("closing the database: %v", err)
+		}
+	})
+	if _, err := core.MigrateCore(ctx, database.Writer()); err != nil {
+		t.Fatalf("applying the core migrations: %v", err)
+	}
+
+	provider := libraryHeadingMigrationProvider(t, database.Writer())
+	if _, err := provider.UpTo(ctx, 2); err != nil {
+		t.Fatalf("migrating the library to version 2: %v", err)
+	}
+	seedLibrarySearchFixtures(t, database, []librarySearchFixture{libraryHeadingSearchFixture()})
+
+	// The defect, asserted rather than assumed: at version 2 the JSON is
+	// what got indexed, so this test fails loudly if the previous version
+	// ever stops being the version this migration has to repair.
+	if before := libraryHeadingIndexedValue(t, database, "item-headings"); !strings.Contains(before, "anchor") {
+		t.Fatalf("at version 2 the indexed headings are %q, want the raw JSON containing \"anchor\"", before)
+	}
+
+	ran, err := provider.Up(ctx)
+	if err != nil {
+		t.Fatalf("migrating the library up: %v", err)
+	}
+	if len(ran) != 1 {
+		t.Fatalf("%d migrations ran from version 2, want 1", len(ran))
+	}
+
+	const want = "Repetição espaçada Curva do esquecimento"
+	if got := libraryHeadingIndexedValue(t, database, "item-headings"); got != want {
+		t.Fatalf("after the migration the indexed headings are %q, want %q", got, want)
+	}
+	var matches int
+	if err := database.Reader().QueryRow(
+		`SELECT count(*) FROM library_fts WHERE library_fts MATCH 'anchor'`).Scan(&matches); err != nil {
+		t.Fatalf("matching anchor: %v", err)
+	}
+	if matches != 0 {
+		t.Errorf("anchor still matches %d rows after the migration, want 0", matches)
+	}
+
+	// `norte migrate` on a database already at the new version reports
+	// nothing to do, which here is the provider running no migration at all
+	// -- and incidentally proves the rebuild is not re-run on every start.
+	again, err := provider.Up(ctx)
+	if err != nil {
+		t.Fatalf("migrating an already-current database: %v", err)
+	}
+	if len(again) != 0 {
+		t.Errorf("%d migrations ran on an already-current database, want 0", len(again))
+	}
+}
+
+// TestTheMigrationsDownStepRestoresTheOldIndex is the recovery path: down
+// puts the previous triggers back and rebuilds, so the index returns to the
+// content it had before, JSON and all.
+func TestTheMigrationsDownStepRestoresTheOldIndex(t *testing.T) {
+	ctx := context.Background()
+	database, _ := newLibraryTestDB(t, clocktest.New(libraryFixedInstant))
+	seedLibrarySearchFixtures(t, database, []librarySearchFixture{libraryHeadingSearchFixture()})
+
+	provider := libraryHeadingMigrationProvider(t, database.Writer())
+	if _, err := provider.Down(ctx); err != nil {
+		t.Fatalf("rolling the library back one version: %v", err)
+	}
+
+	indexed := libraryHeadingIndexedValue(t, database, "item-headings")
+	if indexed != libraryHeadingFixtureJSON+`]` {
+		t.Fatalf("after down the indexed headings are %q, want the raw JSON back", indexed)
 	}
 }
