@@ -158,16 +158,17 @@ describe('a configuration the client cannot use', () => {
   })
 
   it('shows a boot error carrying the message when something other than the fetch fails', async () => {
-    const delays: number[] = []
-
     await expect(
       bootUntilConfigured({
         fetchConfig: async () => ({ modules: ['library'], timezone: 'America/Sao_Paulo' }),
         mount: () => {
           throw new TypeError('installSources is not a function')
         },
-        wait: async (milliseconds) => {
-          delays.push(milliseconds)
+        // A retry would mean this was taken for an unreachable server, and
+        // since the mount throws every time it would also never end: the throw
+        // is what turns that into a failure instead of a hang.
+        wait: async () => {
+          throw new Error('the boot retried a failure that retrying cannot fix')
         }
       })
     ).rejects.toThrow('installSources is not a function')
@@ -175,7 +176,6 @@ describe('a configuration the client cannot use', () => {
     expect(bootState.phase).toBe('error')
     expect(bootState.message).toBe('installSources is not a function')
     expect(bootState.attempts).toBe(0)
-    expect(delays).toEqual([])
   })
 
   it('shows that message on screen instead of the unavailable page', async () => {
