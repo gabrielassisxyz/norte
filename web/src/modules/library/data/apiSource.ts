@@ -17,10 +17,10 @@ import type {
 /**
  * The library's own HTTP client, typed from `api/openapi/library.yaml`.
  *
- * It is constructed here rather than beside the core client because a module
- * that is switched off should be a client nobody builds: this file is only
- * reached from the library's source, and the library's source is only installed
- * while the server lists the module.
+ * It is constructed here rather than beside the core client so that the core
+ * client does not carry the library's paths. `main.ts` installs this source
+ * unconditionally; whether the server lists the module decides only whether
+ * the library's screens are mounted, and an unmounted screen never calls it.
  */
 const libraryClient = createClient<paths>({ baseUrl: apiBaseUrl })
 
