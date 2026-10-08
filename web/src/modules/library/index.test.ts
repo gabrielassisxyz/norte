@@ -19,7 +19,7 @@ describe('the library sidebar kind links', () => {
     mount(host, { global: { plugins: [sourcesPlugin({ library: fakeLibrarySource([]) })] } })
     await flushReads()
 
-    const rows = sidebar!.sections[0].rows()
+    const rows = sidebar!.sections[0]?.rows?.() ?? []
     const kindRows = rows.filter((row) => 'id' in row && row.id.startsWith('tipo-'))
     expect(kindRows.length).toBeGreaterThan(0)
     for (const row of kindRows) {
