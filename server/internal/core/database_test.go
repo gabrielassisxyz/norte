@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -145,4 +147,173 @@ func TestClosingTheDatabaseLeavesNoWriteAheadLogBehind(t *testing.T) {
 	case info.Size() != 0:
 		t.Errorf("%s is %d bytes after shutdown, want absent or empty", log, info.Size())
 	}
+}
+
+// openWriteLockProbe is a third handle on the same file, used only to ask
+// whether somebody else is holding the write lock right now. Its own
+// busy_timeout is deliberately tiny: the core's five seconds would turn every
+// answer of "yes, it is held" into a five-second pause.
+func openWriteLockProbe(t *testing.T, path string) *sql.DB {
+	t.Helper()
+	probe, err := sql.Open("sqlite", path+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(200)&_pragma=foreign_keys(1)")
+	if err != nil {
+		t.Fatalf("opening a probe handle on %s: %v", path, err)
+	}
+	probe.SetMaxOpenConns(1)
+	t.Cleanup(func() {
+		if err := probe.Close(); err != nil {
+			t.Errorf("closing the probe handle: %v", err)
+		}
+	})
+	return probe
+}
+
+// writeOneSetting is the smallest write the core's schema allows, used as the
+// thing contention is observed on.
+func writeOneSetting(ctx context.Context, handle interface {
+	ExecContext(context.Context, string, ...any) (sql.Result, error)
+}, key string) error {
+	_, err := handle.ExecContext(ctx,
+		`INSERT INTO core_settings (key, value, updated_at) VALUES (?, ?, ?)
+		 ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
+		key, "x", core.FormatTime(time.Now()))
+	return err
+}
+
+// TestTheWriterTakesTheWriteLockAtBegin is the whole point of the immediate
+// mode: the lock is held from BEGIN, before the transaction's first statement,
+// so a save that reads and then writes cannot have another process commit
+// underneath it. The probe's failure is what proves the lock is held, and the
+// probe's success right after the rollback is what proves the failure was the
+// lock rather than something permanently wrong with the probe.
+func TestTheWriterTakesTheWriteLockAtBegin(t *testing.T) {
+	ctx := context.Background()
+	database := newMigratedCoreDatabase(t)
+	probe := openWriteLockProbe(t, database.Path())
+
+	tx, err := database.Writer().BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("beginning a write transaction: %v", err)
+	}
+	// Not one statement has run on tx. Under a deferred BEGIN no lock exists
+	// yet and the probe gets through.
+	if err := writeOneSetting(ctx, probe, "probe_during"); err == nil {
+		_ = tx.Rollback()
+		t.Fatal("the probe wrote while a write transaction was open, so BEGIN took no write lock")
+	}
+
+	if err := tx.Rollback(); err != nil {
+		t.Fatalf("rolling the write transaction back: %v", err)
+	}
+	if err := writeOneSetting(ctx, probe, "probe_after"); err != nil {
+		t.Fatalf("the probe cannot write even with no transaction open, so the check above proved nothing: %v", err)
+	}
+}
+
+// TestTheReaderDoesNotTakeTheWriteLock is the other half of the criterion: the
+// read path is unchanged. A query transaction on the reader pool must not keep
+// a writer out, which is exactly what applying the immediate mode to both
+// handles would do.
+func TestTheReaderDoesNotTakeTheWriteLock(t *testing.T) {
+	ctx := context.Background()
+	database := newMigratedCoreDatabase(t)
+	probe := openWriteLockProbe(t, database.Path())
+
+	tx, err := database.Reader().BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatalf("beginning a read transaction: %v", err)
+	}
+	defer func() {
+		if err := tx.Rollback(); err != nil {
+			t.Errorf("rolling the read transaction back: %v", err)
+		}
+	}()
+	var count int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM core_settings`).Scan(&count); err != nil {
+		t.Fatalf("reading inside the read transaction: %v", err)
+	}
+
+	if err := writeOneSetting(ctx, probe, "probe_during_read"); err != nil {
+		t.Fatalf("a read transaction on the reader pool kept a writer out: %v", err)
+	}
+}
+
+// TestInterleavedReadThenWriteTransactionsAcrossHandlesNeverGoBusy is the
+// defect as the person meets it: `norte save` on the command line and the
+// running server both saving, each transaction reading before it writes. Two
+// independent handles on one file behave as two processes do -- a connection is
+// a connection, whoever opened it -- and a deferred BEGIN here returns
+// SQLITE_BUSY_SNAPSHOT instead of waiting, because the snapshot the read took
+// is already stale by the time the write asks for the lock.
+func TestInterleavedReadThenWriteTransactionsAcrossHandlesNeverGoBusy(t *testing.T) {
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	first := newEmptyCoreDatabase(t, dataDir)
+	if _, err := core.MigrateCore(ctx, first.Writer()); err != nil {
+		t.Fatalf("applying the core migrations: %v", err)
+	}
+	second := newEmptyCoreDatabase(t, dataDir)
+
+	// 100 each, so 200 writes land in all.
+	const roundsPerHandle = 100
+	handles := map[string]*core.Database{"first": first, "second": second}
+
+	var waiting sync.WaitGroup
+	failures := make(chan error, 2*roundsPerHandle)
+	for name, handle := range handles {
+		waiting.Add(1)
+		go func(name string, handle *core.Database) {
+			defer waiting.Done()
+			for round := range roundsPerHandle {
+				if err := readThenWrite(ctx, handle, fmt.Sprintf("%s_%d", name, round)); err != nil {
+					failures <- fmt.Errorf("%s round %d: %w", name, round, err)
+				}
+			}
+		}(name, handle)
+	}
+	waiting.Wait()
+	close(failures)
+
+	failed := 0
+	for err := range failures {
+		failed++
+		if failed <= 3 {
+			t.Errorf("%v", err)
+		}
+	}
+	if failed > 0 {
+		t.Fatalf("%d of %d transactions failed", failed, 2*roundsPerHandle)
+	}
+
+	var written int
+	if err := first.Reader().QueryRowContext(ctx, `SELECT count(*) FROM core_settings`).Scan(&written); err != nil {
+		t.Fatalf("counting what was written: %v", err)
+	}
+	if written != 2*roundsPerHandle {
+		t.Errorf("%d rows were written, want %d", written, 2*roundsPerHandle)
+	}
+}
+
+// readThenWrite is the shape of a save: a lookup, then an insert, in one
+// transaction. The read is what makes a deferred transaction take a snapshot it
+// then has to write against.
+func readThenWrite(ctx context.Context, database *core.Database, key string) error {
+	tx, err := database.Writer().BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning: %w", err)
+	}
+	var existing int
+	if err := tx.QueryRowContext(ctx, `SELECT count(*) FROM core_settings WHERE key = ?`, key).Scan(&existing); err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("reading: %w", err)
+	}
+	if err := writeOneSetting(ctx, tx, key); err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("writing: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		_ = tx.Rollback()
+		return fmt.Errorf("committing: %w", err)
+	}
+	return nil
 }
