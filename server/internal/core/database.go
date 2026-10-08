@@ -64,14 +64,14 @@ func OpenDatabase(ctx context.Context, dataDir string) (*Database, error) {
 		return nil, err
 	}
 
-	writer, err := sql.Open(sqliteDriverName, databaseDSN(path))
+	writer, err := sql.Open(sqliteDriverName, databaseDSN(path, immediateTransactions))
 	if err != nil {
 		return nil, fmt.Errorf("opening %s for writing: %w", path, err)
 	}
 	writer.SetMaxOpenConns(1)
 	writer.SetMaxIdleConns(1)
 
-	reader, err := sql.Open(sqliteDriverName, databaseDSN(path))
+	reader, err := sql.Open(sqliteDriverName, databaseDSN(path, deferredTransactions))
 	if err != nil {
 		return nil, errors.Join(fmt.Errorf("opening %s for reading: %w", path, err), writer.Close())
 	}
@@ -135,6 +135,19 @@ func checkpointWAL(ctx context.Context, writer *sql.DB) error {
 	return nil
 }
 
+// transactionLock is the mode BEGIN runs in on a handle, which the modernc
+// driver takes from the `_txlock` parameter of the connection string.
+type transactionLock string
+
+const (
+	// deferredTransactions is SQLite's own default: BEGIN takes no lock, and a
+	// transaction that reads and then writes upgrades at the first write.
+	deferredTransactions transactionLock = "deferred"
+	// immediateTransactions makes BEGIN take the write lock before the first
+	// statement runs.
+	immediateTransactions transactionLock = "immediate"
+)
+
 // databaseDSN carries the pragmas in the connection string because
 // modernc.org/sqlite applies them per connection, and a pool opens a connection
 // whenever it likes: a PRAGMA executed once after sql.Open would hold on that
@@ -143,8 +156,19 @@ func checkpointWAL(ctx context.Context, writer *sql.DB) error {
 // The form is a plain path rather than a file: URI, so the path reaches SQLite
 // verbatim. A URI would need every '#', '%' and space in it escaped, and a data
 // directory is wherever the person put it.
-func databaseDSN(path string) string {
+func databaseDSN(path string, lock transactionLock) string {
 	pragmas := []string{
+		// The writer asks for the write lock at BEGIN rather than upgrading to
+		// it at its first write. A deferred transaction that reads and then
+		// writes -- which every save does, because it looks the canonical URL
+		// up first -- gets SQLITE_BUSY_SNAPSHOT the moment another process
+		// committed in between, and that error comes back at once: SQLite
+		// cannot wait out a snapshot that is already stale, so busy_timeout
+		// below never applies to it. Taking the lock up front is what puts the
+		// contended cross-process write inside the timeout's reach, which is
+		// how `norte save` on the command line waits for the running server
+		// instead of failing.
+		"_txlock=" + string(lock),
 		// A reader no longer blocks the writer, and a crash leaves a log to
 		// replay rather than a half-written page.
 		"_pragma=journal_mode(WAL)",
