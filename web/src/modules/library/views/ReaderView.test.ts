@@ -178,6 +178,26 @@ describe('the reader while the text is still being extracted', () => {
     expect(library.calls.get.length).toBe(asksBefore + 4)
   })
 
+  it('names the failure behind a retry the server is already making', async () => {
+    // An extraction the server is retrying is pending and carries the error of
+    // the attempt before it. Saying only "extraindo" leaves a reader watching
+    // a spinner for minutes with the reason already on the record.
+    const library = fakeLibrarySource([
+      record({
+        extract_status: 'pending',
+        content_html: undefined,
+        extract_error: 'resolving exemplo.test: no such host'
+      })
+    ])
+    const { wrapper } = await mountReader(library)
+
+    const pending = wrapper.get('[role="status"]')
+    expect(pending.text()).toContain('Extraindo o texto')
+    expect(pending.text()).toContain('resolving exemplo.test: no such host')
+    // It is still the pending state: no retry button, because one is running.
+    expect(wrapper.find('[data-action="retry-extraction"]').exists()).toBe(false)
+  })
+
   it('asks nothing more once the reader is gone', async () => {
     vi.useFakeTimers()
     const library = fakeLibrarySource([record({ extract_status: 'pending', content_html: undefined })])

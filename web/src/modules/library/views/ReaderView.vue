@@ -357,7 +357,12 @@ async function retryExtraction(): Promise<void> {
 
         <div class="reader-rule" />
 
-        <p v-if="extracting" class="reader-pending" role="status">Extraindo o texto deste material…</p>
+        <p v-if="extracting" class="reader-pending" role="status">
+          Extraindo o texto deste material…
+          <span v-if="item.extract_error" class="reader-retrying">
+            A última tentativa falhou ({{ item.extract_error }}) e o servidor está tentando de novo.
+          </span>
+        </p>
 
         <div v-else-if="failed" class="reader-failed" role="alert">
           <p>A extração falhou: {{ item.extract_error ?? 'motivo não informado' }}</p>
@@ -516,6 +521,8 @@ async function retryExtraction(): Promise<void> {
 .reader-rule { margin: 28px 0; border-top: 1px solid var(--line); }
 
 .reader-pending { margin: 0; color: var(--muted); font-size: 15px; line-height: 24px; }
+
+.reader-retrying { display: block; margin-top: 6px; color: var(--danger); font-size: 13px; line-height: 20px; }
 
 .reader-failed { display: grid; gap: var(--space-3); justify-items: start; }
 .reader-failed p { margin: 0; color: var(--danger); font-size: 15px; line-height: 24px; }
