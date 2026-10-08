@@ -280,12 +280,13 @@ func (s *Subjects) FocusSubjectIDs(ctx context.Context) ([]string, error) {
 
 // List reads one page of subjects.
 //
-// With no query the order is the slug then the id. With one, the match is
-// against the slug and the alias slugs -- both already lowercase and
-// accent-stripped, which is what makes an accent-insensitive search possible
-// with no unaccent function in SQLite -- ranked exact before prefix before
-// substring, and a subject matched by its own slug and by an alias comes back
-// once because the rank is the minimum over both.
+// With no query the order is the slug then the id. With one, every word of
+// the query must match the slug or an alias slug -- both already lowercase
+// and accent-stripped, which is what makes an accent-insensitive search
+// possible with no unaccent function in SQLite -- in any order. Each word is
+// ranked exact before prefix before substring, and the subject's rank is the
+// sum of its words' best ranks, so a subject matched by its own slug and by
+// an alias comes back once, at its best rank.
 func (s *Subjects) List(ctx context.Context, in SubjectListInput) (SubjectPage, error) {
 	limit := in.Limit
 	if limit <= 0 {
@@ -296,6 +297,7 @@ func (s *Subjects) List(ctx context.Context, in SubjectListInput) (SubjectPage, 
 			fmt.Sprintf("the page holds at most %d subjects", subjectMaxListLimit), "limit")
 	}
 	needle := Slugify(in.Query)
+	words := subjectNeedleWords(needle)
 	filterHash := subjectFilterHash(needle)
 	var cursor subjectCursor
 	if in.Cursor != "" {
@@ -310,7 +312,7 @@ func (s *Subjects) List(ctx context.Context, in SubjectListInput) (SubjectPage, 
 		cursor = decoded
 	}
 
-	query, args := subjectListQuery(needle, cursor, in.Cursor != "", limit+1)
+	query, args := subjectListQuery(words, cursor, in.Cursor != "", limit+1)
 	rows, err := s.database.Reader().QueryContext(ctx, query, args...)
 	if err != nil {
 		return SubjectPage{}, fmt.Errorf("listing the subjects: %w", err)
@@ -350,9 +352,28 @@ func (s *Subjects) List(ctx context.Context, in SubjectListInput) (SubjectPage, 
 	return page, nil
 }
 
-// subjectRankExpression ranks a match: 0 exact, 1 prefix, 2 substring. The
-// minimum over the subject's own slug and its aliases is what makes a subject
-// matched twice come back once, at its best rank.
+// subjectNeedleWords splits a slugified query into its comparable words. A
+// slug never starts or ends with a hyphen and never holds two in a row, so
+// splitting on "-" yields the words with nothing to drop; the filter is only
+// against a caller that hands in a raw string.
+func subjectNeedleWords(needle string) []string {
+	if needle == "" {
+		return nil
+	}
+	parts := strings.Split(needle, "-")
+	words := make([]string, 0, len(parts))
+	for _, part := range parts {
+		if part != "" {
+			words = append(words, part)
+		}
+	}
+	return words
+}
+
+// subjectRankExpression ranks one word's match: 0 exact, 1 prefix, 2
+// substring. The minimum over the subject's own slug and its aliases is what
+// makes a subject matched twice come back once, at its best rank for that
+// word.
 const subjectRankExpression = `(
     SELECT MIN(CASE WHEN candidate = ? THEN 0 WHEN candidate LIKE ? || '%' THEN 1 ELSE 2 END)
     FROM (
@@ -364,27 +385,46 @@ const subjectRankExpression = `(
     WHERE candidate LIKE '%' || ? || '%'
 )`
 
+// subjectRankSumExpression adds one per-word rank per query word. The sum is
+// NULL when any word has no match, which is what makes every word required:
+// the outer filter keeps only rows whose rank is not NULL. A single word
+// renders as the word's own expression, so a one-word query ranks exactly as
+// before.
+func subjectRankSumExpression(wordCount int) string {
+	if wordCount <= 1 {
+		return subjectRankExpression
+	}
+	parts := make([]string, 0, wordCount)
+	for i := 0; i < wordCount; i++ {
+		parts = append(parts, subjectRankExpression)
+	}
+	return "(" + strings.Join(parts, " + ") + ")"
+}
+
 // subjectListQuery renders the page query and its arguments.
 //
 // The rank is computed in an inner select and filtered in the outer one, so
-// the expression appears once and its three parameters are bound once: a rank
-// repeated in the WHERE clause would have to be bound again, and the order of
-// those bindings is what a positional placeholder gets wrong first.
+// each word's expression appears once and its three parameters are bound
+// once: a rank repeated in the WHERE clause would have to be bound again, and
+// the order of those bindings is what a positional placeholder gets wrong
+// first.
 //
 // The order is total -- rank, slug, id -- so no page boundary can split it and
 // no row can appear on two pages.
-func subjectListQuery(needle string, cursor subjectCursor, hasCursor bool, limit int) (string, []any) {
+func subjectListQuery(words []string, cursor subjectCursor, hasCursor bool, limit int) (string, []any) {
 	args := []any{}
 	rank := "0"
-	if needle != "" {
-		rank = subjectRankExpression
-		args = append(args, needle, needle, needle)
+	if len(words) > 0 {
+		rank = subjectRankSumExpression(len(words))
+		for _, word := range words {
+			args = append(args, word, word, word)
+		}
 	}
 	inner := "SELECT core_subjects.id AS id, core_subjects.name AS name, core_subjects.slug AS slug," +
 		" core_subjects.focus AS focus, core_subjects.created_at AS created_at, " + rank + " AS rank" +
 		" FROM core_subjects"
 	where := []string{}
-	if needle != "" {
+	if len(words) > 0 {
 		where = append(where, "rank IS NOT NULL")
 	}
 	if hasCursor {

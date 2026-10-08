@@ -246,7 +246,8 @@ func TestAQueryOverTwoHundredCharactersIsRefused(t *testing.T) {
 
 // TestASubjectIsFoundByNameAndRankedAboveAPartialMatch pins the subject
 // scale: the name that was typed outranks a name that merely starts with it,
-// which outranks a name that merely contains it.
+// which outranks a name that merely contains it. The scores are the ranks of
+// this query normalised per query, so the best hit scores 1.
 func TestASubjectIsFoundByNameAndRankedAboveAPartialMatch(t *testing.T) {
 	api, subjects := newSearchAPI(t)
 	for _, name := range []string{"Memória", "Memória de trabalho", "Teoria da memória"} {
@@ -263,7 +264,7 @@ func TestASubjectIsFoundByNameAndRankedAboveAPartialMatch(t *testing.T) {
 	if got := searchTitles(entries); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("the subjects came back as %v, want %v", got, want)
 	}
-	wantScores := []float64{1, 0.8, 0.6}
+	wantScores := []float64{1, 0.5, 0}
 	for i, entry := range entries {
 		if entry.Score != wantScores[i] {
 			t.Fatalf("%q scored %v, want %v", entry.Title, entry.Score, wantScores[i])
@@ -274,6 +275,88 @@ func TestASubjectIsFoundByNameAndRankedAboveAPartialMatch(t *testing.T) {
 	}
 	if entries[0].Path != "/assuntos/memoria" {
 		t.Fatalf("the subject path is %q, want /assuntos/memoria", entries[0].Path)
+	}
+	// Accent and case folding behave as before: the accented, capitalised
+	// query finds the same three in the same order.
+	entries, err = api.Search(context.Background(), "Memória")
+	if err != nil {
+		t.Fatalf("searching with accents: %v", err)
+	}
+	if got := searchTitles(entries); strings.Join(got, "|") != strings.Join(want, "|") {
+		t.Fatalf("the accented query came back as %v, want %v", got, want)
+	}
+}
+
+// TestASubjectIsFoundByEveryWordInAnyOrder pins the word-by-word match: every
+// word typed must occur in the name, and the order typed does not matter. A
+// lone hit scores 1, whatever its rank.
+func TestASubjectIsFoundByEveryWordInAnyOrder(t *testing.T) {
+	api, subjects := newSearchAPI(t)
+	if _, err := subjects.Create(context.Background(), "Filosofia da Mente", false); err != nil {
+		t.Fatalf("creating the subject: %v", err)
+	}
+
+	for _, query := range []string{"filosofia mente", "mente filosofia", "FILOSOFIA Mente"} {
+		entries, err := api.Search(context.Background(), query)
+		if err != nil {
+			t.Fatalf("searching for %q: %v", query, err)
+		}
+		if len(entries) != 1 || entries[0].Title != "Filosofia da Mente" {
+			t.Fatalf("searching for %q gave %v, want the one subject", query, searchTitles(entries))
+		}
+		if entries[0].Score != 1 {
+			t.Fatalf("searching for %q scored %v, want 1", query, entries[0].Score)
+		}
+		if entries[0].Path != "/assuntos/filosofia-da-mente" {
+			t.Fatalf("searching for %q gave path %q, want /assuntos/filosofia-da-mente",
+				query, entries[0].Path)
+		}
+	}
+}
+
+// TestASubjectWithAMissingWordIsNotFound pins the AND: one word of the query
+// absent from the name means no subject hit, not a weaker one.
+func TestASubjectWithAMissingWordIsNotFound(t *testing.T) {
+	api, subjects := newSearchAPI(t)
+	if _, err := subjects.Create(context.Background(), "Filosofia da Mente", false); err != nil {
+		t.Fatalf("creating the subject: %v", err)
+	}
+
+	entries, err := api.Search(context.Background(), "filosofia quimica")
+	if err != nil {
+		t.Fatalf("searching: %v", err)
+	}
+	for _, entry := range entries {
+		if entry.Title == "Filosofia da Mente" {
+			t.Fatalf("a query with a missing word matched %q", entry.Title)
+		}
+	}
+	if len(entries) != 0 {
+		t.Fatalf("a query with a missing word matched %v, want none", searchTitles(entries))
+	}
+}
+
+// TestALoneSubstringHitScoresOne pins the normalisation: a single hit scores 1
+// even when its rank is the weakest, so it is never buried below another
+// module's. Accent folding holds too: the query is unaccented, the name is not.
+func TestALoneSubstringHitScoresOne(t *testing.T) {
+	api, subjects := newSearchAPI(t)
+	for _, name := range []string{"Memória", "Memória de trabalho", "Teoria da memória"} {
+		if _, err := subjects.Create(context.Background(), name, false); err != nil {
+			t.Fatalf("creating the subject %q: %v", name, err)
+		}
+	}
+
+	entries, err := api.Search(context.Background(), "trabalho")
+	if err != nil {
+		t.Fatalf("searching: %v", err)
+	}
+	if len(entries) != 1 || entries[0].Title != "Memória de trabalho" {
+		t.Fatalf("searching for the single hit gave %v, want Memória de trabalho",
+			searchTitles(entries))
+	}
+	if entries[0].Score != 1 {
+		t.Fatalf("the lone substring hit scored %v, want 1", entries[0].Score)
 	}
 }
 
