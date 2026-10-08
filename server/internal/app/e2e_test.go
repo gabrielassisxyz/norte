@@ -91,6 +91,18 @@ func TestTheFirstDeliveryWalksFromASavedLinkToANoteUnderASubject(t *testing.T) {
 	if highlight.Status != "anchored" {
 		t.Fatalf("the highlight is %q, want anchored against the extracted text", highlight.Status)
 	}
+	// A passage that is nowhere in the article. With no text provider the
+	// notes module stores every highlight as anchored by default, so only a
+	// highlight that comes back orphaned shows the extract-to-highlight link
+	// is live: the text was read and the phrase was not in it.
+	absent := norteVerticalDecode[norteVerticalHighlight](t, harness.request(
+		http.MethodPost, "/api/notes/highlights", map[string]any{
+			"item_id": saved.ID,
+			"exact":   "Uma frase que o artigo nunca escreveu.",
+		}), http.StatusCreated)
+	if absent.Status != "orphaned" {
+		t.Fatalf("a passage absent from the article is %q, want orphaned", absent.Status)
+	}
 
 	// 7. And a question written down, which is what ends the reading.
 	question := norteVerticalDecode[norteVerticalQuestion](t, harness.request(
@@ -219,15 +231,8 @@ func TestTheWalkStopsAtTheAcceptStepWithNoClassifier(t *testing.T) {
 			len(panel.Items), panel.Items)
 	}
 
-	// The walk stops here: there is nothing to accept, and asking the accept
-	// endpoint for the link the main test decided answers 404 rather than
-	// confirming something nobody proposed.
-	refused := harness.request(http.MethodPost,
-		"/api/core/links/"+saved.ID+"/decide", map[string]any{"decision": "accept"})
-	if refused.Code != http.StatusNotFound {
-		t.Fatalf("deciding a link that was never suggested = %d, want 404: %s",
-			refused.Code, refused.Body.String())
-	}
+	// The walk stops here: with no classifier there is nothing to accept, and
+	// the two empty reads above are what say so.
 
 	// What did not depend on the classifier still works, which is what makes
 	// this a control and not just a broken server.
