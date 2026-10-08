@@ -10,7 +10,12 @@ const binary = process.env.FIREFOX_BIN || (process.env.PATH ?? '').split(':')
 const sourceDir = await buildExtension();
 execFileSync(resolve(import.meta.dirname, '../node_modules/.bin/web-ext'), ['lint', '--source-dir', sourceDir], { stdio: 'inherit' });
 if (!binary) {
-  console.log('SKIP Firefox load-and-start: no Firefox binary found; set FIREFOX_BIN to enable it.');
+  const message = 'Firefox load-and-start: no Firefox binary found; set FIREFOX_BIN to enable it.';
+  if (process.env.NORTE_REQUIRE_FIREFOX === '1') {
+    console.error(`FAIL ${message} (NORTE_REQUIRE_FIREFOX=1 forbids skipping)`);
+    process.exit(1);
+  }
+  console.log(`SKIP ${message}`);
 } else {
   let runner;
   try {
