@@ -729,6 +729,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 .library-tools {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-1);
 }
 
@@ -1031,6 +1032,37 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 }
 
 @media (max-width: 900px) {
+  /*
+    The whole head is one wrapping column on a phone: the row of five tabs and
+    the row of tools are each wider than the screen, and `space-between` on a
+    wrapped line leaves the second one starting halfway across. The search box
+    takes the width that is left on its line instead of a fixed 220px, which is
+    what pushed the sort and the unread filter off the screen.
+  */
+  .library-head,
+  .library-title-row {
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .library-head {
+    flex-direction: column;
+  }
+
+  .library-tools {
+    width: 100%;
+  }
+
+  .library-ordering {
+    margin-right: 0;
+  }
+
+  .library-search {
+    flex: 1 1 140px;
+    width: auto;
+    min-width: 0;
+  }
+
   .item {
     grid-template-columns: 48px minmax(0, 1fr) 40px;
   }

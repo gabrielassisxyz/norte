@@ -34,9 +34,17 @@ const cells = computed(() =>
   display: inline-grid;
   gap: var(--space-2);
   margin: 0;
+  /*
+    The grid is a fixed number of 12px columns, which on a phone is wider than
+    the screen. Scrolling it on its own keeps every cell reachable; without the
+    cap it widens the document instead and the whole screen slides sideways.
+  */
+  max-width: 100%;
 }
 
 .nt-streak-grid {
+  min-width: 0;
+  overflow-x: auto;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: 12px;
