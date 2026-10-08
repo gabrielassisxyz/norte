@@ -90,6 +90,77 @@ afterEach(() => {
   document.body.innerHTML = ''
 })
 
+/** The highlight action over an article built from `html`, without the reader around it. */
+async function markedArticle(html: string, highlights: Array<Parameters<typeof highlightRecord>[0]>) {
+  setEnabledModules(['library', 'notes'])
+  const root = document.createElement('div')
+  root.innerHTML = html
+  const notes = fakeNotesSource({
+    highlights: highlights.map((overrides) => highlightRecord({ item_id: 'item-1', ...overrides }))
+  })
+  mount(ReaderHighlightAction, {
+    props: {
+      itemId: 'item-1',
+      savedSelection: null,
+      liveSelection: null,
+      clearSelection: () => {},
+      articleRoot: root,
+      renderedAt: 1,
+      scrollToPassage: () => {}
+    },
+    global: { plugins: [sourcesPlugin({ notes })] }
+  })
+  await flushReads()
+  const marks = Array.from(root.querySelectorAll('mark[data-notes-passage]'))
+  return { root, marks, markedText: marks.map((mark) => mark.textContent).join('|') }
+}
+
+describe('marking a passage in the article', () => {
+  it('marks the occurrence its context points at, not the first one', async () => {
+    const { root, marks } = await markedArticle('<p>Um: a mesma frase. fim. Dois: a mesma frase. fim.</p>', [
+      { id: 'h-1', exact: 'a mesma frase.', prefix: 'Dois: ', suffix: ' fim.' }
+    ])
+
+    expect(marks).toHaveLength(1)
+    expect(marks[0].previousSibling?.textContent).toBe('Um: a mesma frase. fim. Dois: ')
+    expect(root.textContent).toBe('Um: a mesma frase. fim. Dois: a mesma frase. fim.')
+  })
+
+  it('marks a passage that crosses an inline element, one mark per text node', async () => {
+    const { markedText, marks } = await markedArticle(
+      '<p>Antes. O trecho <em>muito marcado</em> de <a href="#">verdade</a>. Depois.</p>',
+      [{ id: 'h-1', exact: 'O trecho muito marcado de verdade.', prefix: 'Antes. ', suffix: ' Depois.' }]
+    )
+
+    expect(marks.length).toBeGreaterThan(1)
+    expect(markedText).toBe('O trecho |muito marcado| de |verdade|.')
+  })
+
+  it('marks a passage whose DOM text has a newline and a double space in it', async () => {
+    const { markedText } = await markedArticle('<p>Antes do trecho.\n  O trecho\nmarcado  agora.\nDepois.</p>', [
+      { id: 'h-1', exact: 'O trecho marcado agora.', prefix: 'Antes do trecho. ', suffix: ' Depois.' }
+    ])
+
+    expect(markedText).toBe('O trecho\nmarcado  agora.')
+  })
+
+  it('marks nothing when two occurrences have the same context', async () => {
+    const { marks } = await markedArticle('<p>Igual: a mesma frase. fim. Igual: a mesma frase. fim.</p>', [
+      { id: 'h-1', exact: 'a mesma frase.', prefix: 'Igual: ', suffix: ' fim.' }
+    ])
+
+    expect(marks).toHaveLength(0)
+  })
+
+  it('marks nothing when the words around the passage are not the stored ones', async () => {
+    const { marks } = await markedArticle('<p>Outra coisa. O trecho marcado. Mais outra.</p>', [
+      { id: 'h-1', exact: 'O trecho marcado.', prefix: 'Antes do trecho. ', suffix: ' Depois do trecho.' }
+    ])
+
+    expect(marks).toHaveLength(0)
+  })
+})
+
 describe("the reader's notes actions", () => {
   it('highlights the passage the person selected, with the words around it', async () => {
     const { wrapper, notes } = await mountReader()

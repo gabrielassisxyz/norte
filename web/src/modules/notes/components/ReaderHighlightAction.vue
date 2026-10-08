@@ -9,6 +9,7 @@ import { useSources } from '@/sources'
 
 import { useItemNotes } from '../data/composables'
 import { notesGainedNote } from '../data/revision'
+import { markPassage } from './passageMarking'
 
 /**
  * Highlighting what the person has selected in the article, and marking in the
@@ -54,11 +55,10 @@ async function highlightSelection(): Promise<void> {
 /**
  * Wrap each anchored passage where it appears in the rendered article.
  *
- * Only a passage that sits inside one text node is wrapped. A selection
- * dragged across two paragraphs has no single node to wrap, and splitting the
- * markup to cover it would rewrite the article's own structure; such a
- * highlight is still listed beside the text, which is where an orphaned one is
- * listed too.
+ * The passage is located by its words and the context stored with it, not by
+ * the first text that happens to contain it, and is wrapped one text node at a
+ * time so it can cross an inline element. A passage the article no longer
+ * singles out is left unmarked; it is still listed beside the text.
  */
 function markPassages(): void {
   const root = props.articleRoot
@@ -69,27 +69,7 @@ function markPassages(): void {
   }
   root.normalize()
   for (const highlight of anchored.value) {
-    markOnePassage(root, highlight.exact)
-  }
-}
-
-function markOnePassage(root: HTMLElement, exact: string): void {
-  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT)
-  let node = walker.nextNode()
-  while (node) {
-    const text = node.textContent ?? ''
-    const at = text.indexOf(exact)
-    if (at >= 0 && node.parentElement) {
-      const range = document.createRange()
-      range.setStart(node, at)
-      range.setEnd(node, at + exact.length)
-      const mark = document.createElement('mark')
-      mark.className = 'notes-passage'
-      mark.dataset.notesPassage = exact
-      range.surroundContents(mark)
-      return
-    }
-    node = walker.nextNode()
+    markPassage(root, highlight)
   }
 }
 
