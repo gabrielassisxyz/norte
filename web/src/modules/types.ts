@@ -1,8 +1,7 @@
-import type { Component } from 'vue'
+import type { Component, ComputedRef } from 'vue'
 import type { RouteLocationRaw, RouteRecordRaw } from 'vue-router'
 
 import type { IconName } from '@/components/ds/types'
-import type { MockData } from '@/mock/types'
 import type { SearchEntry } from '@/search'
 
 /** The products this frontend is split into. Mirrors the server's module names. */
@@ -47,8 +46,9 @@ export type SidebarRow = SidebarLink | SidebarHead
 /**
  * One top-level line of the sidebar, with the rows it reveals when expanded.
  *
- * Counts and rows are functions rather than values because they read the store
- * and have to be recomputed as it changes.
+ * Counts and rows are functions rather than values because they read the
+ * module's own answer, which arrives after the sidebar has rendered and changes
+ * again on every write.
  */
 export interface SidebarSection {
   id: string
@@ -89,11 +89,19 @@ export interface HomeBlock {
   component: Component
 }
 
-/** Everything the shell needs from a module, and the only shape it reads. */
+/**
+ * Everything the shell needs from a module, and the only shape it reads.
+ *
+ * The sidebar and the search entries are composables rather than data because
+ * both are built from a read that can be slow and can fail. The shell calls
+ * each of them once, inside its own setup, so a module's navigation is bound to
+ * that module's source exactly as its screens are — and a test that fakes the
+ * sources gets the sidebar and the palette faked with them.
+ */
 export interface NorteModule {
   manifest: ModuleManifest
   routes: RouteRecordRaw[]
-  sidebar: ModuleSidebar
+  useSidebar: () => ModuleSidebar
   homeBlocks: HomeBlock[]
-  searchEntries: (data: MockData) => SearchEntry[]
+  useSearchEntries: () => ComputedRef<SearchEntry[]>
 }

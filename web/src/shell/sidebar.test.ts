@@ -5,6 +5,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import { overrideModuleBacking, resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import type { ModuleName } from '@/modules/types'
 import { createRouteTable } from '@/router'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import AppSidebar from './AppSidebar.vue'
 
@@ -25,8 +27,11 @@ async function mountSidebar() {
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
   await router.push('/')
   await router.isReady()
-  const wrapper = mount(AppSidebar, { global: { plugins: [router] } })
+  const wrapper = mount(AppSidebar, { global: { plugins: [router, sourcesPlugin(createMockSources())] } })
   mounted.push(wrapper)
+  // Every row and every count is a module's own read, so there is no sidebar to
+  // assert on until those reads have answered.
+  await flushReads()
   return wrapper
 }
 

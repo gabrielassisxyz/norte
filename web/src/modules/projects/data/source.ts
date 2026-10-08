@@ -86,6 +86,20 @@ export interface ProjectsSummary {
   projects: Array<{ id: string; title: string }>
 }
 
+/**
+ * Every record the command palette can offer, as one flat index.
+ *
+ * It is a read of its own because no screen's read holds all four: the overview
+ * carries the areas and the projects, and a decision or a task is otherwise
+ * only ever read one at a time, by id.
+ */
+export interface ProjectsSearchIndex {
+  areas: Area[]
+  projects: Project[]
+  decisions: Decision[]
+  tasks: Task[]
+}
+
 export interface NewProjectInput {
   areaId: string
   title: string
@@ -117,6 +131,7 @@ export interface ProjectsSource {
   getTask(id: string, signal: AbortSignal): Promise<TaskDetail | null>
   getDecision(id: string, signal: AbortSignal): Promise<DecisionDetail | null>
   summary(signal: AbortSignal): Promise<ProjectsSummary>
+  searchIndex(signal: AbortSignal): Promise<ProjectsSearchIndex>
   addArea(area: { title: string; intention: string }): Promise<Area>
   updateArea(id: string, updates: { title: string; intention: string }): Promise<Area>
   archiveArea(id: string): Promise<Area>

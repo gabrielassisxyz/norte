@@ -1,7 +1,7 @@
+import { computed, type ComputedRef } from 'vue'
 import type { RouteLocationRaw } from 'vue-router'
 
 import type { NorteModule } from '@/modules/types'
-import type { MockData } from '@/mock/types'
 import { mountedModules } from '@/shell/composition'
 
 export type SearchGroup = 'Biblioteca' | 'Estudo' | 'Projetos'
@@ -55,8 +55,17 @@ const SHELL_ENTRY: SearchEntry = {
   to: { name: 'inicio' }
 }
 
-export function createSearchIndex(data: MockData, modules: NorteModule[] = mountedModules()): SearchEntry[] {
-  return [SHELL_ENTRY, ...modules.flatMap((module) => module.searchEntries(data))]
+/**
+ * Everything the palette can offer, read from the mounted modules themselves.
+ *
+ * It calls composables, so it belongs in the setup of the component that owns
+ * the palette: each module's entries come from that module's own read, which
+ * means a switched-off module contributes nothing and a module still waiting
+ * for its answer contributes nothing yet rather than something stale.
+ */
+export function useSearchIndex(modules: NorteModule[] = mountedModules()): ComputedRef<SearchEntry[]> {
+  const perModule = modules.map((module) => module.useSearchEntries())
+  return computed(() => [SHELL_ENTRY, ...perModule.flatMap((entries) => entries.value)])
 }
 
 export function filterSearchIndex(index: SearchEntry[], query: string, limit = 9): SearchResult[] {

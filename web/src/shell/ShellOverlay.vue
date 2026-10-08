@@ -2,8 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-import { store } from '@/mock/store'
-import { createSearchIndex, filterSearchIndex, groupSearchResults, type SearchEntry } from '@/search'
+import { filterSearchIndex, groupSearchResults, useSearchIndex, type SearchEntry } from '@/search'
 import { getTheme, setTheme, type Theme } from '@/theme'
 
 export type ShellOverlayMode = 'busca' | 'prefs' | null
@@ -37,7 +36,8 @@ const theme = ref<Theme>(getTheme())
  * from: a module the server switched off contributes no entry, so the palette
  * cannot offer a way into a screen that is not there.
  */
-const screenEntries = computed<SearchEntry[]>(() => createSearchIndex(store).filter((entry) => entry.kind === 'tela'))
+const index = useSearchIndex()
+const screenEntries = computed<SearchEntry[]>(() => index.value.filter((entry) => entry.kind === 'tela'))
 
 const defaultGroups = computed<Array<{ label: string; items: PaletteEntry[] }>>(() => [
   { label: 'Ir para', items: screenEntries.value },
@@ -50,7 +50,7 @@ const defaultGroups = computed<Array<{ label: string; items: PaletteEntry[] }>>(
   }
 ])
 
-const results = computed(() => filterSearchIndex(createSearchIndex(store), query.value))
+const results = computed(() => filterSearchIndex(index.value, query.value))
 const groups = computed(() => (query.value.trim() ? groupSearchResults(results.value) : defaultGroups.value))
 const entries = computed<PaletteEntry[]>(() => groups.value.flatMap((group) => group.items))
 

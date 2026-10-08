@@ -10,6 +10,7 @@ import type {
   ProjectDetail,
   ProjectRow,
   ProjectsOverviewPage,
+  ProjectsSearchIndex,
   ProjectsSummary,
   TaskDetail
 } from './source'
@@ -161,6 +162,14 @@ export function useDecision(
   }
 
   return { ...resource, applyDecision }
+}
+
+/** Every area, project, decision and task, for the command palette. */
+export function useProjectsSearchIndex(
+  enabled: MaybeRefOrGetter<boolean> = true
+): AsyncResource<ProjectsSearchIndex> {
+  const { projects } = useSources()
+  return useAsyncResource((signal) => projects.searchIndex(signal), { immediate: toValue(enabled) })
 }
 
 /** The sidebar's area rows, and the projects a cross-module menu offers as targets. */

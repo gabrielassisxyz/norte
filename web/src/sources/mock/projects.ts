@@ -7,6 +7,7 @@ import type {
   ProjectRow,
   ProjectsCounts,
   ProjectsOverviewPage,
+  ProjectsSearchIndex,
   ProjectsSource,
   ProjectsSummary,
   DecisionDetail,
@@ -149,6 +150,18 @@ export function createMockProjectsSource(store: MockStore): ProjectsSource {
           counts: counts(store.projects),
           areas: rail(),
           projects: store.projects.map((project) => ({ id: project.id, title: project.title }))
+        }),
+        signal
+      )
+    },
+
+    searchIndex(signal: AbortSignal): Promise<ProjectsSearchIndex> {
+      return answer(
+        () => ({
+          areas: store.areas,
+          projects: store.projects,
+          decisions: store.decisions,
+          tasks: store.tasks
         }),
         signal
       )

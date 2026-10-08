@@ -4,13 +4,20 @@ import { describe, expect, it } from 'vitest'
 
 import ShellOverlay from '@/shell/ShellOverlay.vue'
 import { routes } from '@/router'
+import { createMockSources } from '@/sources/mock'
+import { flushReads, sourcesPlugin } from '@/sources/testing'
 import { setTheme } from '@/theme'
 
 async function mountOverlay(open: 'busca' | 'prefs') {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push('/')
   await router.isReady()
-  const wrapper = mount(ShellOverlay, { props: { open }, global: { plugins: [router] } })
+  const wrapper = mount(ShellOverlay, {
+    props: { open },
+    global: { plugins: [router, sourcesPlugin(createMockSources())] }
+  })
+  // The palette offers what each mounted module answered with.
+  await flushReads()
   return { wrapper, router }
 }
 

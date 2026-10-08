@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 
 import { enabledModuleNames, resetModuleMounting } from '@/modules/mounting'
 import { createRouteTable } from '@/router'
+import { createMockSources } from '@/sources/mock'
+import { sourcesPlugin } from '@/sources/testing'
 
 import AppRoot from './AppRoot.vue'
 import { bootState, bootUntilConfigured, FAST_RETRY_DELAY_MS, resetBootState, retryDelayMs, SLOW_RETRY_DELAY_MS } from './boot'
@@ -15,7 +17,7 @@ afterEach(() => {
 
 function mountRoot() {
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
-  return mount(AppRoot, { global: { plugins: [router] } })
+  return mount(AppRoot, { global: { plugins: [router, sourcesPlugin(createMockSources())] } })
 }
 
 describe('reading the configuration before the app opens', () => {

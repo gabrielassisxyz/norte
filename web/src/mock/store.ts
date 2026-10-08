@@ -291,5 +291,3 @@ export function createMockStore(today: string = todayIsoDate()) {
 }
 
 export type MockStore = ReturnType<typeof createMockStore>
-
-export const store = createMockStore()

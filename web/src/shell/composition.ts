@@ -1,10 +1,36 @@
 import { norteModules } from '@/modules'
 import { isModuleMounted } from '@/modules/mounting'
-import type { HomeBlock, ModuleName, NorteModule, SidebarLink, SidebarRow, SidebarSection, SidebarShortcutGroup } from '@/modules/types'
+import type {
+  HomeBlock,
+  ModuleName,
+  ModuleSidebar,
+  NorteModule,
+  SidebarLink,
+  SidebarRow,
+  SidebarSection,
+  SidebarShortcutGroup
+} from '@/modules/types'
 
 /** The mounted modules, in registry order. */
 export function mountedModules(): NorteModule[] {
   return norteModules.filter((module) => isModuleMounted(module.manifest.name))
+}
+
+/** One mounted module's sidebar, already bound to that module's own read. */
+export interface ModuleSidebarEntry {
+  module: ModuleName
+  sidebar: ModuleSidebar
+}
+
+/**
+ * Every mounted module's sidebar, each bound to its module's source.
+ *
+ * It calls composables, so it belongs in the setup of the component that
+ * renders the sidebar and nowhere else: calling it twice would start every
+ * module's read twice.
+ */
+export function useModuleSidebars(modules: NorteModule[] = mountedModules()): ModuleSidebarEntry[] {
+  return modules.map((module) => ({ module: module.manifest.name, sidebar: module.useSidebar() }))
 }
 
 /** A section that another module's section has swallowed, with its own rows after. */
@@ -20,8 +46,8 @@ export interface SidebarTree {
  * is mounted and offers a section to nest in; otherwise it stands on its own,
  * which is what keeps Revisão reachable when Estudo is switched off.
  */
-export function sidebarTree(modules: NorteModule[] = mountedModules()): SidebarTree[] {
-  const sections = modules.flatMap((module) => module.sidebar.sections.map((section) => ({ module: module.manifest.name, section })))
+export function sidebarTree(entries: ModuleSidebarEntry[]): SidebarTree[] {
+  const sections = entries.flatMap((entry) => entry.sidebar.sections.map((section) => ({ module: entry.module, section })))
   const hosts = new Map<ModuleName, SidebarSection>()
   for (const { module, section } of sections) {
     if (!section.nestUnder && !hosts.has(module)) hosts.set(module, section)
@@ -55,8 +81,8 @@ export function sectionRows(tree: SidebarTree): SidebarRow[] {
   return [...(tree.section.rows?.() ?? []), ...tree.nested.map(nestedRow)]
 }
 
-export function sidebarShortcuts(modules: NorteModule[] = mountedModules()): SidebarShortcutGroup[] {
-  return modules.flatMap((module) => module.sidebar.shortcuts).sort((left, right) => left.order - right.order)
+export function sidebarShortcuts(entries: ModuleSidebarEntry[]): SidebarShortcutGroup[] {
+  return entries.flatMap((entry) => entry.sidebar.shortcuts).sort((left, right) => left.order - right.order)
 }
 
 export function homeBlocks(region: HomeBlock['region'], modules: NorteModule[] = mountedModules()): HomeBlock[] {

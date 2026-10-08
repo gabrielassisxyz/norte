@@ -1,19 +1,12 @@
-import { store } from '@/mock/store'
-import type { MockData } from '@/mock/types'
+import { computed, type ComputedRef } from 'vue'
+
 import type { SearchEntry } from '@/search'
 
-import type { NorteModule, SidebarRow } from '../types'
+import type { ModuleSidebar, NorteModule, SidebarRow } from '../types'
+import { useNotesSummary } from './data/composables'
 import { manifest } from './manifest'
 
 export { manifest }
-
-function noteRows(): SidebarRow[] {
-  return [
-    { id: 'anotacoes', label: 'Anotações', to: { name: 'notas', query: { tab: 'anotacoes' } }, count: store.annotations.length },
-    { id: 'highlights', label: 'Highlights', to: { name: 'notas', query: { tab: 'highlights' } }, count: store.highlights.length },
-    { id: 'perguntas-notas', label: 'Perguntas', to: { name: 'notas', query: { tab: 'perguntas' } }, count: store.questions.length }
-  ]
-}
 
 export const routes = [
   {
@@ -24,34 +17,63 @@ export const routes = [
   }
 ]
 
-export const sidebar = {
-  sections: [
-    {
-      id: 'notas',
-      label: 'Notas',
-      to: { name: 'notas' },
-      order: 40,
-      activeRouteNames: ['notas'],
-      rows: noteRows
-    },
-    {
-      // Questions are written while studying, so Estudo gets a way into them.
-      id: 'estudo-perguntas',
-      label: 'Perguntas',
-      to: { name: 'notas', query: { tab: 'perguntas' } },
-      order: 45,
-      activeRouteNames: [],
-      nestUnder: 'study' as const,
-      count: () => store.questions.length
-    }
-  ],
-  shortcuts: []
+/** The notes lines in the sidebar, counted by the source rather than guessed. */
+export function useSidebar(): ModuleSidebar {
+  const { data: counts } = useNotesSummary()
+
+  function noteRows(): SidebarRow[] {
+    return [
+      {
+        id: 'anotacoes',
+        label: 'Anotações',
+        to: { name: 'notas', query: { tab: 'anotacoes' } },
+        count: counts.value?.anotacoes ?? 0
+      },
+      {
+        id: 'highlights',
+        label: 'Highlights',
+        to: { name: 'notas', query: { tab: 'highlights' } },
+        count: counts.value?.highlights ?? 0
+      },
+      {
+        id: 'perguntas-notas',
+        label: 'Perguntas',
+        to: { name: 'notas', query: { tab: 'perguntas' } },
+        count: counts.value?.perguntas ?? 0
+      }
+    ]
+  }
+
+  return {
+    sections: [
+      {
+        id: 'notas',
+        label: 'Notas',
+        to: { name: 'notas' },
+        order: 40,
+        activeRouteNames: ['notas'],
+        rows: noteRows
+      },
+      {
+        // Questions are written while studying, so Estudo gets a way into them.
+        id: 'estudo-perguntas',
+        label: 'Perguntas',
+        to: { name: 'notas', query: { tab: 'perguntas' } },
+        order: 45,
+        activeRouteNames: [],
+        nestUnder: 'study' as const,
+        count: () => counts.value?.perguntas ?? 0
+      }
+    ],
+    shortcuts: []
+  }
 }
 
 export const homeBlocks = []
 
-export function searchEntries(_data: MockData): SearchEntry[] {
-  return [
+/** Notes offer their screen and nothing else: a note is found by reading it. */
+export function useSearchEntries(): ComputedRef<SearchEntry[]> {
+  return computed<SearchEntry[]>(() => [
     {
       group: 'Estudo',
       title: 'Notas',
@@ -60,9 +82,9 @@ export function searchEntries(_data: MockData): SearchEntry[] {
       keywords: 'highlights anotacoes perguntas',
       to: { name: 'notas' }
     }
-  ]
+  ])
 }
 
-const notesModule: NorteModule = { manifest, routes, sidebar, homeBlocks, searchEntries }
+const notesModule: NorteModule = { manifest, routes, useSidebar, homeBlocks, useSearchEntries }
 
 export default notesModule

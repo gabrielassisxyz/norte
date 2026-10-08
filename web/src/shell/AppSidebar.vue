@@ -5,7 +5,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import Icon from '@/components/ds/Icon.vue'
 import type { SidebarHead, SidebarLink, SidebarRow } from '@/modules/types'
 
-import { sectionRows, sidebarShortcuts, sidebarTree, type SidebarTree } from './composition'
+import { sectionRows, sidebarShortcuts, sidebarTree, useModuleSidebars, type SidebarTree } from './composition'
 
 withDefaults(defineProps<{ collapsed?: boolean }>(), { collapsed: false })
 
@@ -20,10 +20,13 @@ const route = useRoute()
 
 /**
  * The sidebar is assembled from the mounted modules on every read, so a module
- * that the server switched off simply has no line here.
+ * that the server switched off simply has no line here. Each module's part is
+ * bound to its own source once, here, which is why the counts fill in as the
+ * reads answer instead of being absent until a reload.
  */
-const trees = computed<SidebarTree[]>(() => sidebarTree())
-const shortcutGroups = computed(() => sidebarShortcuts())
+const sidebars = useModuleSidebars()
+const trees = computed<SidebarTree[]>(() => sidebarTree(sidebars))
+const shortcutGroups = computed(() => sidebarShortcuts(sidebars))
 const expanded = ref<Record<string, boolean>>({})
 
 function isHead(row: SidebarRow): row is SidebarHead {

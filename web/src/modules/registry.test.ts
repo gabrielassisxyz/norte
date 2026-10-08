@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildMockData } from '@/mock/data'
-
-const mockData = buildMockData('2026-10-03')
-
 import * as library from './library'
 import * as notes from './notes'
 import * as projects from './projects'
@@ -21,11 +17,13 @@ const MODULES: Array<[ModuleName, Record<string, unknown>]> = [
 ]
 
 describe('what every module has to export', () => {
-  it.each(MODULES)('%s exports routes, sidebar, homeBlocks, searchEntries and a manifest', (name, module) => {
+  it.each(MODULES)('%s exports routes, a sidebar, home blocks, search entries and a manifest', (name, module) => {
     expect(Array.isArray(module.routes)).toBe(true)
     expect(Array.isArray(module.homeBlocks)).toBe(true)
-    expect(typeof module.searchEntries).toBe('function')
-    expect(module.sidebar).toMatchObject({ sections: expect.any(Array), shortcuts: expect.any(Array) })
+    // Both are composables: they read from the module's source, so they can
+    // only be called by a component that has the sources provided above it.
+    expect(typeof module.useSearchEntries).toBe('function')
+    expect(typeof module.useSidebar).toBe('function')
     expect(module.manifest).toMatchObject({ name, backing: 'mock', routePaths: expect.any(Array) })
   })
 
@@ -45,10 +43,10 @@ describe('what every module has to export', () => {
     }
   })
 
-  it('answers the search with entries only for its own screens', () => {
+  it('declares both of its navigation composables, which the shell calls once each', () => {
     for (const module of norteModules) {
-      const entries = module.searchEntries(mockData)
-      expect(entries.length, `${module.manifest.name} search entries`).toBeGreaterThan(0)
+      expect(typeof module.useSidebar, `${module.manifest.name} useSidebar`).toBe('function')
+      expect(typeof module.useSearchEntries, `${module.manifest.name} useSearchEntries`).toBe('function')
     }
   })
 })
