@@ -45,19 +45,39 @@ func (*LibraryModule) Commands() []*cobra.Command {
 	return []*cobra.Command{newLibrarySaveCommand(), newLibraryExtractCommand()}
 }
 
-// JobHandlers returns the one kind this module owns: the background extraction
-// every save enqueues.
+// JobHandlers returns the kinds this module owns: the background extraction
+// every save enqueues, and -- while a Telegram bot is configured -- the reply
+// a terminal extraction asks for.
+//
+// A configuration error is swallowed here and reported by Start, which is the
+// one of the two that can fail the process. With no handler registered the
+// notify_telegram jobs stay queued and untouched, which is what an
+// unregistered kind is for; without Start's error, a bad chat id would leave
+// the server running and answering nothing.
 func (*LibraryModule) JobHandlers(deps app.Deps) map[string]core.JobHandler {
-	return map[string]core.JobHandler{
+	handlers := map[string]core.JobHandler{
 		LibraryExtractJobKind: newLibraryExtractionFromDeps(deps).Handle,
 	}
+	if notifier, err := newLibraryTelegramNotifier(deps); err == nil && notifier != nil {
+		handlers[LibraryNotifyTelegramJobKind] = notifier.Handle
+	}
+	return handlers
 }
 
-// Start blocks until ctx ends, then reports a clean stop. The extraction runs
-// on the core's one job worker, so this module has no loop of its own.
-func (*LibraryModule) Start(ctx context.Context) error {
-	<-ctx.Done()
-	return nil
+// Start runs the Telegram poller while a token is set, and otherwise blocks
+// until ctx ends. The extraction and the reply run on the core's one job
+// worker; the poller is the only loop this module owns, because long polling
+// is not work a queue can hold.
+func (*LibraryModule) Start(ctx context.Context, deps app.Deps) error {
+	adapter, err := newLibraryTelegramAdapter(deps)
+	if err != nil {
+		return err
+	}
+	if adapter == nil {
+		<-ctx.Done()
+		return nil
+	}
+	return adapter.Run(ctx)
 }
 
 // Text owns no readable text yet: the reader bead adds the provider that

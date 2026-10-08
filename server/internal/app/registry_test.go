@@ -177,7 +177,7 @@ func (f *norteAdapterFake) Commands() []*cobra.Command { return nil }
 
 func (f *norteAdapterFake) JobHandlers(app.Deps) map[string]core.JobHandler { return nil }
 
-func (f *norteAdapterFake) Start(ctx context.Context) error {
+func (f *norteAdapterFake) Start(ctx context.Context, _ app.Deps) error {
 	if f.startErr != nil {
 		return f.startErr
 	}
@@ -206,7 +206,7 @@ func TestNorteAdaptersCancelTheOtherOnError(t *testing.T) {
 	secondCancelled := &atomic.Bool{}
 	second := &norteAdapterFake{name: "second", cancelled: secondCancelled}
 	first := &norteAdapterFake{name: "first", startErr: errNorteAdapterBoom}
-	if err := app.RunNorteAdapters(context.Background(), []app.Module{first, second}); err == nil {
+	if err := app.RunNorteAdapters(context.Background(), []app.Module{first, second}, app.Deps{}); err == nil {
 		t.Fatal("RunNorteAdapters succeeded after a Start error, want it non-nil")
 	} else if !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("error = %q, want the first failure", err.Error())
@@ -221,7 +221,7 @@ func TestNorteAdaptersStopCleanlyOnParentCancel(t *testing.T) {
 	second := &norteAdapterFake{name: "second"}
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan error, 1)
-	go func() { done <- app.RunNorteAdapters(ctx, []app.Module{first, second}) }()
+	go func() { done <- app.RunNorteAdapters(ctx, []app.Module{first, second}, app.Deps{}) }()
 	time.Sleep(50 * time.Millisecond)
 	cancel()
 	select {

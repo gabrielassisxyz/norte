@@ -425,13 +425,17 @@ func (e *LibraryExtraction) recordFailure(
 }
 
 // libraryTelegramMessage is one Telegram message that asked for this item. The
-// Telegram bead records them and owns the reply; extraction only has to say
-// that the answer is ready.
+// poller records them in the save's transaction and the reply job stamps them;
+// extraction only has to say that the answer is ready.
+//
+// RepliedAt is a pointer so that an unanswered message is written as null
+// rather than as the empty string -- the column is read by a person debugging
+// a reply that did not arrive, and "replied_at": "" reads like a bug.
 type libraryTelegramMessage struct {
 	ChatID    json.Number `json:"chat_id"`
 	MessageID json.Number `json:"message_id"`
-	ItemID    string      `json:"item_id"`
-	RepliedAt string      `json:"replied_at"`
+	ItemID    string      `json:"item_id,omitempty"`
+	RepliedAt *string     `json:"replied_at"`
 }
 
 // enqueueTelegramReplies queues one reply per message that has not had one.
@@ -444,19 +448,38 @@ func (e *LibraryExtraction) enqueueTelegramReplies(
 	meta map[string]any,
 ) error {
 	for _, message := range libraryUnrepliedTelegramMessages(meta, itemID) {
-		payload, err := json.Marshal(map[string]any{
-			"chat_id":    message.ChatID,
-			"message_id": message.MessageID,
-			"item_id":    message.ItemID,
-		})
-		if err != nil {
-			return fmt.Errorf("encoding the Telegram reply of %s: %w", itemID, err)
+		if err := libraryEnqueueTelegramReply(ctx, e.jobs, tx,
+			message.ChatID, message.MessageID, message.ItemID); err != nil {
+			return err
 		}
-		dedupe := fmt.Sprintf("%s:%s:%s:%s",
-			LibraryNotifyTelegramJobKind, message.ChatID, message.MessageID, message.ItemID)
-		if _, err := e.jobs.Enqueue(ctx, tx, LibraryNotifyTelegramJobKind, string(payload), dedupe); err != nil {
-			return fmt.Errorf("enqueueing the Telegram reply of %s: %w", itemID, err)
-		}
+	}
+	return nil
+}
+
+// libraryEnqueueTelegramReply queues one reply inside the caller's
+// transaction. It is the one place the payload and the dedupe key are built,
+// because the save enqueues a reply for an item that is already extracted and
+// the extraction enqueues one for everything else: two spellings of that key
+// would mean a message answered twice.
+func libraryEnqueueTelegramReply(
+	ctx context.Context,
+	jobs *core.Jobs,
+	tx *sql.Tx,
+	chatID, messageID json.Number,
+	itemID string,
+) error {
+	payload, err := json.Marshal(map[string]any{
+		"chat_id":    chatID,
+		"message_id": messageID,
+		"item_id":    itemID,
+	})
+	if err != nil {
+		return fmt.Errorf("encoding the Telegram reply of %s: %w", itemID, err)
+	}
+	dedupe := fmt.Sprintf("%s:%s:%s:%s",
+		LibraryNotifyTelegramJobKind, chatID, messageID, itemID)
+	if _, err := jobs.Enqueue(ctx, tx, LibraryNotifyTelegramJobKind, string(payload), dedupe); err != nil {
+		return fmt.Errorf("enqueueing the Telegram reply of %s: %w", itemID, err)
 	}
 	return nil
 }
@@ -480,7 +503,10 @@ func libraryUnrepliedTelegramMessages(meta map[string]any, itemID string) []libr
 	}
 	unreplied := make([]libraryTelegramMessage, 0, len(entries))
 	for _, entry := range entries {
-		if entry.RepliedAt != "" || entry.ChatID == "" || entry.MessageID == "" {
+		if entry.RepliedAt != nil && *entry.RepliedAt != "" {
+			continue
+		}
+		if entry.ChatID == "" || entry.MessageID == "" {
 			continue
 		}
 		if entry.ItemID == "" {
