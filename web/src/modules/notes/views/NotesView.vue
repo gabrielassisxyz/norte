@@ -248,9 +248,9 @@ async function addQuestion(): Promise<void> {
           <p v-if="shownCount === 0" class="notes-state">{{ emptyText }}</p>
           <article v-for="question in questions.data.value?.items ?? []" :key="question.id" class="notes-question">
             <QuestionItem
-              :kind="question.kind ?? 'what'"
+              :kind="question.kind"
               :question="question.text"
-              :status="question.status === 'answered' ? 'answered' : 'open'"
+              :status="question.status"
               :answer="question.answer"
               :topic="question.source?.title"
               :age="formatDayAge(question.created_at, todayIsoDate())"

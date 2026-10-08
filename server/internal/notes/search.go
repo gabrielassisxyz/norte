@@ -11,13 +11,21 @@ import (
 	"github.com/gabrielassisxyz/norte/server/internal/core"
 )
 
-// The routes that open each kind of note. A single note has no page of its
-// own: it is read on the tab that lists its kind, which is where a hit sends
-// the person.
+// The routes that open each kind of writing. An annotation and a question are
+// read on the tab that lists their kind, which is where a hit sends the
+// person. An item's note has no tab listing it: it is read on the reader's
+// "Nota" tab of its item, so its hit opens that item's reader with the note
+// asked for.
 const (
 	notesAnnotationsPath = "/notas?tab=anotacoes"
 	notesQuestionsPath   = "/notas?tab=perguntas"
 )
+
+// notesItemNotePath is the reader route that shows an item's note: the item,
+// with the reader's note section asked for.
+func notesItemNotePath(itemID string) string {
+	return "/biblioteca/" + itemID + "?notas=nota"
+}
 
 // notesSearchTitleRunes is how much of a note's text becomes the hit's title.
 // A note is a paragraph, not a name, so the title is an excerpt and the rest
@@ -52,7 +60,7 @@ func notesSearchEntries(ctx context.Context, database *core.Database, query stri
 	if len(words) == 0 {
 		return []core.SearchEntry{}, nil
 	}
-	statement := "SELECT candidate.id, candidate.kind, candidate.text," +
+	statement := "SELECT candidate.id, candidate.kind, candidate.item_id, candidate.text," +
 		" COALESCE(core_items.title, '') AS source_title" +
 		" FROM (" + notesSearchCandidates + ") AS candidate" +
 		" LEFT JOIN core_items ON core_items.id = candidate.item_id"
@@ -67,9 +75,9 @@ func notesSearchEntries(ctx context.Context, database *core.Database, query stri
 	}
 	hits := []notesSearchHit{}
 	for rows.Next() {
-		var id, kind, text string
+		var id, kind, itemID, text string
 		var sourceTitle sql.NullString
-		if err := rows.Scan(&id, &kind, &text, &sourceTitle); err != nil {
+		if err := rows.Scan(&id, &kind, &itemID, &text, &sourceTitle); err != nil {
 			return nil, fmt.Errorf("scanning a note search row: %w", err)
 		}
 		count, matched := notesSearchRelevance(text, words)
@@ -83,7 +91,7 @@ func notesSearchEntries(ctx context.Context, database *core.Database, query stri
 				Type:     kind,
 				Title:    notesSearchExcerpt(text),
 				Subtitle: sourceTitle.String,
-				Path:     notesSearchPath(kind),
+				Path:     notesSearchPath(kind, itemID),
 			},
 			count: count,
 		})
@@ -134,12 +142,18 @@ const notesSearchCandidates = `
            notes_questions.text || ' ' || COALESCE(notes_questions.answer, '')
     FROM notes_questions`
 
-// notesSearchPath is the tab a hit of this kind opens.
-func notesSearchPath(kind string) string {
-	if kind == "question" {
+// notesSearchPath is where a hit of this kind opens. An annotation and a
+// question open on the tab that lists them; an item's note opens in its
+// item's reader, where the note is read.
+func notesSearchPath(kind, itemID string) string {
+	switch kind {
+	case "question":
 		return notesQuestionsPath
+	case "note":
+		return notesItemNotePath(itemID)
+	default:
+		return notesAnnotationsPath
 	}
-	return notesAnnotationsPath
 }
 
 // notesSearchExcerpt renders a note's text as a one-line title: the newlines

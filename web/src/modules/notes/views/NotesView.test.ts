@@ -299,6 +299,44 @@ describe('NotesView', () => {
     expect(wrapper.get('.notes-count').text()).toContain('1 item')
   })
 
+  it('shows no kind badge for a question written on its own, and the label for one with a kind', async () => {
+    const wrapper = await mountNotes(
+      '/notas?tab=perguntas',
+      fakeNotesSource({
+        questions: [
+          questionRecord({ id: 'q-kindless', text: 'Por quê?', source: compilation }),
+          questionRecord({ id: 'q-kind', kind: 'why', text: 'Por que registrar exemplos ajuda?', source: garden })
+        ]
+      })
+    )
+
+    const rows = wrapper.findAll('.notes-question')
+    expect(rows).toHaveLength(2)
+    // A question written on its own has none of the set's six kinds.
+    expect(rows[0].find('.nt-q-kind').exists()).toBe(false)
+    expect(rows[1].get('.nt-q-kind').text()).toBe('Por quê')
+  })
+
+  it('shows a dropped question as discarded rather than open', async () => {
+    const wrapper = await mountNotes(
+      '/notas?tab=perguntas',
+      fakeNotesSource({
+        questions: [
+          questionRecord({ id: 'q-open', text: 'O que ficou claro?', status: 'open', source: compilation }),
+          questionRecord({ id: 'q-answered', text: 'O que foi respondido?', status: 'answered', source: compilation }),
+          questionRecord({ id: 'q-dropped', text: 'O que foi descartado?', status: 'dropped', source: compilation })
+        ]
+      })
+    )
+
+    const rows = wrapper.findAll('.notes-question')
+    expect(rows).toHaveLength(3)
+    expect(rows[0].text()).toContain('Aberta')
+    expect(rows[1].text()).toContain('Respondida')
+    expect(rows[2].text()).toContain('Descartada')
+    expect(rows[2].text()).not.toContain('Aberta')
+  })
+
   it('aborts the list in flight when the filter changes again', async () => {
     const signals: AbortSignal[] = []
     const wrapper = await mountNotes(

@@ -71,10 +71,11 @@ func (h *notesHarness) search(query string, limit int) []core.SearchEntry {
 	return entries
 }
 
-// TestEachKindOfWritingIsFoundAndCarriesItsTab is the module's whole
-// contribution: the three places the person writes, each pointing at the tab
-// that lists it.
-func TestEachKindOfWritingIsFoundAndCarriesItsTab(t *testing.T) {
+// TestEachKindOfWritingIsFoundAndCarriesItsDestination is the module's whole
+// contribution: the three places the person writes, each pointing at where it
+// is read -- an annotation and a question at the tab that lists them, an
+// item's note at its item's reader, which is the only place it is shown.
+func TestEachKindOfWritingIsFoundAndCarriesItsDestination(t *testing.T) {
 	harness := newNotesHarness(t)
 	item := harness.saveArticle("Sobre hábitos", "o texto do artigo")
 	harness.seedAnnotation("ann-1", item, "a zarabatana aparece aqui")
@@ -108,6 +109,29 @@ func TestEachKindOfWritingIsFoundAndCarriesItsTab(t *testing.T) {
 	}
 	if byID["ann-1"].Path != notesAnnotationsPath {
 		t.Fatalf("an annotation points at %q, want %q", byID["ann-1"].Path, notesAnnotationsPath)
+	}
+}
+
+// TestAnItemNoteHitOpensTheItemsReaderOnItsNote is the one hit with no tab:
+// an item's note is listed on no notes tab, so the hit opens the item's
+// reader with the note asked for.
+func TestAnItemNoteHitOpensTheItemsReaderOnItsNote(t *testing.T) {
+	harness := newNotesHarness(t)
+	item := harness.saveArticle("Sobre hábitos", "o texto")
+	harness.seedItemNote("note-1", item, "uma nota sobre a zarabatana")
+
+	entries := harness.search("zarabatana", 10)
+	if len(entries) != 1 {
+		t.Fatalf("the query matched %v, want only note-1", notesSearchIDs(entries))
+	}
+	entry := entries[0]
+	if entry.Type != "note" {
+		t.Fatalf("the hit came back as type %q, want %q", entry.Type, "note")
+	}
+	// The want is written out rather than built by the path helper: a test
+	// whose expectation the code under test computes proves nothing.
+	if want := "/biblioteca/" + item + "?notas=nota"; entry.Path != want {
+		t.Fatalf("an item note points at %q, want %q", entry.Path, want)
 	}
 }
 

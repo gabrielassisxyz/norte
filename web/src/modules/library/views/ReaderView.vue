@@ -492,6 +492,26 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleReaderKeydown)
 watch(itemId, closeNotes)
 
 /**
+ * A search hit for an item's note lands here naming the reader's note
+ * section, `?notas=nota`.
+ *
+ * The name travels through unexamined, the way `openNotes` carries it to
+ * whatever fills the notes slot: the reader never learns the panel's
+ * vocabulary. The ask waits a tick because the panel only answers a section
+ * that changes while it is mounted, and on entry the panel mounts with the
+ * item the ask arrived before.
+ */
+watch(
+  [() => item.value?.id, () => route.query.notas],
+  async ([id, section]) => {
+    if (!id || typeof section !== 'string' || section === '') return
+    await nextTick()
+    openNotes(section)
+  },
+  { immediate: true }
+)
+
+/**
  * Put a passage in view.
  *
  * It measures with the same rectangles the reading position does, because

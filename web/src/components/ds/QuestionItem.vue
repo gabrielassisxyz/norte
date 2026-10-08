@@ -7,9 +7,13 @@ export type QuestionKind = 'what' | 'why' | 'who' | 'when' | 'where' | 'how'
 
 const props = withDefaults(
   defineProps<{
-    kind: QuestionKind
+    /**
+     * Which of a set's six prompts the question came from. Absent for a
+     * question written on its own, which shows no kind badge.
+     */
+    kind?: QuestionKind
     question: string
-    status?: 'open' | 'answered'
+    status?: 'open' | 'answered' | 'dropped'
     answer?: string
     topic?: string
     age?: string
@@ -27,11 +31,12 @@ const KIND_LABEL: Record<QuestionKind, string> = {
 }
 
 const answered = computed(() => props.status === 'answered')
+const dropped = computed(() => props.status === 'dropped')
 </script>
 
 <template>
-  <article class="nt-q" :class="{ 'is-answered': answered }">
-    <div class="nt-q-kind">{{ KIND_LABEL[kind] ?? kind }}</div>
+  <article class="nt-q" :class="{ 'is-answered': answered, 'no-kind': !kind }">
+    <div v-if="kind" class="nt-q-kind">{{ KIND_LABEL[kind] ?? kind }}</div>
     <div class="nt-q-body">
       <div class="nt-q-text">{{ question }}</div>
       <p v-if="answered && answer" class="nt-q-answer">{{ answer }}</p>
@@ -40,6 +45,7 @@ const answered = computed(() => props.status === 'answered')
           <Icon name="check" :size="12" />
           Respondida
         </span>
+        <span v-else-if="dropped">Descartada</span>
         <span v-else>Aberta</span>
         <span v-if="topic">{{ topic }}</span>
         <span v-if="age" class="nt-q-age">{{ age }}</span>
@@ -56,6 +62,10 @@ const answered = computed(() => props.status === 'answered')
   padding: var(--space-4) 0;
   border-bottom: 1px solid var(--line);
   max-width: 720px;
+}
+/* A question written on its own has no kind badge, so the body takes the row. */
+.nt-q.no-kind {
+  grid-template-columns: 1fr;
 }
 .nt-q-kind {
   font-family: var(--font-display);
