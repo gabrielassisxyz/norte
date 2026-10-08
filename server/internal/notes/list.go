@@ -4,10 +4,17 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"database/sql/driver"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"strings"
+	"unicode"
+
+	"golang.org/x/text/runes"
+	"golang.org/x/text/transform"
+	"golang.org/x/text/unicode/norm"
+	"modernc.org/sqlite"
 
 	"github.com/gabrielassisxyz/norte/server/internal/notes/db"
 )
@@ -120,22 +127,77 @@ func notesPreparePage(list string, in NotesListInput, hashParts []string, table 
 	return page, nil
 }
 
+// notesFoldFunction is the SQL name of the folding the q filter compares
+// through. It is prefixed with the module's name because the registration is
+// global to the driver: every connection the process opens sees it, including
+// the ones another module's statements run on.
+const notesFoldFunction = "notes_fold"
+
+// init registers the folding as a SQLite function, so a list can fold the
+// column it filters on without a second, stored copy of every text.
+//
+// The driver makes a registered function available to the connections opened
+// after the call, and package initialisation runs before anything opens a
+// database, so every connection this process makes has it. It is declared
+// deterministic because it is: the same text folds to the same text, which is
+// what lets SQLite use it in a WHERE clause without re-evaluating per row.
+func init() {
+	sqlite.MustRegisterDeterministicScalarFunction(notesFoldFunction, 1,
+		func(_ *sqlite.FunctionContext, args []driver.Value) (driver.Value, error) {
+			text, ok := args[0].(string)
+			if !ok {
+				// A NULL, a number or a blob folds to itself: the caller
+				// decides what a non-text column means, and the lists already
+				// COALESCE the nullable ones to an empty string.
+				return args[0], nil
+			}
+			return notesFoldText(text), nil
+		})
+}
+
+// notesFoldText is the comparable form of a text for the q filter: lowercase
+// and with the accents stripped, so MEMÓRIA, memoria and Memória are one word.
+//
+// It is the core's slug rule without the part that drops punctuation and
+// collapses separators, because this filter matches a fragment of a sentence
+// rather than a name: a space, a comma and a hyphen the person typed have to
+// survive the folding or the fragment stops matching the sentence it came from.
+func notesFoldText(value string) string {
+	lowered := strings.ToLower(value)
+	// NFD splits an accented rune into its letter and its combining mark, so
+	// dropping the marks leaves the letter behind rather than the whole rune.
+	folded, _, err := transform.String(
+		transform.Chain(norm.NFD, runes.Remove(runes.In(unicode.Mn)), norm.NFC), lowered)
+	if err != nil {
+		return lowered
+	}
+	return folded
+}
+
 // notesTextFilter narrows a list to the rows whose own text, or whose source
 // item's title, contains the filter.
 //
 // It is LIKE rather than a full-text query because this is the screen's
 // narrowing box: the person types a fragment of a sentence they remember, and a
 // word-boundary search would answer nothing for half of what they type.
+//
+// Both sides are folded, because SQLite's LIKE folds the case of ASCII letters
+// and nothing else: the contract promises a case-insensitive match, and a
+// person typing MEMÓRIA is asking the same question as one typing memória. The
+// folding is a registered function rather than a stored column, so no text is
+// kept twice and no migration rewrites rows that are already there.
 func notesTextFilter(query string, columns ...string) (string, []any) {
 	trimmed := strings.TrimSpace(query)
 	if trimmed == "" {
 		return "", nil
 	}
-	pattern := "%" + notesEscapeLike(trimmed) + "%"
+	// Folded before it is escaped: folding introduces no wildcard, and
+	// escaping first would leave the backslashes to be folded.
+	pattern := "%" + notesEscapeLike(notesFoldText(trimmed)) + "%"
 	clauses := make([]string, 0, len(columns))
 	args := make([]any, 0, len(columns))
 	for _, column := range columns {
-		clauses = append(clauses, column+" LIKE ? ESCAPE '\\'")
+		clauses = append(clauses, notesFoldFunction+"("+column+") LIKE ? ESCAPE '\\'")
 		args = append(args, pattern)
 	}
 	return "(" + strings.Join(clauses, " OR ") + ")", args

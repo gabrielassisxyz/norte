@@ -576,3 +576,114 @@ func notesListPath(base, cursor string) string {
 	}
 	return base + "?cursor=" + url.QueryEscape(cursor)
 }
+
+// TestTheTextFilterIgnoresCaseOnAnAccentedLetter is the criterion about the
+// filter box: a person typing a word in capitals, or without its accents, is
+// asking the same question as one typing it the way the note spells it. SQLite's
+// LIKE folds ASCII only, so MEMÓRIA found nothing while memória found the rows.
+func TestTheTextFilterIgnoresCaseOnAnAccentedLetter(t *testing.T) {
+	harness := newNotesHarness(t)
+	itemID := harness.saveArticle("Retenção e memória", "Antes. O trecho marcado. Depois.")
+	harness.clock.Advance(notesWorkerStep)
+	if _, err := harness.service.CreateHighlight(t.Context(), NewHighlightInput{
+		ItemID: itemID, Exact: "a MEMÓRIA de trabalho",
+	}); err != nil {
+		t.Fatalf("creating the highlight: %v", err)
+	}
+	harness.clock.Advance(notesWorkerStep)
+	if _, err := harness.service.CreateAnnotation(t.Context(), NewAnnotationInput{
+		ItemID: itemID, Text: "sobre Memória e repetição",
+	}); err != nil {
+		t.Fatalf("creating the annotation: %v", err)
+	}
+	harness.clock.Advance(notesWorkerStep)
+	if _, err := harness.service.CreateQuestion(t.Context(), NewQuestionInput{
+		ItemID: itemID, Text: "O que é memória de trabalho?",
+	}); err != nil {
+		t.Fatalf("creating the question: %v", err)
+	}
+	harness.clock.Advance(notesWorkerStep)
+	if _, err := harness.service.CreateQuestionSet(t.Context(), NewQuestionSetInput{
+		Topic: "Memória",
+	}); err != nil {
+		t.Fatalf("creating the question set: %v", err)
+	}
+
+	for _, spelling := range []string{"MEMÓRIA", "memoria", "Memória", "MEMORIA"} {
+		query := "?q=" + url.QueryEscape(spelling)
+		highlights := notesDecode[notesHighlightListBody](t, harness.request(http.MethodGet,
+			"/api/notes/highlights"+query, nil), http.StatusOK)
+		if len(highlights.Items) != 1 {
+			t.Fatalf("q=%s found %d highlights, want 1", spelling, len(highlights.Items))
+		}
+		annotations := notesDecode[notesAnnotationListBody](t, harness.request(http.MethodGet,
+			"/api/notes/annotations"+query, nil), http.StatusOK)
+		if len(annotations.Items) != 1 {
+			t.Fatalf("q=%s found %d annotations, want 1", spelling, len(annotations.Items))
+		}
+		questions := notesDecode[notesQuestionListBody](t, harness.request(http.MethodGet,
+			"/api/notes/questions"+query, nil), http.StatusOK)
+		if len(questions.Items) != 1 {
+			t.Fatalf("q=%s found %d questions, want 1", spelling, len(questions.Items))
+		}
+		sets := notesDecode[notesQuestionSetListBody](t, harness.request(http.MethodGet,
+			"/api/notes/question-sets"+query, nil), http.StatusOK)
+		if len(sets.Items) != 1 {
+			t.Fatalf("q=%s found %d question sets, want 1", spelling, len(sets.Items))
+		}
+	}
+}
+
+// TestAFoldedTextFilterStillPagesWithoutRepeatingARow walks a filtered list one
+// row per page: the folding is in the WHERE clause, so a page boundary has to
+// keep meaning what it meant before, and limit 1 is the boundary case where a
+// repeated or skipped row cannot hide inside a page.
+func TestAFoldedTextFilterStillPagesWithoutRepeatingARow(t *testing.T) {
+	harness := newNotesHarness(t)
+	itemID := harness.saveArticle("Um artigo", "Antes. O trecho marcado. Depois.")
+	const matches = 5
+	for index := range matches {
+		harness.clock.Advance(notesWorkerStep)
+		if _, err := harness.service.CreateAnnotation(t.Context(), NewAnnotationInput{
+			ItemID: itemID, Text: fmt.Sprintf("MEMÓRIA %d", index),
+		}); err != nil {
+			t.Fatalf("creating the annotation %d: %v", index, err)
+		}
+		// A row the filter must not return, interleaved so a page boundary
+		// lands between two matches rather than at the end of the table.
+		harness.clock.Advance(notesWorkerStep)
+		if _, err := harness.service.CreateAnnotation(t.Context(), NewAnnotationInput{
+			ItemID: itemID, Text: fmt.Sprintf("outra coisa %d", index),
+		}); err != nil {
+			t.Fatalf("creating the unmatched annotation %d: %v", index, err)
+		}
+	}
+
+	seen := map[string]bool{}
+	cursor := ""
+	for page := 0; page <= matches; page++ {
+		path := "/api/notes/annotations?limit=1&q=" + url.QueryEscape("memoria")
+		if cursor != "" {
+			path += "&cursor=" + url.QueryEscape(cursor)
+		}
+		body := notesDecode[notesAnnotationListBody](t,
+			harness.request(http.MethodGet, path, nil), http.StatusOK)
+		for _, item := range body.Items {
+			if seen[item.ID] {
+				t.Fatalf("the row %s came back on two pages", item.ID)
+			}
+			seen[item.ID] = true
+		}
+		cursor = body.NextCursor
+		if cursor == "" {
+			break
+		}
+	}
+	if cursor != "" {
+		t.Fatalf("the walk did not end: %d rows in %d pages", len(seen), matches+1)
+	}
+	if len(seen) != matches {
+		t.Fatalf("the filtered walk returned %d rows, want %d", len(seen), matches)
+	}
+}
+
