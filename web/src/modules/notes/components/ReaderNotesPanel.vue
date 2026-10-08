@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import AnnotationItem from '@/components/ds/AnnotationItem.vue'
 import Button from '@/components/ds/Button.vue'
@@ -18,7 +18,10 @@ import { notesGainedNote } from '../data/revision'
  * the text, and the question the reading raised.
  *
  * It renders through the reader's slot, so the library never names this module
- * and a reader with notes switched off renders none of it.
+ * and a reader with notes switched off renders none of it. On a phone that slot
+ * is the bottom sheet, and the reader hands over the section whoever opened the
+ * sheet asked for — `anotacoes`, `nota` or `pergunta`, names this module chose
+ * and the reader passes along without reading.
  */
 const props = defineProps<ReaderSlotProps>()
 
@@ -34,6 +37,7 @@ const noteDraft = ref('')
 const questionDraft = ref('')
 const questionAnnotation = ref('')
 const questionError = ref('')
+const questionField = ref<HTMLTextAreaElement>()
 
 const writing = useAsyncAction()
 
@@ -99,6 +103,27 @@ watch(
 function selectTab(value: string): void {
   if (value === 'margem' || value === 'nota') tab.value = value
 }
+
+/**
+ * Show the part of the panel the reader was asked for.
+ *
+ * The question form is always rendered, below both tabs, so a request for it
+ * puts the cursor in it rather than switching anything: on a phone the sheet
+ * opens scrolled to the top and the form is off the bottom of it, which is the
+ * same "the control is somewhere else" problem the sheet exists to solve.
+ */
+watch(
+  () => props.notesSection,
+  async (request) => {
+    if (!request) return
+    if (request.section === 'anotacoes') tab.value = 'margem'
+    if (request.section === 'nota') tab.value = 'nota'
+    if (request.section !== 'pergunta') return
+    await nextTick()
+    questionField.value?.scrollIntoView({ block: 'nearest' })
+    questionField.value?.focus()
+  }
+)
 
 /** Open the margin box against one passage, which is a note on that highlight. */
 function annotate(highlightId: string): void {
@@ -241,6 +266,7 @@ async function retry(): Promise<void> {
       </select>
       <textarea
         id="notes-reader-question"
+        ref="questionField"
         v-model="questionDraft"
         rows="2"
         placeholder="Termina com “?”."
@@ -272,6 +298,11 @@ async function retry(): Promise<void> {
 
 <style scoped>
 .notes-reader { display: grid; gap: var(--space-4); margin: 48px 0 64px; padding-top: var(--space-6); border-top: 1px solid var(--line); }
+/* Inside the reader's sheet the panel is the whole surface: no rule, no gap above. */
+@media (max-width: 900px) {
+  .notes-reader { margin: 0; padding-top: var(--space-2); border-top: 0; }
+  .notes-reader-title { font-size: 16px; }
+}
 .notes-reader-title { margin: 0; color: var(--ink); font-family: var(--font-display); font-size: 20px; font-weight: 650; letter-spacing: -0.015em; }
 .notes-reader-margin { display: grid; gap: var(--space-3); }
 .notes-reader-form { display: grid; gap: var(--space-2); }

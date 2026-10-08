@@ -38,10 +38,41 @@ export interface ReaderSlotProps {
   renderedAt: number
   /** Put the passage in view, using the reader's own measurement of the column. */
   scrollToPassage: (exact: string) => void
+  /**
+   * Whether the reader is in its phone shape: a bottom action bar, and the
+   * `notes` slot inside a sheet rather than under the article.
+   *
+   * A slot renders in both shapes, so this is how one offers a control that
+   * only makes sense in a bar — opening the sheet is meaningless when the
+   * panel it holds is already on the page.
+   */
+  phone: boolean
+  /**
+   * Ask the reader to show the sheet, optionally naming the part of it to show.
+   *
+   * The section is an opaque string: the reader carries it from whatever asked
+   * to whatever fills the `notes` slot and never reads it, so the vocabulary
+   * stays the filling module's and the library gains no knowledge of it.
+   */
+  openNotes: (section?: string) => void
+  /** The section last asked for, or null; it changes identity on every ask. */
+  notesSection: ReaderNotesRequest | null
+}
+
+/**
+ * One request to show a part of the sheet.
+ *
+ * It carries a sequence number because asking twice for the same section is two
+ * requests: the second has to reach the panel even though the name did not
+ * change, which a bare string cannot express.
+ */
+export interface ReaderNotesRequest {
+  section: string
+  nth: number
 }
 
 /** The places the reader lets another module render into. */
-export type ReaderSlotName = 'selection-actions' | 'notes'
+export type ReaderSlotName = 'selection-actions' | 'notes' | 'bottom-actions'
 
 export interface ReaderSlotEntry {
   id: string
@@ -52,6 +83,13 @@ export interface ReaderSlotEntry {
 
 /**
  * What the reader renders in each of its slots.
+ *
+ * `selection-actions` sits inside the box showing the passage captured when the
+ * link was saved. `notes` is everything a reading leaves behind: under the
+ * article on a wide screen, inside the bottom sheet on a phone. `bottom-actions`
+ * is rendered in both shapes too — in the reader's bottom bar on a phone, and
+ * immediately before the `notes` entries otherwise, which is where it was when
+ * the two were one slot.
  *
  * The library owns the registry and the props; another module fills a slot from
  * its own `index.ts`, which is the only place a module's wiring happens. The
