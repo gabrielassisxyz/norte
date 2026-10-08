@@ -72,6 +72,37 @@ grep -v 'node-version:' "$workflow" > "$work_dir/no-node.yml"
 expect_rejected "a workflow that pins no Node version is rejected" \
     "$work_dir/no-node.yml" "$node_pinned" "node-version"
 
+dockerfile="$repo/Dockerfile"
+
+# expect_dockerfile_rejected <name> <fixture> <substring>... — same contract as
+# expect_rejected, with the committed workflow and a fixture Dockerfile.
+expect_dockerfile_rejected() {
+    local name="$1" fixture="$2"
+    shift 2
+    local output status=0
+    output="$("$repo/bin/check-pins" "$workflow" "$fixture" 2>&1)" || status=$?
+    if [ "$status" -eq 0 ]; then
+        fail "$name: check-pins accepted it"
+        return
+    fi
+    local wanted
+    for wanted in "$@"; do
+        case "$output" in
+            *"$wanted"*) ;;
+            *) fail "$name: the failure does not name '$wanted': $output" ;;
+        esac
+    done
+    printf 'pins-test: ok   %s\n' "$name"
+}
+
+sed 's/^ARG NODE_VERSION=.*/ARG NODE_VERSION=1.0.0/' "$dockerfile" > "$work_dir/Dockerfile.node-mismatch"
+expect_dockerfile_rejected "a drifted Dockerfile Node version is reported with both values" \
+    "$work_dir/Dockerfile.node-mismatch" "$node_pinned" "1.0.0" "NODE_VERSION"
+
+grep -v '^ARG NODE_VERSION=' "$dockerfile" > "$work_dir/Dockerfile.no-node"
+expect_dockerfile_rejected "a Dockerfile that pins no Node version is rejected" \
+    "$work_dir/Dockerfile.no-node" "$node_pinned" "NODE_VERSION"
+
 if [ "$failures" -gt 0 ]; then
     printf 'pins-test: %d failure(s)\n' "$failures" >&2
     exit 1

@@ -26,7 +26,8 @@ jobs:
       # These two versions are repeated from server/go.mod's toolchain
       # directive and web/.node-version, because a workflow cannot read either
       # one for the version it installs. bin/check-pins, which bin/ci runs
-      # first, fails the gate when a copy drifts.
+      # first, fails the gate when a copy drifts. The Dockerfile repeats the
+      # Go version as its base image; bin/check-pins checks that copy too.
       - uses: actions/setup-go@v5
         with:
           go-version: '1.26.6'
@@ -39,3 +40,93 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - run: bin/ci
+
+  # The shipped artefact: one scratch image serving the app. It builds the
+  # image, starts it the way docker-compose.example.yml does, and asserts the
+  # /api/config answer, the data surviving a restart, and the non-root
+  # ownership the Dockerfile promises.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the image
+        run: docker build -t norte:ci .
+
+      - name: The image runs as non-root and carries the CA bundle
+        run: |
+          set -euo pipefail
+          user="$(docker inspect -f '{{.Config.User}}' norte:ci)"
+          if [ -z "$user" ] || [ "$user" = "0" ] || [ "$user" = "root" ]; then
+            echo "image User is '$user', want a non-zero uid" >&2
+            exit 1
+          fi
+          echo "image user: $user"
+          cid="$(docker create norte:ci)"
+          trap 'docker rm "$cid" >/dev/null' EXIT
+          # List to a file first: grep -q exits at the first match, and tar
+          # then dies of SIGPIPE, which pipefail turns into a failed step.
+          docker export "$cid" | tar -t > "$RUNNER_TEMP/norte-image-files.txt"
+          if ! grep -q "etc/ssl/certs/ca-certificates.crt" "$RUNNER_TEMP/norte-image-files.txt"; then
+            echo "the CA bundle is missing from the image" >&2
+            exit 1
+          fi
+          if grep -q "bin/sh" "$RUNNER_TEMP/norte-image-files.txt"; then
+            echo "the image carries a shell, want scratch" >&2
+            exit 1
+          fi
+
+      - name: Serve, save, restart and read back
+        run: |
+          set -euo pipefail
+          docker volume create norte-ci-data >/dev/null
+          cleanup() {
+            docker rm -f norte-ci norte-ci-again >/dev/null 2>&1 || true
+            docker volume rm norte-ci-data >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+          docker run -d --name norte-ci \
+            -e NORTE_MODULES=library,notes \
+            -e NORTE_TIMEZONE=America/Sao_Paulo \
+            -p 127.0.0.1:8080:8080 \
+            -v norte-ci-data:/data \
+            norte:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8080/api/health
+          config="$(curl -fsS http://127.0.0.1:8080/api/config)"
+          echo "$config"
+          echo "$config" | python3 -c 'import json,sys; c=json.load(sys.stdin); assert c["modules"]==["library","notes"], c; assert c["timezone"]=="America/Sao_Paulo", c'
+          # A small html snapshot, so no outbound fetch happens.
+          save="$(curl -fsS -X POST http://127.0.0.1:8080/api/library/items \
+            -H 'Content-Type: application/json' \
+            -d '{"url":"https://example.org/docker-ci-probe","title":"Docker CI probe","html":"<html><head><title>Docker CI probe</title></head><body><p>probe</p></body></html>"}')"
+          echo "$save"
+          id="$(echo "$save" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
+          # A restart keeps the container's own filesystem, so recreate on the
+          # same volume instead: only data in the named volume survives this.
+          docker rm -f norte-ci >/dev/null
+          docker run -d --name norte-ci-again \
+            -e NORTE_MODULES=library,notes \
+            -e NORTE_TIMEZONE=America/Sao_Paulo \
+            -p 127.0.0.1:8080:8080 \
+            -v norte-ci-data:/data \
+            norte:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          item="$(curl -fsS "http://127.0.0.1:8080/api/library/items/$id")"
+          echo "$item" | python3 -c 'import json,sys; i=json.load(sys.stdin); assert i["url"]=="https://example.org/docker-ci-probe", i'
+          owner="$(docker run --rm -v norte-ci-data:/data alpine stat -c "%u" /data/norte.db)"
+          echo "norte.db uid: $owner"
+          if [ -z "$owner" ] || [ "$owner" = "0" ]; then
+            echo "norte.db is owned by uid $owner, want the container non-root uid" >&2
+            exit 1
+          fi
