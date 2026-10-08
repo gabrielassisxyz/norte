@@ -67,6 +67,11 @@ type libraryFetchResult struct {
 	HTML      []byte
 	MediaType string
 	FinalURL  string
+	// ContentType is the Content-Type header as the server wrote it, params
+	// and all. MediaType is the same header with the parameters dropped, and
+	// the charset is one of those parameters: the metadata parser needs it to
+	// decode a page that is not UTF-8, so the unparsed header is kept too.
+	ContentType string
 }
 
 // libraryHostResolver turns a hostname into addresses. It is injected so a test
@@ -332,7 +337,12 @@ func (f *libraryFetcher) Fetch(ctx context.Context, pageURL string) (libraryFetc
 	if response.Request != nil && response.Request.URL != nil {
 		final = response.Request.URL.String()
 	}
-	return libraryFetchResult{HTML: body, MediaType: mediaType, FinalURL: final}, nil
+	return libraryFetchResult{
+		HTML:        body,
+		MediaType:   mediaType,
+		FinalURL:    final,
+		ContentType: response.Header.Get("Content-Type"),
+	}, nil
 }
 
 // libraryResponseMediaType reads the declared type. A response with no
