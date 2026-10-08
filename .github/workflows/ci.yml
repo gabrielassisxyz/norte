@@ -75,7 +75,7 @@ jobs:
           set -euo pipefail
           docker volume create norte-ci-data >/dev/null
           cleanup() {
-            docker rm -f norte-ci >/dev/null 2>&1 || true
+            docker rm -f norte-ci norte-ci-again >/dev/null 2>&1 || true
             docker volume rm norte-ci-data >/dev/null 2>&1 || true
           }
           trap cleanup EXIT
@@ -102,6 +102,21 @@ jobs:
           echo "$save"
           id="$(echo "$save" | python3 -c 'import json,sys; print(json.load(sys.stdin)["id"])')"
           docker restart norte-ci >/dev/null
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/api/health >/dev/null; then
+              break
+            fi
+            sleep 2
+          done
+          # A restart keeps the container's own filesystem, so recreate on the
+          # same volume instead: only data in the named volume survives this.
+          docker rm -f norte-ci >/dev/null
+          docker run -d --name norte-ci-again \
+            -e NORTE_MODULES=library,notes \
+            -e NORTE_TIMEZONE=America/Sao_Paulo \
+            -p 127.0.0.1:8080:8080 \
+            -v norte-ci-data:/data \
+            norte:ci
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8080/api/health >/dev/null; then
               break
