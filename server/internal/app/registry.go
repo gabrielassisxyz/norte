@@ -26,7 +26,7 @@ type Module interface {
 	Register(r *Router, deps Deps)
 	Commands() []*cobra.Command
 	JobHandlers(deps Deps) map[string]core.JobHandler
-	Start(ctx context.Context) error
+	Start(ctx context.Context, deps Deps) error
 	Text(ctx context.Context, id string) (string, bool, error)
 	FocusTargets(ctx context.Context) ([]core.FocusTarget, error)
 	SearchEntries(ctx context.Context, q string, limit int) ([]core.SearchEntry, error)
@@ -52,6 +52,15 @@ type Deps struct {
 	// LLMURL is empty when no LLM is configured, which is how a module decides
 	// not to enqueue work whose handler would have nothing to call.
 	LLMURL string
+	// TelegramToken is empty when no bot is configured, which is how a module
+	// decides not to start an adapter that would have nothing to poll. It is a
+	// secret: it belongs in a request, never in a log line.
+	TelegramToken string
+	// TelegramChat is the only chat an adapter accepts messages from, and
+	// PublicURL is the address a phone reaches this server at. Both are
+	// validated by whoever uses them, because the rule is theirs.
+	TelegramChat string
+	PublicURL    string
 }
 
 // Router wraps the server's *http.ServeMux with the prefix one module owns.
@@ -247,10 +256,15 @@ func NorteSearchProviders(modules []Module) []core.SearchProvider {
 }
 
 // RunNorteAdapters runs every enabled module's Start concurrently under one
-// child context. The first error that is not a cancellation cancels the
+// child context, over the same Deps its handlers and routes were built with.
+//
+// Start is handed those dependencies rather than catching them from an earlier
+// call, because the interface promises no order between Register, JobHandlers
+// and Start: an adapter that kept what Register was given would be reading a
+// field another goroutine is still writing. The first error that is not a cancellation cancels the
 // others and is returned, so serve exits non-zero; a parent cancellation
 // (SIGTERM) stops every adapter and returns nil when they did.
-func RunNorteAdapters(ctx context.Context, modules []Module) error {
+func RunNorteAdapters(ctx context.Context, modules []Module, deps Deps) error {
 	if len(modules) == 0 {
 		<-ctx.Done()
 		return nil
@@ -260,7 +274,7 @@ func RunNorteAdapters(ctx context.Context, modules []Module) error {
 	done := make(chan error, len(modules))
 	for _, module := range modules {
 		go func(mod Module) {
-			err := mod.Start(child)
+			err := mod.Start(child, deps)
 			if err != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)) {
 				err = nil
 			}

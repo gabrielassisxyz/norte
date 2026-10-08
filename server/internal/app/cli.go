@@ -158,6 +158,9 @@ func newServeCommand() *cobra.Command {
 					Logger:        logger,
 					FetchMaxBytes: cfg.FetchMaxBytes,
 					LLMURL:        cfg.LLMURL,
+					TelegramToken: cfg.TelegramToken,
+					TelegramChat:  cfg.TelegramChat,
+					PublicURL:     cfg.PublicURL,
 				}
 				RegisterNorteJobHandlers(queue, modules, deps)
 				worker := core.NewJobsWorker(queue, clock, logger, core.NewID())
@@ -165,7 +168,7 @@ func newServeCommand() *cobra.Command {
 				defer cancel()
 				adaptersDone := make(chan error, 1)
 				go func() {
-					err := RunNorteAdapters(serveCtx, modules)
+					err := RunNorteAdapters(serveCtx, modules, deps)
 					if err != nil {
 						cancel()
 					}
