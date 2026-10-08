@@ -788,3 +788,16 @@ func TestWorkersDoNotDoubleClaim(t *testing.T) {
 		t.Errorf("%d jobs ran, want %d", len(seen), total)
 	}
 }
+
+func TestRedactErrorDropsCredentialsAndQuery(t *testing.T) {
+	err := errors.New(`Get "https://alice:hunter2@pages.example/doc?token=abc#frag": connection refused`)
+	got := core.RedactError(err)
+	for _, secret := range []string{"alice", "hunter2", "token=", "abc", "frag", "@"} {
+		if strings.Contains(got, secret) {
+			t.Errorf("the redacted error still carries %q: %s", secret, got)
+		}
+	}
+	if !strings.Contains(got, "https://pages.example/doc") {
+		t.Errorf("the redacted error lost the page address: %s", got)
+	}
+}

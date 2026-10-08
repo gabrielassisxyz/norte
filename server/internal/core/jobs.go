@@ -70,13 +70,21 @@ func isJobsPermanent(err error) bool {
 	return errors.As(err, &target)
 }
 
+// IsPermanent reports whether err was marked with Permanent, for a handler that
+// has to write its own terminal state before returning. The worker asks the same
+// question when it decides between a retry and a failure, and both have to
+// reach the same answer from the same error.
+func IsPermanent(err error) bool {
+	return isJobsPermanent(err)
+}
+
 // jobsURLPattern finds URLs inside an error message so the redactor can strip
 // what must never reach the database row: query strings and fragments, where
 // tokens travel.
 var jobsURLPattern = regexp.MustCompile(`https?://[^\s"'<>]+`)
 
-// redactJobsError strips query strings and fragments from every URL in an
-// error message. A failing fetch reports the page it could not read, never the
+// redactJobsError strips credentials, query strings and fragments from every
+// URL in an error message. A failing fetch reports the page it could not read, never the
 // signed address it was given.
 func redactJobsError(err error) string {
 	if err == nil {
@@ -92,6 +100,7 @@ func redactJobsError(err error) string {
 		if parseErr != nil || parsed.Scheme == "" || parsed.Host == "" {
 			continue
 		}
+		parsed.User = nil
 		parsed.RawQuery = ""
 		parsed.ForceQuery = false
 		parsed.Fragment = ""
@@ -99,6 +108,14 @@ func redactJobsError(err error) string {
 		message = strings.ReplaceAll(message, trimmed, parsed.String())
 	}
 	return message
+}
+
+// RedactError renders an error the way the queue stores one, for a handler that
+// writes a failure into a column of its own. The queue already redacts what it
+// puts in core_jobs.last_error; a handler recording the same failure beside its
+// own row has to apply the same rule, and the rule belongs in one place.
+func RedactError(err error) string {
+	return redactJobsError(err)
 }
 
 // Jobs is the durable queue: the registry handlers are called through and the

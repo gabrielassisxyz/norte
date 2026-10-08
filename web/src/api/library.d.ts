@@ -87,6 +87,31 @@ export interface paths {
         patch: operations["patchLibraryItem"];
         trace?: never;
     };
+    "/api/library/items/{id}/extract": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Extract a saved link's article text again
+         * @description Puts the item back to pending and enqueues the background extraction,
+         *     which is how a failed extraction is retried from the reader. The answer
+         *     comes back as soon as the job is queued; it never waits for the text.
+         *     With refresh true the page is downloaded again and the new HTML becomes
+         *     the item's snapshot, which is what to use when the saved snapshot is the
+         *     problem rather than the extraction of it.
+         */
+        post: operations["extractLibraryItem"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/library/items/{id}/open": {
         parameters: {
             query?: never;
@@ -176,6 +201,23 @@ export interface components {
         SaveItemResponse: {
             /** @description The saved item, new or already there. */
             id: string;
+        };
+        ExtractItemRequest: {
+            /**
+             * @description Download the page again instead of re-reading the stored snapshot,
+             *     and make the new HTML the item's snapshot.
+             */
+            refresh?: boolean;
+        };
+        ExtractItemResponse: {
+            item_id: string;
+            /** @description The queued job, so a failure can be found in `norte jobs list`. */
+            job_id: string;
+            /**
+             * @description The generation this retry runs under. Any run still in flight under
+             *     an older one is superseded and writes nothing.
+             */
+            extract_generation: number;
         };
         LibraryItemSummary: {
             id: string;
@@ -469,6 +511,33 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryItem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    extractLibraryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExtractItemRequest"];
+            };
+        };
+        responses: {
+            /** @description The extraction was enqueued. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ExtractItemResponse"];
                 };
             };
             default: components["responses"]["Error"];

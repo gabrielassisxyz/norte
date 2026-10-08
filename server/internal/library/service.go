@@ -15,8 +15,7 @@ import (
 )
 
 // LibraryExtractJobKind is the kind a save enqueues for the background
-// extraction. The extraction itself arrives in a later bead, so nothing
-// handles this kind yet and the worker leaves these jobs queued, untouched.
+// extraction, and the kind LibraryExtraction is registered under.
 const LibraryExtractJobKind = "library.extract"
 
 // librarySnapshotMediaType is what a captured page is stored as.
@@ -283,7 +282,7 @@ func (s *LibraryService) insertLibraryItem(ctx context.Context, tx *sql.Tx, quer
 		return SaveOutcome{}, err
 	}
 	if prepared.hasBlob {
-		if err := s.insertLibraryFileRef(ctx, tx, prepared.blobHash, id); err != nil {
+		if err := insertLibraryFileRef(ctx, tx, prepared.blobHash, id); err != nil {
 			return SaveOutcome{}, err
 		}
 	}
@@ -390,7 +389,7 @@ func (s *LibraryService) replaceLibrarySnapshot(ctx context.Context, tx *sql.Tx,
 		}
 	}
 	if !existing.HtmlHash.Valid || existing.HtmlHash.String != prepared.blobHash {
-		if err := s.insertLibraryFileRef(ctx, tx, prepared.blobHash, existing.ID); err != nil {
+		if err := insertLibraryFileRef(ctx, tx, prepared.blobHash, existing.ID); err != nil {
 			return fmt.Errorf("referencing the new snapshot: %w", err)
 		}
 	}
@@ -403,7 +402,7 @@ func (s *LibraryService) replaceLibrarySnapshot(ctx context.Context, tx *sql.Tx,
 // insertLibraryFileRef records that an item owns a blob as its snapshot. The
 // kind is what keeps a later file endpoint from ever serving unsanitized
 // HTML from the app's own origin.
-func (s *LibraryService) insertLibraryFileRef(ctx context.Context, tx *sql.Tx, hash, owner string) error {
+func insertLibraryFileRef(ctx context.Context, tx *sql.Tx, hash, owner string) error {
 	if _, err := tx.ExecContext(ctx,
 		`INSERT INTO core_file_refs (hash, owner_id, kind) VALUES (?, ?, 'snapshot')`,
 		hash, owner); err != nil {
@@ -417,20 +416,28 @@ func (s *LibraryService) insertLibraryFileRef(ctx context.Context, tx *sql.Tx, h
 // the generation, so a request made while an older extraction still runs gets
 // its own job instead of being absorbed by the old one.
 func (s *LibraryService) enqueueLibraryExtract(ctx context.Context, tx *sql.Tx, id string, generation int64, refresh bool) error {
+	_, err := s.enqueueLibraryExtractJob(ctx, tx, id, generation, refresh)
+	return err
+}
+
+// enqueueLibraryExtractJob is enqueueLibraryExtract for a caller that reports
+// the job it queued -- the retry endpoint, so a failure can be found in
+// `norte jobs list` without guessing which row it is.
+func (s *LibraryService) enqueueLibraryExtractJob(ctx context.Context, tx *sql.Tx, id string, generation int64, refresh bool) (string, error) {
 	payload, err := json.Marshal(map[string]any{
 		"item_id":    id,
 		"generation": generation,
 		"refresh":    refresh,
 	})
 	if err != nil {
-		return fmt.Errorf("encoding the extract job: %w", err)
+		return "", fmt.Errorf("encoding the extract job: %w", err)
 	}
-	_, err = s.jobs.Enqueue(ctx, tx, s.libraryExtractKind, string(payload),
+	jobID, err := s.jobs.Enqueue(ctx, tx, s.libraryExtractKind, string(payload),
 		fmt.Sprintf("extract:%s:%d", id, generation))
 	if err != nil {
-		return fmt.Errorf("enqueueing the extract job: %w", err)
+		return "", fmt.Errorf("enqueueing the extract job: %w", err)
 	}
-	return nil
+	return jobID, nil
 }
 
 // libraryLinkTargets collapses duplicate link ids and refuses unknown ones,

@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"log/slog"
 	"net/http"
 	"sort"
 	"strings"
@@ -24,7 +25,7 @@ type Module interface {
 	Migrations() fs.FS
 	Register(r *Router, deps Deps)
 	Commands() []*cobra.Command
-	JobHandlers() map[string]core.JobHandler
+	JobHandlers(deps Deps) map[string]core.JobHandler
 	Start(ctx context.Context) error
 	Text(ctx context.Context, id string) (string, bool, error)
 	FocusTargets(ctx context.Context) ([]core.FocusTarget, error)
@@ -32,13 +33,25 @@ type Module interface {
 }
 
 // Deps is what the core offers a module at startup, so a module never reaches
-// for a global. The extraction bead adds the event bus here when it creates
-// the bus.
+// for a global.
+//
+// The two settings are named one by one rather than passed as the whole
+// *Config, because the config carries the LLM key and the Telegram token and a
+// module has no business being handed either to read a byte cap.
 type Deps struct {
 	Database *core.Database
 	Jobs     *core.Jobs
 	Files    *core.Files
 	Clock    core.Clock
+	// Events is the in-process bus modules publish to and subscribe on.
+	Events *core.Events
+	// Logger is the server's logger, for what a background job has to report.
+	Logger *slog.Logger
+	// FetchMaxBytes is the largest response a module's fetcher may download.
+	FetchMaxBytes int64
+	// LLMURL is empty when no LLM is configured, which is how a module decides
+	// not to enqueue work whose handler would have nothing to call.
+	LLMURL string
 }
 
 // Router wraps the server's *http.ServeMux with the prefix one module owns.
@@ -190,9 +203,14 @@ func migrateOneNorteModule(ctx context.Context, writer *sql.DB, module Module) (
 // RegisterNorteJobHandlers makes every enabled module's job kinds runnable,
 // before the worker starts. A kind from a disabled module stays queued,
 // untouched, which is what lets a module be switched off without stranding.
-func RegisterNorteJobHandlers(queue *core.Jobs, modules []Module) {
+//
+// A module builds its handlers from the same Deps its routes are mounted with,
+// because the two are the same product reached two ways: the extraction a save
+// enqueues and the extraction a retry endpoint re-enqueues must not be able to
+// disagree about which database, clock or event bus they are running against.
+func RegisterNorteJobHandlers(queue *core.Jobs, modules []Module, deps Deps) {
 	for _, module := range modules {
-		for kind, handler := range module.JobHandlers() {
+		for kind, handler := range module.JobHandlers(deps) {
 			queue.Register(kind, handler)
 		}
 	}

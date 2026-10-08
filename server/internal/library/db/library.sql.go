@@ -63,6 +63,19 @@ func (q *Queries) CountLibraryItems(ctx context.Context) (CountLibraryItemsRow, 
 	return i, err
 }
 
+const getLibraryExtractGeneration = `-- name: GetLibraryExtractGeneration :one
+SELECT extract_generation FROM library_items WHERE id = ?
+`
+
+// Read inside the writer transaction, right before the extraction commits, to
+// find out whether a newer request has superseded this run.
+func (q *Queries) GetLibraryExtractGeneration(ctx context.Context, id string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getLibraryExtractGeneration, id)
+	var extract_generation int64
+	err := row.Scan(&extract_generation)
+	return extract_generation, err
+}
+
 const getLibraryItemByCanonical = `-- name: GetLibraryItemByCanonical :one
 SELECT
     id, kind, url, canonical_url, title, title_edited, author, site,
@@ -257,6 +270,34 @@ func (q *Queries) InsertLibraryItem(ctx context.Context, arg InsertLibraryItemPa
 	return err
 }
 
+const markLibraryExtractionFailed = `-- name: MarkLibraryExtractionFailed :execrows
+UPDATE library_items
+SET extract_status = 'failed', extract_error = ?, updated_at = ?
+WHERE id = ? AND extract_generation = ?
+`
+
+type MarkLibraryExtractionFailedParams struct {
+	ExtractError      sql.NullString
+	UpdatedAt         string
+	ID                string
+	ExtractGeneration int64
+}
+
+// The extraction's last attempt, or a permanent failure: the reason stays on
+// the row so the library screen can show it with a retry button.
+func (q *Queries) MarkLibraryExtractionFailed(ctx context.Context, arg MarkLibraryExtractionFailedParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, markLibraryExtractionFailed,
+		arg.ExtractError,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.ExtractGeneration,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const markLibraryItemOpened = `-- name: MarkLibraryItemOpened :execresult
 UPDATE library_items SET last_opened_at = ?, updated_at = ? WHERE id = ?
 `
@@ -270,6 +311,33 @@ type MarkLibraryItemOpenedParams struct {
 // Opening an item records when, and nothing else: opening is not reading.
 func (q *Queries) MarkLibraryItemOpened(ctx context.Context, arg MarkLibraryItemOpenedParams) (sql.Result, error) {
 	return q.db.ExecContext(ctx, markLibraryItemOpened, arg.LastOpenedAt, arg.UpdatedAt, arg.ID)
+}
+
+const recordLibraryExtractionError = `-- name: RecordLibraryExtractionError :execrows
+UPDATE library_items SET extract_error = ?, updated_at = ?
+WHERE id = ? AND extract_generation = ?
+`
+
+type RecordLibraryExtractionErrorParams struct {
+	ExtractError      sql.NullString
+	UpdatedAt         string
+	ID                string
+	ExtractGeneration int64
+}
+
+// An attempt that will be retried records why it failed without giving up the
+// pending state, which is what the screen reads as "still working".
+func (q *Queries) RecordLibraryExtractionError(ctx context.Context, arg RecordLibraryExtractionErrorParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, recordLibraryExtractionError,
+		arg.ExtractError,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.ExtractGeneration,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const replaceLibrarySnapshot = `-- name: ReplaceLibrarySnapshot :exec
@@ -298,6 +366,26 @@ func (q *Queries) ReplaceLibrarySnapshot(ctx context.Context, arg ReplaceLibrary
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	return err
+}
+
+const resetLibraryExtraction = `-- name: ResetLibraryExtraction :exec
+UPDATE library_items
+SET extract_status = 'pending', extract_error = NULL,
+    extract_generation = extract_generation + 1, updated_at = ?
+WHERE id = ?
+`
+
+type ResetLibraryExtractionParams struct {
+	UpdatedAt string
+	ID        string
+}
+
+// A retry asked for from the API or the command line. The generation advances
+// so the new job gets a dedupe key of its own and any run still in flight is
+// recognised as superseded and writes nothing.
+func (q *Queries) ResetLibraryExtraction(ctx context.Context, arg ResetLibraryExtractionParams) error {
+	_, err := q.db.ExecContext(ctx, resetLibraryExtraction, arg.UpdatedAt, arg.ID)
 	return err
 }
 
@@ -334,6 +422,57 @@ func (q *Queries) UpdateLibraryItemNote(ctx context.Context, arg UpdateLibraryIt
 	_, err := q.db.ExecContext(ctx, updateLibraryItemNote,
 		arg.Why,
 		arg.Selection,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
+const writeLibraryExtraction = `-- name: WriteLibraryExtraction :exec
+UPDATE library_items
+SET title = ?, author = ?, site = ?, published_at = ?, lead_image = ?,
+    html_hash = ?, content_html = ?, content_text = ?, content_headings = ?,
+    minutes = ?, read_position = ?, meta = ?, extract_status = 'done',
+    extract_error = NULL, extracted_at = ?, updated_at = ?
+WHERE id = ?
+`
+
+type WriteLibraryExtractionParams struct {
+	Title           string
+	Author          sql.NullString
+	Site            sql.NullString
+	PublishedAt     sql.NullString
+	LeadImage       sql.NullString
+	HtmlHash        sql.NullString
+	ContentHtml     sql.NullString
+	ContentText     sql.NullString
+	ContentHeadings sql.NullString
+	Minutes         sql.NullInt64
+	ReadPosition    sql.NullString
+	Meta            string
+	ExtractedAt     sql.NullString
+	UpdatedAt       string
+	ID              string
+}
+
+// The extraction writes everything one pass produced in one statement, so no
+// consumer can ever read an item whose text and whose metadata came from
+// different runs.
+func (q *Queries) WriteLibraryExtraction(ctx context.Context, arg WriteLibraryExtractionParams) error {
+	_, err := q.db.ExecContext(ctx, writeLibraryExtraction,
+		arg.Title,
+		arg.Author,
+		arg.Site,
+		arg.PublishedAt,
+		arg.LeadImage,
+		arg.HtmlHash,
+		arg.ContentHtml,
+		arg.ContentText,
+		arg.ContentHeadings,
+		arg.Minutes,
+		arg.ReadPosition,
+		arg.Meta,
+		arg.ExtractedAt,
 		arg.UpdatedAt,
 		arg.ID,
 	)

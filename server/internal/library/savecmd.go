@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
@@ -26,15 +27,8 @@ func newLibrarySaveCommand() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			enabled := false
-			for _, name := range cfg.Modules {
-				if name == ModuleName {
-					enabled = true
-				}
-			}
-			if !enabled {
-				return fmt.Errorf("the library module is not enabled (NORTE_MODULES holds %q)",
-					joinLibraryModules(cfg.Modules))
+			if err := libraryRequireModuleEnabled(cfg.Modules); err != nil {
+				return err
 			}
 			htmlPath, _ := cmd.Flags().GetString("html")
 			why, _ := cmd.Flags().GetString("why")
@@ -83,9 +77,30 @@ func libraryCommandConfig(cmd *cobra.Command) (*app.Config, error) {
 	return cfg, nil
 }
 
-// libraryRunSave opens the database, brings the schema up to date the way
-// serve does, and saves through the shared service, printing the item id.
+// libraryRunSave saves through the shared service, printing the item id.
 func libraryRunSave(ctx context.Context, cfg *app.Config, in SaveInput, cmd *cobra.Command) error {
+	return libraryWithService(ctx, cfg, func(service *LibraryService) error {
+		outcome, err := service.Save(ctx, in)
+		if err != nil {
+			var domain *LibraryError
+			if errors.As(err, &domain) {
+				return errors.New(domain.Message)
+			}
+			return err
+		}
+		fmt.Fprintln(cmd.OutOrStdout(), outcome.ID)
+		return nil
+	})
+}
+
+// libraryWithService opens the database, brings the schema up to date the way
+// serve does, and hands fn the service every command line entry point shares.
+//
+// Each command wires its own service rather than reaching for the server's:
+// `norte save` and `norte extract` run in a process of their own, with no
+// server necessarily running at all, and the queue row they write is what the
+// server's worker picks up whenever it next starts.
+func libraryWithService(ctx context.Context, cfg *app.Config, fn func(*LibraryService) error) error {
 	database, err := core.OpenDatabase(ctx, cfg.Data)
 	if err != nil {
 		return err
@@ -106,27 +121,19 @@ func libraryRunSave(ctx context.Context, cfg *app.Config, in SaveInput, cmd *cob
 		return err
 	}
 	clock := core.SystemClock()
-	service := NewLibraryService(database, core.NewFiles(cfg.Data, database.Writer(), clock),
-		core.NewJobs(database.Writer(), clock, nil), clock)
-	outcome, err := service.Save(ctx, in)
-	if err != nil {
-		var domain *LibraryError
-		if errors.As(err, &domain) {
-			return errors.New(domain.Message)
-		}
-		return err
-	}
-	fmt.Fprintln(cmd.OutOrStdout(), outcome.ID)
-	return nil
+	return fn(NewLibraryService(database, core.NewFiles(cfg.Data, database.Writer(), clock),
+		core.NewJobs(database.Writer(), clock, nil), clock))
 }
 
-func joinLibraryModules(names []string) string {
-	out := ""
-	for i, name := range names {
-		if i > 0 {
-			out += ","
+// libraryRequireModuleEnabled refuses a command whose module is switched off,
+// naming what NORTE_MODULES actually holds: the alternative is a command that
+// writes rows into tables no running server reads.
+func libraryRequireModuleEnabled(modules []string) error {
+	for _, name := range modules {
+		if name == ModuleName {
+			return nil
 		}
-		out += name
 	}
-	return out
+	return fmt.Errorf("the library module is not enabled (NORTE_MODULES holds %q)",
+		strings.Join(modules, ","))
 }

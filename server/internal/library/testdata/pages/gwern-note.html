@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en-us">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- SSI: CSS+JS inline for speed -->
+  <!-- INLINED-HEAD-BEGIN -->
+  <style id="inlined-styles-colors">
+:root {
+    /*  General.
+     */
+    --GW-body-background-color: #fff;
+    --GW-body-text-color: #000;
+
+    /*  Selection.
+     */
+    --GW-text-selection-background-color: #333;
+    --GW-text-selection-color: #fff;
+
+	/*	Links.
+	 */
+    --GW-body-link-color: #333;
+    --GW-body-link-hover-color: #888;
+    --GW-body-link-visited-color: #666;
+    --GW-body-link-inverted-color: #eee;
+    --GW-body-link-inverted-hover-color: #ccc;
+    --GW-body-link-inverted-visited-color: #ddd;
+
+    /*  Blockquotes.
+     */
+    --GW-blockquote-border-color-level-one: #ccc;
+    --GW-blockquote-border-color-level-two: #c4c4c4;
+    --GW-blockquote-border-color-level-three: #b3b3b3;
+    --GW-blockquote-border-color-level-four: #a6a6a6;
+    --GW-blockquote-background-color-level-one: #f8f8f8;
+    --GW-blockquote-background-color-level-two: #e6e6e6;
+    --GW-blockquote-background-color-level-three: #d8d8d8;
+
+    /*  Abstracts.
+     */
+    --GW-abstract-border-color: #bbb;
+
+	/*	Block context highlighting.
+	 */
+	--GW-block-context-span-highlight-color: #ddd;
+
+    /*  Table of contents.
+     */
+    --GW-TOC-border-color: #ccc;
+    --GW-TOC-background-color: #f8f8f8;
+    --GW-TOC-collapse-button-text-color: #ccc;
+    --GW-TOC-collapse-button-text-hover-color: #fff;
+    --GW-TOC-collapse-button-color: rgba(248, 248, 248, 0.8);
+    --GW-TOC-collapse-button-hover-color: #ddd;
+    --GW-TOC-collapse-button-border-hover-color: #000;
+    --GW-TOC-link-hover-background-color: #ececec;
+    --GW-TOC-link-hover-color: #000;
+    --GW-TOC-link-hover-indicator-bar-color: #ccc;
+    --GW-TOC-number-color: #909090;
+    --GW-TOC-number-hover-color: #313131;
+
+    /*  Collapse blocks.
+        */
+	--GW-collapse-abstract-blockquote-hover-color: #eee;
+	--GW-collapse-disclosure-button-color: #eee;
+	--GW-collapse-disclosure-button-hover-color: #ddd;
+	--GW-collapse-in-blockquote-disclosure-button-color: #ddd;
+	--GW-collapse-in-blockquote-disclosure-button-hover-color: #ccc;
+	--GW-collapse-disclosure-button-text-color: #bbb;
+	--GW-collapse-disclosure-button-text-hover-color: #fff;
+	--GW-collapse-in-blockquote-disclosure-button-text-color: #999;
+	--GW-collapse-in-blockquote-disclosure-button-text-hover-color: #888;
+
+	/*	Inline collapses.
+	 */
+	--GW-collapse-inline-disclosure-button-text-color: #555;
+	--GW-collapse-inline-disclosure-button-text-hover-color: #999;
+
+	/*	Aux-links collapse blocks.
+	 */
+	--GW-aux-links-collapse-border-color: #c4c4c4;
+
+    /*  Headings.
+     */
+    --GW-H1-border-color: #888;
+    --GW-H2-border-color: #888;
+
+    /*  Comments.
+     */
+    --GW-comment-section-top-border-color: #999;
+
+    /*  Lists.
+     */
+    --GW-bulleted-list-marker-color: #808080;
+
+    /*  Figures.
+     */
+    --GW-figure-outline-color: #888;
+    --GW-figure-caption-outline-color: #888;
+
+	/*	Embeds.
+	 */
+	--GW-embed-border-color: #ddd;
+
+    /*  Epigraphs.
+     */
+    --GW-epigraph-quotation-mark-color: #808080;
+
+    /*  Footnotes.
+     */
+    --GW-footnote-border-color: #aaa;
+    --GW-footnote-highlighted-border-color: #aaa;
+    --GW-footnotes-section-top-rule-color: #ccc;
+    --GW-footnote-backlink-border-color: #000;
+    --GW-footnote-backlink-border-hover-color: #999;
+
+    /*  Footnote references.
+     */
+    --GW-highlighted-link-outline-color: #999;
+
+    /*  Sidenotes.
+     */
+    --GW-sidenote-highlight-box-shadow-color: #aaa;
+    --GW-sidenote-border-color: #aaa;
+    --GW-sidenote-scrollbar-thumb-color: #aaa;
+    --GW-sidenote-scrollbar-thumb-hover-color: #999;
+    --GW-sidenote-self-link-border-color: #aaa;
+
+	/*	Annotations.
+	 */
+	--GW-section-highlighted-border-color: #666;
+
+    /*  Tables.
+     */
+    --GW-table-border-color: #000;
+    --GW-table-caption-border-color: #000;
+    --GW-table-row-horizontal-border-color: #000;
+    --GW-table-scrollbar-thumb-color: #aaa;
+    --GW-table-scrollbar-thumb-hover-color: #999;
+    --GW-table-scrollbar-border-color: #000;
+    --GW-table-column-heading-hover-background-color: #e2f0f2;
+    --GW-table-sorted-column-heading-background-color: #8bd0ed;
+    --GW-table-sorted-column-heading-text-color: #fff;
+    --GW-table-sorted-column-heading-text-shadow-color: #000;
+    --GW-table-zebra-stripe-alternate-row-background-color: #f6f6f6;
+    --GW-table-row-hover-outline-color: #000;
+
+    /*  Code blocks.
+     */
+    --GW-code-element-border-color: #c8c8c8;
+    --GW-code-element-background-color: #fafafa;
+    --GW-pre-element-border-color: #c8c8c8;
+    --GW-pre-element-background-color: #fafafa;
+    --GW-pre-element-scrollbar-track-color: #fafafa;
+    --GW-pre-element-scrollbar-thumb-color: #ccc;
+    --GW-pre-element-scrollbar-thumb-hover-color: #999;
+    --GW-code-block-line-highlight-background-color: #ffd;
+    --GW-code-block-line-highlight-border-color: #ddd;
+    --GW-code-block-line-number-color: #aaa;
+    --GW-code-block-line-number-divider-color: #ccc;
+
+
+    /*  Syntax highlight theme.
+     */
+    --GW-syntax-highlight-color-normal: #1f1c1b;
+    --GW-syntax-highlight-color-attribute: #002561;
+    --GW-syntax-highlight-color-data-type: inherit;
+    --GW-syntax-highlight-color-variable: #666666;
+    --GW-syntax-highlight-color-other: inherit;
+    --GW-syntax-highlight-color-preprocessor: inherit;
+    --GW-syntax-highlight-color-extension: #777;
+    --GW-syntax-highlight-color-comment: #77947b;
+    --GW-syntax-highlight-color-control-flow: #003900;
+    --GW-syntax-highlight-color-keyword: #002561;
+    --GW-syntax-highlight-color-operator: #002561;
+    --GW-syntax-highlight-color-special-char: #607880;
+    --GW-syntax-highlight-color-built-in: #002561;
+    --GW-syntax-highlight-color-function: #002561;
+    --GW-syntax-highlight-color-constant: inherit;
+    --GW-syntax-highlight-color-base-n: inherit;
+    --GW-syntax-highlight-color-dec-val: inherit;
+    --GW-syntax-highlight-color-float: inherit;
+    --GW-syntax-highlight-color-information: inherit;
+    --GW-syntax-highlight-color-char: inherit;
+    --GW-syntax-highlight-color-string: inherit;
+    --GW-syntax-highlight-color-verbatim-string: inherit;
+    --GW-syntax-highlight-color-alert: #bf0303;
+    --GW-syntax-highlight-color-error: #ff0000;
+    --GW-syntax-highlight-color-import: #777777;
+    --GW-syntax-highlight-color-special-string: #666666;
+
+    /*  Math.
+     */
+    --GW-math-block-background-color: #f6f6f6;
+    --GW-math-block-background-color-flash: #fff;
+    --GW-math-block-scrollbar-border-color: #ccc;
+    --GW-math-block-scrollbar-thumb-color: #ccc;
+    --GW-math-block-scrollbar-thumb-hover-color: #999;
+
+    /*  Dropcaps.
+     */
+    --GW-dropcaps-goudy-color: #000;
+    --GW-dropcaps-yinit-color: #0d0d0d;
+    --GW-dropcaps-yinit-text-shadow-color: #777;
+    --GW-dropcaps-de-zs-color: #1b1b1b;
+    --GW-dropcaps-cheshire-color: #191919;
+    --GW-dropcaps-kanzlei-color: #191919;
+
+    /*  Admonitions.
+     */
+    --GW-admonition-note-left-border-color: #909090;
+    --GW-admonition-note-background-color: #d8d8d8;
+    --GW-admonition-tip-left-border-color: #d8d8d8;
+    --GW-admonition-tip-background-color: #f0f0f0;
+    --GW-admonition-warning-left-border-color: #5a5a5a;
+    --GW-admonition-warning-background-color: #9a9a9a;
+    --GW-admonition-warning-text-color: #fff;
+    --GW-admonition-error-left-border-color: #2d2d2d;
+    --GW-admonition-error-background-color: #5a5a5a;
+    --GW-admonition-error-text-color: #fff;
+    --GW-admonition-reversed-link-color: #ddd;
+    --GW-admonition-reversed-link-color-hover: #ccc;
+    --GW-admonition-reversed-link-underline-gradient-line-color: #ccc;
+    --GW-admonition-reversed-link-underline-gradient-line-color-hover: #bbb;
+
+	/*	Footer.
+	 */
+    --GW-bottom-ornament-line-color: #000;
+
+	/*	Pop-frames (popups or popovers).
+	 */
+    --GW-popframes-object-popframe-background-color: #fff;
+
+    --GW-extracts-options-dialog-backdrop-background-color: rgba(255, 255, 255, 0.95);
+    --GW-extracts-options-dialog-background-color: var(--GW-body-background-color);
+    --GW-extracts-options-dialog-border-color: #aaa;
+    --GW-extracts-options-dialog-box-shadow-color: #444;
+    --GW-extracts-options-dialog-horizontal-rule-color: #ccc;
+    --GW-extracts-options-dialog-button-background-color: var(--GW-body-background-color);
+    --GW-extracts-options-dialog-button-text-color: #000;
+    --GW-extracts-options-dialog-button-border-color: #000;
+    --GW-extracts-options-dialog-button-hover-box-shadow-color: #000;
+    --GW-extracts-options-dialog-option-button-explanation-text-color: #777;
+    --GW-extracts-options-dialog-option-button-hover-text-color: #777;
+    --GW-extracts-options-dialog-radio-button-border-color: #000;
+
+    /*  Popups.
+     */
+    --GW-popups-popup-background-color: var(--GW-body-background-color);
+
+    --GW-popups-popup-border-color: #ccc;
+    --GW-popups-popup-box-shadow-color: #ccc;
+    --GW-popups-popup-border-focused-color: #aaa;
+    --GW-popups-popup-box-shadow-focused-color: #aaa;
+
+    --GW-popups-popup-title-bar-background-color: #fff;
+    --GW-popups-popup-title-bar-button-color: #bbb;
+    --GW-popups-popup-title-bar-button-color-hover: #000;
+    --GW-popups-popup-title-bar-button-color-disabled: #eee;
+	--GW-popups-popup-title-color: #aaa;
+    --GW-popups-popup-title-link-hover-color: var(--GW-body-link-hover-color);
+    --GW-popups-popup-title-bar-button-focused-color: #777;
+    --GW-popups-popup-title-bar-button-focused-color-hover: #000;
+    --GW-popups-popup-title-bar-button-focused-color-disabled: #ddd;
+    --GW-popups-popup-title-bar-submenu-box-shadow-color: #ddd;
+	--GW-popups-popup-title-focused-color: #000;
+    --GW-popups-popup-title-link-hover-focused-color: var(--GW-body-link-hover-color);
+
+    --GW-popups-popup-scrollbar-thumb-color: #ddd;
+    --GW-popups-popup-scrollbar-thumb-hover-color: #bbb;
+    --GW-popups-popup-scrollbar-thumb-focused-color: #ccc;
+    --GW-popups-popup-scrollbar-thumb-hover-focused-color: #999;
+
+    /*  Popovers.
+     */
+    --GW-popovers-popover-background-color: var(--GW-body-background-color);
+
+    --GW-popovers-popover-border-color: #aaa;
+    --GW-popovers-popover-backdrop-color: rgba(0, 0, 0, 0.4);
+    --GW-popovers-popover-box-shadow-color: #aaa;
+
+    --GW-popovers-popover-title-bar-background-color: #fff;
+    --GW-popovers-popover-title-bar-button-color: #777;
+
+    --GW-popovers-popover-scrollbar-thumb-color: #ccc;
+    --GW-popovers-popover-scrollbar-thumb-hover-color: #999;
+
+    --GW-popovers-popover-stack-counter-text-color: #fff;
+    --GW-popovers-popover-stack-counter-background-color: #bbb;
+
+    /*  Image focus.
+     */
+    --GW-image-focus-image-hover-drop-shadow-color: #777;
+
+	/*	Page toolbar.
+	 */
+    --GW-page-toolbar-border-color: #aaa;
+	--GW-page-toolbar-control-button-color: #aaa;
+	--GW-page-toolbar-control-button-active-color: #000;
+
+	/*	Page toolbar widgets.
+	 */
+	--GW-page-toolbar-button-icon-color: #aaa;
+	--GW-page-toolbar-button-selectable-icon-color: #e4e4e4;
+	--GW-page-toolbar-button-selected-icon-color: #777;
+    --GW-page-toolbar-button-text-color: #666;
+    --GW-page-toolbar-button-disabled-text-color: #ccc;
+    --GW-page-toolbar-button-highlighted-text-color: #000;
+
+	/*	Reader mode.
+	 */
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-background-color: rgba(0, 0, 0, 0.8);
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-text-color: #fff;
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-text-shadow-color: #000;
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-key-icon-border-color: #bbb;
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-key-icon-background-color: #444;
+
+	/*	Mobile floating header.
+	 */
+	--GW-floating-header-box-shadow-color: #ccc;
+	--GW-floating-header-scroll-indicator-color: #999;
+
+	/*	“Skip to content” accessibility link.
+	 */
+	--GW-skip-to-content-text-color: #fff;
+	--GW-skip-to-content-border-color: #fff;
+	--GW-skip-to-content-background-color: #bf1722;
+
+	/*	Nav header.
+	 */
+	--GW-nav-header-link-color: #888;
+	--GW-nav-header-link-hover-color: #000;
+
+	/*	X of the day.
+	 */
+	--GW-x-of-the-day-border-color: #ccc;
+}
+:root {
+    --GW-popups-popup-title-bar-pattern: var(--GW-image-pattern-dotted-e6e6e6-on-fff-2x-gif);
+    --GW-popups-popup-title-bar-pattern-focused: var(--GW-image-pattern-dotted-fff-on-e6e6e6-2x-gif);
+
+	--GW-checkerboard-scrollbar-background-image: var(--GW-image-checkerboard-777-fff-2x-gif);
+	--GW-checkerboard-scrollbar-hover-background-image: var(--GW-image-checkerboard-000-fff-2x-gif);
+}
+
+@media all and (max-width: 649px) {
+	.poem,
+	.editorial {
+		text-shadow: 0 0 0 currentColor;
+	}
+}
+</style>
+<style id="inlined-styles-colors-dark" media="all and (prefers-color-scheme: dark)">
+:root {
+    /*  General.
+     */
+    --GW-body-background-color: #000;
+    --GW-body-text-color: #fff;
+
+    /*  Selection.
+     */
+    --GW-text-selection-background-color: #dcdcdc;
+    --GW-text-selection-color: #000;
+
+	/*	Links.
+	 */
+    --GW-body-link-color: #dcdcdc;
+    --GW-body-link-hover-color: #999;
+    --GW-body-link-visited-color: #b4b4b4;
+    --GW-body-link-inverted-color: #333;
+    --GW-body-link-inverted-hover-color: #5c5c5c;
+    --GW-body-link-inverted-visited-color: #494949;
+
+    /*  Blockquotes.
+     */
+    --GW-blockquote-border-color-level-one: #5c5c5c;
+    --GW-blockquote-border-color-level-two: #646464;
+    --GW-blockquote-border-color-level-three: #747474;
+    --GW-blockquote-border-color-level-four: #7f7f7f;
+    --GW-blockquote-background-color-level-one: #212121;
+    --GW-blockquote-background-color-level-two: #3e3e3e;
+    --GW-blockquote-background-color-level-three: #4f4f4f;
+
+    /*  Abstracts.
+     */
+    --GW-abstract-border-color: #6c6c6c;
+
+	/*	Block context highlighting.
+	 */
+	--GW-block-context-span-highlight-color: #494949;
+
+    /*  Table of contents.
+     */
+    --GW-TOC-border-color: #5c5c5c;
+    --GW-TOC-background-color: #212121;
+    --GW-TOC-collapse-button-text-color: #5c5c5c;
+    --GW-TOC-collapse-button-text-hover-color: #000;
+    --GW-TOC-collapse-button-color: rgba(33, 33, 33, 0.8);
+    --GW-TOC-collapse-button-hover-color: #494949;
+    --GW-TOC-collapse-button-border-hover-color: #fff;
+    --GW-TOC-link-hover-background-color: #363636;
+    --GW-TOC-link-hover-color: #fff;
+    --GW-TOC-link-hover-indicator-bar-color: #5c5c5c;
+    --GW-TOC-number-color: #929292;
+    --GW-TOC-number-hover-color: #ddd;
+
+    /*  Collapse blocks.
+        */
+	--GW-collapse-abstract-blockquote-hover-color: #333;
+	--GW-collapse-disclosure-button-color: #333;
+	--GW-collapse-disclosure-button-hover-color: #494949;
+	--GW-collapse-in-blockquote-disclosure-button-color: #494949;
+	--GW-collapse-in-blockquote-disclosure-button-hover-color: #5c5c5c;
+	--GW-collapse-disclosure-button-text-color: #6c6c6c;
+	--GW-collapse-disclosure-button-text-hover-color: #000;
+	--GW-collapse-in-blockquote-disclosure-button-text-color: #8b8b8b;
+	--GW-collapse-in-blockquote-disclosure-button-text-hover-color: #999;
+
+	/*	Inline collapses.
+	 */
+	--GW-collapse-inline-disclosure-button-text-color: #c1c1c1;
+	--GW-collapse-inline-disclosure-button-text-hover-color: #8b8b8b;
+
+	/*	Aux-links collapse blocks.
+	 */
+	--GW-aux-links-collapse-border-color: #646464;
+
+    /*  Headings.
+     */
+    --GW-H1-border-color: #999;
+    --GW-H2-border-color: #999;
+
+    /*  Comments.
+     */
+    --GW-comment-section-top-border-color: #8b8b8b;
+
+    /*  Lists.
+     */
+    --GW-bulleted-list-marker-color: #9f9f9f;
+
+    /*  Figures.
+     */
+    --GW-figure-outline-color: #999;
+    --GW-figure-caption-outline-color: #999;
+
+	/*	Embeds.
+	 */
+	--GW-embed-border-color: #494949;
+
+    /*  Epigraphs.
+     */
+    --GW-epigraph-quotation-mark-color: #9f9f9f;
+
+    /*  Footnotes.
+     */
+    --GW-footnote-border-color: #7c7c7c;
+    --GW-footnote-highlighted-border-color: #7c7c7c;
+    --GW-footnotes-section-top-rule-color: #5c5c5c;
+    --GW-footnote-backlink-border-color: #fff;
+    --GW-footnote-backlink-border-hover-color: #8b8b8b;
+
+    /*  Footnote references.
+     */
+    --GW-highlighted-link-outline-color: #8b8b8b;
+
+    /*  Sidenotes.
+     */
+    --GW-sidenote-highlight-box-shadow-color: #7c7c7c;
+    --GW-sidenote-border-color: #7c7c7c;
+    --GW-sidenote-scrollbar-thumb-color: #7c7c7c;
+    --GW-sidenote-scrollbar-thumb-hover-color: #8b8b8b;
+    --GW-sidenote-self-link-border-color: #7c7c7c;
+
+	/*	Annotations.
+	 */
+	--GW-section-highlighted-border-color: #b4b4b4;
+
+    /*  Tables.
+     */
+    --GW-table-border-color: #fff;
+    --GW-table-caption-border-color: #fff;
+    --GW-table-row-horizontal-border-color: #fff;
+    --GW-table-scrollbar-thumb-color: #7c7c7c;
+    --GW-table-scrollbar-thumb-hover-color: #8b8b8b;
+    --GW-table-scrollbar-border-color: #fff;
+    --GW-table-column-heading-hover-background-color: #2b3637;
+    --GW-table-sorted-column-heading-background-color: #216983;
+    --GW-table-sorted-column-heading-text-color: #000;
+    --GW-table-sorted-column-heading-text-shadow-color: #fff;
+    --GW-table-zebra-stripe-alternate-row-background-color: #252525;
+    --GW-table-row-hover-outline-color: #fff;
+
+    /*  Code blocks.
+     */
+    --GW-code-element-border-color: #606060;
+    --GW-code-element-background-color: #1d1d1d;
+    --GW-pre-element-border-color: #606060;
+    --GW-pre-element-background-color: #1d1d1d;
+    --GW-pre-element-scrollbar-track-color: #1d1d1d;
+    --GW-pre-element-scrollbar-thumb-color: #5c5c5c;
+    --GW-pre-element-scrollbar-thumb-hover-color: #8b8b8b;
+    --GW-code-block-line-highlight-background-color: #171600;
+    --GW-code-block-line-highlight-border-color: #494949;
+    --GW-code-block-line-number-color: #7c7c7c;
+    --GW-code-block-line-number-divider-color: #5c5c5c;
+
+
+    /*  Syntax highlight theme.
+     */
+    --GW-syntax-highlight-color-normal: #f1edec;
+    --GW-syntax-highlight-color-attribute: #b9e8ff;
+    --GW-syntax-highlight-color-data-type: inherit;
+    --GW-syntax-highlight-color-variable: #b4b4b4;
+    --GW-syntax-highlight-color-other: inherit;
+    --GW-syntax-highlight-color-preprocessor: inherit;
+    --GW-syntax-highlight-color-extension: #a6a6a6;
+    --GW-syntax-highlight-color-comment: #7f9c83;
+    --GW-syntax-highlight-color-control-flow: #b4edaf;
+    --GW-syntax-highlight-color-keyword: #b9e8ff;
+    --GW-syntax-highlight-color-operator: #b9e8ff;
+    --GW-syntax-highlight-color-special-char: #94adb6;
+    --GW-syntax-highlight-color-built-in: #b9e8ff;
+    --GW-syntax-highlight-color-function: #b9e8ff;
+    --GW-syntax-highlight-color-constant: inherit;
+    --GW-syntax-highlight-color-base-n: inherit;
+    --GW-syntax-highlight-color-dec-val: inherit;
+    --GW-syntax-highlight-color-float: inherit;
+    --GW-syntax-highlight-color-information: inherit;
+    --GW-syntax-highlight-color-char: inherit;
+    --GW-syntax-highlight-color-string: inherit;
+    --GW-syntax-highlight-color-verbatim-string: inherit;
+    --GW-syntax-highlight-color-alert: #ff8470;
+    --GW-syntax-highlight-color-error: #ff4a39;
+    --GW-syntax-highlight-color-import: #a6a6a6;
+    --GW-syntax-highlight-color-special-string: #b4b4b4;
+
+    /*  Math.
+     */
+    --GW-math-block-background-color: #252525;
+    --GW-math-block-background-color-flash: #000;
+    --GW-math-block-scrollbar-border-color: #5c5c5c;
+    --GW-math-block-scrollbar-thumb-color: #5c5c5c;
+    --GW-math-block-scrollbar-thumb-hover-color: #8b8b8b;
+
+    /*  Dropcaps.
+     */
+    --GW-dropcaps-goudy-color: #fff;
+    --GW-dropcaps-yinit-color: #f9f9f9;
+    --GW-dropcaps-yinit-text-shadow-color: #a6a6a6;
+    --GW-dropcaps-de-zs-color: #efefef;
+    --GW-dropcaps-cheshire-color: #f1f1f1;
+    --GW-dropcaps-kanzlei-color: #f1f1f1;
+
+    /*  Admonitions.
+     */
+    --GW-admonition-note-left-border-color: #929292;
+    --GW-admonition-note-background-color: #4f4f4f;
+    --GW-admonition-tip-left-border-color: #4f4f4f;
+    --GW-admonition-tip-background-color: #303030;
+    --GW-admonition-warning-left-border-color: #bdbdbd;
+    --GW-admonition-warning-background-color: #8a8a8a;
+    --GW-admonition-warning-text-color: #000;
+    --GW-admonition-error-left-border-color: #e1e1e1;
+    --GW-admonition-error-background-color: #bdbdbd;
+    --GW-admonition-error-text-color: #000;
+    --GW-admonition-reversed-link-color: #494949;
+    --GW-admonition-reversed-link-color-hover: #5c5c5c;
+    --GW-admonition-reversed-link-underline-gradient-line-color: #5c5c5c;
+    --GW-admonition-reversed-link-underline-gradient-line-color-hover: #6c6c6c;
+
+	/*	Footer.
+	 */
+    --GW-bottom-ornament-line-color: #fff;
+
+	/*	Pop-frames (popups or popovers).
+	 */
+    --GW-popframes-object-popframe-background-color: #000;
+
+    --GW-extracts-options-dialog-backdrop-background-color: rgba(0, 0, 0, 0.95);
+    --GW-extracts-options-dialog-background-color: var(--GW-body-background-color);
+    --GW-extracts-options-dialog-border-color: #7c7c7c;
+    --GW-extracts-options-dialog-box-shadow-color: #cecece;
+    --GW-extracts-options-dialog-horizontal-rule-color: #5c5c5c;
+    --GW-extracts-options-dialog-button-background-color: var(--GW-body-background-color);
+    --GW-extracts-options-dialog-button-text-color: #fff;
+    --GW-extracts-options-dialog-button-border-color: #fff;
+    --GW-extracts-options-dialog-button-hover-box-shadow-color: #fff;
+    --GW-extracts-options-dialog-option-button-explanation-text-color: #a6a6a6;
+    --GW-extracts-options-dialog-option-button-hover-text-color: #a6a6a6;
+    --GW-extracts-options-dialog-radio-button-border-color: #fff;
+
+    /*  Popups.
+     */
+    --GW-popups-popup-background-color: var(--GW-body-background-color);
+
+    --GW-popups-popup-border-color: #5c5c5c;
+    --GW-popups-popup-box-shadow-color: #5c5c5c;
+    --GW-popups-popup-border-focused-color: #7c7c7c;
+    --GW-popups-popup-box-shadow-focused-color: #7c7c7c;
+
+    --GW-popups-popup-title-bar-background-color: #000;
+    --GW-popups-popup-title-bar-button-color: #6c6c6c;
+    --GW-popups-popup-title-bar-button-color-hover: #fff;
+    --GW-popups-popup-title-bar-button-color-disabled: #333;
+	--GW-popups-popup-title-color: #7c7c7c;
+    --GW-popups-popup-title-link-hover-color: var(--GW-body-link-hover-color);
+    --GW-popups-popup-title-bar-button-focused-color: #a6a6a6;
+    --GW-popups-popup-title-bar-button-focused-color-hover: #fff;
+    --GW-popups-popup-title-bar-button-focused-color-disabled: #494949;
+    --GW-popups-popup-title-bar-submenu-box-shadow-color: #494949;
+	--GW-popups-popup-title-focused-color: #fff;
+    --GW-popups-popup-title-link-hover-focused-color: var(--GW-body-link-hover-color);
+
+    --GW-popups-popup-scrollbar-thumb-color: #494949;
+    --GW-popups-popup-scrollbar-thumb-hover-color: #6c6c6c;
+    --GW-popups-popup-scrollbar-thumb-focused-color: #5c5c5c;
+    --GW-popups-popup-scrollbar-thumb-hover-focused-color: #8b8b8b;
+
+    /*  Popovers.
+     */
+    --GW-popovers-popover-background-color: var(--GW-body-background-color);
+
+    --GW-popovers-popover-border-color: #7c7c7c;
+    --GW-popovers-popover-backdrop-color: rgba(255, 255, 255, 0.4);
+    --GW-popovers-popover-box-shadow-color: #7c7c7c;
+
+    --GW-popovers-popover-title-bar-background-color: #000;
+    --GW-popovers-popover-title-bar-button-color: #a6a6a6;
+
+    --GW-popovers-popover-scrollbar-thumb-color: #5c5c5c;
+    --GW-popovers-popover-scrollbar-thumb-hover-color: #8b8b8b;
+
+    --GW-popovers-popover-stack-counter-text-color: #000;
+    --GW-popovers-popover-stack-counter-background-color: #6c6c6c;
+
+    /*  Image focus.
+     */
+    --GW-image-focus-image-hover-drop-shadow-color: #a6a6a6;
+
+	/*	Page toolbar.
+	 */
+    --GW-page-toolbar-border-color: #7c7c7c;
+	--GW-page-toolbar-control-button-color: #7c7c7c;
+	--GW-page-toolbar-control-button-active-color: #fff;
+
+	/*	Page toolbar widgets.
+	 */
+	--GW-page-toolbar-button-icon-color: #7c7c7c;
+	--GW-page-toolbar-button-selectable-icon-color: #404040;
+	--GW-page-toolbar-button-selected-icon-color: #a6a6a6;
+    --GW-page-toolbar-button-text-color: #b4b4b4;
+    --GW-page-toolbar-button-disabled-text-color: #5c5c5c;
+    --GW-page-toolbar-button-highlighted-text-color: #fff;
+
+	/*	Reader mode.
+	 */
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-background-color: rgba(255, 255, 255, 0.8);
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-text-color: #000;
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-text-shadow-color: #fff;
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-key-icon-border-color: #6c6c6c;
+	--GW-reader-mode-masked-links-key-toggle-info-alert-panel-key-icon-background-color: #cecece;
+
+	/*	Mobile floating header.
+	 */
+	--GW-floating-header-box-shadow-color: #5c5c5c;
+	--GW-floating-header-scroll-indicator-color: #8b8b8b;
+
+	/*	“Skip to content” accessibility link.
+	 */
+	--GW-skip-to-content-text-color: #000;
+	--GW-skip-to-content-border-color: #000;
+	--GW-skip-to-content-background-color: #ff847b;
+
+	/*	Nav header.
+	 */
+	--GW-nav-header-link-color: #999;
+	--GW-nav-header-link-hover-color: #fff;
+
+	/*	X of the day.
+	 */
+	--GW-x-of-the-day-border-color: #5c5c5c;
+}
+:root {
+    /*  Adjust background color to prevent pixels from turning off (contrary to 
+    	popular belief, pixels turning off saves trivial energy, like <1% in 
+    	measurements, and causes nasty scrolling/update jank due to delay in 
+    	pixels turning back on), and improve contrast with the white.
+     */
+    --GW-body-background-color: #161616;
+
+    /*  Dial back from pure white to keep contrast from being *too* high & 
+    	‘stark’ (#fff bg / #000 text seems to work in light mode, but not in 
+    	dark mode, perhaps because of differences in lighting environment?)
+     */
+    --GW-body-text-color: #f1f1f1;
+
+    --GW-popups-popup-title-bar-pattern: var(--GW-image-pattern-dotted-161616-on-252525-2x-gif);
+    --GW-popups-popup-title-bar-pattern-focused: var(--GW-image-pattern-dotted-161616-on-3e3e3e-2x-gif);
+
+    --GW-popovers-popover-backdrop-color: rgba(0, 0, 0, 0.6);
+
+    --GW-popovers-popover-title-bar-button-color: #bbb;
+
+    --GW-checkerboard-scrollbar-background-image: var(--GW-image-checkerboard-888-000-2x-gif);
+    --GW-checkerboard-scrollbar-hover-background-image: var(--GW-image-checkerboard-bfbfbf-000-2x-gif);
+}
+
+.dark-mode-invert,
+.dark-mode-invert::before,
+.dark-mode-invert::after {
+	filter: var(--dark-mode-invert-filter, none);
+}
+
+/*  Admonition icons.
+ */
+div.admonition.tip::before {
+    filter: invert(1);
+}
+div.admonition.note::before {
+    filter: none;
+}
+div.admonition.warning::before {
+    filter: none;
+}
+div.admonition.error::before {
+    filter: none;
+}
+
+/*  SVG icons in the two darker styles of admonitions.
+ */
+div.admonition.warning a[data-link-icon-type='svg'] .link-icon-hook::after,
+div.admonition.error a[data-link-icon-type='svg'] .link-icon-hook::after {
+    filter: none;
+}
+
+/*  For sortable table column headings, we use dark versions of the up/down/both
+    arrow icons.
+ */
+table th.tablesorter-header {
+    background-image: url('/static/img/tablesorter/tablesorter-bg-dark.gif');
+}
+table th.tablesorter-headerAsc {
+    background-image: url('/static/img/tablesorter/tablesorter-asc-dark.gif');
+}
+table th.tablesorter-headerDesc {
+    background-image: url('/static/img/tablesorter/tablesorter-desc-dark.gif');
+}
+
+/*  Images that are marked as '.invert' by the server are inverted,
+    hue-rotated, and desaturated. Other (non-invertible) images are merely
+    desaturated. Hovering over an image restores it to its original state.
+    Hierarchy: ‘.invert-not’/‘.invert-not-auto’: no inversion or grayscale;
+    ‘.invert’/‘.invert-auto’: inverted (uninverted upon mouse hover);
+    none: grayscaled (ungrayscaled on hover).
+ */
+figure img.invert,
+figure img.invert-auto {
+    filter: grayscale(50%) invert(100%) brightness(95%) hue-rotate(180deg);
+}
+figure img:not(.invert):not(.invert-auto) {
+    filter: grayscale(50%);
+}
+figure img,
+figure img.invert,
+figure img.invert-auto {
+    transition: filter 0.25s ease;
+}
+figure img:not(.drop-filter-on-hover-not):hover,
+figure img:not(.drop-filter-on-hover-not).invert:hover,
+figure img:not(.drop-filter-on-hover-not).invert-auto:hover,
+figure img:not(.drop-filter-on-hover-not):not(.invert):not(.invert-auto):hover {
+    filter: none;
+    transition: filter 0s ease 0.25s;
+}
+
+figure img[src$=".svg"].invert:hover,
+figure img[src$=".svg"].invert-auto:hover {
+    filter: grayscale(50%) invert(100%) brightness(95%) hue-rotate(180deg);
+}
+
+/*  Image alt-text.
+ */
+figure img.invert::before,
+figure img.invert-auto::before {
+    filter: invert(1);
+}
+figure img.invert:hover::before,
+figure img.invert-auto:hover::before {
+    filter: none;
+}
+/*  Styling the image alt-text interferes with the transitions in dark mode.
+    (We include non-class’d `img` in this selector for consistency.)
+
+    TEMPORARY until we transition to a color-based instead of filter-based
+    scheme for this. —SA 2022-07-29
+ */
+figure img,
+figure img:hover,
+figure img.invert,
+figure img.invert:hover,
+figure img.invert-auto,
+figure img.invert-auto:hover {
+    transition: none;
+}
+
+/*  For images which have been marked up (manually or automatically) with 
+	‘.invert-not’, we avoid any filtering at all. If they are manually marked up
+	(artwork, diagrams with multiple subtly-different colors matched to a 
+	legend/caption), the color is important and shouldn’t be faded out by 
+	default. (Or invertOrNot has judged the image to be non-invertible, which
+	presumably means something like the above also.)
+ */
+#markdownBody figure img.invert-not,
+#markdownBody figure img.invert-not-auto {
+    filter: none;
+}
+
+/*  The loading spinner for object popups (image, iframe, object) is inverted
+    and made more visible in dark mode.
+ */
+.popframe.loading::before {
+    filter: invert(1);
+    opacity: 0.4;
+}
+
+/*  “Loading failed” messages for object popups.
+ */
+.popframe.loading-failed::after {
+    opacity: 0.4;
+}
+
+/*  Masked links key toggle info alert panel.
+ */
+div#masked-links-key-toggle-info-alert img {
+    filter: drop-shadow(0 0 3px var(--GW-reader-mode-masked-links-key-toggle-info-alert-panel-text-shadow-color));
+}
+
+/*  Recently-modified icon, manicule.
+ */
+.has-recently-modified-icon .recently-modified-icon-hook::before,
+.manicule svg {
+    filter: invert(1);
+}
+
+/*	Poem caesura marks.
+ */
+.poem span.caesura-mark {
+	opacity: 0.30;
+}
+@media all and (max-width: 649px) {
+	.poem span.caesura-mark {
+		opacity: 0.35;
+	}
+}
+
+</style>
+<link rel="stylesheet" href="/static/css/head.css?v=1786427108">
+<script src="/static/js/head.js?v=1786427108"></script>
+<link rel="preload" href="/static/img/icon/icons.svg?v=1785906347" as="image">
+
+  <!-- INLINED-HEAD-END -->
+
+  
+  <!-- Hint at necessary third-party domains -->
+  <link rel="preconnect" href="https://www.googletagmanager.com">
+
+  <meta name="title" content="Computer Optimization: Your Computer Is Faster Than You Think">
+  <meta name="citation_title" content="Computer Optimization: Your Computer Is Faster Than You Think">
+  <meta name="og:title" content="Computer Optimization: Your Computer Is Faster Than You Think">
+  <meta name="twitter:title" content="Computer Optimization: Your Computer Is Faster Than You Think">
+  <meta name="generator" content="Hakyll">
+  <link rel="repository" href="https://github.com/gwern/gwern.net/">
+  <link rel="bug-tracker" href="https://github.com/gwern/gwern.net/issues">
+  <meta name="creator" content="gwern.net">
+  
+  <meta name="author" content="Gwern">
+  <meta name="citation_author" content="Gwern">
+  
+  <meta name="contact" content="https://gwern.net/me#contact">
+  <link rel="index" title="Gwern.net homepage" href="https://gwern.net/index">
+  <link href="https://gwern.substack.com/feed" type="application/rss+xml" rel="alternate" title="ATOM/RSS feed of Gwern.net newsletters with additions and links.">
+
+  <meta name="twitter:creator" content="gwern">
+  <meta name="twitter:site" content="gwern.net">
+  <meta name="og:site" content="gwern.net">
+  <meta name="og:type" content="article">
+  <meta name="description" content="Compilation of links demonstrating that it is common to find order-of-magnitude speedups in software, especially when designed carefully for (extraordinarily powerful) contemporary computer hardware with end-to-end principled thinking.">
+  <meta name="og:description" content="Compilation of links demonstrating that it is common to find order-of-magnitude speedups in software, especially when designed carefully for (extraordinarily powerful) contemporary computer hardware with end-to-end principled thinking.">
+  <!-- <meta name="description-raw" content="Compilation of links demonstrating that it is common to find order-of-magnitude speedups in software, especially when designed carefully for (extraordinarily powerful) contemporary computer hardware with end-to-end principled thinking."> -->
+  <meta property="og:image" content="https://gwern.net/doc/ai/nn/transformer/gpt/dall-e/3/2024-05-01-gwern-dalle3-sanic-gottagofast.jpg">
+  <meta property="og:image:alt" content="A crude crayon drawing by a kindergartener of the &#39;Sanic&#39; meme character saying &#39;Gotta go fast&#39;. Created by Gwern Branwen 2025-05-01 using DALL·E 3 to humorously illustrate a page on softwre optimization.">
+  
+  <meta property="og:image:height" content="1084">
+  <meta property="og:image:width" content="1084">
+  <meta property="gwern:thumbnail:css-classes" content>
+  <meta name="keywords" content="ai/nn, ai/scaling/hardware, cs/algorithm">
+  <meta name="dc.date.issued" content="2021-04-24">
+  
+  <meta name="citation_publication_date" content="2021-04-24">
+  <meta name="dcterms.modified" content="2021-04-24">
+  <link rel="schema.dcterms" href="https://www.dublincore.org/specifications/dublin-core/dcmi-terms/">
+  <meta name="dcterms.rights" content="CC PD-0">
+  <meta name="dc.rights" content="https://creativecommons.org/publicdomain/zero/1.0/">
+  <link rel="canonical" href="https://gwern.net/note/faster">
+  <meta name="citation_fulltext_html_url" content="https://gwern.net/note/faster">
+  <meta name="og:url" content="https://gwern.net/note/faster">
+  <link rel="alternate" type="text/markdown" href="https://gwern.net/note/faster.md" title="Markdown source of ‘Computer Optimization: Your Computer Is Faster Than You Think’ page"> <!-- Also available via Accept header -->
+  <meta name="page-body-classes" content="page-note-faster dropcaps-yinit">
+  <meta name="citation_fulltext_world_readable" content>
+  <meta name="color-scheme" content="light dark">
+
+  
+  <title>Computer Optimization: Your Computer Is Faster Than You Think · Gwern.net</title>
+  
+
+  <link id="favicon" rel="icon" type="image/png" href="/static/img/logo/logo-favicon-small.png">
+  <link id="favicon-dark" rel="icon" type="image/png" href="/static/img/logo/logo-favicon-small-dark.png" media="all and (prefers-color-scheme: dark)">
+  <link id="favicon-apple-touch" rel="apple-touch-icon" type="image/png" href="/static/img/logo/logo-favicon-appletouch.png">
+  <link id="favicon-apple-touch-dark" rel="apple-touch-icon" type="image/png" href="/static/img/logo/logo-favicon-appletouch-dark.png" media="all and (prefers-color-scheme: dark)">
+</head>
+
+<body class="page-note-faster dropcaps-yinit">
+  <!-- SSI: Inlined asset links -->
+  <!-- INLINED-ASSET-LINKS-BEGIN-->
+  <link rel="stylesheet" href="/static/css/style.css?v=1786427108">
+<script src="/static/js/script.js?v=1786427108" defer></script>
+
+  <!-- INLINED-ASSET-LINKS-END -->
+
+  <main>
+    <a id="skip-to-content-link" href="#markdownBody">Skip to main content</a>
+
+    <noscript>
+    <style>
+      #navbar { margin-top: 7em; }
+      @media all and (max-width: 649px) { #navbar { margin-top: 10em; } }
+    </style>
+    <div id="noscript-warning-header" class="markdownBody noscript-container">
+      <details open>
+        <summary><wbr></summary>
+        <div class="admonition error colors-invert">
+          <div class="admonition-title">
+            <p><strong>Warning:</strong> JavaScript Disabled!</p>
+          </div>
+          <p>For support of key <a href="/design" title="About: Gwern.net Design: principles, features, links, tricks">website features</a> (link annotation popups/popovers &amp; transclusions, collapsible sections, backlinks, tablesorting, image zooming, <a href="/sidenote">sidenotes</a> etc.), you must enable JavaScript.</p>
+        </div>
+      </details>
+    </div>
+    </noscript>
+
+    <!-- SSI: Navbar -->
+    <!-- NAVBAR-BEGIN-->
+        <nav id="navbar">
+      <a class="logo" rel="home me contents" href="/index" accesskey="\" title="Homepage: categorized list of articles index"><svg class="logo-image" viewbox="0 0 64 75">
+      <use href="/static/img/logo/logo-smooth.svg#logo"></use></svg></a>
+      <div class="navbar-links">
+        <a class="site link-page link-annotated" href="/about" title="Site ideals, source, content, traffic, examples, license" rel="author">Site</a>
+        <a class="me link-page link-annotated" href="/me" title="Who am I online, what have I done, what am I like? Contact information; sites I use; things I've worked on" rel="author">Me</a>
+        <a class="new link-page link-annotated" href="/changelog" title="Changelog of what’s new or updated">New</a>
+        <a class="blog link-page" href="/blog/index" title="Shortform Gwern writings">Blog</a>
+        <a class="links link-page" href="/doc/newest/index" title="Most recent link annotations">Links</a>
+        <a class="patreon" href="https://www.patreon.com/gwern" title="Link to Patreon donation profile to support my writing" rel="me">Patreon</a>
+        <a class="mail" href="https://gwern.substack.com/" title="Monthly mailing list: newsletter signup form" rel="me">Substack</a>
+      </div>
+    </nav>
+
+    <!-- NAVBAR-END -->
+
+    <article>
+
+      <header>
+        <h1>Computer Optimization: Your Computer Is Faster Than You Think</h1>
+      </header>
+
+      
+      <div class="markdownBody" id="page-metadata">
+         <div class="link-tags">
+<p><a href="/doc/ai/nn/index" class="link-tag link-page link-annotated icon-not" rel="tag" title="Link to ai/nn tag index">NN</a>, <a href="/doc/ai/scaling/hardware/index" class="link-tag link-page link-annotated icon-not" rel="tag" title="Link to ai/scaling/hardware tag index">AI hardware</a>, <a href="/doc/cs/algorithm/index" class="link-tag link-page link-annotated icon-not" rel="tag" title="Link to cs/algorithm tag index">algorithm</a></p>
+</div> 
+        <div class="page-description"><p>Compilation of links demonstrating that it is common to find order-of-magnitude speedups in software, especially when designed carefully for (extraordinarily powerful) contemporary computer hardware with end-to-end principled thinking.</p></div>
+        <div class="page-metadata-fields">
+            
+            <span class="page-date-range">2021-04-24</span>
+            <span class="page-status" title="Writing status of current page: ranges &#39;abandoned&#39;/&#39;notes&#39;/&#39;draft&#39;/&#39;in progress&#39;/&#39;finished&#39;"><em><span class="completion-status" data-progress-percentage="100">finished</span></em></span>
+            <span class="page-confidence"><a href="/about#confidence-tags" title="Explanation of &#39;confidence&#39; metadata: probability of overall being meaningfully correct, expressed as Kesselman Estimative Words (ranging 0–100%: &#39;certain&#39;/&#39;highly likely&#39;/&#39;likely&#39;/&#39;possible&#39;/&#39;unlikely&#39;/&#39;highly unlikely&#39;/&#39;remote&#39;/&#39;impossible&#39;)">certainty</a>: <em><span class="completion-status" data-progress-percentage="84">highly likely</span></em></span>
+            <span class="page-importance"><a href="/about#importance-tags" title="Explanation of &#39;importance&#39; metadata: rating 1–10 about how much a topic matters to the world (‘N/A’ = unknown or unrateable).">importance</a>: <em>6</em></span>
+            <span class="page-backlinks"><a class="backlinks" href="#backlinks" title="Reverse citations/backlinks for this page (the list of other pages which link to this page)." data-link-icon="arrows-pointing-inwards-to-dot" data-link-icon-type="svg">backlinks</a></span>
+            
+            <span class="page-link-bibliography"><a class="link-bibliography" href="#link-bibliography" data-link-icon="bibliography" data-link-icon-type="svg" title="Bibliography of links cited in this page (forward citations).">bibliography</a></span>
+        </div>
+      </div>
+      
+
+      <div id="TOC" class="TOC"></div> <div id="markdownBody" class="markdownBody"><div class="epigraph">
+<blockquote>
+<p>You can have a second computer once you’ve shown you know how to use the first one.</p>
+<p><a href="#mcsherry-et-al-2015">Paul Barham</a></p>
+</blockquote>
+</div>
+<ul>
+<li><p><a href="https://en.wikipedia.org/wiki/Tacit_knowledge" id="_HArAuBlU" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Tacit_knowledge#bodyContent" title="Tacit knowledge">Tacit knowledge</a>/<a href="https://dzone.com/articles/mechanical-sympathy" id="_jtarEm0O" class="link-annotated-partial" title="Mechanical Sympathy: Understanding the Hardware Makes You a Better Developer">mechanical sympathy</a></p></li>
+<li><p><a href="/doc/www/herbsutter.com/95e457bce002225653b71c2b3070eb8496f232ba.html" id="_Gn1t5kRf" class="link-live link-annotated-partial" data-url-archive="/doc/www/herbsutter.com/95e457bce002225653b71c2b3070eb8496f232ba.html" data-url-original="https://herbsutter.com/welcome-to-the-jungle/" title="Welcome to the Jungle: Or, A Heterogeneous Supercomputer in Every Pocket">“Welcome to the Jungle”</a> (CPU design and Moore’s law; cf. <a href="/computers" id="gwern-computers" class="prefetch-not link-annotated link-page" title="&#39;How Many Computers Are In Your Computer?&#39;, Gwern 2010">“How Many Computers In Your Computer?”</a>)</p></li>
+<li><p><a href="/doc/cs/hardware/2020-leiserson.pdf" id="leiserson-et-al-2020" class="link-annotated" data-link-icon="pdf" data-link-icon-type="svg" data-link-icon-color="#f40f02" title="&#39;There’s plenty of room at the Top: What will drive computer performance after Moore’s law?&#39;, Leiserson et al 2020">“There’s plenty of room at the Top: What will drive computer performance after Moore’s law?”</a>, Leiserson et al 2020 (gains from <a href="/doc/cs/end-to-end-principle/index" id="_Kgb3KanZ" class="prefetch-not link-annotated link-page" title="‘end-to-end’ directory"><strong>End-To-End Principle</strong></a>-based systems design<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>)</p></li>
+<li><p><a href="/doc/cs/algorithm/2015-mcsherry.pdf" id="mcsherry-et-al-2015" class="link-annotated" data-link-icon="pdf" data-link-icon-type="svg" data-link-icon-color="#f40f02" title="&#39;Scalability! But at what COST?&#39;, McSherry et al 2015">“Scalability! But at what COST?”</a>, McSherry et al <span class="date-range">2015<sub><span title="2015 was 11 years ago.">11ya</span></sub></span> (when laptops &gt; clusters: the importance of good baselines; <a href="https://shkspr.mobi/blog/2021/04/whats-the-origin-of-the-phrase-big-data-doesnt-fit-in-excel/" id="_d5vewAOG" class="link-live" title="What’s the origin of the phrase ‘Big Data Doesn’t Fit In Excel’?">“Big Data” doesn’t fit in a laptop</a>); <a href="/doc/www/adamdrake.com/0ce5a53b413905d0e8e8e3e21c5638ba9def560e.html" id="_mHp5_-sb" class="link-live link-annotated-partial" data-url-archive="/doc/www/adamdrake.com/0ce5a53b413905d0e8e8e3e21c5638ba9def560e.html" data-url-original="https://adamdrake.com/command-line-tools-can-be-235x-faster-than-your-hadoop-cluster.html" title="Adam Drake 2014-01-18">“Command-line Tools can be 235× Faster than your Hadoop Cluster”</a></p></li>
+<li><p><a href="/doc/www/nickcraver.com/5bbdab384fe105a950ee103545165a2c2fce2386.html" id="craver-2013" class="link-live link-annotated" data-url-archive="/doc/www/nickcraver.com/5bbdab384fe105a950ee103545165a2c2fce2386.html" data-url-original="https://nickcraver.com/blog/2013/11/22/what-it-takes-to-run-stack-overflow/" title="&#39;What it takes to run Stack Overflow&#39;, Craver 2013">“What it takes to run Stack Overflow”</a>, Nick Craver; <a href="/doc/www/world.hey.com/6164d77889a2cca1be19d8704eda81a64438c7ac.html" id="hansson-2023" class="link-live link-annotated" data-url-archive="/doc/www/world.hey.com/6164d77889a2cca1be19d8704eda81a64438c7ac.html" data-url-original="https://world.hey.com/dhh/we-stand-to-save-7m-over-five-years-from-our-cloud-exit-53996caa" title="&#39;We stand to save $7m over 5 years from our cloud exit&#39;, Hansson 2023">“We stand to save $7m over 5 years from our cloud exit”</a>, <a href="https://en.wikipedia.org/wiki/David_Heinemeier_Hansson" id="_ZreH63xv" class="link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/David_Heinemeier_Hansson#bodyContent" title="David Heinemeier Hansson">David Heinemeier Hansson</a>; <a href="https://thume.ca/2023/01/02/one-machine-twitter/" id="_7dEhi560">“Production Twitter on One Machine? 100Gbps NICs and NVMe are fast”</a></p></li>
+<li><p><a href="https://arstechnica.com/information-technology/2013/05/how-crackers-make-minced-meat-out-of-your-passwords/" id="_KLwGKPX5" data-link-icon="ars" data-link-icon-type="text,tri,sans" data-link-icon-color="#ff4e00" title="Anatomy of a hack: How crackers ransack passwords like ‘qeadzcwrsfxv1331’">“Anatomy of a hack: How crackers ransack passwords like <code>qeadzcwrsfxv1331</code>; For Ars, 3 crackers have at 16,000+ hashed passcodes—with 90% success”</a>; <a href="/doc/www/wooo.sh/85632abb9c098691f2657ac43e8bd63a64b5af0b.html" id="_nWAk-vSC" class="link-live link-annotated-partial" data-url-archive="/doc/www/wooo.sh/85632abb9c098691f2657ac43e8bd63a64b5af0b.html" data-url-original="https://wooo.sh/adler32.html">“Computing Adler32 Checksums at 41 GB⧸s”</a></p></li>
+<li><p><a href="https://cacm.acm.org/research/the-science-of-brute-force/" id="_bum2zYsZ" class="link-live" data-link-icon="acm" data-link-icon-type="text,tri,sans" data-link-icon-color="#3795c4" title="The Science of Brute Force">“The Science of Brute Force”</a></p></li>
+<li><p><a href="/doc/www/code.visualstudio.com/a0c622bbc77c53341ce9a614935e4beb9be8fde9.html" id="_5RuaSHT5" class="link-live link-annotated-partial" data-url-archive="/doc/www/code.visualstudio.com/a0c622bbc77c53341ce9a614935e4beb9be8fde9.html" data-url-original="https://code.visualstudio.com/blogs/2021/09/29/bracket-pair-colorization" title="How We Made Bracket Pair Colorization 10,000x Faster In Visual Studio Code">“Bracket pair colorization 10,000× faster”</a></p></li>
+<li><p><a href="/doc/www/arxiv.org/a1077ef67233ae1574c7b0c0d6746285c606dbdf.pdf" id="langdale-lemire-2019" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/1902.08318?fallback=original" data-url-archive="/doc/www/arxiv.org/a1077ef67233ae1574c7b0c0d6746285c606dbdf.pdf" data-url-original="https://arxiv.org/abs/1902.08318" title="&#39;Parsing Gigabytes of JSON per Second&#39;, Langdale &amp; Lemire 2019">“Parsing Gigabytes of JSON per Second”</a>, Langdale &amp; Lemire 2019</p></li>
+<li><p><a href="https://codegolf.stackexchange.com/questions/215216/high-throughput-fizz-buzz/236630#236630" id="_tbZezUnv" data-link-icon="stack-exchange" data-link-icon-type="svg" data-link-icon-color="#f48024" title="fastest code - High throughput Fizz Buzz">59 GB⧸s FizzBuzz</a>; <a href="/doc/www/itnext.io/d7ea6b61cc2f584206205ef0ae67656e200576f0.html" id="__QjUx1SG" class="link-live link-annotated-partial" data-url-archive="/doc/www/itnext.io/d7ea6b61cc2f584206205ef0ae67656e200576f0.html" data-url-original="https://itnext.io/modern-storage-is-plenty-fast-it-is-the-apis-that-are-bad-6a68319fbc1a">“Modern storage is plenty fast. It is the APIs that are bad.”</a>; <a href="/doc/www/localhost/bd6c25b3d5d87ea2dcb5455f949191e33d9ef11b.html" id="_SNd3Rw-i" class="link-live link-annotated-partial" data-link-icon="twitter" data-link-icon-type="svg" data-link-icon-color="#1da1f2" data-href-mobile="https://nitter.net/axboe/status/1452689372395053062" data-url-archive="/doc/www/localhost/bd6c25b3d5d87ea2dcb5455f949191e33d9ef11b.html" data-url-original="https://x.com/axboe/status/1452689372395053062" title="axboe 2026">“10M IOPS, one physical core. <code>#io_uring #linux</code>”</a>; <a href="https://tanelpoder.com/posts/11m-iops-with-10-ssds-on-amd-threadripper-pro-workstation/" id="_YEm-3oho" title="Achieving 11M IOPS &amp;amp; 66 GB⧸s IO on a Single ThreadRipper Workstation">“Achieving 11M IOPS &amp; 66 GB⧸s IO on a Single ThreadRipper Workstation”</a></p></li>
+<li><p><a href="http://www.kegel.com/c10k.html" id="_OIRNbKte" title="The C10K problem">“The C10K problem”</a>, Kegel <span class="date-range">2001<sub><span title="2001 was 25 years ago.">25ya</span></sub></span>; <a href="https://papers.freebsd.org/2021/eurobsdcon/gallatin-netflix-freebsd-400gbps/" id="_BfSW0HJz" title="Serving Netflix Video at 400 GB⧸s on FreeBSD">“Serving Netflix Video at 50 gigabyte/s on FreeBSD”</a><span>, Gallatin 2021/</span><a href="/doc/www/nabstreamingsummit.com/3a99df858792f349f9d1e0ea2c7156593454a722.pdf" id="_JY_kREyz" class="link-live link-annotated-partial" data-link-icon="pdf" data-link-icon-type="svg" data-link-icon-color="#f40f02" data-url-archive="/doc/www/nabstreamingsummit.com/3a99df858792f349f9d1e0ea2c7156593454a722.pdf" data-url-original="https://nabstreamingsummit.com/wp-content/uploads/2022/05/2022-Streaming-Summit-Netflix.pdf">“Serving Netflix Video Traffic at 100 gigabyte/s and Beyond”</a>, Gallatin 2022</p></li>
+<li><p><a href="/doc/www/signalsandthreads.com/a5bc7de8ce92676d93cc03cdbf95fccef0e610c2.html" id="_m-gzRJYP" class="link-live link-annotated-partial" data-url-archive="/doc/www/signalsandthreads.com/a5bc7de8ce92676d93cc03cdbf95fccef0e610c2.html" data-url-original="https://signalsandthreads.com/multicast-and-the-markets/" title="Ron Minsky &amp; Brian Nigito 2020-09-23">“Multicast and the Markets”</a> (network optimization &amp; mechanical sympathy in high-frequency trading)</p></li>
+<li><p><a href="https://www.lesswrong.com/posts/RoyG2GwYAwoka47Ht/true-stories-of-algorithmic-improvement" id="_-COYMIMN" class="link-live" data-link-icon="LW" data-link-icon-type="text" data-link-icon-color="#7faf83" data-url-iframe="https://www.greaterwrong.com/posts/RoyG2GwYAwoka47Ht/true-stories-of-algorithmic-improvement?format=preview&amp;theme=classic" title="True Stories of Algorithmic Improvement">“True Stories of Algorithmic Improvement”</a></p></li>
+<li><p><a href="/doc/www/auphonic.com/d11f6883e3e6248e8b858475f79c7d391f5d63f3.html" id="_j87q9KsY" class="link-live link-annotated-partial" data-url-archive="/doc/www/auphonic.com/d11f6883e3e6248e8b858475f79c7d391f5d63f3.html" data-url-original="https://auphonic.com/blog/2018/06/01/codec2-podcast-on-floppy-disk/" title="Codec2: a whole Podcast on a Floppy Disk">Ultra-low bit-rate audio for tiny podcasts with Codec2 and WaveNet decoders (1 hour = 1MB)</a></p></li>
+<li><p><a href="https://shvbsle.in/computers-are-fast-but-you-dont-know-it-p1/" id="_OP6PVl-j" title="The computers are fast, but you don&#39;t know it">“The computers are fast, but you don’t know it”</a> (replacing slow <a href="https://en.wikipedia.org/wiki/Pandas_(software)" id="_RFh29noq" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Pandas_(software)#bodyContent" title="Pandas (software)">pandas</a> with 6,000× faster parallelized C++)</p></li>
+<li><p><a href="https://use.expensify.com/blog/scaling-sqlite-to-4m-qps-on-a-single-server" id="_c6Z94kY5">“Scaling SQLite to 4M QPS on a Single Server (EC2 vs Bare Metal)”</a>, Expensify; <a href="/doc/www/sqlite-users.sqlite.narkive.com/53e3085d79928f38047d1c6fdff1762aa087777e.html" id="_w0P68lWv" class="link-live link-annotated-partial" data-url-archive="/doc/www/sqlite-users.sqlite.narkive.com/53e3085d79928f38047d1c6fdff1762aa087777e.html" data-url-original="https://sqlite-users.sqlite.narkive.com/CVRvSKBs/50-faster-than-3-7-17">“50% faster than 3.7.17”</a> (“… We have achieved this by incorporating hundreds of micro-optimizations. Each micro-optimization might improve the performance by as little as 0.05%.”)</p></li>
+<li><p><a href="https://tinkering.xyz/fmo-optimization-story/" id="_3R5Jk-3p" title="Optimization story - quantum mechanics simulation speedup">“Optimization story—quantum mechanics simulation speedup”</a>; <a href="/doc/www/james.hiebert.name/4ffcd1a0d62cdfac88be3bb21195b644cb3c32e3.html" id="_4aSUvhV8" class="link-live link-annotated-partial" data-url-archive="/doc/www/james.hiebert.name/4ffcd1a0d62cdfac88be3bb21195b644cb3c32e3.html" data-url-original="http://james.hiebert.name/blog/work/2015/09/14/CS-FTW.html" title="James Hiebert 2015-09-14">“14,000× Speedup a.k.a. Computer Science For the Win”</a></p></li>
+<li><p><a href="/doc/cs/algorithm/2012-frykholm.pdf" id="511-2012" class="link-annotated-partial" data-link-icon="pdf" data-link-icon-type="svg" data-link-icon-color="#f40f02" title="&#39;Cutting the Pipe: Achieving Sub-Second Iteration Times&#39;, 5.1.1 2012">“Cutting The Pipe: Achieving Sub-Second Iteration Times”</a>, Frykholm <span class="date-range">2012<sub><span title="2012 was 14 years ago.">14ya</span></sub></span> (optimizing game development)</p></li>
+<li><p><a href="/doc/www/fabiensanglard.net/e47892a50f7e2b118a840e3f6b133f2fa97c187a.html" id="sanglard-2026" class="link-live link-annotated-partial" data-url-archive="/doc/www/fabiensanglard.net/e47892a50f7e2b118a840e3f6b133f2fa97c187a.html" data-url-original="https://fabiensanglard.net/quake_asm_optimizations/index.html" title="&#39;How Michael Abrash doubled &lt;em&gt;Quake&lt;/em&gt;’s frame-rate&#39;, Sanglard 2026">“How Michael Abrash doubled <em>Quake</em>’s framerate”</a>, Fabien Sanglard 2026</p></li>
+<li><p><a href="/doc/www/questdb.io/f5aa769c4ee6e267debf805e556cf4f55f6cab3d.html" id="_7-GRMHUP" class="link-live link-annotated-partial" data-url-archive="/doc/www/questdb.io/f5aa769c4ee6e267debf805e556cf4f55f6cab3d.html" data-url-original="https://questdb.io/blog/billion-row-challenge-step-by-step/" title="Marko Topolnik 2024-02-20">“The Billion Row Challenge (1BRC): Step-by-step in Java from 71s to 1.7s”</a> (and <a href="/doc/www/benhoyt.com/2045c120e62150cac0e14e92a0b0984ba7c1a547.html" id="_As1YmwtY" class="link-live link-annotated-partial" data-url-archive="/doc/www/benhoyt.com/2045c120e62150cac0e14e92a0b0984ba7c1a547.html" data-url-original="https://benhoyt.com/writings/go-1brc/">4s in Go</a> &amp; <a href="https://github.com/gunnarmorling/1brc/discussions/710" id="_6gl1QQGo" data-link-icon="github" data-link-icon-type="svg" title="&#39;Fastest known solution: 0.577s (8 core Zen2); C with heavy AVX2&#39;, Austin Donisan 2024-01-31">0.5s in C</a>)</p></li>
+<li><p><a href="/doc/www/ashvardanian.com/e65b2bf50b25095df2f8c56b2f5838db97fbb913.html" id="_ueNMv9Js" class="link-live link-annotated-partial" data-url-archive="/doc/www/ashvardanian.com/e65b2bf50b25095df2f8c56b2f5838db97fbb913.html" data-url-original="https://ashvardanian.com/posts/gcc-12-vs-avx512fp16/" title="Ash Vardanian 2023-10-23">“GCC Compiler vs Human—119× Faster Assembly 💻🆚🧑‍💻”</a>; <a href="/doc/www/ashvardanian.com/885a763e83ed886ea022fe63111c58d8cfd26f84.html" id="_C-3AkwSn" class="link-live link-annotated-partial" data-url-archive="/doc/www/ashvardanian.com/885a763e83ed886ea022fe63111c58d8cfd26f84.html" data-url-original="https://ashvardanian.com/posts/python-c-assembly-comparison/" title="Ash Vardanian 2023-10-30">“Python, C, Assembly—2,500× Faster Cosine Similarity 📐”</a>; <a href="/doc/www/blog.mattstuchlik.com/5ac52459c0e0b61c13bc0c9f18f626e09b82ddf1.html" id="_1NK5irXI" class="link-live link-annotated-partial" data-url-archive="/doc/www/blog.mattstuchlik.com/5ac52459c0e0b61c13bc0c9f18f626e09b82ddf1.html" data-url-original="https://blog.mattstuchlik.com/2024/07/12/summing-integers-fast.html" title="Matt Stuchlik 2024-07-12">“Summing ASCII encoded integers on Haswell at almost the speed of memcpy”</a> (“320× faster than the following naive C++ solution”)</p></li>
+<li><p><a href="https://www.youtube.com/watch?v=e08kOj2kISU" id="schachter-2012" data-link-icon="youtube" data-link-icon-type="svg" data-link-icon-color="#ff0033" title="&#39;How to Speed up a Python Program 114,000×&#39;, Schachter 2012">“How to Speed up a Python Program 114,000×”</a>, David Schachter 2012-12-04</p></li>
+<li><p><a href="https://www.mattkeeter.com/projects/prospero/" id="keeter-2025" title="‘The Prospero Challenge: render the image as quickly as possible’, Keeter 2025">“The Prospero Challenge”</a> (rendering a vector graphic toy language; 15,000ms simple implementation → 3,750ms → 6.3ms → <a href="https://www.mattkeeter.com/research/mpr/" id="_IBTLRg55" title="Massively Parallel Rendering of Complex Closed-Form Implicit Surfaces">3.9ms</a>, total speedup: 3,800×)</p></li>
+<li><p><a href="/doc/www/github.com/928d9ed401fd931afb1fb544fb7eb2dcaf329561.html" id="_mZW9obmb" class="link-live link-annotated-partial" data-link-icon="github" data-link-icon-type="svg" data-url-archive="/doc/www/github.com/928d9ed401fd931afb1fb544fb7eb2dcaf329561.html" data-url-original="https://github.com/ridiculousfish/libdivide" title="&#39;libdivide: optimized integer division&#39;, ridiculousfish 2026">libdivide: “on current CPUs you can get a speedup of &lt;10× for 64-bit integer division and a speedup of up &lt;5× for 32-bit integer division”</a></p></li>
+<li><p><a href="https://www.colino.net/wordpress/en/archives/2025/09/28/optimizing-a-6502-image-decoder-from-70-minutes-to-1-minute/" id="leroy-mira-2025" title="&#39;Optimizing a MOS 6502 CPU Apple image decoder, from 70 minutes to 1 minute&#39;, Leroy-Mira 2025">“Optimizing a MOS 6502 CPU Apple image decoder, from 70 minutes to 1 minute”</a></p></li>
+<li><p><a href="/doc/www/research.swtch.com/5b5151b3aaac23d0a59c4059c5a48ce35a36952f.html" id="cox-2011" class="link-live link-annotated-partial" data-url-archive="/doc/www/research.swtch.com/5b5151b3aaac23d0a59c4059c5a48ce35a36952f.html" data-url-original="https://research.swtch.com/boolean" title="&#39;Minimal Boolean Formulas&#39;, Cox 2011">“Minimal Boolean Formulas”</a>, Russ Cox</p></li>
+<li><p><a href="/doc/www/ashvardanian.com/fe4db8eb38ade73e418ae84903c8049c8330f4c5.html" id="vardanian-2025" class="link-live link-annotated-partial" data-url-archive="/doc/www/ashvardanian.com/fe4db8eb38ade73e418ae84903c8049c8330f4c5.html" data-url-original="https://ashvardanian.com/posts/search-utf8/" title="&#39;Full Unicode Search at 50× ICU Speed with AVX-512&#39;, Vardanian 2025">“Full Unicode Search at 50× ICU Speed with AVX-512”</a></p></li>
+<li><p><a href="/doc/www/arxiv.org/6e70d84d8291baa636f1da2507a0907510949011.pdf" id="ueyama-2026" class="link-live link-modified-recently link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2608.23228?fallback=original" data-url-archive="/doc/www/arxiv.org/6e70d84d8291baa636f1da2507a0907510949011.pdf" data-url-original="https://arxiv.org/abs/2608.23228" title="&#39;mold: A Massively Parallel Linker&#39;, Ueyama 2026">“mold: A Massively Parallel Linker”</a>, Ueyama 2026</p></li>
+<li><p><strong><a href="https://en.wikipedia.org/wiki/Demoscene" id="_gvNN5d7E" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Demoscene#bodyContent" title="Demoscene">Demoscene</a></strong>:</p>
+<ul>
+<li><p><a href="https://www.youtube.com/watch?v=MWdG413nNkI" id="_mzME1RNb" data-link-icon="youtube" data-link-icon-type="svg" data-link-icon-color="#ff0033" title="8088 Domination: Video capture from an IBM PC 5160">“8088 Domination”</a>: <a href="https://trixter.oldskool.org/2014/06/19/8088-domination-post-mortem-part-1/" id="_ENjJ4mBs" class="link-live" title="8088 Domination Post-Mortem, Part 1">“how I created 8088 Domination, which is a program that displays fairly decent full-motion video on a <span class="date-range">1981<sub><span title="1981 was 45 years ago.">45ya</span></sub></span> IBM PC”</a>/<a href="https://trixter.oldskool.org/2014/06/20/8088-domination-post-mortem-conclusion/" id="_LvVVt2kc" class="link-live" title="8088 Domination Post-Mortem, Conclusion">part 2</a></p></li>
+<li><p><a href="https://linusakesson.net/scene/a-mind-is-born/" id="akesson-2017" class="link-annotated-partial" title="&#39;&lt;em&gt;A Mind Is Born&lt;/em&gt;&#39;, Akesson 2017">“A Mind Is Born”</a> (256 bytes; for comparison, this line of Markdown linking the demo is 194 bytes long, and the video several million bytes)</p></li>
+</ul></li>
+<li><p>Casey Muratori: <a href="https://github.com/cmuratori/refterm" id="_llHiHuOt" data-link-icon="github" data-link-icon-type="svg" title="cmuratori/refterm: Reference monospace terminal renderer">refterm v2</a>, <a href="https://www.youtube.com/watch?v=Ge3aKEmZcqY" id="_t0ignME7" data-link-icon="youtube" data-link-icon-type="svg" data-link-icon-color="#ff0033" title="Simple Code, High Performance"><em>Witness</em> pathing</a> (<a href="/doc/www/old.reddit.com/acf04110e357509b2d192c778183fbe36ecc38f3.html" id="_TqD-pXd3" class="link-live link-annotated-partial" data-link-icon="reddit" data-link-icon-type="svg" data-link-icon-color="#ff4500" data-url-archive="/doc/www/old.reddit.com/acf04110e357509b2d192c778183fbe36ecc38f3.html" data-url-original="https://www.reddit.com/r/programming/comments/q76ea8/simple_code_high_performance_lecture_by_casey/hghky4o/">summary</a>)</p></li>
+<li><p><a href="/doc/economics/experience-curve/index" id="_AiFngvai" class="prefetch-not link-annotated link-page" title="‘experience curve’ directory"><strong>Algorithmic Progress</strong></a>:</p>
+<ul>
+<li><p><a href="/doc/ai/scaling/2013-grace.pdf#miri" id="grace-2013" class="prefetch-not link-annotated" data-link-icon="pdf" data-link-icon-type="svg" data-link-icon-color="#f40f02" title="&#39;Algorithmic Progress in Six Domains&#39;, Grace 2013">“Algorithmic Progress in 6 Domains”</a>, Grace 2013</p></li>
+<li><p><a href="/doc/www/arxiv.org/3dca056b6958521c0d4bf7754114ed5b55ba3f9f.pdf" id="fichte-et-al-2020" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2008.02215?fallback=original" data-url-archive="/doc/www/arxiv.org/3dca056b6958521c0d4bf7754114ed5b55ba3f9f.pdf" data-url-original="https://arxiv.org/abs/2008.02215" title="&#39;A Time Leap Challenge for SAT Solving&#39;, Fichte et al 2020">“A Time Leap Challenge for SAT Solving”</a>, Fichte et al 2020 (hardware overhang: ~2.5<a href="https://en.wikipedia.org/wiki/Boolean_satisfiability_problem#Algorithms_for_solving_SAT" id="_XBZK7Bkp" class="link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Boolean_satisfiability_problem#bodyContent" title="Boolean satisfiability problem § Algorithms for solving SAT">SAT solving</a><span> since <span class="date-range">2000<sub><span title="2000 was 26 years ago.">26ya</span></sub></span>, about equally due to software &amp; hardware gains, although slightly more software—new software on old hardware beats old on new.)</span></p></li>
+<li><p><a href="/self-decrypting#unlocking-of-lcs35" id="gwern-self-decrypting--unlocking-of-lcs35" class="prefetch-not link-annotated-partial link-page">2019 Unlocking of the LCS35 Challenge</a></p></li>
+<li><p><a href="https://www.lesswrong.com/posts/75dnjiD8kv2khe9eQ/measuring-hardware-overhang" id="hippke-2020" class="link-live link-annotated" data-link-icon="LW" data-link-icon-type="text" data-link-icon-color="#7faf83" data-url-iframe="https://www.greaterwrong.com/posts/75dnjiD8kv2khe9eQ/measuring-hardware-overhang?format=preview&amp;theme=classic" title="&#39;Measuring hardware overhang&#39;, Hippke 2020">“Measuring hardware overhang”</a>, hippke (“with today’s algorithms, computers would have beat the world chess champion already in <span class="date-range">1994<sub><span title="1994 was 32 years ago.">32ya</span></sub></span> on a contemporary desk computer”)</p></li>
+</ul></li>
+<li><p><strong>Memory Locality</strong>:</p>
+<ul>
+<li><p><a href="/doc/cs/hardware/2007-drepper.pdf" id="drepper-2007" class="link-annotated" data-link-icon="pdf" data-link-icon-type="svg" data-link-icon-color="#f40f02" title="&#39;What Every Programmer Should Know About Memory&#39;, Drepper 2007">“What Every Programmer Should Know About Memory”</a>, Drepper 2007</p></li>
+<li><p><a href="/doc/www/queue.acm.org/3c72e1b049e088cf600178c31be80dd5f9a73bf1.html" id="kamp-2010" class="link-live link-annotated" data-link-icon="acm" data-link-icon-type="text,tri,sans" data-link-icon-color="#3795c4" data-url-archive="/doc/www/queue.acm.org/3c72e1b049e088cf600178c31be80dd5f9a73bf1.html" data-url-original="https://queue.acm.org/detail.cfm?id=1814327" title="&#39;You’re Doing It Wrong: Think you’ve mastered the art of server performance? Think again.&#39;, Kamp 2010">“You’re Doing It Wrong: Think you’ve mastered the art of server performance? Think again.”</a>, <a href="https://en.wikipedia.org/wiki/Poul-Henning_Kamp" id="_iblkaNVa" class="link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Poul-Henning_Kamp#bodyContent" title="Poul-Henning Kamp">Poul-Henning Kamp</a> <span class="date-range">2010<sub><span title="2010 was 16 years ago.">16ya</span></sub></span> (on using <a href="https://en.wikipedia.org/wiki/Cache-oblivious_algorithm" id="_P2DrTY3l" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Cache-oblivious_algorithm#bodyContent" title="Cache-oblivious algorithm">cache-oblivious</a> <a href="https://en.wikipedia.org/wiki/B-heap" id="_4Z-zwcFy" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/B-heap#bodyContent" title="B-heap">B-heaps</a> to optimize Varnish performance 10×)</p></li>
+<li><p><a href="/doc/www/martinfowler.com/b72871b54c7e1d4712c81463163d3e32299bc6e0.html" id="_aTtT3MVf" class="link-live link-annotated-partial" data-url-archive="/doc/www/martinfowler.com/b72871b54c7e1d4712c81463163d3e32299bc6e0.html" data-url-original="https://martinfowler.com/articles/lmax.html" title="The LMAX Architecture">“The LMAX Architecture”</a>, Fowler <span class="date-range">2011<sub><span title="2011 was 15 years ago.">15ya</span></sub></span> (<a href="https://github.com/tigerbeetle/tigerbeetle/blob/main/docs/DESIGN.md#architecture" id="_VxNmoBus" data-link-icon="github" data-link-icon-type="svg">TigerBeetle</a>)</p></li>
+<li><p><a href="/doc/www/josephg.com/30d6e9f8d5d64f1659bdacdb18dd9cc36324ce95.html" id="_pNEp8Fg8" class="link-live link-annotated-partial" data-url-archive="/doc/www/josephg.com/30d6e9f8d5d64f1659bdacdb18dd9cc36324ce95.html" data-url-original="https://josephg.com/blog/crdts-go-brrr/" title="CRDTs go brrr">“5000× faster CRDTs: An Adventure in Optimization”</a></p></li>
+<li><p><a href="/doc/www/arxiv.org/19c8b4a69cc1a2b80584fa1439ca3ce7144732bf.pdf" id="axtmann-et-al-2020" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2009.13569?fallback=original" data-url-archive="/doc/www/arxiv.org/19c8b4a69cc1a2b80584fa1439ca3ce7144732bf.pdf" data-url-original="https://arxiv.org/abs/2009.13569" title="&#39;Engineering In-place (Shared-memory) Sorting Algorithms&#39;, Axtmann et al 2020">“In-place Superscalar Samplesort (IPS<sup>4</sup>o): Engineering In-place (Shared-memory) Sorting Algorithms”</a>, Axtmann et al 2020; <a href="/doc/www/arxiv.org/8acbd7fc97baebc6ee7791a39e3c641802aeacea.pdf#google" id="blacher-et-al-2022" class="prefetch-not link-live link-annotated" data-link-icon="alphabet" data-link-icon-type="svg" data-link-icon-color="#4285f4" data-href-mobile="https://arxiv.org/html/2205.05982?fallback=original#google" data-url-archive="/doc/www/arxiv.org/8acbd7fc97baebc6ee7791a39e3c641802aeacea.pdf#google" data-url-original="https://arxiv.org/abs/2205.05982#google" title="&#39;Vectorized and performance-portable Quicksort&#39;, Blacher et al 2022">“Vectorized and performance-portable Quicksort”</a>, Blacher et al 2022</p></li>
+<li><p><a href="/doc/www/wolfgarbe.medium.com/bae20c0ac996f328e39c47bd762eb01ab8c51a44.html" id="_Q2UXmg_g" class="link-live link-annotated-partial" data-url-archive="/doc/www/wolfgarbe.medium.com/bae20c0ac996f328e39c47bd762eb01ab8c51a44.html" data-url-original="https://wolfgarbe.medium.com/fast-approximate-string-matching-with-large-edit-distances-in-big-data-2015-9174a0968c0b" title="Fast approximate string matching with large edit distances in Big Data">“Fast approximate string matching with large edit distances in Big Data (<span class="date-range">2015<sub><span title="2015 was 11 years ago.">11ya</span></sub></span>)”</a></p></li>
+<li><p><a href="/doc/www/arxiv.org/b8ce2a810a53c24431053cf2da7a2d2f441e98b5.pdf" id="stehle-jacobsen-2019" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/1905.13415?fallback=original" data-url-archive="/doc/www/arxiv.org/b8ce2a810a53c24431053cf2da7a2d2f441e98b5.pdf" data-url-original="https://arxiv.org/abs/1905.13415" title="&#39;ParPaRaw: Massively Parallel Parsing of Delimiter-Separated Raw Data&#39;, Stehle &amp; Jacobsen 2019">“ParPaRaw: Massively Parallel Parsing of [CSV] Delimiter-Separated Raw Data”</a>, Stehl &amp; Jacobsen 2019</p></li>
+<li><p><a href="/doc/www/www.causal.app/c6d1f350b3cb716597f64660f5f6a64ac867728f.html" id="_26x71qI0" class="link-live link-annotated-partial" data-url-archive="/doc/www/www.causal.app/c6d1f350b3cb716597f64660f5f6a64ac867728f.html" data-url-original="https://www.causal.app/blog/scaling" title="Scaling our Spreadsheet Engine from Thousands to Billions of Cells">“Scaling our Spreadsheet Engine from Thousands to Billions of Cells: From Maps To Arrays”</a>, Lukas Köbis 2022</p></li>
+<li><p><a href="/doc/ai/nn/rnn/2016-diamos.pdf#baidu" id="diamos-et-al-2016" class="prefetch-not link-annotated" data-link-icon="pdf" data-link-icon-type="svg" data-link-icon-color="#f40f02" title="&#39;Persistent RNNs: Stashing Recurrent Weights On-Chip&#39;, Diamos et al 2016">“Persistent RNNs: Stashing Recurrent Weights On-Chip”</a>, Diamos et al 2016; <a href="/doc/www/arxiv.org/8f6e0005cca186be4f09657df99e2cdec26304b9.pdf" id="dao-et-al-2022-1" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2205.14135?fallback=original" data-url-archive="/doc/www/arxiv.org/8f6e0005cca186be4f09657df99e2cdec26304b9.pdf" data-url-original="https://arxiv.org/abs/2205.14135" title="&#39;FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness&#39;, Dao et al 2022">“FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness”</a>, Dao et al 2022</p></li>
+<li><p><a href="https://en.algorithmica.org/hpc/" id="_fXP5KaV9"><em>Algorithms for Modern Hardware</em></a></p></li>
+<li><p><a href="/problem-14" id="gwern-et-al-2022" class="prefetch-not link-annotated link-page" title="‘Problem 14 Dynamic Programming Solutions’, Gwern et al 2022">Solving Problem 14 with Fast Dynamic Programming</a></p></li>
+</ul></li>
+<li><p><span id="reinforcement-learning"><a href="/doc/ai/nn/sparsity/index" id="gwern-notes-sparsity" class="prefetch-not link-annotated link-page" title="‘NN sparsity’ directory"><strong>DL</strong></a>/<strong>Deep Reinforcement Learning</strong></span>:</p>
+<ul>
+<li><p><a href="https://community.arm.com/arm-community-blogs/b/high-performance-computing-blog/posts/deep-learning-episode-4-supercomputer-vs-pong-ii" id="_OZ1Fd5eI">Training A3C to solve Atari Pong in &lt;4 minutes on the ARCHER supercomputer through brute parallelism</a></p></li>
+<li><p><a href="https://andyljones.com/megastep/" id="_CrJnSLqJ" class="link-live">“<code>megastep</code> helps you build 1-million FPS reinforcement learning environments <em>on a single GPU</em>”</a>, Jones</p></li>
+<li><p><a href="https://jdlm.info/articles/2018/03/18/markov-decision-process-2048.html" id="_smqfQgb5" class="link-live">“The Mathematics of <em>2048</em>: Optimal Play with Markov Decision Processes”</a></p></li>
+<li><p><a href="https://tasvideos.org/6347S" id="_ZZ4Kf2gG" class="link-annotated-partial" data-link-icon="TASV" data-link-icon-type="text,quad" title="Submission #6347: Chef Stef&#39;s NES Arkanoid &#39;warpless&#39; in 11:11.18">Bruteforcing <em>Breakout</em></a> (optimal play by depth-first search of an approximate MDP in an optimized C++ simulator for 6 CPU-years; crazy gameplay—like <a href="/doc/ai/1985-michie.pdf" id="michie-1985" class="link-annotated-partial" data-link-icon="pdf" data-link-icon-type="svg" data-link-icon-color="#f40f02" title="&#39;Human Window on the World&#39;, Michie 1985">chess endgame tables</a>, a glimpse of superintelligence)</p></li>
+<li><p><a href="/doc/www/arxiv.org/8a7d78d713d09a581d4bd49d57bc3d4a7ad0f224.pdf#intel" id="petrenko-et-al-2020" class="prefetch-not link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2006.11751?fallback=original#intel" data-url-archive="/doc/www/arxiv.org/8a7d78d713d09a581d4bd49d57bc3d4a7ad0f224.pdf#intel" data-url-original="https://arxiv.org/abs/2006.11751#intel" title="&#39;Sample Factory: Egocentric 3D Control from Pixels at 100,000 FPS with Asynchronous Reinforcement Learning&#39;, Petrenko et al 2020">“Sample Factory: Egocentric 3D Control from Pixels at 100,000 FPS with Asynchronous Reinforcement Learning”</a>, Petrenko et al 2020; <a href="/doc/www/arxiv.org/bc62b8c3e66898a42a05b3b89cc63044acee38fe.pdf#intel" id="petrenko-et-al-2021" class="prefetch-not link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2107.08170?fallback=original#intel" data-url-archive="/doc/www/arxiv.org/bc62b8c3e66898a42a05b3b89cc63044acee38fe.pdf#intel" data-url-original="https://arxiv.org/abs/2107.08170#intel" title="&#39;Megaverse: Simulating Embodied Agents at One Million Experiences per Second&#39;, Petrenko et al 2021">“Megaverse: Simulating Embodied Agents at One Million Experiences per Second”</a><span>, Petrenko et al 2021; </span><a href="/doc/www/arxiv.org/fb46557272d1d08b1d184bd04d6a9a1bee226725.pdf#google" id="freeman-et-al-2021" class="prefetch-not link-live link-annotated" data-link-icon="alphabet" data-link-icon-type="svg" data-link-icon-color="#4285f4" data-href-mobile="https://arxiv.org/html/2106.13281?fallback=original#google" data-url-archive="/doc/www/arxiv.org/fb46557272d1d08b1d184bd04d6a9a1bee226725.pdf#google" data-url-original="https://arxiv.org/abs/2106.13281#google" title="&#39;Brax—A Differentiable Physics Engine for Large Scale Rigid Body Simulation&#39;, Freeman et al 2021">“Brax: A Differentiable Physics Engine for Large Scale Rigid Body Simulation”</a><span>, Freeman et al 2021; </span><a href="/doc/www/arxiv.org/2ad263384c32379b54fd70fac8046a33b6d6d806.pdf#nvidia" id="makoviychuk-et-al-2021" class="prefetch-not link-live link-annotated" data-link-icon="n" data-link-icon-type="text,sans,italic" data-link-icon-color="#77ba00" data-href-mobile="https://arxiv.org/html/2108.10470?fallback=original#nvidia" data-url-archive="/doc/www/arxiv.org/2ad263384c32379b54fd70fac8046a33b6d6d806.pdf#nvidia" data-url-original="https://arxiv.org/abs/2108.10470#nvidia" title="&#39;Isaac Gym: High Performance GPU-Based Physics Simulation For Robot Learning&#39;, Makoviychuk et al 2021">“Isaac Gym: High Performance GPU-Based Physics Simulation For Robot Learning”</a><span>, Makoviychuk et al 2021 (</span><a href="/doc/www/arxiv.org/9180db481148380d49aff2098c4fe9a3e99d0ff0.pdf#nvidia" id="rudin-et-al-2021" class="prefetch-not link-live link-annotated" data-link-icon="n" data-link-icon-type="text,sans,italic" data-link-icon-color="#77ba00" data-href-mobile="https://arxiv.org/html/2109.11978?fallback=original#nvidia" data-url-archive="/doc/www/arxiv.org/9180db481148380d49aff2098c4fe9a3e99d0ff0.pdf#nvidia" data-url-original="https://arxiv.org/abs/2109.11978#nvidia" title="Learning to Walk in Minutes Using Massively Parallel Deep Reinforcement Learning">Rudin et al 2021</a>); <a href="/doc/www/arxiv.org/ef3986310d5ac281e436bef29c6286db28895efa.pdf#salesforce" id="lan-et-al-2021-2" class="prefetch-not link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2108.13976?fallback=original#salesforce" data-url-archive="/doc/www/arxiv.org/ef3986310d5ac281e436bef29c6286db28895efa.pdf#salesforce" data-url-original="https://arxiv.org/abs/2108.13976#salesforce" title="&#39;WarpDrive: Extremely Fast End-to-End Deep Multi-Agent Reinforcement Learning on a GPU&#39;, Lan et al 2021">WarpDrive</a></p></li>
+<li><p><a href="/doc/www/arxiv.org/79528489ccea8d598189f1f980c963c6c2ee576a.pdf" id="shacklett-et-al-2021" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2103.07013?fallback=original" data-url-archive="/doc/www/arxiv.org/79528489ccea8d598189f1f980c963c6c2ee576a.pdf" data-url-original="https://arxiv.org/abs/2103.07013" title="&#39;Large Batch Simulation for Deep Reinforcement Learning&#39;, Shacklett et al 2021">“Large Batch Simulation for Deep Reinforcement Learning”</a>, Shacklett et al 2021</p></li>
+<li><p><a href="/doc/www/arxiv.org/dc5e847727ef4250dc9db1b8d854c3d3528ea2cb.pdf" id="jones-2021" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2104.03113?fallback=original" data-url-archive="/doc/www/arxiv.org/dc5e847727ef4250dc9db1b8d854c3d3528ea2cb.pdf" data-url-original="https://arxiv.org/abs/2104.03113" title="&#39;Scaling Scaling Laws with Board Games&#39;, Jones 2021">“Scaling Scaling Laws with Board Games”</a>, Jones 2021</p></li>
+<li><p><a href="/doc/www/clemenswinter.com/1df5f9a4616649a2f8d7a313d30e45a6500ea385.html" id="_13bW_IH7" class="link-live link-annotated-partial" data-url-archive="/doc/www/clemenswinter.com/1df5f9a4616649a2f8d7a313d30e45a6500ea385.html" data-url-original="https://clemenswinter.com/2021/03/24/mastering-real-time-strategy-games-with-deep-reinforcement-learning-mere-mortal-edition/">“Mastering Real-Time Strategy Games with Deep Reinforcement Learning: Mere Mortal Edition”</a>, Winter</p></li>
+<li><p><a href="/doc/www/greydanus.github.io/dcc5e61de604128d758b8007d53abb20178b9401.html" id="greydanus-2020" class="link-live link-annotated" data-url-archive="/doc/www/greydanus.github.io/dcc5e61de604128d758b8007d53abb20178b9401.html" data-url-original="https://greydanus.github.io/2020/12/01/scaling-down/" title="&#39;Scaling down Deep Learning&#39;, Greydanus 2020">“Scaling down Deep Learning”</a>, Greydanus 2020</p></li>
+<li><p><a href="/doc/www/arxiv.org/9decce9c7af813d74bd2aaceaf371f6bc7d3f1c3.pdf#deepmind" id="hessel-et-al-2021-2" class="prefetch-not link-live link-annotated" data-link-icon="deepmind" data-link-icon-type="svg" data-link-icon-color="#4185f4" data-href-mobile="https://arxiv.org/html/2104.06272?fallback=original#deepmind" data-url-archive="/doc/www/arxiv.org/9decce9c7af813d74bd2aaceaf371f6bc7d3f1c3.pdf#deepmind" data-url-original="https://arxiv.org/abs/2104.06272#deepmind" title="&#39;Podracer architectures for scalable Reinforcement Learning&#39;, Hessel et al 2021">“Podracer architectures for scalable Reinforcement Learning”</a>, Hessel et al 2021 (highly-efficient TPU pod use: eg. solving Pong in &lt;1min at 43 million FPS on a TPU-2048); <a href="/doc/www/arxiv.org/7c288d2c4fb986b0d49741dc99d43b726c8ae21b.pdf" id="lim-et-al-2022" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2202.01258?fallback=original" data-url-archive="/doc/www/arxiv.org/7c288d2c4fb986b0d49741dc99d43b726c8ae21b.pdf" data-url-original="https://arxiv.org/abs/2202.01258" title="&#39;Accelerated Quality-Diversity for Robotics through Massive Parallelism&#39;, Lim et al 2022">“Q-DAX: Accelerated Quality-Diversity for Robotics through Massive Parallelism”</a><span>, Lim et al 2022; </span><a href="/doc/www/arxiv.org/88c6234199a0c57898c8e6bb99dda4cb0db71570.pdf#google" id="tang-et-al-2022-3" class="prefetch-not link-live link-annotated" data-link-icon="alphabet" data-link-icon-type="svg" data-link-icon-color="#4285f4" data-href-mobile="https://arxiv.org/html/2202.05008?fallback=original#google" data-url-archive="/doc/www/arxiv.org/88c6234199a0c57898c8e6bb99dda4cb0db71570.pdf#google" data-url-original="https://arxiv.org/abs/2202.05008#google" title="&#39;EvoJAX: Hardware-Accelerated Neuroevolution&#39;, Tang et al 2022">“EvoJAX: Hardware-Accelerated Neuroevolution”</a><span>, Tang et al 2022; </span><a href="/doc/www/arxiv.org/725f9fd98d78bde1f07ca89017802bc655194ee8.pdf" id="rutherford-et-al-2023" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2311.10090?fallback=original" data-url-archive="/doc/www/arxiv.org/725f9fd98d78bde1f07ca89017802bc655194ee8.pdf" data-url-original="https://arxiv.org/abs/2311.10090" title="&#39;JaxMARL: Multi-Agent RL Environments in JAX&#39;, Rutherford et al 2023">“JaxMARL: Multi-Agent RL Environments in JAX”</a>, Rutherford et al 2023</p></li>
+<li><p><a href="https://www.youtube.com/watch?v=-MfUXSAehnw" id="_eAQtyuMe" data-link-icon="youtube" data-link-icon-type="svg" data-link-icon-color="#ff0033" title="Training a CUDA TDS Ant using C++ ARS Linear policy: The video is real-time, after a few minutes (in the 30 million steps) the training curve is flat (I trained until a billion steps). Note that this Ant is PD control, and not identical to either MuJoCo or PyBullet Ant, so the training curves are not comparable yet. Will fix that.">“Training the Ant simulating at 1 million steps per second on CUDA (NVIDIA RTX 2080), using Tiny Differentiable Simulator and C++ Augmented Random Search.”</a> (Erwin Coumans 2021)</p></li>
+<li><p><a href="https://x.com/jsuarez5341/status/1810732812988994001" id="_uPBeDKlV" data-link-icon="twitter" data-link-icon-type="svg" data-link-icon-color="#1da1f2" data-href-mobile="https://nitter.net/jsuarez5341/status/1810732812988994001" title="jsuarez5341 2026">“This Snake environment simulates 14M snakes and trains 1M snake steps per second.”</a></p></li>
+<li><p><a href="/doc/www/arxiv.org/a5d9fda6525f07d7fe7e44cfdd2c52ad86f0b1f9.pdf" id="jansen-côté-2022" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2208.01174?fallback=original" data-url-archive="/doc/www/arxiv.org/a5d9fda6525f07d7fe7e44cfdd2c52ad86f0b1f9.pdf" data-url-original="https://arxiv.org/abs/2208.01174" title="&#39;TextWorldExpress: Simulating Text Games at One Million Steps Per Second&#39;, Jansen &amp; Côté 2022">“TextWorldExpress: Simulating Text Games at One Million Steps Per Second”</a>, Jansen &amp; Côté 2022</p></li>
+<li><p><a href="/doc/www/hallofdreams.org/e0c7891d20b449a0d1eb36332f05142b82857e0f.html" id="_r8-3y0Lw" class="link-live link-annotated-partial" data-url-archive="/doc/www/hallofdreams.org/e0c7891d20b449a0d1eb36332f05142b82857e0f.html" data-url-original="https://hallofdreams.org/posts/hatetris/" title="Getting the World Record in HATETRIS">“Getting the World Record in HATETRIS”</a>, Dave &amp; Filipe 2022</p></li>
+<li><p><a href="/doc/www/arxiv.org/8dd1784662485af8e4dad4a3568e6228fad5b1c0.pdf" id="pignatelli-et-al-2024" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2407.19396?fallback=original" data-url-archive="/doc/www/arxiv.org/8dd1784662485af8e4dad4a3568e6228fad5b1c0.pdf" data-url-original="https://arxiv.org/abs/2407.19396" title="&#39;NAVIX: Scaling MiniGrid Environments with JAX&#39;, Pignatelli et al 2024">“NAVIX: Scaling MiniGrid Environments with JAX”</a></p></li>
+<li><p><a href="/doc/www/arxiv.org/1be95c28c4186f07fe401105813124030b980465.pdf" id="li-et-al-2023-2" class="link-live link-annotated" data-link-icon="𝛘" data-link-icon-type="text" data-link-icon-color="#b31b1b" data-href-mobile="https://arxiv.org/html/2307.12983?fallback=original" data-url-archive="/doc/www/arxiv.org/1be95c28c4186f07fe401105813124030b980465.pdf" data-url-original="https://arxiv.org/abs/2307.12983" title="&#39;Parallel &lt;em&gt;Q&lt;/em&gt;-Learning (PQL): Scaling Off-policy Reinforcement Learning under Massively Parallel Simulation&#39;, Li et al 2023">“Parallel <em>Q</em>-Learning (PQL): Scaling Off-policy Reinforcement Learning under Massively Parallel Simulation”</a>, Li et al 2023</p></li>
+</ul></li>
+<li><p><span id="latency"></span><strong>Latency/UI</strong>:</p>
+<ul>
+<li><p><a href="/doc/www/www.stuartcheshire.org/8660e62396acce0a3c8d617af47da3fb749bc1c5.html" id="luu-2017-stupid" class="link-live link-annotated" data-url-archive="/doc/www/www.stuartcheshire.org/8660e62396acce0a3c8d617af47da3fb749bc1c5.html" data-url-original="http://www.stuartcheshire.org/rants/latency.html" title="&#39;It’s the Latency, Stupid&#39;, Cheshire 2001">“It’s the Latency, Stupid.”</a></p></li>
+<li><p><a href="/doc/www/superuser.com/4a69fe9c9820de3601f558594514dd0fa9fad60c.html" id="_4ZN7n6-V" class="link-live link-annotated-partial" data-url-archive="/doc/www/superuser.com/4a69fe9c9820de3601f558594514dd0fa9fad60c.html" data-url-original="https://superuser.com/questions/419070/transatlantic-ping-faster-than-sending-a-pixel-to-the-screen" title="Transatlantic ping faster than sending a pixel to the screen?">“Transatlantic ping faster than sending a pixel to the screen?”</a></p></li>
+<li><p><a href="https://danluu.com/input-lag/" id="luu-computer-latency" class="link-live link-annotated" data-link-icon-color="#0000ee" title="&#39;Computer latency: 1977–2017&#39;, Luu 2017">“Computer latency: <span class="date-range" title="The date range 1977–2017 lasted 40 years, ending 9 years ago.">1977<span class="subsup"><sup>–</sup><sub>40</sub></span>2017</span>”</a></p></li>
+<li><p><a href="https://danluu.com/keyboard-latency/" id="luu-2017-keyboard" class="link-live link-annotated" data-link-icon-color="#0000ee" title="&#39;Keyboard latency&#39;, Luu 2017">“Keyboard Latency”</a></p></li>
+<li><p><a href="https://danluu.com/term-latency/" id="luu-2017-terminal" class="link-live link-annotated" data-link-icon-color="#0000ee" title="&#39;Terminal Latency&#39;, Luu 2017">“Terminal Latency”</a>; <a href="/doc/www/bxt.rs/40f36b7abba9b1fe8674b3fc11e79fb3ce31973e.html" id="_t9Bz7NMv" class="link-live link-annotated-partial" data-url-archive="/doc/www/bxt.rs/40f36b7abba9b1fe8674b3fc11e79fb3ce31973e.html" data-url-original="https://bxt.rs/blog/just-how-much-faster-are-the-gnome-46-terminals/" title="&#39;Just How Much Faster Are the GNOME 46 Terminals?&#39;, Ivan Molodetskikh 2024-04-06">improving GNOME terminal</a></p></li>
+<li><p><a href="/doc/www/www.inkandswitch.com/7b1c7b3505ade1a1ecebbd9af85f8ed37270cbeb.html" id="kleppmann-et-al-2019-blog" class="link-live link-annotated" data-url-archive="/doc/www/www.inkandswitch.com/7b1c7b3505ade1a1ecebbd9af85f8ed37270cbeb.html" data-url-original="https://www.inkandswitch.com/local-first.html" title="&#39;Local-first software: You own your data, in spite of the cloud [web]&#39;, Kleppmann et al 2019">“Local-first software: You own your data, in spite of the cloud”</a>/<a href="/doc/cs/algorithm/2019-kleppmann.pdf" id="kleppmann-et-al-2019-paper" class="link-annotated" data-link-icon="pdf" data-link-icon-type="svg" data-link-icon-color="#f40f02" title="Local-First Software: You Own Your Data, in spite of the Cloud">Kleppmann et al 2019</a></p></li>
+<li><p><a href="https://danluu.com/web-bloat/" id="luu-web-bloat" class="link-live link-annotated" data-link-icon-color="#0000ee" title="&#39;Web Bloat&#39;, Luu 2017">“Web Bloat”</a><a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a></p></li>
+<li><p><a href="https://gwern.net/doc/sociology/technology/2021-lawrence.pdf#google" id="lawrence-et-al-2021" class="link-live link-annotated" data-link-icon="alphabet" data-link-icon-type="svg" data-link-icon-color="#4285f4" title="&#39;Project Starline: A high-fidelity telepresence system&#39;, Lawrence et al 2021">“Project Starline: A high-fidelity telepresence system”</a>, Lawrence et al 2021</p></li>
+<li><p><a href="/doc/www/www.buildt.ai/9b29d4901843b64346538b8f7e433bee619a3f06.html" id="pullen-2023" class="link-live link-annotated" data-url-archive="/doc/www/www.buildt.ai/9b29d4901843b64346538b8f7e433bee619a3f06.html" data-url-original="https://www.buildt.ai/blog/incorrectusage" title="&#39;Use GPT-3 incorrectly: reduce costs 40× and increase speed by 5×&#39;, Pullen 2023">“Use GPT-3 incorrectly: reduce costs 40× and increase speed by 5×”</a>, Pullen 2023</p></li>
+<li><p><a href="https://en.wikipedia.org/wiki/High-frequency_trading#Low-latency_strategies" id="_VQc4vMAT" class="link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/High-frequency_trading#bodyContent" title="High-frequency trading § Low-latency strategies">HFT</a>: <a href="/doc/www/web.archive.org/f33d5470993dd360e78176206051fc2633d01933.html" id="_r4WiDDTO" class="link-live link-annotated-partial" data-link-icon="internet-archive" data-link-icon-type="svg" data-url-archive="/doc/www/web.archive.org/f33d5470993dd360e78176206051fc2633d01933.html" data-url-iframe="https://web.archive.org/web/20210205014443if_/https://meanderful.blogspot.com/2018/01/the-accidental-hft-firm.html" data-url-original="https://web.archive.org/web/20210205014443/https://meanderful.blogspot.com/2018/01/the-accidental-hft-firm.html">“The accidental HFT firm”</a></p></li>
+<li><p><a href="https://en.wikipedia.org/wiki/Shenzhen#Industry" id="_UBZccKpX" class="link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Shenzhen#bodyContent" title="Shenzhen § Industry">Shenzhen</a></p></li>
+</ul></li>
+<li><p><strong>Organizations</strong>:</p>
+<ul>
+<li><p><a href="https://en.wikipedia.org/wiki/WhatsApp" id="_EpaQHE56" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/WhatsApp#bodyContent" title="WhatsApp">WhatsApp</a> (<span class="date-range">2013<sub><span title="2013 was 13 years ago.">13ya</span></sub></span>: “50 staff members”<span> for 200m users; <span class="date-range">2015<sub><span title="2015 was 11 years ago.">11ya</span></sub></span>: </span><a href="/doc/www/www.wired.com/2c3d40c7faf9012835514848877276aa397cc678.html" id="metz-2015" class="link-live link-annotated" data-link-icon="wired" data-link-icon-type="svg" data-url-archive="/doc/www/www.wired.com/2c3d40c7faf9012835514848877276aa397cc678.html" data-url-original="https://www.wired.com/2015/09/whatsapp-serves-900-million-users-50-engineers/" title="‘Why WhatsApp Only Needs 50 Engineers for Its 900M Users: One of the (many) intriguing parts of the WhatsApp story is that it has achieved such enormous scale with such a tiny team’, Metz 2015">50 “engineers”, 900m users</a>)</p></li>
+<li><p><a href="https://en.wikipedia.org/wiki/Craigslist" id="_8GBjXHzu" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Craigslist#bodyContent" title="Craigslist">Craigslist</a> (2017: ~50 employees)</p></li>
+<li><p><a href="https://en.wikipedia.org/wiki/Instagram" id="_BG4mmG2X" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Instagram#bodyContent" title="Instagram">Instagram</a> (<span class="date-range">2012<sub><span title="2012 was 14 years ago.">14ya</span></sub></span> FB acquisition: 13 employees; <a href="/doc/www/read.engineerscodex.com/35af56e93f254f8e47c8086eaa380fe0b0e9f648.html" id="_CCj0QFUm" class="link-live link-annotated-partial" data-url-archive="/doc/www/read.engineerscodex.com/35af56e93f254f8e47c8086eaa380fe0b0e9f648.html" data-url-original="https://read.engineerscodex.com/p/how-instagram-scaled-to-14-million">architecture</a>)</p></li>
+<li><p><a href="https://en.wikipedia.org/wiki/YouTube" id="_KD_Q7O-D" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/YouTube#bodyContent" title="YouTube">YouTube</a> (<span class="date-range">2006<sub><span title="2006 was 20 years ago.">20ya</span></sub></span> Google acquisition: ~10 employees)</p></li>
+<li><p><a href="https://en.wikipedia.org/wiki/Reddit" id="_zJmldJlM" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Reddit#bodyContent" title="Reddit">Reddit</a> (<span class="date-range">2011<sub><span title="2011 was 15 years ago.">15ya</span></sub></span>: <a href="https://www.reddit.com/r/announcements/comments/efpn0/comment/c17qsmr/" id="_DJE9ygFl" data-link-icon="reddit" data-link-icon-type="svg" data-link-icon-color="#ff4500">4 engineers</a><span>; 2021: ~700 total staff, &gt;52m users)</span></p></li>
+<li><p><a href="https://en.wikipedia.org/wiki/Wikimedia_Foundation" id="_QLgymGm0" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Wikimedia_Foundation#bodyContent" title="Wikimedia Foundation">Wikimedia Foundation</a> (<a href="https://upload.wikimedia.org/wikipedia/foundation/1/1e/Wikimedia_Foundation_FY2020-2021_Audit_Report.pdf#page=5" id="30-and-2020-page-5" class="link-live" data-link-icon="wikipedia" data-link-icon-type="svg" title="WIKIMEDIA FOUNDATION, INC. Consolidated Statements of Activities: Years ended June 30, 2021 and 2020">“Internet hosting” in 2021</a>: <span class="inflation-adjusted" data-year-original="2021" data-amount-original="2.4" data-year-current="2026" data-amount-current="2.99" title="CPI inflation-adjusted US dollar: from nominal $2.4 in 2021 → real $2.99 in 2026">$2.99<span class="subsup"><sup>$2.4</sup><sub>2021</sub></span></span>m)</p></li>
+<li><p>Twitter: Musk acquisition cut up to 90% of employees+contractors; widespread confident assertions by ex-Twitter staff that the site would suffer crashes (possibly terminal crashes which could not be recovered from), within a month or two, turned out to be false.</p></li>
+<li><p><span class="smallcaps">See Also</span>: <a href="https://patrickcollison.com/fast" id="_1_cwQha7" class="link-live link-annotated-partial" data-link-icon="PC" data-link-icon-type="text,sans" data-link-icon-color="#635bff">“Some examples of people quickly accomplishing ambitious things together.”</a></p></li>
+</ul></li>
+</ul>
+<div class="epigraph">
+<blockquote>
+<p>A novice was trying to fix a broken <a href="https://en.wikipedia.org/wiki/Lisp_machine" id="_-kmZo51R" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Lisp_machine#bodyContent" title="Lisp machine">Lisp machine</a> by turning the power off and on.</p>
+<p>Knight, seeing what the student was doing, spoke sternly: “You cannot fix a machine by just power-cycling it with no understanding of what is going wrong.”</p>
+<p>Knight turned the machine off and on.</p>
+<p>The machine worked.</p>
+<p><a href="http://www.catb.org/jargon/html/koans.html" id="raymond-2003" class="link-annotated-partial" data-link-icon="ESR" data-link-icon-type="text,tri,sans" data-link-icon-color="#0000ee" title="‘Some AI Koans’, Raymond 2003">“Tom Knight and the Lisp Machine”</a>, <em>AI Koans</em></p>
+</blockquote>
+</div>
+<section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes">
+<hr>
+<ol>
+<li id="fn1"><p>AI scaling can continue even if semiconductors do not, particularly with <a href="/tool-ai" id="gwern-tool-ai" class="prefetch-not link-annotated link-page" title="&#39;Why Tool AIs Want to Be Agent AIs&#39;, Gwern 2016">self-optimizing stacks</a>; <a href="/doc/www/localhost/4968ab26ba59dc36ece6f4e76624b41e38e64042.html" id="_yVtRmeiN" class="link-live link-annotated-partial" data-link-icon="twitter" data-link-icon-type="svg" data-link-icon-color="#1da1f2" data-href-mobile="https://nitter.net/ID_AA_Carmack/status/1300280139071270914" data-url-archive="/doc/www/localhost/4968ab26ba59dc36ece6f4e76624b41e38e64042.html" data-url-original="https://x.com/ID_AA_Carmack/status/1300280139071270914" title="Seymour Cray was famous for packing, powering, and cooling circuits incredibly densely. Classic Crays were made obsolete by microprocessors, but we may yet do similar things at a larger scale. Hyperscale data centers and even national supercomputers are loosely coupled things today, but if challenges demanded it, there is a world with a zetta scale, tightly integrated, low latency matrix dissipating a gigawatt in a swimming pool of circulating fluorinert.">John Carmack</a> notes, apropos of <a href="https://en.wikipedia.org/wiki/Seymour_Cray" id="_inf33eVf" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Seymour_Cray#bodyContent" title="Seymour Cray">Seymour Cray</a>, that “Hyperscale data centers and even national supercomputers are loosely coupled things today, but if challenges demanded it, there is a world with a zetta[flops] scale, tightly integrated, low latency matrix dissipating a gigawatt in a swimming pool of circulating <a href="https://en.wikipedia.org/wiki/Fluorinert" id="__fSEuu0d" class="link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/Fluorinert#bodyContent" title="Fluorinert">fluorinert</a>.”<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>A relevant example is <a href="https://docs.aws.amazon.com/whitepapers/latest/best-practices-wordpress/reference-architecture.html" id="_fQ2UzdZD" title="Reference architecture - Best Practices for WordPress on AWS">Amazon’s “best practices”</a> for hosting a <a href="https://en.wikipedia.org/wiki/WordPress" id="_H66pre9X" class="link-annotated-partial link-live" data-link-icon="wikipedia" data-link-icon-type="svg" data-url-iframe="https://en.m.wikipedia.org/wiki/WordPress#bodyContent" title="WordPress">WordPress</a> blog:</p>
+<figure>
+<p><img alt="“Reference architecture for hosting WordPress on AWS: The Hosting WordPress on AWS reference architecture available on GitHub outlines best practices for deploying WordPress on AWS and includes a set of AWS CloudFormation templates to get you up and running quickly. The following architecture is based on that reference architecture. The rest of this section will review the reasons behind the architectural choices.”" class="image-annotated-partial" data-aspect-ratio="1400 / 741" decoding="async" height="741" id="_nhzqWx7N" loading="lazy" src="/doc/cs/js/2023-amazon-aws-wordpress-bestpracticesforcloudblogarchitecture.png" width="1400"></p>
+<figcaption><p>“<strong>Reference architecture for hosting WordPress on AWS</strong>: The Hosting WordPress on AWS reference architecture available on GitHub outlines best practices for deploying WordPress on AWS and includes a set of AWS CloudFormation templates to get you up and running quickly. The following architecture is based on that reference architecture. The rest of this section will review the reasons behind the architectural choices.”</p></figcaption>
+</figure>
+<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></li>
+</ol>
+</section>
+
+      <noscript>
+      <div id="noscript-warning-footer" class="markdownBody noscript-container">
+        <div class="admonition error colors-invert" title="Warning to NoScript Users">
+          <div class="admonition-title">
+            <p><strong>Error:</strong> JavaScript disabled.</p>
+          </div>
+          <p>Backlinks, similar links, and the bibliography require JS enabled to load.</p>
+        </div>
+      </div>
+      </noscript>
+      <section id="backlinks-section" class="level1">
+        <h1><a href="#backlinks-section" title="Link to section: § &#39;Backlinks&#39;">Backlinks</a></h1>
+        <a id="backlinks" href="/metadata/annotation/backlink/%252Fnote%252Ffaster.html" title="Reverse citations/backlinks for this page (the list of other pages which link to this page)." class="backlinks include-strict collapsible" data-link-icon="arrows-pointing-inwards-to-dot" data-link-icon-type="svg">[Backlinks (what links here)]</a>
+      </section>
+      
+      <section id="link-bibliography-section" class="level1 collapse">
+        <h1 class="collapse"><a href="#link-bibliography-section" title="Link to section: § &#39;Bibliography&#39;">Bibliography</a></h1> <!-- NOTE: In theory, '.collapse' on a '<h1>' is redundant with the '<section>'; but added to parallel Pandoc-generated headers which set all attributes/classes on both. -->
+        <a id="link-bibliography" href="/metadata/annotation/link-bibliography/%252Fnote%252Ffaster.html" title="Bibliography of links cited in this page (forward citations). Lazily-transcluded version at footer of page for easier scrolling." class="include-even-when-collapsed link-bibliography" data-link-icon="bibliography" data-link-icon-type="svg">[Bibliography of links/references used in page]</a>
+          </section>
+      
+      </div> <!-- NOTE: unmatched, because it closes the opening div from the hakyll.hs $body$ Pandoc template -->
+
+    </article>
+
+    
+    <!-- SSI: Footer -->
+    <!-- FOOTER-BEGIN-->
+        <nav id="navigation">
+      <svg id="navigation-left"><use href="/static/img/ornament/sequential-nav-icons-arabesque.svg#direction" /></svg>
+      <a id="navigation-center" class="link-page-not" title="Return to top of current page" href="#top"
+        ><svg><use href="/static/img/ornament/sequential-nav-icons-arabesque.svg#center" /></svg></a>
+      <svg id="navigation-right"><use href="/static/img/ornament/sequential-nav-icons-arabesque.svg#direction" /></svg>
+    </nav>
+    <div class="markdownBody" id="footer">
+      <p id="footer-anonymous-feedback">
+        <a href="https://docs.google.com/forms/d/e/1FAIpQLSd7uqL7B_l1HFIfXc8D_nZyumaOv58msK7jhl4XzQjWODWKdA/viewform" rel="nofollow" title="Google Docs web form for submitting anonymized feedback to Gwern Branwen">[&hairsp;Send Anonymous Feedback&hairsp;]</a>
+      </p>
+      <div id="x-of-the-day" class="dark-mode-invert">
+        <p><a id="qotd" class="include include-spinner-not" href="/metadata/today-quote.html">[Quote Of The Day]</a></p>
+        <p><a id="sotd" class="include include-spinner-not" href="/metadata/today-site.html">[Site Of The Day]</a></p>
+        <p><a id="atod" class="include include-spinner-not" href="/metadata/today-annotation.html">[Annotation Of The Day]</a></p>
+      </div>
+      <p><a id="psa-adblock" class="include adsense include-spinner-not" href="/metadata/psa-adblock.html">[adblock public service announcement]</a></p>
+    </div>
+
+    <!-- FOOTER-END -->
+    
+    <div id="footer-decoration-container"> <!-- Mandatory element for layout -->
+      <a rel="home me contents" title="Gwern.net homepage" class="footer-logo dark-mode-invert" href="/index">​</a>
+    </div>
+
+  </main>
+
+  <script defer src="https://www.googletagmanager.com/gtag/js?id=UA-18912926-1" onload="GW.googleAnalyticsLoaded = true;"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'UA-18912926-1');
+  </script>
+  
+  
+</body>
+</html>

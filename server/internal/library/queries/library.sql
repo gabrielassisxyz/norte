@@ -79,3 +79,41 @@ SELECT
     (SELECT COUNT(*) FROM library_items WHERE kind = 'newsletter') AS kind_newsletter,
     (SELECT COUNT(*) FROM library_items WHERE kind = 'curso') AS kind_curso,
     (SELECT COUNT(*) FROM library_items WHERE unread = 1) AS unread;
+
+-- The extraction writes everything one pass produced in one statement, so no
+-- consumer can ever read an item whose text and whose metadata came from
+-- different runs.
+-- name: WriteLibraryExtraction :exec
+UPDATE library_items
+SET title = ?, author = ?, site = ?, published_at = ?, lead_image = ?,
+    html_hash = ?, content_html = ?, content_text = ?, content_headings = ?,
+    minutes = ?, read_position = ?, meta = ?, extract_status = 'done',
+    extract_error = NULL, extracted_at = ?, updated_at = ?
+WHERE id = ?;
+
+-- The extraction's last attempt, or a permanent failure: the reason stays on
+-- the row so the library screen can show it with a retry button.
+-- name: MarkLibraryExtractionFailed :execrows
+UPDATE library_items
+SET extract_status = 'failed', extract_error = ?, updated_at = ?
+WHERE id = ? AND extract_generation = ?;
+
+-- An attempt that will be retried records why it failed without giving up the
+-- pending state, which is what the screen reads as "still working".
+-- name: RecordLibraryExtractionError :execrows
+UPDATE library_items SET extract_error = ?, updated_at = ?
+WHERE id = ? AND extract_generation = ?;
+
+-- A retry asked for from the API or the command line. The generation advances
+-- so the new job gets a dedupe key of its own and any run still in flight is
+-- recognised as superseded and writes nothing.
+-- name: ResetLibraryExtraction :exec
+UPDATE library_items
+SET extract_status = 'pending', extract_error = NULL,
+    extract_generation = extract_generation + 1, updated_at = ?
+WHERE id = ?;
+
+-- Read inside the writer transaction, right before the extraction commits, to
+-- find out whether a newer request has superseded this run.
+-- name: GetLibraryExtractGeneration :one
+SELECT extract_generation FROM library_items WHERE id = ?;

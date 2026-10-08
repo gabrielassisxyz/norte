@@ -1,0 +1,70 @@
+<!doctype html>
+<!--
+  The bliki shape: a personal site that is neither a blog nor a wiki, with the
+  byline and the date in a small block under the title, a table in the body, and
+  a hand-maintained "see also" list at the end that is not a template leak and
+  must survive the cleanup rules. Invented author, invented content.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Reversible Migration</title>
+<meta property="og:title" content="Reversible Migration">
+<meta property="og:site_name" content="Hald on Software">
+<meta name="author" content="Bodil Hald">
+<meta property="article:published_time" content="2022-09-07T00:00:00Z">
+<meta property="og:image" content="https://haldonsoftware.example/img/reversible-migration.png">
+</head>
+<body>
+<div id="topbar"><a href="/">home</a> <a href="/tags">tags</a> <a href="/books">books</a></div>
+
+<div id="content">
+<h1>Reversible Migration</h1>
+<div class="attribution">7 September 2022 &middot; Bodil Hald</div>
+
+<p>A migration is reversible when the system can run correctly on either side of
+it for as long as you need. That is a stronger property than having written a
+down script, and it is the one that decides whether a release can be rolled back
+on a Friday evening without a meeting.</p>
+
+<p>The usual failure is a migration that is reversible in the database and not in
+the code. The column is dropped in one deploy and the code that read it in the
+next, so for the window between them the running system is one version away from
+a crash in either direction. Nothing about the down script tells you that.</p>
+
+<h2>The four shapes</h2>
+
+<table>
+<thead><tr><th>Change</th><th>Reversible?</th><th>Why</th></tr></thead>
+<tbody>
+<tr><td>Add a nullable column</td><td>Yes</td><td>Old code ignores it.</td></tr>
+<tr><td>Add a NOT NULL column</td><td>No</td><td>Old inserts have no value for it.</td></tr>
+<tr><td>Rename a column</td><td>No</td><td>Neither version can read both names.</td></tr>
+<tr><td>Add then backfill then enforce</td><td>Yes</td><td>Each step runs on both.</td></tr>
+</tbody>
+</table>
+
+<p>The last row is the technique, and it is the whole of the technique. Every
+irreversible change decomposes into a sequence of reversible ones, at the price
+of more deploys. Teams that find this tedious are measuring the cost of the
+deploys and not the cost of the rollback they will eventually want.</p>
+
+<h2>When to stop bothering</h2>
+
+<p>Reversibility is insurance, and insurance has a premium. For a table nothing
+depends on, in a system with one deployable and one operator, the premium is
+larger than the risk. Say so out loud rather than letting the practice quietly
+lapse, because a practice that lapses silently comes back as a surprise.</p>
+
+<p>The judgement is about blast radius, not about size. A two-line migration on
+the table every request reads deserves the full sequence; a thousand-line one on
+a reporting table that is rebuilt nightly does not.</p>
+
+<h2>See also</h2>
+<ul>
+<li><a href="/expand-contract">Expand and contract</a></li>
+<li><a href="/deploy-decoupling">Decoupling deploy from release</a></li>
+</ul>
+</div>
+</body>
+</html>
