@@ -9,7 +9,7 @@ import { useAsyncAction } from '@/lib/asyncResource'
 import { formatTimeOfDay } from '@/lib/clock'
 import type { MaterialKind } from '@/mock/types'
 import { crossModuleActionAllowed } from '@/modules/mounting'
-import { useMaterialNotes } from '@/modules/notes/data/composables'
+import { useItemNotes } from '@/modules/notes/data/composables'
 import { useMaterialContext } from '@/modules/study/data/composables'
 import { useSources } from '@/sources'
 
@@ -78,7 +78,7 @@ const canReachNotes = computed(() => crossModuleActionAllowed('library', 'notes'
 const canReachReview = computed(() => crossModuleActionAllowed('library', 'review'))
 
 const { data: materialContext } = useMaterialContext(materialId, canReachStudy)
-const { data: materialNotes, applyHighlight, applyAnnotation } = useMaterialNotes(materialId, canReachNotes)
+const { data: materialNotes, applyHighlight, applyAnnotation } = useItemNotes(materialId, canReachNotes)
 
 const nextMaterial = computed(() => {
   const next = materialContext.value?.next
@@ -119,15 +119,15 @@ const panelAnnotations = computed<PanelAnnotation[]>(() => {
   const entries: PanelAnnotation[] = []
 
   loaded.highlights.forEach((highlight, index) => {
-    const annotation = loaded.annotations.find((candidate) => candidate.highlightId === highlight.id)
+    const annotation = loaded.annotations.find((candidate) => candidate.highlight_id === highlight.id)
     if (annotation) linkedAnnotationIds.add(annotation.id)
     entries.push({
       id: annotation?.id ?? highlight.id,
-      quote: highlight.text,
+      quote: highlight.exact,
       note: annotation?.text,
       n: index + 1,
       location: kind.value === 'livro' ? 'Capítulo atual' : 'Texto principal',
-      time: annotation ? formatTimeOfDay(annotation.createdAt) : 'agora'
+      time: annotation ? formatTimeOfDay(annotation.created_at) : 'agora'
     })
   })
 
@@ -138,7 +138,7 @@ const panelAnnotations = computed<PanelAnnotation[]>(() => {
         id: annotation.id,
         note: annotation.text,
         location: 'Sobre o material',
-        time: formatTimeOfDay(annotation.createdAt)
+        time: formatTimeOfDay(annotation.created_at)
       })
     })
 
@@ -196,7 +196,7 @@ async function handleSelectionAction(payload: { action: string; text: string }):
   if (!current || !text) return
 
   if (payload.action === 'Destacar' || payload.action === 'Anotar') {
-    const highlight = await writing.run(() => notesSource.addHighlight({ materialId: current.id, text }))
+    const highlight = await writing.run(() => notesSource.addHighlight({ item_id: current.id, exact: text }))
     if (!highlight) return
     applyHighlight(highlight)
     highlightedQuote.value = text
@@ -204,8 +204,8 @@ async function handleSelectionAction(payload: { action: string; text: string }):
     if (payload.action === 'Anotar') {
       const annotation = await writing.run(() =>
         notesSource.addAnnotation({
-          materialId: current.id,
-          highlightId: highlight.id,
+          item_id: current.id,
+          highlight_id: highlight.id,
           text: 'Revisar esta ideia antes da próxima sessão de estudo.'
         })
       )
@@ -219,8 +219,7 @@ async function handleSelectionAction(payload: { action: string; text: string }):
   if (payload.action === 'Virar pergunta') {
     const question = await writing.run(() =>
       notesSource.addQuestion({
-        materialId: current.id,
-        kind: 'what',
+        item_id: current.id,
         text: `O que este trecho muda na forma de estudar?`
       })
     )
@@ -235,7 +234,7 @@ async function addPanelAnnotation(text: string): Promise<void> {
   const current = material.value
   const value = text.trim()
   if (!current || !value) return
-  const annotation = await writing.run(() => notesSource.addAnnotation({ materialId: current.id, text: value }))
+  const annotation = await writing.run(() => notesSource.addAnnotation({ item_id: current.id, text: value }))
   if (!annotation) return
   applyAnnotation(annotation)
   panelTab.value = 'annotations'

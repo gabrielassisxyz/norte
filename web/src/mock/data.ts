@@ -1,4 +1,3 @@
-import { buildAnnotations, buildHighlights, buildNotesReferencedItems, buildQuestions } from '@/modules/notes/mock/notes'
 import { areas, buildDecisions, buildSessions, projects, tasks } from '@/modules/projects/mock/life'
 import { buildReviewCards, buildReviewReferencedItems, reviewDecks } from '@/modules/review/mock/cards'
 import { buildStudyReferencedItems, curricula } from '@/modules/study/mock/curricula'
@@ -9,10 +8,10 @@ import type { LibraryItem, MockData } from './types'
 /**
  * The stand-ins the other modules carry for the library items they reference.
  *
- * The library reads the API now and has no mock slice of its own, so these are
- * the only library records the mock holds: just enough for a curriculum, a card
- * or a note to name the thing it is about and resolve it. Deduplicating on id
- * is what lets two modules reference the same item.
+ * The library and the notes both read the API now and have no mock slice, so
+ * these are the only library records the mock holds: just enough for a
+ * curriculum or a card to name the thing it is about and resolve it.
+ * Deduplicating on id is what lets two modules reference the same item.
  */
 function mergeLibraryItems(...slices: LibraryItem[][]): LibraryItem[] {
   const merged: LibraryItem[] = []
@@ -46,17 +45,10 @@ function ownCopy<T>(value: T): T {
  */
 export function buildMockData(today: string): MockData {
   return {
-    libraryItems: mergeLibraryItems(
-      buildStudyReferencedItems(today),
-      buildReviewReferencedItems(today),
-      buildNotesReferencedItems(today)
-    ),
+    libraryItems: mergeLibraryItems(buildStudyReferencedItems(today), buildReviewReferencedItems(today)),
     curricula: ownCopy(curricula),
     reviewDecks: ownCopy(reviewDecks),
     reviewCards: buildReviewCards(today),
-    highlights: buildHighlights(today),
-    annotations: buildAnnotations(today),
-    questions: buildQuestions(today),
     areas: ownCopy(areas),
     projects: ownCopy(projects),
     decisions: buildDecisions(today),
