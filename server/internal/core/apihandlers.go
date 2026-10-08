@@ -21,13 +21,15 @@ type APIHandlers struct {
 	subjects *Subjects
 	focus    *FocusAPI
 	links    *LinkAPI
+	search   *SearchAPI
 }
 
 // NewAPIHandlers wires the handlers over the services. A nil database means
 // this process has none -- a test mounting the router to check the contract,
 // for instance -- and every endpoint here then answers 503 rather than
 // panicking inside a query.
-func NewAPIHandlers(database *Database, clock Clock, providers []FocusProvider, enabledModules []string) APIHandlers {
+func NewAPIHandlers(database *Database, clock Clock, providers []FocusProvider,
+	searchProviders []SearchProvider, enabledModules []string) APIHandlers {
 	if database == nil {
 		return APIHandlers{}
 	}
@@ -36,6 +38,7 @@ func NewAPIHandlers(database *Database, clock Clock, providers []FocusProvider, 
 		subjects: subjects,
 		focus:    NewFocusAPI(subjects, providers),
 		links:    NewLinkAPI(database, clock),
+		search:   NewSearchAPI(subjects, searchProviders),
 	}
 }
 

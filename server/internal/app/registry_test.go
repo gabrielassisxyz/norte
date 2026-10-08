@@ -196,7 +196,7 @@ func (f *norteAdapterFake) FocusTargets(context.Context) ([]core.FocusTarget, er
 	return nil, nil
 }
 
-func (f *norteAdapterFake) SearchEntries(context.Context, string, int) ([]core.SearchEntry, error) {
+func (f *norteAdapterFake) SearchEntries(context.Context, app.Deps, string, int) ([]core.SearchEntry, error) {
 	return nil, nil
 }
 

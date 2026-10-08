@@ -161,6 +161,36 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/core/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search every enabled module and the subjects at once
+         * @description One query across the whole app. Each enabled module answers with at
+         *     most ten hits of its own, the subjects add theirs, and the merge is
+         *     deterministic: every entry carries a score in [0, 1] comparable across
+         *     modules, and the order is the score descending, then the title, then
+         *     the id. The total is capped so the caller can render the answer
+         *     without paging it.
+         *
+         *     A module's score is its own relevance mapped onto that range, so a
+         *     module whose raw ranking is a bm25 value and one whose ranking is a
+         *     name match can be read on the same list. The caller never sees the raw
+         *     value, because no two modules' raw values mean the same thing.
+         */
+        get: operations["searchCore"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/core/links": {
         parameters: {
             query?: never;
@@ -281,6 +311,36 @@ export interface components {
             /** @description The item type, as the owning module spells it. */
             type: string;
             title: string;
+        };
+        /**
+         * @description One page of search hits, already merged and ordered. There is no
+         *     cursor: the merge caps the total, because a palette shows the best
+         *     answers and a second page of them is a different question.
+         */
+        SearchResults: {
+            entries: components["schemas"]["SearchHit"][];
+        };
+        /**
+         * @description One thing the query found, as the module that owns it reports it.
+         *     `path` is the frontend route that opens the thing, so a client follows
+         *     a hit without knowing which module answered.
+         */
+        SearchHit: {
+            id: string;
+            /** @description The module that owns the thing, or "core" for a subject. */
+            module: string;
+            /** @description The item type, as the owning module spells it. */
+            type: string;
+            title: string;
+            /** @description One line of context, absent when the module has none. */
+            subtitle?: string;
+            /** @description The frontend route that opens it, for example /biblioteca/<id>. */
+            path: string;
+            /**
+             * @description How well this hit matches, from 0 to 1, comparable across modules.
+             *     The best hit of a query scores 1.
+             */
+            score: number;
         };
         /**
          * @description What a link asserts about the pair it joins.
@@ -605,6 +665,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Focus"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    searchCore: {
+        parameters: {
+            query: {
+                /** @description The words to look for. Every word must match. */
+                q: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The merged hits, best first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchResults"];
                 };
             };
             default: components["responses"]["Error"];
