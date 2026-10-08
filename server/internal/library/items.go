@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	libraryapi "github.com/gabrielassisxyz/norte/server/gen/api/library"
 	"github.com/gabrielassisxyz/norte/server/internal/core"
@@ -52,6 +53,9 @@ func (s *LibraryService) Patch(ctx context.Context, id string, in PatchInput) (d
 	}
 	if in.Kind != nil && !libraryValidKinds[*in.Kind] {
 		return db.LibraryItem{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown kind %q", *in.Kind), "kind")
+	}
+	if in.Title != nil && strings.TrimSpace(*in.Title) == "" {
+		return db.LibraryItem{}, libraryBadRequest("invalid_request", "the title is empty", "title")
 	}
 	tx, err := s.database.Writer().BeginTx(ctx, nil)
 	if err != nil {
