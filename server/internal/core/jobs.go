@@ -83,8 +83,8 @@ func IsPermanent(err error) bool {
 // tokens travel.
 var jobsURLPattern = regexp.MustCompile(`https?://[^\s"'<>]+`)
 
-// redactJobsError strips query strings and fragments from every URL in an
-// error message. A failing fetch reports the page it could not read, never the
+// redactJobsError strips credentials, query strings and fragments from every
+// URL in an error message. A failing fetch reports the page it could not read, never the
 // signed address it was given.
 func redactJobsError(err error) string {
 	if err == nil {
@@ -100,6 +100,7 @@ func redactJobsError(err error) string {
 		if parseErr != nil || parsed.Scheme == "" || parsed.Host == "" {
 			continue
 		}
+		parsed.User = nil
 		parsed.RawQuery = ""
 		parsed.ForceQuery = false
 		parsed.Fragment = ""
