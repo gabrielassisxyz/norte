@@ -134,8 +134,8 @@ func newLibraryFetcher(opts LibraryFetchOptions) *libraryFetcher {
 			Transport: transport,
 			Timeout:   libraryFetchTotalTimeout,
 			CheckRedirect: func(request *http.Request, via []*http.Request) error {
-				if len(via) >= libraryFetchMaxRedirects {
-					return fmt.Errorf("%w: it passed %d hops", errLibraryTooManyRedirects, libraryFetchMaxRedirects)
+				if len(via) > libraryFetchMaxRedirects {
+					return fmt.Errorf("%w: it passed more than %d hops", errLibraryTooManyRedirects, libraryFetchMaxRedirects)
 				}
 				return libraryValidateFetchURL(request.URL)
 			},
@@ -224,7 +224,27 @@ func libraryCheckAddress(addr netip.Addr) error {
 	case addr.IsInterfaceLocalMulticast(), addr.IsMulticast():
 		return &libraryRefusedAddressError{address: addr.String(), reason: "a multicast address"}
 	}
+	for _, reserved := range libraryReservedPrefixes {
+		if reserved.Contains(addr) {
+			return &libraryRefusedAddressError{address: addr.String(), reason: "a reserved address"}
+		}
+	}
 	return nil
+}
+
+// libraryReservedPrefixes are the ranges the standard predicates call global
+// but that are not the public internet: carrier-grade NAT (which is also where
+// Tailscale lives), the "this network" and protocol-assignment blocks,
+// benchmarking, the reserved class E, and the IPv6 forms that embed an IPv4
+// address and so could be routed to one.
+var libraryReservedPrefixes = []netip.Prefix{
+	netip.MustParsePrefix("0.0.0.0/8"),
+	netip.MustParsePrefix("100.64.0.0/10"),
+	netip.MustParsePrefix("192.0.0.0/24"),
+	netip.MustParsePrefix("198.18.0.0/15"),
+	netip.MustParsePrefix("240.0.0.0/4"),
+	netip.MustParsePrefix("64:ff9b::/96"),
+	netip.MustParsePrefix("2002::/16"),
 }
 
 // libraryValidateFetchURL is the check that runs before the first request and

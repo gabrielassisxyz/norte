@@ -285,6 +285,39 @@ func TestATooLongRedirectChainIsRefused(t *testing.T) {
 	}
 }
 
+// TestTheRedirectLimitIsFiveHopsInclusive pins the off-by-one: five redirects
+// are followed and the sixth is the one refused.
+func TestTheRedirectLimitIsFiveHopsInclusive(t *testing.T) {
+	for _, tc := range []struct {
+		hops    int
+		refused bool
+	}{{5, false}, {6, true}} {
+		t.Run(fmt.Sprintf("%d redirects", tc.hops), func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var at int
+				if _, err := fmt.Sscanf(r.URL.Path, "/hop%d", &at); err == nil && at < tc.hops {
+					http.Redirect(w, r, fmt.Sprintf("/hop%d", at+1), http.StatusFound)
+					return
+				}
+				w.Header().Set("Content-Type", "text/html")
+				_, _ = w.Write([]byte(libraryTestPage("Arrived")))
+			}))
+			defer server.Close()
+
+			fetcher := libraryTestFetcher(t, 1<<20,
+				map[string][]string{libraryFetchTestHost: {libraryFetchTestIP}},
+				server.Listener.Addr().String(), &libraryFetchProbe{})
+			_, err := fetcher.Fetch(context.Background(), "http://"+libraryFetchTestHost+"/hop0")
+			if tc.refused && !errors.Is(err, errLibraryTooManyRedirects) {
+				t.Fatalf("error = %v, want the redirect limit", err)
+			}
+			if !tc.refused && err != nil {
+				t.Fatalf("a chain of %d redirects was refused: %v", tc.hops, err)
+			}
+		})
+	}
+}
+
 // TestABodyOverTheCapIsRefusedWhileStreaming generates the oversized body in
 // the test rather than committing one: thirty megabytes of fixture would be in
 // every clone of the repository forever to prove one comparison.
@@ -423,6 +456,9 @@ func TestAddressValidationCoversEveryRefusedRange(t *testing.T) {
 		"0.0.0.0", "127.0.0.1", "127.1.2.3", "10.1.2.3", "172.16.0.1", "192.168.0.1",
 		"169.254.169.254", "::1", "::", "fc00::1", "fd12:3456::1", "fe80::1",
 		"224.0.0.1", "ff02::1", "::ffff:10.0.0.1",
+		"100.64.0.1", "100.127.255.254", "0.1.2.3", "192.0.0.8", "198.18.0.1", "198.19.255.1",
+		"240.0.0.1", "255.255.255.255", "64:ff9b::808:808", "2002:808:808::1",
+		"239.255.255.250", "ff0e::1",
 	} {
 		addr, err := netip.ParseAddr(refused)
 		if err != nil {
