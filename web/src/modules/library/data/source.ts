@@ -89,6 +89,19 @@ export interface NewSavedLink {
 }
 
 /**
+ * What a save answers with: the record as the server now holds it, and
+ * whether the canonical URL was already saved.
+ *
+ * The POST answers 201 on a creation and 200 on a duplicate; the dialog
+ * tells the two apart so a second save of an archived link does not claim it
+ * landed in the inbox.
+ */
+export interface LibrarySaveOutcome {
+  record: LibraryItemRecord
+  duplicate: boolean
+}
+
+/**
  * Everything the library screens read and write.
  *
  * Every mutation answers with the record as the server now holds it, which is
@@ -101,8 +114,8 @@ export interface LibrarySource {
   /** Null when there is no such item, which is a "not found" page rather than an error. */
   getItem(id: string, signal: AbortSignal): Promise<LibraryItemRecord | null>
   counts(signal: AbortSignal): Promise<LibraryCounts>
-  /** Answers with the saved record, new or already there. */
-  saveLink(link: NewSavedLink): Promise<LibraryItemRecord>
+  /** Answers with the saved record, new or already there, and whether it was already there. */
+  saveLink(link: NewSavedLink): Promise<LibrarySaveOutcome>
   patchItem(id: string, patch: LibraryPatch): Promise<LibraryItemRecord>
   openItem(id: string): Promise<LibraryItemRecord>
   extractItem(id: string): Promise<ExtractAck>

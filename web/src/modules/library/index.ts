@@ -65,12 +65,12 @@ export function useSidebar(): ModuleSidebar {
   function shortcutEntries(): SidebarLink[] {
     return [
       { id: 'atalho-inbox', label: 'Inbox', to: { name: 'biblioteca', query: { v: 'inbox' } }, count: viewCount('inbox') },
-      // The prototype links Artigos at the library root; the app filters
-      // articles through tipo=artigos (kind post).
+      // The prototype links Artigos at the library root; the label names a
+      // kind, so it opens the whole library filtered to posts.
       {
         id: 'atalho-artigos',
         label: 'Artigos',
-        to: { name: 'biblioteca', query: { tipo: 'artigos' } },
+        to: { name: 'biblioteca', query: { v: 'tudo', tipo: 'post' } },
         count: kindCount('post')
       },
       // The prototype links Shortlist at the library root (v=tudo); the library

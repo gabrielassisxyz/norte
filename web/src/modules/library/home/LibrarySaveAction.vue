@@ -11,7 +11,7 @@ import SubjectPicker from '@/shell/SubjectPicker.vue'
 import { useSources } from '@/sources'
 
 import { libraryGainedItem } from '../data/revision'
-import type { LibraryItemRecord } from '../data/source'
+import type { LibraryItemRecord, LibraryStatus } from '../data/source'
 import { readerHref } from './items'
 
 const route = useRoute()
@@ -22,6 +22,24 @@ const saveUrl = ref('')
 const saveWhy = ref('')
 const saveError = ref('')
 const savedItem = ref<LibraryItemRecord | null>(null)
+const savedDuplicate = ref(false)
+
+/**
+ * Where the saved item sits, in the dialog's own words.
+ *
+ * A new save always lands in the inbox; a duplicate keeps the shelf the
+ * existing item is on, so the message names that shelf instead of claiming
+ * the inbox.
+ */
+const SHELF_PHRASE: Record<LibraryStatus, string> = {
+  inbox: 'na inbox',
+  depois: 'em Depois',
+  arquivo: 'no arquivo'
+}
+
+const savedShelfPhrase = computed(() =>
+  savedItem.value ? (SHELF_PHRASE[savedItem.value.status] ?? savedItem.value.status) : ''
+)
 /**
  * The subjects the link is about, chosen before it is saved.
  *
@@ -35,6 +53,7 @@ const chosenIds = computed(() => chosen.value.map((subject) => subject.id))
 function openSave(): void {
   saveError.value = ''
   savedItem.value = null
+  savedDuplicate.value = false
   chosen.value = []
   saveOpen.value = true
 }
@@ -96,7 +115,8 @@ async function saveLink(): Promise<void> {
   libraryGainedItem()
   // The save created the links too, so every subject count on screen moved.
   if (linkTo.length > 0) coreLinksChanged()
-  savedItem.value = saved
+  savedItem.value = saved.record
+  savedDuplicate.value = saved.duplicate
   saveUrl.value = ''
   saveWhy.value = ''
   chosen.value = []
@@ -121,7 +141,11 @@ watch(
         <p>Vai para a inbox para você retomar quando fizer sentido.</p>
       </div>
       <template v-if="savedItem">
-        <p class="save-done" role="status">
+        <p v-if="savedDuplicate" class="save-done" role="status">
+          Já estava salvo {{ savedShelfPhrase }}:
+          <RouterLink :to="readerHref(savedItem)">{{ savedItem.title }}</RouterLink>
+        </p>
+        <p v-else class="save-done" role="status">
           Salvo na inbox:
           <RouterLink :to="readerHref(savedItem)">{{ savedItem.title }}</RouterLink>
         </p>

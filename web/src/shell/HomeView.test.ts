@@ -188,6 +188,65 @@ describe('HomeView', () => {
     expect(wrapper.findAll('.home-save-title').map((node) => node.text())).toContain(
       'https://example.org/reading-list'
     )
+    expect(wrapper.get('.save-done').text()).toContain('Salvo na inbox')
+    expect(wrapper.get('.save-done').text()).not.toContain('Já estava salvo')
+  })
+
+  it('names the current shelf when the link was already saved', async () => {
+    library = fakeLibrarySource([
+      ...shellLibraryRecords(),
+      libraryRecord({
+        id: 'lib-arquivada',
+        title: 'Guardada no arquivo',
+        url: 'https://example.org/duplicada',
+        canonical_url: 'https://example.org/duplicada',
+        status: 'arquivo',
+        unread: true
+      })
+    ])
+    const wrapper = await mountHome('/?save=1')
+
+    await wrapper.get('.nt-input').setValue('https://example.org/duplicada')
+    await wrapper.get('form').trigger('submit')
+    await flushReads()
+
+    const done = wrapper.get('.save-done').text()
+    expect(done).toContain('Já estava salvo')
+    expect(done).toContain('arquivo')
+    expect(done).toContain('Guardada no arquivo')
+    // No second copy: the save folded into the archived item.
+    expect(library.records.filter((record) => record.canonical_url === 'https://example.org/duplicada')).toHaveLength(1)
+  })
+
+  it('prints the site once on rows with no author', async () => {
+    const wrapper = await mountHome()
+
+    const saves = wrapper.findAll('.home-save')
+    const paperSave = saves.find((node) => node.text().includes('Um paper guardado'))
+    expect(paperSave).toBeDefined()
+    const saveMeta = paperSave!.get('.home-save-meta').text()
+    expect(saveMeta.match(/papers\.example/g) ?? []).toHaveLength(1)
+
+    const cards = wrapper.findAll('.home-reading-card')
+    const paperCard = cards.find((node) => node.text().includes('Um paper guardado'))
+    expect(paperCard).toBeDefined()
+    expect(paperCard!.text().match(/papers\.example/g) ?? []).toHaveLength(1)
+  })
+
+  it('shows what is left to read, and no duration when the length is unknown', async () => {
+    const wrapper = await mountHome()
+
+    const cards = wrapper.findAll('.home-reading-card')
+    // 8 minutes at 42% read leaves ceil(8 × 0.58) = 5 minutes, not the whole 8.
+    const started = cards.find((node) => node.text().includes('Um texto guardado'))
+    expect(started).toBeDefined()
+    expect(started!.get('.home-reading-meta').text()).toContain('5 min restantes')
+    expect(started!.get('.home-reading-meta').text()).not.toContain('8 min restantes')
+
+    // No minutes stored means no invented duration.
+    const unknown = cards.find((node) => node.text().includes('Um vídeo guardado'))
+    expect(unknown).toBeDefined()
+    expect(unknown!.text()).not.toContain('min restantes')
   })
 
   it('saves a link about the subject chosen in the dialog, in one call', async () => {

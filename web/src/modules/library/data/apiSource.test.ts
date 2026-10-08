@@ -130,7 +130,21 @@ describe('the library API source: counts and writes', () => {
     expect(await post.clone().json()).toEqual({ url: 'https://example.test/a', why: 'porque' })
     expect(get.method).toBe('GET')
     expect(new URL(get.url, 'http://norte.test').pathname).toBe('/api/library/items/item-9')
-    expect(saved).toMatchObject({ id: 'item-9', title: 'lido do servidor' })
+    expect(saved.record).toMatchObject({ id: 'item-9', title: 'lido do servidor' })
+    expect(saved.duplicate).toBe(false)
+  })
+
+  it('marks a 200 save as a duplicate of the item the server already holds', async () => {
+    fetchStub.mockImplementation(async (request) => {
+      const url = new URL(request.url, 'http://norte.test')
+      if (request.method === 'POST') return json({ id: 'item-4' }, 200)
+      return json({ id: 'item-4', title: 'já estava lá', status: 'arquivo' })
+    })
+
+    const saved = await createApiLibrarySource().saveLink({ url: 'https://example.test/duplicada' })
+
+    expect(saved.record).toMatchObject({ id: 'item-4', status: 'arquivo' })
+    expect(saved.duplicate).toBe(true)
   })
 
   it('sends link_to as the body field, and omits it when there is nothing to link', async () => {

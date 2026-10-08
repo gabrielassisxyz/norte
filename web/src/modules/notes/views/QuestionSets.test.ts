@@ -111,6 +111,16 @@ describe('the question-set screen', () => {
     expect(wrapper.get('.sets-row').text()).toContain('2 perguntas')
   })
 
+  it('reads one question with the singular', async () => {
+    const notes = fakeNotesSource({
+      sets: [questionSetRecord({ id: 'set-um', topic: 'Um tema', question_count: 1 })]
+    })
+    const { wrapper } = await mountSets(notes)
+
+    expect(wrapper.get('.sets-row').text()).toContain('1 pergunta')
+    expect(wrapper.get('.sets-row').text()).not.toContain('1 perguntas')
+  })
+
   it('loads a further page of sets when asked, keeping the rows already shown', async () => {
     const notes = fakeNotesSource({
       sets: Array.from({ length: 60 }, (_, index) =>
@@ -147,6 +157,23 @@ describe('the question-set screen', () => {
     expect(wrapper.get('h1').text()).toBe('Kubernetes')
     expect(wrapper.findAll('.set-question')).toHaveLength(2)
     expect(wrapper.findAll('.set-kind').map((kind) => kind.text())).toEqual(['Por quê', 'Como'])
+  })
+
+  it('reads one question on the set with the singular', async () => {
+    const notes = fakeNotesSource({
+      sets: [
+        questionSetRecord({
+          id: 'set-um',
+          topic: 'Um tema',
+          question_count: 1,
+          questions: [questionRecord({ id: 'q-why', kind: 'why', text: 'Por que?', set_id: 'set-um' })]
+        })
+      ]
+    })
+    const wrapper = await mountOneSet(notes, 'set-um')
+
+    expect(wrapper.get('.set-meta').text()).toContain('1 pergunta')
+    expect(wrapper.get('.set-meta').text()).not.toContain('1 perguntas')
   })
 
   it('says a set is not there rather than showing an empty one', async () => {

@@ -41,7 +41,7 @@ const questions = computed(() => set.value?.questions ?? [])
         <RouterLink class="set-back" :to="{ name: 'notas-conjuntos' }">Conjuntos</RouterLink>
       </header>
       <p class="set-meta">
-        <span class="set-mono">{{ set.question_count }} perguntas</span>
+        <span class="set-mono">{{ set.question_count === 1 ? '1 pergunta' : `${set.question_count} perguntas` }}</span>
         <span class="set-mono">{{ formatShortDate(set.created_at) }}</span>
       </p>
 

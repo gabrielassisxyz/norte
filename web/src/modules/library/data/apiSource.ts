@@ -12,6 +12,7 @@ import type {
   LibraryItemSummary,
   LibraryListQuery,
   LibraryPatch,
+  LibrarySaveOutcome,
   LibrarySource,
   NewSavedLink
 } from './source'
@@ -122,7 +123,7 @@ export function createApiLibrarySource(): LibrarySource {
       return unwrap((await libraryClient.GET('/api/library/counts', { signal })) as Answered<LibraryCounts>)
     },
 
-    async saveLink(link: NewSavedLink): Promise<LibraryItemRecord> {
+    async saveLink(link: NewSavedLink): Promise<LibrarySaveOutcome> {
       const answered = await libraryClient.POST('/api/library/items', {
         body: {
           url: link.url,
@@ -130,13 +131,15 @@ export function createApiLibrarySource(): LibrarySource {
           ...(link.link_to?.length ? { link_to: link.link_to } : {})
         }
       })
+      // A duplicate answers 200 with the existing id; a creation answers 201.
+      const duplicate = answered.response?.status === 200
       const saved = unwrap(answered as Answered<{ id: string }>)
       // The save answers with an id; the dialog has to show the item, and the
       // record it should show is the one the server now holds — including the
       // title and kind a deduplicated save kept.
       const record = await this.getItem(saved.id, new AbortController().signal)
       if (!record) throw new Error(`o item ${saved.id} foi salvo e não pôde ser lido`)
-      return record
+      return { record, duplicate }
     },
 
     async patchItem(id: string, patch: LibraryPatch): Promise<LibraryItemRecord> {

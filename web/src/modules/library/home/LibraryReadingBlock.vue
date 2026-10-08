@@ -5,7 +5,7 @@ import Carousel from '@/components/ds/Carousel.vue'
 import Icon from '@/components/ds/Icon.vue'
 
 import { useLibraryItems } from '../data/composables'
-import { minutesFor, progressPercentOf, readerHref, siteOf, sourceOf } from './items'
+import { minutesRemainingFor, progressPercentOf, readerHref, siteOf, sourceOf } from './items'
 
 /**
  * What was opened most recently, which is what "continuar lendo" means. The
@@ -23,7 +23,7 @@ const readingItems = computed(() =>
     href: readerHref(item),
     site: siteOf(item),
     author: sourceOf(item),
-    minutesRemaining: minutesFor(item),
+    minutesRemaining: minutesRemainingFor(item),
     progressPercent: progressPercentOf(item)
   }))
 )
@@ -57,7 +57,7 @@ const readingItems = computed(() =>
         <span class="home-reading-info">
           <span class="home-reading-domain home-mono">{{ item.site }}</span>
           <span class="home-reading-title">{{ item.title }}</span>
-          <span class="home-reading-meta">{{ item.author }} · <span class="home-mono">{{ item.minutesRemaining }} min restantes</span></span>
+          <span v-if="item.author || item.minutesRemaining !== null" class="home-reading-meta"><template v-if="item.author">{{ item.author }}<template v-if="item.minutesRemaining !== null"> · </template></template><span v-if="item.minutesRemaining !== null" class="home-mono">{{ item.minutesRemaining }} min restantes</span></span>
         </span>
       </RouterLink>
     </Carousel>
