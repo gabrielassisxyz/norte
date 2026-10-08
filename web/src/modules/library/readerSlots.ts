@@ -72,8 +72,3 @@ export function registerReaderSlot(entry: ReaderSlotEntry): void {
 export function readerSlotEntries(name: ReaderSlotName): ReaderSlotEntry[] {
   return entries.filter((entry) => entry.name === name).sort((first, second) => first.order - second.order)
 }
-
-/** Test seam: a test that mounts the reader decides what is registered. */
-export function clearReaderSlots(): void {
-  entries.length = 0
-}
