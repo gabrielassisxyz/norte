@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fail when the toolchain versions in the repository disagree with the ones CI installs.
 #
-#   bin/check-pins [<workflow.yml>]        default: .github/workflows/ci.yml
+#   bin/check-pins [<workflow.yml> [<Dockerfile>]]   defaults: .github/workflows/ci.yml, Dockerfile
 #
 # server/go.mod's `toolchain` directive and web/.node-version are the source of
 # truth. A GitHub workflow cannot read either one for the version it installs,
@@ -17,7 +17,7 @@ repo="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 workflow="${1:-$repo/.github/workflows/ci.yml}"
 go_mod="$repo/server/go.mod"
 node_version_file="$repo/web/.node-version"
-dockerfile="$repo/Dockerfile"
+dockerfile="${2:-$repo/Dockerfile}"
 
 failures=0
 
@@ -64,6 +64,13 @@ if [ -f "$dockerfile" ]; then
         fail "$dockerfile has no golang: base image to read a Go version from"
     elif [ "$go_in_dockerfile" != "$go_pinned" ]; then
         fail "Go version mismatch: $go_mod toolchain says $go_pinned, $dockerfile says $go_in_dockerfile"
+    fi
+
+    node_in_dockerfile="$(first_capture '^[[:space:]]*ARG[[:space:]]+NODE_VERSION=([0-9][0-9.]*)[[:space:]]*$' "$dockerfile")"
+    if [ -z "$node_in_dockerfile" ]; then
+        fail "$dockerfile has no ARG NODE_VERSION; $node_version_file says $node_pinned"
+    elif [ "$node_in_dockerfile" != "$node_pinned" ]; then
+        fail "Node version mismatch: $node_version_file says $node_pinned, $dockerfile ARG NODE_VERSION says $node_in_dockerfile"
     fi
 fi
 

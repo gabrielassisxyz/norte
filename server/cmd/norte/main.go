@@ -4,6 +4,9 @@ package main
 import (
 	"context"
 	"os"
+	// Embedded so NORTE_TIMEZONE resolves on images with no zoneinfo, such as
+	// the scratch image the Dockerfile builds.
+	_ "time/tzdata"
 
 	"github.com/gabrielassisxyz/norte/server/internal/app"
 	// The module packages register themselves with the app's registry from

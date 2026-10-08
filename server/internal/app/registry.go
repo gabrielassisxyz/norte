@@ -59,6 +59,17 @@ type Deps struct {
 	// LLMURL is empty when no LLM is configured, which is how a module decides
 	// not to enqueue work whose handler would have nothing to call.
 	LLMURL string
+	// LLM is the client a module's jobs ask a language model through. It is
+	// built from the LLM settings here rather than in the module, because the
+	// key is one of them and a module has no business holding a secret to
+	// build a client with. A nil client, or one built from an empty URL,
+	// answers core.ErrDisabled.
+	LLM *core.LLM
+	// LinkCandidates is everything a classifier may propose linking to: the
+	// subject vocabulary plus every enabled module's in-progress targets. The
+	// registry injects it for the same reason it injects the focus providers
+	// -- the core knows nothing about the module list, and must not.
+	LinkCandidates core.LinkCandidateSource
 	// TelegramToken is empty when no bot is configured, which is how a module
 	// decides not to start an adapter that would have nothing to poll. It is a
 	// secret: it belongs in a request, never in a log line.
