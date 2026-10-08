@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 
 import Button from '@/components/ds/Button.vue'
 import TextField from '@/components/ds/TextField.vue'
@@ -8,6 +8,8 @@ import { useAsyncAction } from '@/lib/asyncResource'
 import { useSources } from '@/sources'
 
 import { libraryGainedItem } from '../data/revision'
+import type { LibraryItemRecord } from '../data/source'
+import { readerHref } from './items'
 
 const route = useRoute()
 const { library } = useSources()
@@ -16,9 +18,11 @@ const saveOpen = ref(false)
 const saveUrl = ref('')
 const saveWhy = ref('')
 const saveError = ref('')
+const savedItem = ref<LibraryItemRecord | null>(null)
 
 function openSave(): void {
   saveError.value = ''
+  savedItem.value = null
   saveOpen.value = true
 }
 
@@ -27,12 +31,14 @@ function closeSave(): void {
   saveError.value = ''
 }
 
-function linkTitle(url: URL): string {
-  const path = url.pathname.split('/').filter(Boolean).pop()
-  if (!path) return url.hostname
-  return path.replace(/[-_]+/g, ' ').replace(/\.[a-z0-9]+$/i, '').replace(/^./, (letter) => letter.toUpperCase())
-}
-
+/**
+ * The dialog sends the address and the reason, and nothing else.
+ *
+ * The kind, the title, the author and the date are the server's to decide — it
+ * reads them out of the page it fetches — so a dialog that guessed a title from
+ * the URL would be overwritten by extraction seconds later, and would be the
+ * title in the list until then.
+ */
 async function saveLink(): Promise<void> {
   const value = saveUrl.value.trim()
   if (!value) {
@@ -48,14 +54,8 @@ async function saveLink(): Promise<void> {
     return
   }
 
-  const saved = await saving.run(() =>
-    library.saveLink({
-      kind: 'post',
-      title: linkTitle(url),
-      author: saveWhy.value.trim() || url.hostname,
-      url: url.toString()
-    })
-  )
+  const why = saveWhy.value.trim()
+  const saved = await saving.run(() => library.saveLink({ url: url.toString(), ...(why ? { why } : {}) }))
 
   // A failed save keeps the dialog, the typed URL and the reason it failed.
   if (!saved) {
@@ -66,9 +66,9 @@ async function saveLink(): Promise<void> {
   // Nothing else on this screen can be handed the new item, so the lists that
   // are open ask again.
   libraryGainedItem()
+  savedItem.value = saved
   saveUrl.value = ''
   saveWhy.value = ''
-  closeSave()
 }
 
 watch(
@@ -89,13 +89,25 @@ watch(
         <h2 id="save-title">Salvar link</h2>
         <p>Vai para a inbox para você retomar quando fizer sentido.</p>
       </div>
-      <TextField v-model="saveUrl" label="URL" placeholder="https://…" type="url" />
-      <TextField v-model="saveWhy" label="Por que salvar (opcional)" placeholder="Uma linha para o eu de daqui a um mês" :multiline="true" :rows="2" />
-      <p v-if="saveError" class="save-error" role="alert">{{ saveError }}</p>
-      <div class="save-buttons">
-        <Button variant="secondary" @click="closeSave">Cancelar</Button>
-        <Button variant="primary" type="submit" :disabled="!saveUrl.trim()">Salvar na inbox</Button>
-      </div>
+      <template v-if="savedItem">
+        <p class="save-done" role="status">
+          Salvo na inbox:
+          <RouterLink :to="readerHref(savedItem)">{{ savedItem.title }}</RouterLink>
+        </p>
+        <div class="save-buttons">
+          <Button variant="secondary" @click="closeSave">Fechar</Button>
+          <Button variant="primary" @click="savedItem = null">Salvar outro</Button>
+        </div>
+      </template>
+      <template v-else>
+        <TextField v-model="saveUrl" label="URL" placeholder="https://…" type="url" />
+        <TextField v-model="saveWhy" label="Por que salvar (opcional)" placeholder="Uma linha para o eu de daqui a um mês" :multiline="true" :rows="2" />
+        <p v-if="saveError" class="save-error" role="alert">{{ saveError }}</p>
+        <div class="save-buttons">
+          <Button variant="secondary" @click="closeSave">Cancelar</Button>
+          <Button variant="primary" type="submit" :disabled="!saveUrl.trim()">Salvar na inbox</Button>
+        </div>
+      </template>
     </form>
   </div>
 </template>
@@ -106,5 +118,7 @@ watch(
 .save-dialog h2 { margin: 0; font-family: var(--font-display); font-size: 24px; line-height: 30px; font-weight: 650; }
 .save-dialog p { margin: 4px 0 0; color: var(--ink-2); font-size: 14px; line-height: 22px; }
 .save-error { color: var(--danger) !important; }
+.save-done { margin: 0; font-size: 14px; line-height: 22px; }
+.save-done a { color: var(--norte); }
 .save-buttons { display: flex; justify-content: flex-end; gap: var(--space-3); }
 </style>

@@ -12,8 +12,6 @@ import type {
   CurriculumModule,
   Decision,
   Highlight,
-  LibraryItem,
-  LibraryStatus,
   Project,
   Question,
   ReviewCard,
@@ -24,7 +22,6 @@ import type {
 /** How far a rating pushes a card out, matching the intervals the deck offers. */
 const DAYS_BY_RATING: Record<CardRating, number> = { again: 0, hard: 2, good: 6, easy: 14 }
 
-type SavedLink = Pick<LibraryItem, 'kind' | 'title' | 'author' | 'url'> & Partial<Pick<LibraryItem, 'curriculumSlug'>>
 type NewProject = Omit<Project, 'id' | 'features' | 'bugs'> & Partial<Pick<Project, 'features' | 'bugs'>>
 type NewTask = Omit<Task, 'id' | 'steps' | 'completed'> & Partial<Pick<Task, 'steps' | 'completed'>>
 type NewSession = Omit<Session, 'id'>
@@ -64,43 +61,6 @@ function nextId(prefix: string, items: { id: string }[]): string {
  */
 export function createMockStore(today: string = todayIsoDate()) {
   const state = reactive(buildMockData(today))
-
-  function setLibraryItemStatus(id: string, status: LibraryStatus): LibraryItem {
-    const item = requireItem(state.libraryItems, id, 'Library item')
-    item.status = status
-    return item
-  }
-
-  /**
-   * Reading is an event, not a place: this leaves the item in the list the user
-   * put it in and only records whether it has been read, and when.
-   */
-  function setLibraryItemUnread(id: string, unread: boolean): LibraryItem {
-    const item = requireItem(state.libraryItems, id, 'Library item')
-    item.unread = unread
-    if (unread) delete item.read_at
-    else item.read_at = nowTimestamp()
-    return item
-  }
-
-  function setLibraryItemCurriculum(id: string, curriculumSlug: string): LibraryItem {
-    requireCurriculum(curriculumSlug)
-    const item = requireItem(state.libraryItems, id, 'Library item')
-    item.curriculumSlug = curriculumSlug
-    return item
-  }
-
-  function addSavedLink(link: SavedLink): LibraryItem {
-    const item: LibraryItem = {
-      id: nextId('saved-link', state.libraryItems),
-      ...link,
-      status: 'inbox',
-      unread: true,
-      savedAt: todayIsoDate()
-    }
-    state.libraryItems.unshift(item)
-    return item
-  }
 
   function addQuestion(question: NewQuestion): Question {
     const created: Question = { id: nextId('question', state.questions), ...question, createdAt: nowTimestamp() }
@@ -262,10 +222,6 @@ export function createMockStore(today: string = todayIsoDate()) {
   }
 
   return Object.assign(state, {
-    setLibraryItemStatus,
-    setLibraryItemUnread,
-    setLibraryItemCurriculum,
-    addSavedLink,
     addQuestion,
     rateCard,
     decideDecision,

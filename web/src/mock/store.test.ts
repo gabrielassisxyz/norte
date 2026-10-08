@@ -84,22 +84,9 @@ describe('mock data integrity', () => {
 })
 
 describe('mock store mutations', () => {
-  it('is reactive and changes only the library item selected', () => {
-    const store = createMockStore()
-    const untouched = store.libraryItems.find((item) => item.id === 'post-typography')?.status
-
-    expect(isReactive(store)).toBe(true)
-    store.setLibraryItemStatus('post-compilation', 'arquivo')
-    expect(store.libraryItems.find((item) => item.id === 'post-compilation')?.status).toBe('arquivo')
-    expect(store.libraryItems.find((item) => item.id === 'post-typography')?.status).toBe(untouched)
-
-    const saved = store.addSavedLink({ kind: 'post', title: 'Uma referência nova', author: 'Equipe Norte', url: 'https://example.com/new-reference' })
-    expect(store.libraryItems[0]).toEqual(saved)
-    expect(saved.status).toBe('inbox')
-  })
-
   it('adds questions and rates the chosen card', () => {
     const store = createMockStore()
+    expect(isReactive(store)).toBe(true)
     const initialQuestions = store.questions.length
     const originalDueDate = store.reviewCards.find((card) => card.id === 'card-comp-1')?.dueAt
 
@@ -134,19 +121,6 @@ describe('mock store mutations', () => {
 
     // Choosing a recorded option again drops the reason that belonged to "other".
     expect(store.decideDecision('decision-backup-media', 'option-drive').reasoning).toBeUndefined()
-  })
-
-  it('marks an item read without moving it out of its list', () => {
-    const store = createMockStore()
-    const item = store.libraryItems.find((candidate) => candidate.id === 'post-compilation')!
-
-    const read = store.setLibraryItemUnread(item.id, false)
-    expect(read).toMatchObject({ status: 'inbox', unread: false, read_at: '2026-10-03T12:00:00.000Z' })
-
-    const unread = store.setLibraryItemUnread(item.id, true)
-    expect(unread.status).toBe('inbox')
-    expect(unread.unread).toBe(true)
-    expect(unread.read_at).toBeUndefined()
   })
 
   it('toggles a task step and completion independently', () => {

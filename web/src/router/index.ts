@@ -52,11 +52,20 @@ export function createRouteTable(modules: NorteModule[] = norteModules): RouteRe
 }
 
 /**
- * The table with every module mounted. Every manifest is `mock`-backed in this
- * delivery, so this is also what the app starts with before `/api/config`
- * answers; `applyMountedModules` prunes it once the answer arrives.
+ * The table the router is created with, before `/api/config` has answered.
+ *
+ * It holds every module's routes whether or not that module is mounted, which
+ * is not the same as `createRouteTable()`: an `api`-backed module counts as off
+ * until the config lists it, and building the live table from the mount state
+ * would leave the library's addresses answering with the switched-off page
+ * before anyone had asked the server anything. `applyMountedModules` prunes
+ * what the answer rules out, and prune is all it can do — a route it removed is
+ * not something it can put back.
  */
-export const routes: RouteRecordRaw[] = createRouteTable()
+export const routes: RouteRecordRaw[] = [
+  ...shellRoutes,
+  ...norteModules.flatMap((module) => module.routes)
+]
 
 /**
  * Bring a live router in line with the mount state, after `/api/config` has

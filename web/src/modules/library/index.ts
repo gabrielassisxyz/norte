@@ -1,13 +1,10 @@
 import { computed, type ComputedRef } from 'vue'
-import type { RouteLocationRaw } from 'vue-router'
 
-import type { LibraryKind } from '@/mock/types'
 import type { SearchEntry } from '@/search'
-import { useStudySummary } from '@/modules/study/data/composables'
 
-import { crossModuleActionAllowed } from '../mounting'
 import type { ModuleSidebar, NorteModule, SidebarLink, SidebarRow } from '../types'
-import { useLibraryItems, useLibrarySummary } from './data/composables'
+import { useLibraryCounts, useLibraryItems } from './data/composables'
+import type { LibraryKind, LibraryViewName } from './data/source'
 import LibraryReadingBlock from './home/LibraryReadingBlock.vue'
 import LibrarySaveAction from './home/LibrarySaveAction.vue'
 import LibrarySavesBlock from './home/LibrarySavesBlock.vue'
@@ -15,46 +12,43 @@ import { manifest } from './manifest'
 
 export { manifest }
 
-const KIND_LABELS: Record<string, string> = {
+const KIND_LABELS: Record<LibraryKind, string> = {
   post: 'Posts',
   livro: 'Livros',
   paper: 'Papers',
   video: 'Vídeos',
   podcast: 'Podcasts',
+  newsletter: 'Newsletters',
   curso: 'Cursos'
 }
 
-const KIND_ORDER: LibraryKind[] = ['post', 'livro', 'paper', 'video', 'podcast', 'curso']
+const KIND_ORDER: LibraryKind[] = ['post', 'livro', 'paper', 'video', 'podcast', 'newsletter', 'curso']
 
 /**
- * The library's lines in the sidebar, counted by the source.
+ * The library's lines in the sidebar, counted by `/api/library/counts`.
  *
- * Before the first answer every count is zero and the curriculum lists are
- * absent, which is the sidebar's loading state: a row that printed a stale
- * count would be worse than a row that prints none.
+ * Before the first answer every count is zero, which is the sidebar's loading
+ * state: a row that printed a stale count would be worse than a row that
+ * prints none. The counts come from the endpoint and never from the rows a
+ * screen happens to be holding — those are one page of one filter.
  */
 export function useSidebar(): ModuleSidebar {
-  const { data: summary } = useLibrarySummary()
+  const { data: counts } = useLibraryCounts()
 
-  // A curriculum list is a join into the study module, so it is read under the
-  // same rule as any other cross-module reference.
-  const canListCurricula = computed(() => crossModuleActionAllowed('library', 'study'))
-  const { data: studySummary } = useStudySummary(canListCurricula)
-
-  function statusCount(status: 'inbox' | 'depois' | 'arquivo' | 'tudo'): number {
-    return summary.value?.counts[status] ?? 0
+  function viewCount(view: LibraryViewName): number {
+    return counts.value?.views[view] ?? 0
   }
 
   function kindCount(kind: LibraryKind): number {
-    return summary.value?.kinds[kind] ?? 0
+    return counts.value?.kinds[kind] ?? 0
   }
 
   function libraryRows(): SidebarRow[] {
     const rows: SidebarRow[] = [
-      { id: 'tudo', label: 'Tudo', to: { name: 'biblioteca', query: { v: 'tudo' } }, count: statusCount('tudo') },
-      { id: 'inbox', label: 'Inbox', to: { name: 'biblioteca', query: { v: 'inbox' } }, count: statusCount('inbox') },
-      { id: 'depois', label: 'Depois', to: { name: 'biblioteca', query: { v: 'depois' } }, count: statusCount('depois') },
-      { id: 'arquivo', label: 'Arquivo', to: { name: 'biblioteca', query: { v: 'arquivo' } }, count: statusCount('arquivo') },
+      { id: 'tudo', label: 'Tudo', to: { name: 'biblioteca', query: { v: 'tudo' } }, count: viewCount('tudo') },
+      { id: 'inbox', label: 'Inbox', to: { name: 'biblioteca', query: { v: 'inbox' } }, count: viewCount('inbox') },
+      { id: 'depois', label: 'Depois', to: { name: 'biblioteca', query: { v: 'depois' } }, count: viewCount('depois') },
+      { id: 'arquivo', label: 'Arquivo', to: { name: 'biblioteca', query: { v: 'arquivo' } }, count: viewCount('arquivo') },
       { head: true, label: 'Tipos' }
     ]
     for (const kind of KIND_ORDER) {
@@ -65,31 +59,12 @@ export function useSidebar(): ModuleSidebar {
         count: kindCount(kind)
       })
     }
-
-    if (!canListCurricula.value) return rows
-
-    // The count is the library's; the title belongs to the study module, so a
-    // list appears only once both answers are in.
-    const titles = new Map((studySummary.value?.curricula ?? []).map((curriculum) => [curriculum.slug, curriculum.title]))
-    const lists = (summary.value?.lists ?? []).filter((list) => list.count > 0 && titles.has(list.slug))
-    if (lists.length === 0) return rows
-
-    rows.push({ head: true, label: 'Listas' })
-    for (const list of lists) {
-      rows.push({
-        id: `lista-${list.slug}`,
-        label: titles.get(list.slug) as string,
-        to: { name: 'biblioteca', query: { v: 'tudo' } },
-        count: list.count,
-        trackActive: false
-      })
-    }
     return rows
   }
 
   function shortcutEntries(): SidebarLink[] {
     return [
-      { id: 'atalho-inbox', label: 'Inbox', to: { name: 'biblioteca', query: { v: 'inbox' } }, count: statusCount('inbox') },
+      { id: 'atalho-inbox', label: 'Inbox', to: { name: 'biblioteca', query: { v: 'inbox' } }, count: viewCount('inbox') },
       // The prototype links Artigos at the library root; the app filters
       // articles through tipo=artigos (kind post).
       {
@@ -104,7 +79,7 @@ export function useSidebar(): ModuleSidebar {
         id: 'atalho-shortlist',
         label: 'Shortlist',
         to: { name: 'biblioteca', query: { v: 'tudo' } },
-        count: statusCount('tudo')
+        count: viewCount('tudo')
       }
     ]
   }
@@ -124,19 +99,18 @@ export function useSidebar(): ModuleSidebar {
   }
 }
 
-function materialTarget(kind: string, id: string): RouteLocationRaw {
-  if (kind === 'post' || kind === 'livro' || kind === 'paper') {
-    return { name: 'material', params: { kind, id } }
-  }
-  return { name: 'biblioteca', query: { tipo: kind } }
-}
-
 export const routes = [
   {
     path: '/biblioteca',
     name: 'biblioteca',
     component: () => import('./views/LibraryView.vue'),
     meta: { title: 'Biblioteca' }
+  },
+  {
+    path: '/biblioteca/:id',
+    name: 'leitor',
+    component: () => import('./views/ReaderView.vue'),
+    meta: { title: 'Leitor', layout: 'bare' as const }
   },
   {
     path: '/material/:kind/:id',
@@ -161,18 +135,21 @@ const SCREEN_ENTRY: SearchEntry = {
   to: { name: 'biblioteca' }
 }
 
-/** The library's screen, plus every item it holds, as the palette offers them. */
+/**
+ * The library's screen, plus the items the palette can offer without a search
+ * of its own: the first page of the whole shelf, newest first.
+ */
 export function useSearchEntries(): ComputedRef<SearchEntry[]> {
-  const { data: page } = useLibraryItems()
+  const { data: page } = useLibraryItems({ view: 'tudo' })
   return computed(() => [
     SCREEN_ENTRY,
     ...(page.value?.items ?? []).map<SearchEntry>((item) => ({
       group: 'Biblioteca',
       title: item.title,
-      subtitle: item.author,
+      subtitle: item.author ?? item.site ?? '',
       kind: item.kind,
-      keywords: `${item.status} ${item.curriculumSlug ?? ''}`,
-      to: materialTarget(item.kind, item.id)
+      keywords: `${item.status} ${item.why ?? ''}`,
+      to: { name: 'leitor', params: { id: item.id } }
     }))
   ])
 }

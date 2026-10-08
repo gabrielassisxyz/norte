@@ -2,6 +2,6 @@ import type { ModuleManifest } from '../types'
 
 export const manifest: ModuleManifest = {
   name: 'library',
-  backing: 'mock',
-  routePaths: ['/biblioteca', '/material/:kind/:id']
+  backing: 'api',
+  routePaths: ['/biblioteca', '/biblioteca/:id', '/material/:kind/:id']
 }

@@ -14,6 +14,7 @@ import { useMaterialContext } from '@/modules/study/data/composables'
 import { useSources } from '@/sources'
 
 import { useLibraryItem } from '../data/composables'
+import { libraryItemChanged } from '../data/revision'
 import MaterialExercises from './MaterialView/MaterialExercises.vue'
 import MaterialPanel from './MaterialView/MaterialPanel.vue'
 import MaterialReader from './MaterialView/MaterialReader.vue'
@@ -184,8 +185,9 @@ function setMode(value: string): void {
 async function markComplete(): Promise<void> {
   const current = material.value
   if (!current) return
-  const updated = await writing.run(() => library.setUnread(current.id, false))
+  const updated = await writing.run(() => library.patchItem(current.id, { unread: false }))
   if (updated) apply(updated)
+  libraryItemChanged()
 }
 
 async function handleSelectionAction(payload: { action: string; text: string }): Promise<void> {

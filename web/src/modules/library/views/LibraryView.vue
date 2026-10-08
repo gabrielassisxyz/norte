@@ -6,25 +6,36 @@ import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import Icon from '@/components/ds/Icon.vue'
 import { useAsyncAction } from '@/lib/asyncResource'
 import { formatShortDate } from '@/lib/clock'
-import type { LibraryItem, LibraryKind } from '@/mock/types'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 import { useProjectsSummary } from '@/modules/projects/data/composables'
-import { useStudySummary } from '@/modules/study/data/composables'
 import { useSources } from '@/sources'
 
-import { useLibraryItems } from '../data/composables'
-import type { LibraryListQuery } from '../data/source'
+import { useLibraryCounts, useLibraryItems } from '../data/composables'
+import { libraryItemChanged } from '../data/revision'
+import type {
+  LibraryItemSummary,
+  LibraryKind,
+  LibraryListQuery,
+  LibrarySort,
+  LibraryStatus,
+  LibraryViewName
+} from '../data/source'
 
-type LibraryView = 'inbox' | 'depois' | 'arquivo' | 'tudo'
-
-const VIEWS: LibraryView[] = ['inbox', 'depois', 'arquivo', 'tudo']
-const VIEW_LABELS: Record<LibraryView, string> = {
+const VIEWS: LibraryViewName[] = ['inbox', 'depois', 'arquivo', 'tudo']
+const VIEW_LABELS: Record<LibraryViewName, string> = {
   inbox: 'Inbox',
   depois: 'Depois',
   arquivo: 'Arquivo',
   tudo: 'Tudo'
 }
 
+/**
+ * The spellings the `tipo` query parameter accepts.
+ *
+ * The addresses in the sidebar, the prototype and anything already bookmarked
+ * use Portuguese plurals; the contract's kinds are singular and English-ish, so
+ * the screen translates rather than making the server accept both.
+ */
 const KIND_BY_TYPE: Record<string, LibraryKind> = {
   artigo: 'post',
   artigos: 'post',
@@ -42,6 +53,8 @@ const KIND_BY_TYPE: Record<string, LibraryKind> = {
   'vídeos': 'video',
   podcast: 'podcast',
   podcasts: 'podcast',
+  newsletter: 'newsletter',
+  newsletters: 'newsletter',
   curso: 'curso',
   cursos: 'curso'
 }
@@ -52,6 +65,7 @@ const TYPE_TITLES: Record<LibraryKind, string> = {
   paper: 'PDFs',
   video: 'Vídeos',
   podcast: 'Podcasts',
+  newsletter: 'Newsletters',
   curso: 'Cursos'
 }
 
@@ -61,6 +75,7 @@ const KIND_LABELS: Record<LibraryKind, string> = {
   paper: 'PDF',
   video: 'Vídeo',
   podcast: 'Podcast',
+  newsletter: 'Newsletter',
   curso: 'Curso'
 }
 
@@ -68,85 +83,72 @@ const route = useRoute()
 const router = useRouter()
 const { library, projects: projectsSource } = useSources()
 
-const sort = ref<'data' | 'titulo'>('data')
+const sort = ref<LibrarySort>('saved_desc')
 const unreadOnly = ref(false)
 const search = ref('')
 
-const activeView = computed<LibraryView>(() => {
+const activeView = computed<LibraryViewName>(() => {
   const raw = route.query.v
   const value = Array.isArray(raw) ? raw[0] : raw
-  return typeof value === 'string' && (VIEWS as string[]).includes(value) ? (value as LibraryView) : 'inbox'
+  return typeof value === 'string' && (VIEWS as string[]).includes(value) ? (value as LibraryViewName) : 'inbox'
 })
 
-/** The requested type filter: a library kind, 'newsletter' (no items yet), or null for every kind. */
-const activeKind = computed<LibraryKind | 'newsletter' | null>(() => {
+/** The requested type filter, or null for every kind. */
+const activeKind = computed<LibraryKind | null>(() => {
   const raw = route.query.tipo
   const value = Array.isArray(raw) ? raw[0] : raw
   if (typeof value !== 'string' || value === '') return null
-  const key = value.toLowerCase()
-  if (key === 'newsletter' || key === 'newsletters') return 'newsletter'
-  return KIND_BY_TYPE[key] ?? null
+  return KIND_BY_TYPE[value.toLowerCase()] ?? null
 })
 
-const title = computed(() => {
-  if (activeKind.value === 'newsletter') return 'Newsletters'
-  if (activeKind.value !== null) return TYPE_TITLES[activeKind.value]
-  return 'Biblioteca'
-})
+const title = computed(() => (activeKind.value === null ? 'Biblioteca' : TYPE_TITLES[activeKind.value]))
 
 /**
- * What the list is asked for. The type filter, the search term and the order
- * are the source's business; which status tab is open and whether unread items
- * are the only ones shown are this page's, applied over the rows it already has
- * so that switching a tab does not re-ask.
+ * What the list is asked for — every filter of it a query parameter.
+ *
+ * None of this is applied over the rows already held. The server sends one page
+ * at a time, so a shelf or an unread filter computed here would narrow the
+ * first fifty rows and present the result as the whole shelf.
  */
 const query = computed<LibraryListQuery>(() => ({
-  kind: activeKind.value,
-  search: search.value.trim(),
-  sort: sort.value
+  view: activeView.value,
+  tipo: activeKind.value,
+  unread: unreadOnly.value ? true : null,
+  sort: sort.value,
+  q: search.value.trim() || undefined
 }))
 
-const { data: page, loading, error, refresh, applyItem } = useLibraryItems(query)
+const { data: page, loading, error, refresh, hasMore, loadingMore, loadMore, applyItem } = useLibraryItems(query)
+const { data: counts } = useLibraryCounts()
 const writing = useAsyncAction()
 
-const items = computed<LibraryItem[]>(() => page.value?.items ?? [])
-
-const counts = computed<Record<LibraryView, number>>(() => ({
-  inbox: page.value?.counts.inbox ?? 0,
-  depois: page.value?.counts.depois ?? 0,
-  arquivo: page.value?.counts.arquivo ?? 0,
-  tudo: page.value?.counts.tudo ?? 0
-}))
+const items = computed<LibraryItemSummary[]>(() => page.value?.items ?? [])
 
 const segOptions = computed(() =>
-  VIEWS.map((view) => ({ value: view, label: VIEW_LABELS[view], count: counts.value[view] }))
-)
-
-const visibleItems = computed<LibraryItem[]>(() =>
-  items.value.filter(
-    (item) => (activeView.value === 'tudo' || item.status === activeView.value) && (!unreadOnly.value || item.unread)
-  )
+  VIEWS.map((view) => ({ value: view, label: VIEW_LABELS[view], count: counts.value?.views[view] ?? 0 }))
 )
 
 /** Nothing has arrived yet, as opposed to nothing matching what was asked. */
 const firstLoad = computed(() => loading.value && page.value === null)
 
 const emptyText = computed(() => {
-  if (search.value.trim() && items.value.length === 0) return `Nada encontrado para “${search.value.trim()}”.`
-  if (unreadOnly.value && visibleItems.value.length === 0 && items.value.length > 0) {
-    return 'Tudo lido por aqui.'
-  }
+  if (search.value.trim()) return `Nada encontrado para “${search.value.trim()}”.`
+  if (unreadOnly.value) return 'Tudo lido por aqui.'
   if (activeView.value === 'inbox') return 'Inbox vazia. O que entrar pela extensão, upload ou feed aparece aqui.'
   if (activeView.value === 'depois') return 'Nada guardado para depois.'
   if (activeView.value === 'arquivo') return 'Nada arquivado ainda.'
   return 'Nenhum item deste tipo.'
 })
 
-const countText = computed(
-  () => `${visibleItems.value.length} ${visibleItems.value.length === 1 ? 'item' : 'itens'}`
-)
+/**
+ * How many rows are on screen, which is not how many the shelf holds.
+ *
+ * The total is the counts endpoint's answer; this line counts what has been
+ * loaded, because that is the number "carregar mais" changes.
+ */
+const countText = computed(() => `${items.value.length} ${items.value.length === 1 ? 'item' : 'itens'}`)
 
-const sortLabel = computed(() => (sort.value === 'titulo' ? 'Título' : 'Data salva'))
+const sortLabel = computed(() => (sort.value === 'title' ? 'Título' : 'Data salva'))
 
 function setView(view: string): void {
   if ((VIEWS as string[]).includes(view)) {
@@ -155,85 +157,86 @@ function setView(view: string): void {
 }
 
 function toggleSort(): void {
-  sort.value = sort.value === 'titulo' ? 'data' : 'titulo'
+  sort.value = sort.value === 'title' ? 'saved_desc' : 'title'
 }
 
-function materialTarget(item: LibraryItem): { name: string; params: { kind: string; id: string } } {
-  return { name: 'material', params: { kind: item.kind, id: item.id } }
+function readerTarget(item: LibraryItemSummary): { name: string; params: { id: string } } {
+  return { name: 'leitor', params: { id: item.id } }
 }
 
-function openItem(item: LibraryItem, event: MouseEvent): void {
+function openItem(item: LibraryItemSummary, event: MouseEvent): void {
   if ((event.target as HTMLElement).closest('button, a')) return
-  void router.push(materialTarget(item))
+  void router.push(readerTarget(item))
 }
 
-function laterTitle(item: LibraryItem): string {
+function sourceOf(item: LibraryItemSummary): string {
+  if (item.author) return item.author
+  if (item.site) return item.site
+  try {
+    return new URL(item.canonical_url).hostname.replace(/^www\./, '')
+  } catch {
+    return 'fonte desconhecida'
+  }
+}
+
+function laterTitle(item: LibraryItemSummary): string {
   return item.status === 'depois' ? 'Voltar para a inbox' : 'Depois'
 }
 
-function archiveTitle(item: LibraryItem): string {
+function archiveTitle(item: LibraryItemSummary): string {
   return item.status === 'arquivo' ? 'Desarquivar' : 'Arquivar'
 }
 
-function readTitle(item: LibraryItem): string {
+function readTitle(item: LibraryItemSummary): string {
   return item.unread ? 'Marcar como lido' : 'Marcar como não lido'
 }
 
 /**
- * Every action here waits for the source and then shows what came back. A
+ * Every action here waits for the server and then shows what came back. A
  * failure leaves the row exactly as it was and says so above the list, because
  * a row that moves and then moves back is worse than a row that never moved.
+ *
+ * The counts are asked for again rather than adjusted here: they are totals
+ * over the whole library, and the response to a write carries one row.
  */
-async function toggleLater(item: LibraryItem): Promise<void> {
-  const updated = await writing.run(() => library.setStatus(item.id, item.status === 'depois' ? 'inbox' : 'depois'))
-  if (updated) applyItem(updated)
+async function patch(item: LibraryItemSummary, patchBody: { status?: LibraryStatus; unread?: boolean }): Promise<void> {
+  const updated = await writing.run(() => library.patchItem(item.id, patchBody))
+  if (!updated) return
+  applyItem(updated)
+  libraryItemChanged()
 }
 
-async function toggleArchive(item: LibraryItem): Promise<void> {
-  const updated = await writing.run(() => library.setStatus(item.id, item.status === 'arquivo' ? 'inbox' : 'arquivo'))
-  if (updated) applyItem(updated)
+function toggleLater(item: LibraryItemSummary): Promise<void> {
+  return patch(item, { status: item.status === 'depois' ? 'inbox' : 'depois' })
 }
 
-async function toggleRead(item: LibraryItem): Promise<void> {
-  const updated = await writing.run(() => library.setUnread(item.id, !item.unread))
-  if (updated) applyItem(updated)
+function toggleArchive(item: LibraryItemSummary): Promise<void> {
+  return patch(item, { status: item.status === 'arquivo' ? 'inbox' : 'arquivo' })
+}
+
+function toggleRead(item: LibraryItemSummary): Promise<void> {
+  return patch(item, { unread: !item.unread })
 }
 
 /**
- * An item can only be joined to a curriculum or turned into a task while the
- * module that owns the other end is mounted and reads from the same place. A
- * real id is a UUID and a mock id is a string like `saved-link-3`, so offering
- * the action across that line would write a reference neither side resolves.
+ * Turning an item into a task is offered only while the projects module is
+ * mounted and reads from the same place. A real id is a UUID and a mock id is a
+ * string like `task-backup`, so offering it across that line would write a
+ * reference neither side resolves.
  */
-const canLinkCurriculum = computed(() => crossModuleActionAllowed('library', 'study'))
 const canMakeTask = computed(() => crossModuleActionAllowed('library', 'projects'))
 
-const { data: studySummary } = useStudySummary(canLinkCurriculum)
 const { data: projectsSummary } = useProjectsSummary(canMakeTask)
 
-const curriculumOptions = computed(() => studySummary.value?.curricula ?? [])
 const projectOptions = computed(() => projectsSummary.value?.projects ?? [])
 
-type CrossAction = 'curriculo' | 'tarefa'
+const openAction = ref<string | null>(null)
 
-const openAction = ref<{ itemId: string; action: CrossAction } | null>(null)
-
-function toggleAction(item: LibraryItem, action: CrossAction): void {
-  const current = openAction.value
-  openAction.value = current && current.itemId === item.id && current.action === action ? null : { itemId: item.id, action }
+function toggleAction(item: LibraryItemSummary): void {
+  openAction.value = openAction.value === item.id ? null : item.id
 }
 
-function isActionOpen(item: LibraryItem, action: CrossAction): boolean {
-  return openAction.value?.itemId === item.id && openAction.value?.action === action
-}
-
-async function linkToCurriculum(item: LibraryItem, slug: string): Promise<void> {
-  const updated = await writing.run(() => library.setCurriculum(item.id, slug))
-  if (updated) applyItem(updated)
-  openAction.value = null
-}
-
-async function makeTask(item: LibraryItem, projectId: string): Promise<void> {
+async function makeTask(item: LibraryItemSummary, projectId: string): Promise<void> {
   await writing.run(() =>
     projectsSource.addTask({
       projectId,
@@ -244,11 +247,6 @@ async function makeTask(item: LibraryItem, projectId: string): Promise<void> {
     })
   )
   openAction.value = null
-}
-
-function curriculumTitle(item: LibraryItem): string | undefined {
-  if (!item.curriculumSlug) return undefined
-  return curriculumOptions.value.find((curriculum) => curriculum.slug === item.curriculumSlug)?.title
 }
 </script>
 
@@ -316,22 +314,21 @@ function curriculumTitle(item: LibraryItem): string | undefined {
     </div>
 
     <div v-else class="library-list">
-      <article v-for="item in visibleItems" :key="item.id" class="item" @click="openItem(item, $event)">
+      <article v-for="item in items" :key="item.id" class="item" @click="openItem(item, $event)">
         <div class="item-thumb" aria-hidden="true">
           <Icon name="note" :size="18" />
           <span v-if="item.unread" class="item-dot" role="img" aria-label="Não lido" />
         </div>
         <div class="item-main">
-          <RouterLink class="item-title" :to="materialTarget(item)">{{ item.title }}</RouterLink>
+          <RouterLink class="item-title" :to="readerTarget(item)">{{ item.title }}</RouterLink>
           <div class="item-meta">
-            <span>{{ item.author }}</span>
+            <span>{{ sourceOf(item) }}</span>
             <span aria-hidden="true">·</span>
-            <span class="mono">{{ formatShortDate(item.savedAt) }}</span>
+            <span class="mono">{{ formatShortDate(item.saved_at) }}</span>
             <span v-if="activeKind === null" class="item-kind">{{ KIND_LABELS[item.kind] }}</span>
-            <span v-if="curriculumTitle(item)" class="tag-cur">{{ curriculumTitle(item) }}</span>
           </div>
         </div>
-        <span class="mono item-date">{{ formatShortDate(item.savedAt) }}</span>
+        <span class="mono item-date">{{ formatShortDate(item.saved_at) }}</span>
         <div class="actions" role="group" aria-label="Ações">
           <button type="button" class="act" :title="laterTitle(item)" :aria-label="laterTitle(item)" @click="toggleLater(item)">
             <svg
@@ -386,42 +383,18 @@ function curriculumTitle(item: LibraryItem): string | undefined {
               <path d="M3 8.5l3 3 7-7" />
             </svg>
           </button>
-          <div v-if="canLinkCurriculum" class="act-wrap">
-            <button
-              type="button"
-              class="act"
-              title="Vincular a currículo"
-              aria-label="Vincular a currículo"
-              :aria-expanded="isActionOpen(item, 'curriculo')"
-              @click="toggleAction(item, 'curriculo')"
-            >
-              <Icon name="note" :size="16" />
-            </button>
-            <div v-if="isActionOpen(item, 'curriculo')" class="act-menu" role="menu" aria-label="Currículos">
-              <button
-                v-for="curriculum in curriculumOptions"
-                :key="curriculum.slug"
-                type="button"
-                role="menuitem"
-                class="act-menu-row"
-                @click="linkToCurriculum(item, curriculum.slug)"
-              >
-                {{ curriculum.title }}
-              </button>
-            </div>
-          </div>
           <div v-if="canMakeTask" class="act-wrap">
             <button
               type="button"
               class="act"
               title="Criar tarefa"
               aria-label="Criar tarefa"
-              :aria-expanded="isActionOpen(item, 'tarefa')"
-              @click="toggleAction(item, 'tarefa')"
+              :aria-expanded="openAction === item.id"
+              @click="toggleAction(item)"
             >
               <Icon name="check" :size="16" />
             </button>
-            <div v-if="isActionOpen(item, 'tarefa')" class="act-menu" role="menu" aria-label="Projetos">
+            <div v-if="openAction === item.id" class="act-menu" role="menu" aria-label="Projetos">
               <button
                 v-for="project in projectOptions"
                 :key="project.id"
@@ -436,9 +409,21 @@ function curriculumTitle(item: LibraryItem): string | undefined {
           </div>
         </div>
       </article>
-      <div v-if="visibleItems.length === 0" class="library-empty">{{ emptyText }}</div>
+      <div v-if="items.length === 0" class="library-empty">{{ emptyText }}</div>
     </div>
-    <div v-if="!firstLoad && !error" class="mono library-count">{{ countText }}</div>
+
+    <div v-if="!firstLoad && !error" class="library-foot">
+      <button
+        v-if="hasMore"
+        type="button"
+        class="ghost library-more"
+        :disabled="loadingMore"
+        @click="loadMore()"
+      >
+        {{ loadingMore ? 'Carregando…' : 'Carregar mais' }}
+      </button>
+      <span class="mono library-count">{{ countText }}</span>
+    </div>
   </main>
 </template>
 
@@ -755,8 +740,18 @@ function curriculumTitle(item: LibraryItem): string | undefined {
   max-width: 48ch;
 }
 
-.library-count {
+.library-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
   padding: 12px;
+}
+
+.library-more { height: 32px; border: 1px solid var(--line-strong); }
+
+.library-count {
+  margin-left: auto;
   text-align: right;
   font-size: 12px;
   line-height: 16px;

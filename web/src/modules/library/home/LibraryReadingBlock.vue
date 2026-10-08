@@ -5,25 +5,27 @@ import Carousel from '@/components/ds/Carousel.vue'
 import Icon from '@/components/ds/Icon.vue'
 
 import { useLibraryItems } from '../data/composables'
-import { domainFor, isMaterial, materialHref } from './items'
+import { minutesFor, progressPercentOf, readerHref, siteOf, sourceOf } from './items'
 
-const { data: page, loading, error } = useLibraryItems({ sort: 'data' })
+/**
+ * What was opened most recently, which is what "continuar lendo" means. The
+ * order is the server's: `last_opened_desc` lists only items that have been
+ * opened at all, so an untouched inbox never fills this block.
+ */
+const { data: page, loading, error } = useLibraryItems({ view: 'tudo', sort: 'last_opened_desc', limit: 6 })
 
 const firstLoad = computed(() => loading.value && page.value === null)
 
 const readingItems = computed(() =>
-  (page.value?.items ?? [])
-    .filter(isMaterial)
-    .slice(0, 6)
-    .map((item, index) => {
-      const progress = Math.max(0, Math.min(1, item.readProgress ?? 0.18 + index * 0.12))
-      return {
-        ...item,
-        domain: item.domain ?? domainFor(item),
-        minutesRemaining: item.minutes ?? 8 + index * 6,
-        progressPercent: Math.round(progress * 100)
-      }
-    })
+  (page.value?.items ?? []).slice(0, 6).map((item) => ({
+    id: item.id,
+    title: item.title,
+    href: readerHref(item),
+    site: siteOf(item),
+    author: sourceOf(item),
+    minutesRemaining: minutesFor(item),
+    progressPercent: progressPercentOf(item)
+  }))
 )
 </script>
 
@@ -37,7 +39,7 @@ const readingItems = computed(() =>
     <p v-else-if="error" class="home-reading-state" role="alert">Não foi possível carregar as leituras: {{ error }}</p>
     <p v-else-if="readingItems.length === 0" class="home-reading-state">Nada começado ainda.</p>
     <Carousel v-else label="Continuar lendo">
-      <RouterLink v-for="item in readingItems" :key="item.id" :to="materialHref(item)" class="home-reading-card">
+      <RouterLink v-for="item in readingItems" :key="item.id" :to="item.href" class="home-reading-card">
         <span class="home-reading-cover">
           <Icon name="image" :size="20" />
           <span>Imagem do artigo</span>
@@ -53,7 +55,7 @@ const readingItems = computed(() =>
           </span>
         </span>
         <span class="home-reading-info">
-          <span class="home-reading-domain home-mono">{{ item.domain }}</span>
+          <span class="home-reading-domain home-mono">{{ item.site }}</span>
           <span class="home-reading-title">{{ item.title }}</span>
           <span class="home-reading-meta">{{ item.author }} · <span class="home-mono">{{ item.minutesRemaining }} min restantes</span></span>
         </span>

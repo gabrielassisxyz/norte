@@ -6,11 +6,14 @@ import Icon from '@/components/ds/Icon.vue'
 import Mark from '@/components/ds/Mark.vue'
 import ProgressBar from '@/components/ds/ProgressBar.vue'
 import SelectionToolbar from '@/components/ds/SelectionToolbar.vue'
-import type { LibraryItem, MaterialKind } from '@/mock/types'
+import type { MaterialKind } from '@/mock/types'
+
+import ArticleContent from '../../components/ArticleContent.vue'
+import type { LibraryItemRecord } from '../../data/source'
 
 const props = defineProps<{
   kind: MaterialKind
-  material: LibraryItem
+  material: LibraryItemRecord
   highlightedQuote?: string
   /** The selection actions the reader is allowed to offer. */
   selectionActions?: string[]
@@ -21,7 +24,6 @@ const emit = defineEmits<{
   goExercises: []
 }>()
 
-const selectableText = 'observe o padrão antes de tentar explicá-lo'
 const selectionTarget = ref<HTMLElement>()
 const localSelection = ref('')
 const bookTextSize = ref<'normal' | 'large'>('normal')
@@ -39,18 +41,6 @@ const kindLabel = computed(() => {
 })
 
 const sourceHost = computed(() => props.material.url.replace(/^https?:\/\//, '').split('/')[0] || 'fonte local')
-
-const selectedParts = computed(() => {
-  const quote = props.highlightedQuote?.trim()
-  if (!quote) return { before: selectableText, quote: '', after: '' }
-  const start = selectableText.indexOf(quote)
-  if (start < 0) return { before: '', quote: selectableText, after: '' }
-  return {
-    before: selectableText.slice(0, start),
-    quote,
-    after: selectableText.slice(start + quote.length)
-  }
-})
 
 function handleSelection(): void {
   if (props.kind !== 'post') return
@@ -82,7 +72,7 @@ function changePaperZoom(delta: number): void {
 async function copyCitation(): Promise<void> {
   citationCopied.value = true
   if (typeof navigator !== 'undefined' && navigator.clipboard) {
-    await navigator.clipboard.writeText(`${props.material.author}. ${props.material.title}.`)
+    await navigator.clipboard.writeText(`${props.material.author ?? props.material.site ?? ''}. ${props.material.title}.`)
   }
 }
 </script>
@@ -98,7 +88,7 @@ async function copyCitation(): Promise<void> {
         </div>
         <h1 class="reader-title">{{ material.title }}</h1>
         <p class="reader-byline">
-          {{ material.author }} ·
+          {{ material.author ?? material.site }} ·
           <a :href="material.url" target="_blank" rel="noreferrer">Abrir original</a>
         </p>
         <div class="reader-rule" />
@@ -108,57 +98,23 @@ async function copyCitation(): Promise<void> {
 
     <div class="reader-prose">
       <div class="content-grid prose-row">
-        <p>
-          Uma boa observação começa pequena. Em vez de procurar uma explicação total, registre o que
-          aconteceu, em que ordem e qual detalhe se repetiu. Esse registro torna a próxima pergunta
-          mais concreta.
-        </p>
-        <div class="margin" />
-      </div>
-      <div class="content-grid prose-row">
-        <h2>Da observação à hipótese</h2>
-        <div class="margin" />
-      </div>
-      <div class="content-grid prose-row">
-        <p>
-          Quando um padrão aparece, resista à vontade de nomeá-lo imediatamente. Volte ao episódio e
-          <span class="selection-anchor">
-            <span ref="selectionTarget" class="selection-target" data-selection-target @mouseup="handleSelection">
-              <span>{{ selectedParts.before }}</span><Mark v-if="selectedParts.quote">{{ selectedParts.quote }}</Mark><span>{{ selectedParts.after }}</span>
-            </span>
-            <SelectionToolbar
-              v-if="localSelection && (props.selectionActions?.length ?? 1) > 0"
-              class="selection-toolbar"
-              :actions="props.selectionActions"
-              @action="handleSelectionAction"
-            />
+        <!--
+          The article is the server's extracted text, so the selection anchor
+          wraps the whole of it rather than one sentence: a highlight can start
+          anywhere a reader puts the cursor.
+        -->
+        <span class="selection-anchor">
+          <span ref="selectionTarget" class="selection-target" data-selection-target @mouseup="handleSelection">
+            <ArticleContent :html="material.content_html" />
           </span>
-          antes de explicar por que ele aconteceu. O detalhe observável é o material da investigação.
-        </p>
+          <SelectionToolbar
+            v-if="localSelection && (props.selectionActions?.length ?? 1) > 0"
+            class="selection-toolbar"
+            :actions="props.selectionActions"
+            @action="handleSelectionAction"
+          />
+        </span>
         <div class="margin" />
-      </div>
-      <div class="content-grid prose-row">
-        <p>
-          Uma hipótese útil não precisa ser elegante. Ela precisa produzir uma previsão que possa
-          falhar. <Mark :note="1">Escreva a condição que mudaria o resultado.</Mark> Depois, teste
-          apenas uma mudança por vez e guarde o que aprendeu.
-        </p>
-        <div class="margin"><div class="margin-note"><span>1</span><span>Uma previsão torna a reflexão comparável com a experiência.</span></div></div>
-      </div>
-      <div class="content-grid prose-row">
-        <p>
-          O ciclo fica mais confiável quando a linguagem permanece específica. “Não funcionou” é um
-          ponto de partida; “a primeira etapa ficou sem uma entrada clara” já sugere onde olhar de novo.
-          Pequenas diferenças assim acumulam aprendizado.
-        </p>
-        <div class="margin" />
-      </div>
-      <div class="content-grid prose-row">
-        <p>
-          Ao terminar, registre o que mudou na sua interpretação. O objetivo não é produzir uma
-          explicação definitiva, mas deixar o próximo experimento melhor do que o anterior.
-        </p>
-        <div class="margin"><div class="margin-note"><span>2</span><span>O próximo passo deve caber em uma sessão curta.</span></div></div>
       </div>
       <div class="content-grid prose-row prose-ending">
         <div class="reader-ending">
@@ -181,7 +137,7 @@ async function copyCitation(): Promise<void> {
         <span class="reader-cover" aria-hidden="true" />
         <div class="reader-work-title">
           <strong>{{ material.title }}</strong>
-          <span>{{ material.author }} · Livro</span>
+          <span>{{ material.author ?? material.site }} · Livro</span>
         </div>
       </div>
       <div class="reader-toolbar-actions">
@@ -272,7 +228,7 @@ async function copyCitation(): Promise<void> {
         <article class="paper-page" aria-label="Página 1">
           <div class="paper-kicker material-mono">Caderno de pesquisa · 2025 · Vol. 12</div>
           <h1>{{ material.title }}</h1>
-          <p class="paper-authors">{{ material.author }}</p>
+          <p class="paper-authors">{{ material.author ?? material.site }}</p>
           <div class="paper-abstract">
             <strong>Resumo</strong>
             <p>Um estudo sobre como registros curtos, previsões e revisões sucessivas ajudam a transformar uma leitura em conhecimento utilizável.</p>
