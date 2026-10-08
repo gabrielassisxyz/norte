@@ -1,4 +1,4 @@
-import { expect, test, type Locator, type Page } from '@playwright/test'
+import { devices, expect, test, type Locator, type Page } from '@playwright/test'
 
 import { PASSAGE, articleHtml } from './helpers/article'
 import { api, seedArticle, startNorte, type NorteServer, type SeededArticle } from './helpers/norteServer'
@@ -216,6 +216,197 @@ test.describe('at 390x844, with touch and no mouse', () => {
     }
   })
 })
+
+/**
+ * The two phone profiles every screen has to hold up under, by the width that
+ * decides the layout. Playwright's own descriptors, so the numbers are the
+ * devices' and not this test's.
+ */
+const PHONES = [
+  { name: 'iPhone 13' as const, width: devices['iPhone 13'].viewport.width },
+  { name: 'Pixel 7' as const, width: devices['Pixel 7'].viewport.width }
+]
+
+/**
+ * One profile's emulation, as a describe group can take it.
+ *
+ * Everything but the descriptor's `defaultBrowserType`, which Playwright
+ * refuses inside a group because switching browsers forces another worker --
+ * and there is nothing to switch to: this config runs Chromium, and what these
+ * cases are about is the width, the pixel ratio and having touch instead of a
+ * pointer.
+ */
+function emulate(name: (typeof PHONES)[number]['name']) {
+  const { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch } = devices[name]
+  return { viewport, userAgent, deviceScaleFactor, isMobile, hasTouch }
+}
+
+/**
+ * Whether a point lands on the control that owns it.
+ *
+ * `elementFromPoint` is the test a thumb makes: a control that is on the page,
+ * visible and the right size still does nothing when something else is over
+ * the pixels it occupies, and that is exactly what the drawer did to the
+ * palette and what the notes sheet did to the action bar. Playwright's own
+ * `tap()` would have reported the same failure as a timeout naming the wrong
+ * element, so the check is spelled out.
+ */
+async function hits(target: Locator): Promise<boolean> {
+  return target.evaluate((node) => {
+    const box = node.getBoundingClientRect()
+    const top = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2)
+    return top !== null && (top === node || node.contains(top))
+  })
+}
+
+/** Every box of the matched controls, in viewport coordinates. */
+async function boxesOf(target: Locator): Promise<Array<{ label: string; left: number; right: number }>> {
+  return target.evaluateAll((nodes) =>
+    nodes.map((node) => {
+      const box = node.getBoundingClientRect()
+      const label = (node.getAttribute('aria-label') ?? node.textContent ?? '').trim().slice(0, 24)
+      return { label, left: box.left, right: box.right }
+    })
+  )
+}
+
+for (const phone of PHONES) {
+  test.describe(`on the ${phone.name} profile`, () => {
+    test.use(emulate(phone.name))
+
+    test('scrolls no route sideways', async ({ page }) => {
+      const own = await seed(`Sem rolagem lateral no ${phone.name}`)
+      const routes = ['/', '/biblioteca?v=tudo', `/biblioteca/${own.id}`, '/notas', '/notas/conjuntos', '/projetos', '/revisao', '/estudo']
+
+      for (const route of routes) {
+        await boot(page, route)
+        // Against the profile's own width, not against `innerWidth`: under
+        // mobile emulation the layout viewport grows to fit content that
+        // overflows it, so `innerWidth` reported 568 on the 390px library and
+        // comparing the two would have called that screen clean. The second
+        // assertion is what keeps this honest if that emulation ever changes.
+        // Polled, because a screen whose counts arrive after the first paint
+        // reflows once; what is asserted is the settled layout.
+        await expect
+          .poll(
+            () =>
+              page.evaluate(() => ({
+                scrollWidth: document.documentElement.scrollWidth,
+                innerWidth: window.innerWidth
+              })),
+            { message: route }
+          )
+          .toEqual({ scrollWidth: phone.width, innerWidth: phone.width })
+      }
+    })
+
+    test('closes the drawer behind the palette it opened, so a result takes the tap', async ({ page }) => {
+      const own = await seed(`Resultado alcançável no ${phone.name}`)
+      await boot(page, '/')
+
+      await tap(page.locator('[data-action="abrir-navegacao"]'))
+      const drawer = page.locator('#app-drawer')
+      await expect(drawer).toBeVisible()
+      await tap(drawer.locator('.app-foot button', { hasText: 'Buscar' }))
+
+      // The drawer is gone rather than merely behind the palette: it covered
+      // the left 300px of it, which is where the result rows start.
+      await expect(drawer).toBeHidden()
+      await page.locator('.shell-palette-input').fill(own.title)
+      const result = page.locator('.shell-palette-row', { hasText: own.title }).first()
+      await expect(result).toBeVisible()
+      expect(await hits(result)).toBe(true)
+
+      await tap(result)
+      await expect(page).toHaveURL(new RegExp(`/biblioteca/${own.id}$`))
+    })
+
+    test('closes the drawer behind the preferences it opened', async ({ page }) => {
+      await boot(page, '/')
+
+      await tap(page.locator('[data-action="abrir-navegacao"]'))
+      const drawer = page.locator('#app-drawer')
+      await tap(drawer.locator('.app-foot button', { hasText: 'Preferências' }))
+
+      await expect(drawer).toBeHidden()
+      const option = page.locator('.shell-theme-option', { hasText: 'Escuro' })
+      await expect(option).toBeVisible()
+      expect(await hits(option)).toBe(true)
+    })
+
+    test('keeps every Biblioteca control inside the screen', async ({ page }) => {
+      await seed(`Controles da biblioteca no ${phone.name}`)
+      await boot(page, '/biblioteca?v=tudo')
+
+      // The list has answered, so the tabs carry their counts and the toolbar
+      // is at the width it will keep.
+      await expect(page.locator('.item').first()).toBeVisible()
+
+      const tabs = page.locator('.library-title-row .nt-seg-btn')
+      // The five tabs by name, so a toolbar that lost one cannot pass by
+      // having fewer controls left to fit.
+      await expect(tabs).toHaveText([/Inbox/, /Depois/, /Arquivo/, /Tudo/, /Sugestões/])
+
+      const controls = [
+        ['the five tabs', tabs],
+        ['Surpresa', page.locator('.library-surprise')],
+        ['the search box', page.locator('.library-search')],
+        ['the sort button', page.locator('.library-sort')],
+        ['the unread filter', page.locator('.library-tools .ghost-icon')],
+        ['the ordering', page.locator('.library-ordering .nt-seg-btn')]
+      ] as const
+
+      for (const [what, locator] of controls) {
+        const boxes = await boxesOf(locator)
+        expect(boxes.length, what).toBeGreaterThan(0)
+        for (const box of boxes) {
+          expect(box.left, `${what}: ${box.label} starts at ${box.left}`).toBeGreaterThanOrEqual(0)
+          expect(box.right, `${what}: ${box.label} ends at ${box.right}`).toBeLessThanOrEqual(phone.width)
+        }
+      }
+    })
+
+    test('leaves the whole action bar tappable under the notes sheet', async ({ page }) => {
+      const own = await seed(`Folha de notas no ${phone.name}`)
+      await boot(page, `/biblioteca/${own.id}`)
+      await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+      const bar = page.locator('nav[aria-label="Ações da leitura"]')
+      const sheet = page.locator('[data-reader-sheet]')
+      await tap(bar.locator('[data-action="anotar-abrir"]'))
+      await expect(sheet).toBeVisible()
+
+      for (const label of ['Inbox', 'Depois', 'Arquivo', 'Lido']) {
+        const chip = bar.locator('.reader-bar-chip', { hasText: label })
+        await expect(chip).toBeVisible()
+        expect(await hits(chip), `${label} under the open sheet`).toBe(true)
+      }
+
+      // And the sheet is still a sheet: it has not been pushed off the screen
+      // to make room for the bar.
+      const room = await sheet.evaluate((node) => node.getBoundingClientRect().height)
+      expect(room).toBeGreaterThan(100)
+
+      // The bar is what the sheet clears, measured rather than guessed.
+      await tap(bar.locator('[data-action="status-arquivo"]'))
+      await expect.poll(async () => (await api<LibraryItem>(server.baseURL, `/api/library/items/${own.id}`)).status).toBe('arquivo')
+    })
+
+    test('renders no collapse control in the drawer', async ({ page }) => {
+      await boot(page, '/')
+
+      await tap(page.locator('[data-action="abrir-navegacao"]'))
+      const drawer = page.locator('#app-drawer')
+      await expect(drawer.locator('button.app-collapse')).toHaveCount(0)
+      // The full navigation, not a 52px strip: the panel is as wide as the
+      // drawer and its links are there to be tapped.
+      await expect(drawer.locator('nav[aria-label="Principal"]')).toBeVisible()
+      const width = await drawer.locator('.app-sidebar').evaluate((node) => node.getBoundingClientRect().width)
+      expect(width).toBeGreaterThan(200)
+      expect(await hits(drawer.locator('a.app-line-link', { hasText: 'Biblioteca' }))).toBe(true)
+    })
+  })
+}
 
 test.describe('at 1440x900, unchanged', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
