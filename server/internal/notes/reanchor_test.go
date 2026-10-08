@@ -338,3 +338,43 @@ func TestTheNotesModuleIsCompiledInAndSwitchable(t *testing.T) {
 		t.Fatalf("the compiled modules are %v, without %q", names, ModuleName)
 	}
 }
+
+// TestAHighlightWithAGluedContextStaysAnchoredAcrossAReExtraction is the
+// re-anchoring half of the block-boundary rule: a context captured from the
+// DOM glues the end of one block to the start of the next, and the comparison
+// that accepted it when the highlight was created is the one the job uses, so
+// unchanged text leaves the highlight where it was.
+func TestAHighlightWithAGluedContextStaysAnchoredAcrossAReExtraction(t *testing.T) {
+	harness := newNotesHarness(t)
+	const marked = "O trecho que fica marcado nesta leitura."
+	itemID := harness.saveAndExtract("https://example.invalid/colado", notesArticleHTML(marked))
+
+	// The passage starts nine code points into its paragraph, so the context a
+	// browser hands the reader reaches back across the paragraph break and
+	// carries no whitespace where the extracted text has a newline.
+	created := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
+		map[string]any{
+			"item_id": itemID,
+			"exact":   "que fica marcado nesta leitura.",
+			"prefix":  "vem depois dela.O trecho ",
+			"suffix":  "Uma frase final que serve",
+		}), http.StatusCreated)
+	if created.Status != NotesAnchored {
+		t.Fatalf("a glued context stored the highlight %q: %s", created.Status, harness.articleText(itemID))
+	}
+	_, hintBefore := harness.highlightStatus(created.ID)
+
+	if recorder := harness.request(http.MethodPost, "/api/library/items/"+itemID+"/extract",
+		map[string]any{}); recorder.Code != http.StatusAccepted {
+		t.Fatalf("the re-extraction answered %d: %s", recorder.Code, recorder.Body.String())
+	}
+	harness.drainJobs()
+
+	status, hintAfter := harness.highlightStatus(created.ID)
+	if status != NotesAnchored {
+		t.Fatalf("the re-anchoring made the glued context %q on unchanged text", status)
+	}
+	if hintAfter != hintBefore {
+		t.Fatalf("the offset moved from %d to %d on unchanged text", hintBefore, hintAfter)
+	}
+}

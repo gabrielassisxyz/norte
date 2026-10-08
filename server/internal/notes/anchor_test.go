@@ -84,6 +84,66 @@ func TestAnchoringAPassageAgainstAText(t *testing.T) {
 			wantHint: 17,
 		},
 		{
+			// The text the server searches separates two paragraphs with a
+			// newline; the browser hands the client the same place with
+			// nothing in it, so the stored prefix is glued across it.
+			name:     "a prefix glued across a paragraph boundary still anchors",
+			text:     "Fim do primeiro.\n\nComeço do segundo com o trecho marcado aqui.",
+			exact:    "o trecho marcado",
+			prefix:   "Fim do primeiro.Começo do segundo com ",
+			suffix:   " aqui.",
+			want:     NotesAnchored,
+			wantHint: 39,
+		},
+		{
+			name:     "a suffix glued across a paragraph boundary still anchors",
+			text:     "O trecho marcado fecha o primeiro.\n\nComeço do segundo.",
+			exact:    "O trecho marcado",
+			prefix:   "",
+			suffix:   " fecha o primeiro.Começo do segundo.",
+			want:     NotesAnchored,
+			wantHint: 0,
+		},
+		{
+			name:     "a context spanning a heading still anchors",
+			text:     "Fim da introdução.\n\nUma seção\n\nO trecho marcado abre a seção.",
+			exact:    "O trecho marcado",
+			prefix:   "Fim da introdução.Uma seção",
+			suffix:   " abre a seção.",
+			want:     NotesAnchored,
+			wantHint: 29,
+		},
+		{
+			// Dropping the whitespace must not drop the words with it: a
+			// passage wrapped in the same context twice stays ambiguous.
+			name:      "two occurrences with identical glued context are still orphaned",
+			text:      "Igual: a mesma frase.\n\nfim.\n\nIgual: a mesma frase.\n\nfim.",
+			exact:     "a mesma frase.",
+			prefix:    "Igual:",
+			suffix:    "fim.",
+			want:      NotesOrphaned,
+			ambiguous: true,
+		},
+		{
+			name:   "a passage absent from the text is orphaned without being ambiguous",
+			text:   "Fim do primeiro.\n\nComeço do segundo.",
+			exact:  "o trecho marcado",
+			prefix: "Fim do primeiro.Começo",
+			suffix: " do segundo.",
+			want:   NotesOrphaned,
+		},
+		{
+			// The glued spelling must not become the only one that works: a
+			// context captured with the boundary spelled out anchors too.
+			name:     "a prefix spelling the boundary with a space still anchors",
+			text:     "Fim do primeiro.\n\nComeço do segundo com o trecho marcado aqui.",
+			exact:    "o trecho marcado",
+			prefix:   "Fim do primeiro. Começo do segundo com ",
+			suffix:   " aqui.",
+			want:     NotesAnchored,
+			wantHint: 39,
+		},
+		{
 			name:     "non-BMP characters in the context are counted as one code point each",
 			text:     "Começo 𝄞𝄢 o trecho marcado 𝄞𝄢 fim.",
 			exact:    "o trecho marcado",
