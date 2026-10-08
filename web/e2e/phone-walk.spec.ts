@@ -309,13 +309,15 @@ for (const phone of PHONES) {
       await expect(drawer).toBeVisible()
       await tap(drawer.locator('.app-foot button', { hasText: 'Buscar' }))
 
-      // The drawer is gone rather than merely behind the palette: it covered
-      // the left 300px of it, which is where the result rows start.
-      await expect(drawer).toBeHidden()
+      // The row owns the pixels at its own centre, asserted before the drawer's
+      // state: the drawer covered the left 300px of the palette, which is where
+      // the result rows start, so the hit test is the claim and the drawer being
+      // gone is only how it is met.
       await page.locator('.shell-palette-input').fill(own.title)
       const result = page.locator('.shell-palette-row', { hasText: own.title }).first()
       await expect(result).toBeVisible()
       expect(await hits(result)).toBe(true)
+      await expect(drawer).toBeHidden()
 
       await tap(result)
       await expect(page).toHaveURL(new RegExp(`/biblioteca/${own.id}$`))
