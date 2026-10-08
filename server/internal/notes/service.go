@@ -112,6 +112,10 @@ func (s *NotesService) CreateHighlight(ctx context.Context, in NewHighlightInput
 	if err != nil {
 		return NotesHighlightRecord{}, err
 	}
+	if !notesItemCanCarryText(source.Module) {
+		return NotesHighlightRecord{}, notesBadRequest("invalid_request",
+			"this item has no text to mark a passage in", "item_id")
+	}
 	prefix := notesTrimContext(in.Prefix, true)
 	suffix := notesTrimContext(in.Suffix, false)
 
@@ -353,6 +357,13 @@ func (s *NotesService) prepareQuestion(ctx context.Context, in NewQuestionInput)
 		return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
 			fmt.Sprintf("unknown question kind %q", in.Kind), "kind")
 	}
+	// A kind means "this question was written into that prompt of that set", so
+	// a question with no set carrying one claims a provenance it does not have
+	// and would render under a prompt belonging to nothing.
+	if in.Kind != "" && in.SetID == "" {
+		return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
+			"a kind belongs to a question written from one of a set's prompts", "kind")
+	}
 	if in.ItemID != "" {
 		if _, err := s.requireSource(ctx, in.ItemID); err != nil {
 			return db.InsertNotesQuestionParams{}, err
@@ -379,6 +390,16 @@ func (s *NotesService) prepareQuestion(ctx context.Context, in NewQuestionInput)
 				return db.InsertNotesQuestionParams{}, notesNotFound("question set", in.SetID)
 			}
 			return db.InsertNotesQuestionParams{}, fmt.Errorf("reading the question set %s: %w", in.SetID, err)
+		}
+		if in.Kind != "" {
+			taken, err := s.setHoldsQuestionKind(ctx, in.SetID, in.Kind)
+			if err != nil {
+				return db.InsertNotesQuestionParams{}, err
+			}
+			if taken {
+				return db.InsertNotesQuestionParams{}, notesConflict("kind_taken",
+					fmt.Sprintf("the set already holds a question of the kind %q", in.Kind), "kind")
+			}
 		}
 	}
 	stamp := core.FormatTime(s.clock.Now())
@@ -630,6 +651,32 @@ func (s *NotesService) requireSource(ctx context.Context, itemID string) (NotesS
 	return source, nil
 }
 
+// notesItemCanCarryText reports whether an item of that module could ever have
+// readable text behind it.
+//
+// It is the one thing core.ErrNoText deliberately does not say. That error is
+// "there is no text for this id right now", which is the same answer for a
+// module that is switched off tonight and for one that has no text at all, and
+// anchoring is right to treat them alike: a passage is not thrown away because
+// the library is off. Marking a passage *in* a thing is a different question --
+// a subject is a name and a question set is a topic, so a highlight on one is a
+// request to anchor against a text that does not exist and never will, and
+// storing it as anchored is the bug this answers.
+//
+// The two are named by module rather than discovered, because the discoverable
+// fact is the wrong one: a module absent from the text providers is a module
+// that is switched off. The core is never a provider -- the providers are keyed
+// by module name and a subject belongs to no module -- and this module's own
+// Text answers nothing by construction, which is what makes both static.
+func notesItemCanCarryText(module string) bool {
+	switch module {
+	case core.SubjectItemModule, ModuleName:
+		return false
+	default:
+		return true
+	}
+}
+
 // source reads one registry row, answering Found false when there is none.
 func (s *NotesService) source(ctx context.Context, itemID string) (NotesSourceRef, error) {
 	row := s.database.Reader().QueryRowContext(ctx,
@@ -643,6 +690,24 @@ func (s *NotesService) source(ctx context.Context, itemID string) (NotesSourceRe
 	}
 	source.Found = true
 	return source, nil
+}
+
+// setHoldsQuestionKind reports whether the set already holds a question written
+// from that prompt. The six prompts are six boxes, so a second answer to one of
+// them has no prompt both questions came from -- the rule the set's own creation
+// already enforced over the prompts it was sent together.
+//
+// It is a read before the write rather than a unique index, because the rows
+// already stored are not rewritten by this rule and a migration would be the
+// only way to add the index over them.
+func (s *NotesService) setHoldsQuestionKind(ctx context.Context, setID, kind string) (bool, error) {
+	var count int
+	if err := s.database.Reader().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM notes_questions WHERE set_id = ? AND kind = ?`,
+		setID, kind).Scan(&count); err != nil {
+		return false, fmt.Errorf("counting the %q questions of the set %s: %w", kind, setID, err)
+	}
+	return count > 0, nil
 }
 
 func notesValidQuestionKind(kind string) bool {
