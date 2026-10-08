@@ -9,6 +9,7 @@ import (
 	"strings"
 	"testing"
 
+	trafilatura "github.com/markusmobius/go-trafilatura/v2"
 	"golang.org/x/net/html"
 )
 
@@ -429,5 +430,57 @@ func TestTheSanitizerStripsEveryHostileConstruct(t *testing.T) {
 		if !strings.Contains(sanitized, kept) {
 			t.Errorf("the sanitizer removed the text %q along with the attack:\n%s", kept, sanitized)
 		}
+	}
+}
+
+func TestALeadImageKeepsOnlyHTTPAndHTTPSSchemes(t *testing.T) {
+	pageURL, err := url.Parse("https://pages.example/post")
+	if err != nil {
+		t.Fatalf("parsing the page URL: %v", err)
+	}
+	for _, tc := range []struct{ declared, want string }{
+		{"javascript:alert(1)", ""},
+		{"data:image/png;base64,AAAA", ""},
+		{"ftp://pages.example/a.png", ""},
+		{"http://pages.example/a.png", "https://pages.example/a.png"},
+		{"/a.png", "https://pages.example/a.png"},
+	} {
+		declared := libraryDeclarations{meta: map[string]string{"og:image": tc.declared}}
+		got := libraryResolveMetadata(declared, trafilatura.Metadata{}, pageURL).LeadImage
+		if got != tc.want {
+			t.Errorf("og:image %q stored as %q, want %q", tc.declared, got, tc.want)
+		}
+	}
+}
+
+func TestAnEmptyHeadingLosesThePageSuppliedID(t *testing.T) {
+	div := libraryParseFragment(t, `<div><h2 id="planted"></h2><h2>Real</h2></div>`)
+	headings := libraryAssignHeadingAnchors(div)
+	if len(headings) != 1 || headings[0].Anchor != "real" {
+		t.Fatalf("headings = %#v, want only the non-empty one", headings)
+	}
+	libraryWalkElements(div, func(node *html.Node) {
+		if libraryTagName(node) != "h2" || libraryNodeText(node) != "" {
+			return
+		}
+		for _, attr := range node.Attr {
+			if attr.Key == "id" {
+				t.Errorf("the empty heading kept the page's id %q", attr.Val)
+			}
+		}
+	})
+}
+
+func TestHeadingAnchorsNeverCollide(t *testing.T) {
+	div := libraryParseFragment(t, `<div><h2>A</h2><h2>A</h2><h2>A 2</h2></div>`)
+	seen := map[string]bool{}
+	for _, heading := range libraryAssignHeadingAnchors(div) {
+		if seen[heading.Anchor] {
+			t.Errorf("the anchor %q was handed out twice", heading.Anchor)
+		}
+		seen[heading.Anchor] = true
+	}
+	if len(seen) != 3 {
+		t.Errorf("got %d distinct anchors, want 3: %v", len(seen), seen)
 	}
 }

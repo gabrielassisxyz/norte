@@ -6,6 +6,7 @@ import (
 	"math"
 	"net/url"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -200,10 +201,15 @@ func libraryResolveAttr(node *html.Node, name string, pageURL *url.URL, forceHTT
 func libraryAbsoluteImageURL(raw string, pageURL *url.URL) string {
 	resolved, err := pageURL.Parse(strings.TrimSpace(raw))
 	if err != nil {
-		return raw
+		return ""
 	}
 	if resolved.Scheme == "http" {
 		resolved.Scheme = "https"
+	}
+	if resolved.Scheme != "https" {
+		// The image is rendered by consumers that trust the stored value, so a
+		// javascript: or data: URL is dropped rather than carried along.
+		return ""
 	}
 	return resolved.String()
 }
@@ -221,7 +227,7 @@ var libraryHeadingLevels = map[string]int{
 // shipped ids of its own cannot leave one behind for an anchor to collide with.
 func libraryAssignHeadingAnchors(content *html.Node) []libraryHeading {
 	headings := []libraryHeading{}
-	used := map[string]int{}
+	used := map[string]bool{}
 	libraryWalkElements(content, func(node *html.Node) {
 		level, ok := libraryHeadingLevels[libraryTagName(node)]
 		if !ok {
@@ -229,6 +235,9 @@ func libraryAssignHeadingAnchors(content *html.Node) []libraryHeading {
 		}
 		text := libraryNodeText(node)
 		if text == "" {
+			// An id the page chose for a heading with no entry in the table
+			// would be a target nothing here vouched for.
+			node.Attr = slices.DeleteFunc(node.Attr, func(attr html.Attribute) bool { return attr.Key == "id" })
 			return
 		}
 		anchor := libraryUniqueAnchor(libraryAnchorSlug(text), len(headings), used)
@@ -239,17 +248,20 @@ func libraryAssignHeadingAnchors(content *html.Node) []libraryHeading {
 }
 
 // libraryUniqueAnchor keeps the document order suffixes the reader expects: the
-// first occurrence takes the plain slug and later ones take -2, -3.
-func libraryUniqueAnchor(slug string, index int, used map[string]int) string {
+// first occurrence takes the plain slug and later ones take -2, -3. Every id
+// handed out is remembered, because a heading literally called "A 2" would
+// otherwise collide with the second "A".
+func libraryUniqueAnchor(slug string, index int, used map[string]bool) string {
 	if slug == "" {
 		// A heading of nothing but punctuation or emoji still needs a target.
 		slug = fmt.Sprintf("secao-%d", index+1)
 	}
-	used[slug]++
-	if count := used[slug]; count > 1 {
-		return fmt.Sprintf("%s-%d", slug, count)
+	anchor := slug
+	for count := 2; used[anchor]; count++ {
+		anchor = fmt.Sprintf("%s-%d", slug, count)
 	}
-	return slug
+	used[anchor] = true
+	return anchor
 }
 
 // libraryAnchorSlugTransformer strips the combining marks that remain once a
