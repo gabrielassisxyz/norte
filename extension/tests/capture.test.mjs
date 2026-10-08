@@ -28,3 +28,17 @@ test('selection context is shorter only at document text boundaries', () => {
   assert.deepEqual(capture('', 'all', '').selection, { exact: 'all', prefix: '', suffix: '' });
   assert.equal(capture('before', '', 'after').selection, undefined);
 });
+
+test('script, style, noscript and template text never enter the context', () => {
+  const dom = new JSDOM(`<!doctype html><body><p>before <script>var hidden = 1;</script><style>.x{}</style>` +
+    `<noscript>nojs</noscript><template>tpl</template>[<b id="s">pick</b>]<script>after1()</script> tail</p></body>`,
+  { url: 'https://example.test/a', runScripts: 'outside-only' });
+  const range = dom.window.document.createRange();
+  range.selectNodeContents(dom.window.document.getElementById('s'));
+  dom.window.getSelection().addRange(range);
+  const { selection } = dom.window.eval(`(${capturePage.toString()})()`);
+  dom.window.close();
+  assert.equal(selection.exact, 'pick');
+  assert.equal(selection.prefix, 'before [');
+  assert.equal(selection.suffix, '] tail');
+});
