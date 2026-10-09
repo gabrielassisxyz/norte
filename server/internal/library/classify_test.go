@@ -464,6 +464,9 @@ func TestThePromptCarriesTheTitleTheNoteTheCappedTextAndTheCandidateIds(t *testi
 	if !strings.Contains(requests[0].System, libraryClassifyContentOpen) {
 		t.Error("the system prompt does not name the delimiter it marks as untrusted")
 	}
+	if !strings.Contains(requests[0].System, `{"suggestions": []}`) {
+		t.Error("the system prompt does not spell out the answer shape for endpoints that ignore the schema")
+	}
 	if requests[0].Authorization != "Bearer "+libraryClassifyTestKey {
 		t.Errorf("the key travelled as %q, want a bearer token", requests[0].Authorization)
 	}
