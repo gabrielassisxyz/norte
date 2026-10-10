@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import Menu from '@/components/ds/Menu.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import Icon from '@/components/ds/Icon.vue'
 import { useAsyncAction } from '@/lib/asyncResource'
@@ -26,12 +27,21 @@ import type {
   LibraryStatus
 } from '../data/source'
 
-const VIEWS: LibraryShelf[] = ['inbox', 'depois', 'arquivo', 'tudo']
+/**
+ * The shelves, in the one order the whole app lists them in.
+ *
+ * The sidebar lists the same four, and listing them in two different orders
+ * made the same place move depending on where it was read. The order here is
+ * the reading order of a saved link: it arrives in the inbox, is put off until
+ * later, and ends up archived; `tudo` is the view over all three and sits
+ * before the shelf a person visits least.
+ */
+const VIEWS: LibraryShelf[] = ['inbox', 'depois', 'tudo', 'arquivo']
 const VIEW_LABELS: Record<LibraryShelf, string> = {
   inbox: 'Inbox',
   depois: 'Depois',
-  arquivo: 'Arquivo',
-  tudo: 'Tudo'
+  tudo: 'Tudo',
+  arquivo: 'Arquivo'
 }
 
 /**
@@ -85,6 +95,27 @@ const TYPE_TITLES: Record<LibraryKind, string> = {
   curso: 'Cursos'
 }
 
+/**
+ * The kinds as the sidebar's Tipos group names them, for the filter menu.
+ *
+ * Plural, because the menu picks a set and not an item -- which is also why
+ * these are not the singular `KIND_LABELS` a row is tagged with. They are
+ * spelled out here rather than imported from the module's `index.ts`: that
+ * file pulls in the home blocks and is loaded with the shell, while this view
+ * is loaded only when someone opens the Biblioteca.
+ */
+const KIND_FILTER_ORDER: LibraryKind[] = ['post', 'livro', 'paper', 'video', 'podcast', 'newsletter', 'curso']
+
+const KIND_FILTER_LABELS: Record<LibraryKind, string> = {
+  post: 'Posts',
+  livro: 'Livros',
+  paper: 'Papers',
+  video: 'Vídeos',
+  podcast: 'Podcasts',
+  newsletter: 'Newsletters',
+  curso: 'Cursos'
+}
+
 const KIND_LABELS: Record<LibraryKind, string> = {
   post: 'Artigo',
   livro: 'Livro',
@@ -100,7 +131,28 @@ const router = useRouter()
 const { library, core, projects: projectsSource } = useSources()
 const phone = usePhoneViewport()
 
-const sort = ref<LibrarySort>('saved_desc')
+/**
+ * One order for the list, whether the server takes it as a sort or as a view.
+ *
+ * `now` is the focus ranking, which the contract spells as `view=now` rather
+ * than as a sort because it answers over every shelf at once. It is one of
+ * these choices anyway: to the person reading, "o que ler agora" is one more
+ * answer to "in what order", and keeping it as a control of its own is what
+ * made the header need a second row.
+ */
+type SortChoice = LibrarySort | 'now'
+
+const SORT_OPTIONS: Array<{ value: SortChoice; label: string }> = [
+  { value: 'saved_desc', label: 'Mais recentes' },
+  { value: 'saved_asc', label: 'Mais antigos' },
+  { value: 'title', label: 'Título' },
+  { value: 'last_opened_desc', label: 'Abertos recentemente' },
+  { value: 'now', label: 'O que ler agora' }
+]
+
+const DEFAULT_SORT: SortChoice = 'saved_desc'
+
+const sortChoice = ref<SortChoice>(DEFAULT_SORT)
 const unreadOnly = ref(false)
 const search = ref('')
 
@@ -113,38 +165,36 @@ const requestedTab = computed<string>(() => {
 
 const showSuggestions = computed(() => requestedTab.value === SUGGESTIONS_TAB)
 
-/** Which tab the control shows as selected, the queue included. */
-const activeTab = computed<string>(() => (showSuggestions.value ? SUGGESTIONS_TAB : activeView.value))
+/**
+ * Which tab the control shows as selected, the queue included.
+ *
+ * Nothing is selected while the focus ranking is on: that list is drawn from
+ * every shelf, so marking one of them would name a shelf the rows are not
+ * from. The tabs stay on screen, because they are then the only way back.
+ */
+const activeTab = computed<string>(() => {
+  if (showSuggestions.value) return SUGGESTIONS_TAB
+  if (focusRanked.value) return ''
+  return activeView.value
+})
 
 const activeView = computed<LibraryShelf>(() =>
   (VIEWS as string[]).includes(requestedTab.value) ? (requestedTab.value as LibraryShelf) : 'inbox'
 )
 
 /**
- * How the list is read: by the date each item was saved, or ranked by how
- * closely it relates to what the person is focused on.
+ * The focus ranking is on.
  *
- * It is local state and not an address, unlike the shelf: the shelf is
+ * The order is local state and not an address, unlike the shelf: the shelf is
  * something the sidebar links to and a bookmark should survive, while the
- * ranking is a way of looking at whatever shelf is open — and the ranked view
- * answers over every shelf at once, so there is no address it would belong to.
+ * order is a way of looking at whatever is open -- and this one answers over
+ * every shelf at once, so there is no address it would belong to.
+ *
+ * The review queue is not a list of shelf items, so the ranking never applies
+ * to it: it is reached from the sidebar as well as from the tabs, and the
+ * sidebar does not go through the tabs that put the order back.
  */
-type LibraryOrdering = 'data' | 'agora'
-
-const ORDERING_OPTIONS: Array<{ value: LibraryOrdering; label: string }> = [
-  { value: 'data', label: 'Por data' },
-  { value: 'agora', label: 'O que ler agora' }
-]
-
-const ordering = ref<LibraryOrdering>('data')
-// The review queue is not a list of shelf items, so the ranking does not apply
-// to it: an ordering chosen on a shelf waits there instead of hiding the tabs
-// on a screen whose own tools no longer include the control that would undo it.
-const focusRanked = computed(() => ordering.value === 'agora' && !showSuggestions.value)
-
-function setOrdering(value: string): void {
-  if (value === 'data' || value === 'agora') ordering.value = value
-}
+const focusRanked = computed(() => sortChoice.value === 'now' && !showSuggestions.value)
 
 /** The requested type filter, or null for every kind. */
 const activeKind = computed<LibraryKind | null>(() => {
@@ -160,9 +210,8 @@ const title = computed(() => (activeKind.value === null ? 'Biblioteca' : TYPE_TI
  * A text search is active, which the server answers ranked by relevance.
  *
  * The server refuses an explicit `sort` alongside `q` because the rank is the
- * order, so while text is in the box the screen sends no sort and hides the
- * toggle that would set one — the same way the focus-ranked view hides the
- * controls it supersedes.
+ * order, so while text is in the box the screen sends no sort and disables the
+ * menu that would set one.
  */
 const hasSearchText = computed(() => search.value.trim() !== '')
 
@@ -179,7 +228,10 @@ const query = computed<LibraryListQuery>(() => {
   // sends none of the three rather than relying on that refusal, and hides
   // the controls that would produce them.
   if (focusRanked.value) {
-    return { view: 'now', tipo: activeKind.value, unread: null }
+    // `unread=true` is the one of the three the contract does allow here, and
+    // it changes nothing about this list: view=now is unread already. It is
+    // sent anyway so that the filter means the same thing in every order.
+    return { view: 'now', tipo: activeKind.value, unread: unreadOnly.value ? true : null }
   }
   const text = search.value.trim()
   // A text query orders by full-text rank, and the server refuses a sort
@@ -196,7 +248,10 @@ const query = computed<LibraryListQuery>(() => {
     view: activeView.value,
     tipo: activeKind.value,
     unread: unreadOnly.value ? true : null,
-    sort: sort.value,
+    // `now` is not a sort the contract takes, and it cannot be the choice on
+    // this branch: it is either focus-ranked, which returned above, or the
+    // review queue, which reads no list at all.
+    sort: sortChoice.value === 'now' ? 'saved_desc' : sortChoice.value,
     q: undefined
   }
 })
@@ -245,16 +300,42 @@ const emptyText = computed(() => {
  */
 const countText = computed(() => `${items.value.length} ${items.value.length === 1 ? 'item' : 'itens'}`)
 
-const sortLabel = computed(() => (sort.value === 'title' ? 'Título' : 'Data salva'))
+const sortLabel = computed(
+  () => SORT_OPTIONS.find((option) => option.value === sortChoice.value)?.label ?? ''
+)
+
+/** The icon has no text, so the order it is set to is said in its name. */
+const sortButtonLabel = computed(() => `Ordenar: ${sortLabel.value}`)
+
+/** Any filter is set, which is what the filter icon's colour reports. */
+const filtered = computed(() => unreadOnly.value || activeKind.value !== null)
 
 function setView(view: string): void {
-  if ((VIEWS as string[]).includes(view) || view === SUGGESTIONS_TAB) {
-    void router.push({ query: { ...route.query, v: view } })
-  }
+  if (!(VIEWS as string[]).includes(view) && view !== SUGGESTIONS_TAB) return
+  // Picking a tab is picking what is on screen, and the focus ranking reads
+  // every shelf at once: left on, it would answer a shelf tab with a list that
+  // is not that shelf. The tabs are the one control that is never hidden, so
+  // they are what puts the order back.
+  sortChoice.value = DEFAULT_SORT
+  void router.push({ query: { ...route.query, v: view } })
 }
 
-function toggleSort(): void {
-  sort.value = sort.value === 'title' ? 'saved_desc' : 'title'
+function setSort(value: SortChoice): void {
+  sortChoice.value = value
+}
+
+/**
+ * Narrow to one kind, or to none.
+ *
+ * The kind is an address and not local state: the sidebar's Tipos rows link to
+ * it, the title names it, and a bookmark of "my papers" has to survive a
+ * reload. So the menu writes the same `tipo` parameter those links carry.
+ */
+function setKind(kind: LibraryKind | null): void {
+  const next = { ...route.query }
+  if (kind === null) delete next.tipo
+  else next.tipo = kind
+  void router.push({ query: next })
 }
 
 function readerTarget(item: LibraryItemSummary): { name: string; params: { id: string } } {
@@ -432,22 +513,14 @@ function toggleRowMenu(item: LibraryItemSummary): void {
       <div class="library-title-row">
         <h1>{{ title }}</h1>
         <SegmentedControl
-          v-if="!focusRanked"
+          class="library-tabs"
           :options="segOptions"
           :model-value="activeTab"
           label="Estado"
           @change="setView"
         />
-      </div>
-      <div v-if="!showSuggestions" class="library-tools">
-        <SegmentedControl
-          class="library-ordering"
-          :options="ORDERING_OPTIONS"
-          :model-value="ordering"
-          label="Ordem"
-          @change="setOrdering"
-        />
         <button
+          v-if="!showSuggestions"
           type="button"
           class="ghost library-surprise"
           :disabled="drawing.pending.value"
@@ -456,47 +529,117 @@ function toggleRowMenu(item: LibraryItemSummary): void {
         >
           {{ drawing.pending.value ? 'Sorteando…' : 'Surpresa' }}
         </button>
-        <label v-if="!focusRanked" class="library-search-label" for="library-search">Buscar na biblioteca</label>
+      </div>
+      <div v-if="!showSuggestions" class="library-tools">
+        <label class="library-search-label" for="library-search">Buscar na biblioteca</label>
         <input
-          v-if="!focusRanked"
           id="library-search"
           v-model="search"
           class="library-search"
           type="search"
+          :disabled="focusRanked"
           placeholder="Buscar por título ou autor…"
         />
-        <button v-if="!focusRanked && !hasSearchText" type="button" class="ghost library-sort" @click="toggleSort">
-          {{ sortLabel }}
-          <Icon name="chevronDown" :size="14" />
-        </button>
-        <button
-          v-if="!focusRanked"
-          type="button"
-          class="ghost ghost-icon"
-          :class="{ 'is-active': unreadOnly }"
-          title="Só não lidos"
-          aria-label="Só não lidos"
-          :aria-pressed="unreadOnly"
-          @click="unreadOnly = !unreadOnly"
+        <Menu
+          class="library-sort"
+          :label="sortButtonLabel"
+          menu-label="Ordenar"
+          :disabled="hasSearchText"
         >
-          <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="1.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            aria-hidden="true"
+          <template #trigger>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M2.5 4h7M2.5 8h5M2.5 12h3M12.5 3.5v8M10.5 9.5l2 2 2-2" />
+            </svg>
+          </template>
+          <button
+            v-for="option in SORT_OPTIONS"
+            :key="option.value"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="option.value === sortChoice"
+            class="library-menu-row"
+            :data-sort="option.value"
+            @click="setSort(option.value)"
           >
-            <path d="M2.5 4h11M4.5 8h7M6.5 12h3" />
-          </svg>
-        </button>
+            <span class="library-menu-mark" aria-hidden="true">
+              <Icon v-if="option.value === sortChoice" name="check" :size="14" />
+            </span>
+            {{ option.label }}
+          </button>
+        </Menu>
+        <Menu class="library-filter" label="Filtrar" menu-label="Filtros" :active="filtered">
+          <template #trigger>
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M2.5 4h11M4.5 8h7M6.5 12h3" />
+            </svg>
+          </template>
+          <button
+            type="button"
+            role="menuitemcheckbox"
+            :aria-checked="unreadOnly"
+            class="library-menu-row"
+            data-filter="unread"
+            @click="unreadOnly = !unreadOnly"
+          >
+            <span class="library-menu-mark" aria-hidden="true">
+              <Icon v-if="unreadOnly" name="check" :size="14" />
+            </span>
+            Só não lidos
+          </button>
+          <span class="library-menu-head">Tipo</span>
+          <button
+            type="button"
+            role="menuitemradio"
+            :aria-checked="activeKind === null"
+            class="library-menu-row"
+            data-kind=""
+            @click="setKind(null)"
+          >
+            <span class="library-menu-mark" aria-hidden="true">
+              <Icon v-if="activeKind === null" name="check" :size="14" />
+            </span>
+            Todos os tipos
+          </button>
+          <button
+            v-for="kind in KIND_FILTER_ORDER"
+            :key="kind"
+            type="button"
+            role="menuitemradio"
+            :aria-checked="activeKind === kind"
+            class="library-menu-row"
+            :data-kind="kind"
+            @click="setKind(kind)"
+          >
+            <span class="library-menu-mark" aria-hidden="true">
+              <Icon v-if="activeKind === kind" name="check" :size="14" />
+            </span>
+            {{ KIND_FILTER_LABELS[kind] }}
+          </button>
+        </Menu>
       </div>
     </div>
 
-    <div v-if="unreadOnly && !showSuggestions && !focusRanked" class="library-unread">
+    <div v-if="unreadOnly && !showSuggestions" class="library-unread">
       Mostrando só não lidos
       <button type="button" class="ghost ghost-clear" @click="unreadOnly = false">Limpar</button>
     </div>
@@ -700,6 +843,16 @@ function toggleRowMenu(item: LibraryItemSummary): void {
   margin: 0 auto;
 }
 
+/*
+  The header is one row: the title, the tabs and Surpresa on the left, the
+  search box and the two menus on the right.
+
+  It fits because the search box is the only elastic thing in it -- it is laid
+  out from a basis narrow enough that the row has room at the widths this app
+  is used at, and grows into whatever is left over. Everything else is
+  `flex: none`, so a tight row shrinks the search box instead of wrapping the
+  tabs, which is the one control here that cannot afford to lose its line.
+*/
 .library-head {
   display: flex;
   align-items: center;
@@ -712,12 +865,20 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 .library-title-row {
   display: flex;
   align-items: center;
-  gap: var(--space-6);
+  gap: var(--space-4);
   flex-wrap: wrap;
+  min-width: 0;
+}
+
+.library-tabs,
+.library-sort,
+.library-filter {
+  flex: none;
 }
 
 .library-title-row h1 {
   margin: 0;
+  white-space: nowrap;
   font-family: var(--font-display);
   font-size: 32px;
   line-height: 36px;
@@ -729,8 +890,62 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 .library-tools {
   display: flex;
   align-items: center;
+  justify-content: flex-end;
+  /*
+    Laid out from the width of the two menus plus a narrow search box, not from
+    the box's own ceiling: `auto` here measures the ceiling, which made the
+    whole group wrap to a second line while there was still room for it.
+  */
+  flex: 1 1 180px;
   flex-wrap: wrap;
   gap: var(--space-1);
+  min-width: 0;
+}
+
+.library-menu-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.library-menu-row:hover {
+  background: var(--norte-soft);
+  color: var(--norte);
+}
+
+.library-menu-row[aria-checked='true'] {
+  color: var(--norte);
+}
+
+.library-menu-row:focus-visible {
+  outline: 2px solid transparent;
+  box-shadow: var(--focus-ring);
+}
+
+.library-menu-mark {
+  display: grid;
+  place-items: center;
+  width: 18px;
+}
+
+.library-menu-head {
+  padding: 8px 10px 4px;
+  color: var(--muted);
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 550;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .ghost {
@@ -942,7 +1157,14 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 }
 
 .library-search {
-  width: 220px;
+  /*
+    Narrow basis, wide ceiling: the row is laid out as if the box were 140px,
+    which is what leaves the tabs their line, and the box then grows into the
+    space nothing else claimed.
+  */
+  flex: 1 1 140px;
+  min-width: 96px;
+  max-width: 240px;
   height: 30px;
   box-sizing: border-box;
   padding: 0 10px;
@@ -961,6 +1183,12 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 .library-search:focus-visible {
   outline: 2px solid transparent;
   box-shadow: var(--focus-ring);
+}
+
+/* The ranked list answers over every shelf and takes no text query. */
+.library-search:disabled {
+  color: var(--muted);
+  cursor: default;
 }
 
 .library-search-label {
@@ -1012,8 +1240,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 }
 
 .library-more-error { color: var(--danger); font-size: 12px; }
-.library-ordering { margin-right: var(--space-2); }
-.library-surprise { height: 30px; border: 1px solid var(--line-strong); }
+.library-surprise { flex: none; height: 30px; border: 1px solid var(--line-strong); }
 .library-nothing { margin-top: var(--space-4); }
 .library-more { height: 32px; border: 1px solid var(--line-strong); }
 
@@ -1035,9 +1262,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
   /*
     The whole head is one wrapping column on a phone: the row of five tabs and
     the row of tools are each wider than the screen, and `space-between` on a
-    wrapped line leaves the second one starting halfway across. The search box
-    takes the width that is left on its line instead of a fixed 220px, which is
-    what pushed the sort and the unread filter off the screen.
+    wrapped line leaves the second one starting halfway across.
   */
   .library-head,
   .library-title-row {
@@ -1051,16 +1276,27 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 
   .library-tools {
     width: 100%;
+    justify-content: flex-start;
   }
 
-  .library-ordering {
-    margin-right: 0;
-  }
-
-  .library-search {
-    flex: 1 1 140px;
-    width: auto;
+  /*
+    The tabs give up their `flex: none` here: five of them are wider than a
+    phone, and holding their line means holding a width the screen has to
+    scroll sideways to show. Allowed to shrink, the control wraps its own
+    options instead -- which is what it is built to do.
+  */
+  .library-tabs {
+    flex: 0 1 auto;
     min-width: 0;
+  }
+
+  /*
+    No floor and no ceiling on a phone: the box takes whatever is left on its
+    line, and a minimum of 96px is what pushed the two menus off the screen.
+  */
+  .library-search {
+    min-width: 0;
+    max-width: none;
   }
 
   .item {

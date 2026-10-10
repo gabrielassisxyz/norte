@@ -44,10 +44,15 @@ export function useSidebar(): ModuleSidebar {
   }
 
   function libraryRows(): SidebarRow[] {
+    // The reading order of a saved link -- inbox, put off, archived -- with the
+    // view over all three before the shelf that is visited least. The
+    // Biblioteca's own tabs list the same four in the same order, because the
+    // two lists disagreeing is what made the same place move depending on
+    // where it was read.
     const rows: SidebarRow[] = [
-      { id: 'tudo', label: 'Tudo', to: { name: 'biblioteca', query: { v: 'tudo' } }, count: viewCount('tudo') },
       { id: 'inbox', label: 'Inbox', to: { name: 'biblioteca', query: { v: 'inbox' } }, count: viewCount('inbox') },
       { id: 'depois', label: 'Depois', to: { name: 'biblioteca', query: { v: 'depois' } }, count: viewCount('depois') },
+      { id: 'tudo', label: 'Tudo', to: { name: 'biblioteca', query: { v: 'tudo' } }, count: viewCount('tudo') },
       { id: 'arquivo', label: 'Arquivo', to: { name: 'biblioteca', query: { v: 'arquivo' } }, count: viewCount('arquivo') },
       { head: true, label: 'Tipos' }
     ]

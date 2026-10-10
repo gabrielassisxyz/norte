@@ -145,3 +145,15 @@ export interface SidePanelProps {
   defaultCollapsed?: boolean
   label?: string
 }
+
+export interface MenuProps {
+  /** The trigger's accessible name, which says what the menu sets and to what. */
+  label: string
+  /** The menu's own accessible name; the trigger's when absent. */
+  menuLabel?: string
+  /** The trigger carries the accent colour, for a menu whose choice is not the default. */
+  active?: boolean
+  disabled?: boolean
+  /** Which edge of the trigger the panel hangs from. */
+  align?: 'left' | 'right'
+}
