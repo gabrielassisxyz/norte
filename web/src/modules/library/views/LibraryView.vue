@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import Menu from '@/components/ds/Menu.vue'
@@ -17,6 +17,7 @@ import { useSources } from '@/sources'
 
 import { useLibraryCounts, useLibraryItems } from '../data/composables'
 import { libraryItemChanged } from '../data/revision'
+import SaveLinkDialog from '../components/SaveLinkDialog.vue'
 import LibrarySuggestions from './LibrarySuggestions.vue'
 import type {
   LibraryItemSummary,
@@ -155,6 +156,27 @@ const DEFAULT_SORT: SortChoice = 'saved_desc'
 const sortChoice = ref<SortChoice>(DEFAULT_SORT)
 const unreadOnly = ref(false)
 const search = ref('')
+const saveOpen = ref(false)
+
+function openLibrarySaveDialog(): void {
+  saveOpen.value = true
+}
+
+function onLibraryShortcutKeydown(event: KeyboardEvent): void {
+  if (event.ctrlKey || event.metaKey || event.altKey || event.key.toLowerCase() !== 'a') return
+  const target = event.target
+  if (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName))
+  ) {
+    return
+  }
+  event.preventDefault()
+  openLibrarySaveDialog()
+}
+
+onMounted(() => document.addEventListener('keydown', onLibraryShortcutKeydown))
+onBeforeUnmount(() => document.removeEventListener('keydown', onLibraryShortcutKeydown))
 
 /** The `v` parameter as it was written, whether or not it names anything. */
 const requestedTab = computed<string>(() => {
@@ -525,6 +547,15 @@ function toggleRowMenu(item: LibraryItemSummary): void {
   <main class="library">
     <div class="library-head">
       <div class="library-title-row">
+        <Menu class="library-add" label="Adicionar" menu-label="Adicionar" align="left">
+          <template #trigger>
+            <Icon name="plus" :size="16" />
+          </template>
+          <button type="button" role="menuitem" class="library-menu-row library-add-row" @click="openLibrarySaveDialog">
+            <span>URL</span>
+            <kbd class="library-menu-shortcut">A</kbd>
+          </button>
+        </Menu>
         <h1>{{ title }}</h1>
         <SegmentedControl
           class="library-tabs"
@@ -851,6 +882,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
       </span>
       <span class="mono library-count">{{ countText }}</span>
     </div>
+    <SaveLinkDialog v-model:open="saveOpen" />
   </main>
 </template>
 
@@ -894,6 +926,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 }
 
 .library-tabs,
+.library-add,
 .library-sort,
 .library-filter {
   flex: none;
@@ -953,6 +986,20 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 .library-menu-row:focus-visible {
   outline: 2px solid transparent;
   box-shadow: var(--focus-ring);
+}
+
+.library-add-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.library-menu-shortcut {
+  margin-left: auto;
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 400;
 }
 
 .library-menu-mark {
