@@ -188,6 +188,9 @@ describe('LibraryView over the API', () => {
     // The counts are the whole library's, not the page's: one row is on screen.
     expect(segCounts(wrapper)).toEqual({ Inbox: 1, Depois: 1, Arquivo: 1, Tudo: 3 })
     expect(tabLabels(wrapper)).toEqual(['Inbox', 'Depois', 'Tudo', 'Arquivo', 'Sugestões'])
+    // One segmented control on the screen: the order used to be a second one,
+    // and it is a sort option now, which is what makes the header one row.
+    expect(wrapper.findAll('.nt-seg')).toHaveLength(1)
     // Nothing in the address names a shelf, so the inbox is the one that opens.
     expect(wrapper.get('.library-tabs [aria-selected="true"]').text()).toContain('Inbox')
     expect(titles(wrapper)).toEqual(['Um texto guardado'])

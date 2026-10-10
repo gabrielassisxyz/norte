@@ -891,7 +891,12 @@ function toggleRowMenu(item: LibraryItemSummary): void {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  flex: 1 1 auto;
+  /*
+    Laid out from the width of the two menus plus a narrow search box, not from
+    the box's own ceiling: `auto` here measures the ceiling, which made the
+    whole group wrap to a second line while there was still room for it.
+  */
+  flex: 1 1 180px;
   flex-wrap: wrap;
   gap: var(--space-1);
   min-width: 0;
@@ -1272,6 +1277,17 @@ function toggleRowMenu(item: LibraryItemSummary): void {
   .library-tools {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  /*
+    The tabs give up their `flex: none` here: five of them are wider than a
+    phone, and holding their line means holding a width the screen has to
+    scroll sideways to show. Allowed to shrink, the control wraps its own
+    options instead -- which is what it is built to do.
+  */
+  .library-tabs {
+    flex: 0 1 auto;
+    min-width: 0;
   }
 
   /*

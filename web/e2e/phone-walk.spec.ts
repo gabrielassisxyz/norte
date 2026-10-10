@@ -347,15 +347,14 @@ for (const phone of PHONES) {
       const tabs = page.locator('.library-title-row .nt-seg-btn')
       // The five tabs by name, so a toolbar that lost one cannot pass by
       // having fewer controls left to fit.
-      await expect(tabs).toHaveText([/Inbox/, /Depois/, /Arquivo/, /Tudo/, /Sugestões/])
+      await expect(tabs).toHaveText([/Inbox/, /Depois/, /Tudo/, /Arquivo/, /Sugestões/])
 
       const controls = [
         ['the five tabs', tabs],
         ['Surpresa', page.locator('.library-surprise')],
         ['the search box', page.locator('.library-search')],
-        ['the sort button', page.locator('.library-sort')],
-        ['the unread filter', page.locator('.library-tools .ghost-icon')],
-        ['the ordering', page.locator('.library-ordering .nt-seg-btn')]
+        ['the sort menu', page.locator('.library-sort button')],
+        ['the filter menu', page.locator('.library-filter button')]
       ] as const
 
       for (const [what, locator] of controls) {
