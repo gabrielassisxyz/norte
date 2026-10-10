@@ -94,6 +94,10 @@ function menuTrigger(wrapper: VueWrapper, menu: 'sort' | 'filter') {
   return wrapper.get(`.library-${menu} button.nt-menu-trigger`)
 }
 
+function addMenuTrigger(wrapper: VueWrapper) {
+  return wrapper.get('.library-add button.nt-menu-trigger')
+}
+
 /**
  * Open a menu if it is closed and pick the row carrying `selector`.
  *
@@ -531,6 +535,73 @@ describe('LibraryView writing to the API', () => {
     await flushReads()
 
     expect(titles(wrapper)).toContain('https://example.org/reading-list')
+    expect(segCounts(wrapper)).toMatchObject({ Inbox: 2, Tudo: 4 })
+  })
+})
+
+describe('LibraryView adding links', () => {
+  it('puts the URL action immediately before the title', async () => {
+    const { wrapper } = await mountAt('/biblioteca', fakeLibrarySource(shelf()))
+
+    expect(wrapper.find('.library-title-row > .library-add + h1').exists()).toBe(true)
+    expect(addMenuTrigger(wrapper).attributes('aria-label')).toBe('Adicionar')
+
+    await addMenuTrigger(wrapper).trigger('click')
+
+    const entries = wrapper.findAll('.library-add [role="menuitem"]')
+    expect(entries).toHaveLength(1)
+    expect(entries[0].text()).toContain('URL')
+    expect(entries[0].get('kbd').text()).toBe('A')
+  })
+
+  it('opens the save dialog with the URL field focused from the menu', async () => {
+    const { wrapper } = await mountAt('/biblioteca', fakeLibrarySource(shelf()))
+
+    await addMenuTrigger(wrapper).trigger('click')
+    await wrapper.get('.library-add [role="menuitem"]').trigger('click')
+    await flushReads()
+
+    expect(wrapper.get('[role="dialog"]').exists()).toBe(true)
+    expect(document.activeElement).toBe(wrapper.get('#save-url').element)
+  })
+
+  it('opens from A or a, but not from an input or a modifier', async () => {
+    const { wrapper } = await mountAt('/biblioteca', fakeLibrarySource(shelf()))
+    const search = wrapper.get('#library-search')
+
+    await search.trigger('keydown', { key: 'a' })
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    await search.trigger('keydown', { key: 'A' })
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', metaKey: true }))
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', altKey: true }))
+    await flushReads()
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+
+    for (const key of ['a', 'A']) {
+      document.dispatchEvent(new KeyboardEvent('keydown', { key }))
+      await flushReads()
+      expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+      await wrapper.get('.save-dialog button').trigger('click')
+      await flushReads()
+    }
+  })
+
+  it('reloads the list and counts after saving from the library', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/biblioteca', library)
+
+    await addMenuTrigger(wrapper).trigger('click')
+    await wrapper.get('.library-add [role="menuitem"]').trigger('click')
+    await wrapper.get('#save-url').setValue('https://example.org/from-library')
+    await wrapper.get('form').trigger('submit')
+    await flushReads()
+
+    expect(library.calls.save).toEqual([{ url: 'https://example.org/from-library' }])
+    expect(titles(wrapper)[0]).toBe('https://example.org/from-library')
+    expect(library.calls.counts).toBe(2)
     expect(segCounts(wrapper)).toMatchObject({ Inbox: 2, Tudo: 4 })
   })
 })
