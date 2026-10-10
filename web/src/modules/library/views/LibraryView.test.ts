@@ -44,12 +44,14 @@ function companionSources(): Partial<AppSources> {
 async function mountAt(
   path: string,
   library: Partial<AppSources['library']>,
-  core?: AppSources['core']
+  core?: AppSources['core'],
+  attachTo?: HTMLElement
 ) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
   const wrapper = mount(LibraryView, {
+    attachTo,
     global: {
       plugins: [
         router,
@@ -555,14 +557,18 @@ describe('LibraryView adding links', () => {
   })
 
   it('opens the save dialog with the URL field focused from the menu', async () => {
-    const { wrapper } = await mountAt('/biblioteca', fakeLibrarySource(shelf()))
+    // Attached, because focus only moves inside a document.
+    const host = document.body.appendChild(document.createElement('div'))
+    const { wrapper } = await mountAt('/biblioteca', fakeLibrarySource(shelf()), undefined, host)
 
     await addMenuTrigger(wrapper).trigger('click')
     await wrapper.get('.library-add [role="menuitem"]').trigger('click')
     await flushReads()
 
-    expect(wrapper.get('[role="dialog"]').exists()).toBe(true)
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
     expect(document.activeElement).toBe(wrapper.get('#save-url').element)
+    wrapper.unmount()
+    host.remove()
   })
 
   it('opens from A or a, but not from an input or a modifier', async () => {
