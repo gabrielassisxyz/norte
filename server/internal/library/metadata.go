@@ -68,6 +68,10 @@ type libraryDeclarations struct {
 	meta      map[string]string
 	pageTitle string
 	headings  []string
+	// tinyImages holds the src of every image the page sizes at one pixel or
+	// less. The extractors drop width and height on the way to the content
+	// tree, so this is the only place a tracking pixel can still be recognised.
+	tinyImages []string
 }
 
 // libraryReadDeclarations parses the page and collects what it declares. It
@@ -95,6 +99,10 @@ func libraryReadDeclarations(source []byte, contentType string) libraryDeclarati
 		case "h1", "h2":
 			if text := libraryNodeText(node); text != "" {
 				declared.headings = append(declared.headings, text)
+			}
+		case "img":
+			if libraryImageHasTinyDimension(node) {
+				declared.tinyImages = append(declared.tinyImages, libraryAttr(node, "src"))
 			}
 		}
 		for child := node.FirstChild; child != nil; child = child.NextSibling {
@@ -178,7 +186,7 @@ func libraryResolveMetadata(
 		image = strings.TrimSpace(extractorMeta.Image)
 	}
 	if image == "" {
-		resolved.LeadImage = libraryFirstUsableArticleImage(content, pageURL)
+		resolved.LeadImage = libraryFirstUsableArticleImage(content, pageURL, declared.tinyImages)
 		return resolved
 	}
 	resolved.LeadImage = libraryAbsoluteImageURL(image, pageURL)
@@ -188,9 +196,15 @@ func libraryResolveMetadata(
 // libraryFirstUsableArticleImage is the last lead-image fallback. It only
 // runs after the page's declarations and trafilatura have answered nothing,
 // so an article image cannot displace a page's own preview choice.
-func libraryFirstUsableArticleImage(content *html.Node, pageURL *url.URL) string {
+func libraryFirstUsableArticleImage(content *html.Node, pageURL *url.URL, tinySources []string) string {
 	if content == nil || pageURL == nil {
 		return ""
+	}
+	tiny := map[string]bool{}
+	for _, src := range tinySources {
+		if resolved := libraryAbsoluteImageURL(src, pageURL); resolved != "" {
+			tiny[resolved] = true
+		}
 	}
 	leadImage := ""
 	libraryWalkElements(content, func(node *html.Node) {
@@ -201,13 +215,22 @@ func libraryFirstUsableArticleImage(content *html.Node, pageURL *url.URL) string
 			if !strings.EqualFold(attr.Key, "src") {
 				continue
 			}
-			if resolved := libraryAbsoluteImageURL(attr.Val, pageURL); resolved != "" {
+			if resolved := libraryAbsoluteImageURL(attr.Val, pageURL); resolved != "" && !tiny[resolved] {
 				leadImage = resolved
 			}
 			return
 		}
 	})
 	return leadImage
+}
+
+func libraryAttr(node *html.Node, name string) string {
+	for _, attr := range node.Attr {
+		if strings.EqualFold(attr.Key, name) {
+			return attr.Val
+		}
+	}
+	return ""
 }
 
 func libraryImageHasTinyDimension(node *html.Node) bool {

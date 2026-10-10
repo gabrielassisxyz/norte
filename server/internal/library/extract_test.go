@@ -248,6 +248,29 @@ func TestRelativeAddressesComeOutAbsolute(t *testing.T) {
 	}
 }
 
+// TestATrackingPixelIsNotTheLeadImageAfterExtraction goes through the whole
+// extraction rather than a parsed fragment: the extractors drop width and
+// height from the content tree, so a fragment-level test passes while the real
+// path picks the pixel.
+func TestATrackingPixelIsNotTheLeadImageAfterExtraction(t *testing.T) {
+	prose := `<p>` + strings.Repeat("Enough prose to extract at all. ", 20) + `</p>`
+	page := []byte(`<!doctype html><html><head><title>Pixel</title></head><body><article>` +
+		`<h1>Pixel</h1><img src="/px.gif" width="1" height="1">` + prose +
+		`<img src="/img/cover.jpg" alt="cover">` + prose + prose +
+		`</article></body></html>`)
+	pageURL, err := url.Parse("https://pages.example/post")
+	if err != nil {
+		t.Fatalf("parsing the page URL: %v", err)
+	}
+	extracted, err := libraryExtractPage(page, pageURL, "")
+	if err != nil {
+		t.Fatalf("libraryExtractPage: %v", err)
+	}
+	if extracted.LeadImage != "https://pages.example/img/cover.jpg" {
+		t.Errorf("lead_image = %q, want the cover rather than the tracking pixel", extracted.LeadImage)
+	}
+}
+
 func TestEveryHttpImageIsRewrittenToHttps(t *testing.T) {
 	page := []byte(`<!doctype html><html><head><title>Images</title></head><body><article>` +
 		`<h1>Images</h1><p>` + strings.Repeat("Enough prose to extract at all. ", 20) + `</p>` +
