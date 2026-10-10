@@ -299,6 +299,44 @@ describe('LibraryView over the API', () => {
     expect(href).toBe('/biblioteca/post-um')
     expect(router.resolve(href).name).toBe('leitor')
   })
+
+  it('renders a saved lead image with the thumbnail attributes', async () => {
+    const leadImage = 'https://images.example/cover.jpg'
+    const library = fakeLibrarySource([
+      libraryRecord({ id: 'with-image', lead_image: leadImage, saved_at: `${TODAY}T10:00:00Z` })
+    ])
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    const thumbnail = wrapper.get('.item-thumb')
+    const image = thumbnail.get('img')
+    expect(image.attributes()).toMatchObject({
+      src: leadImage,
+      alt: '',
+      loading: 'lazy',
+      referrerpolicy: 'no-referrer'
+    })
+    expect(image.classes()).toContain('item-thumb-image')
+    expect(thumbnail.find('.nt-icon').exists()).toBe(false)
+  })
+
+  it('uses the document icon when a thumbnail is absent or fails to load', async () => {
+    const library = fakeLibrarySource([
+      libraryRecord({ id: 'with-image', title: 'Com imagem', lead_image: 'https://images.example/cover.jpg' }),
+      libraryRecord({ id: 'without-image', title: 'Sem imagem', saved_at: '2026-10-02T10:00:00Z' })
+    ])
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const rows = wrapper.findAll('article.item')
+    const withImage = rows.find((row) => row.find('.item-title').text() === 'Com imagem')
+    const withoutImage = rows.find((row) => row.find('.item-title').text() === 'Sem imagem')
+    if (!withImage || !withoutImage) throw new Error('thumbnail test rows were not rendered')
+
+    expect(withoutImage.find('img').exists()).toBe(false)
+    expect(withoutImage.find('.nt-icon').exists()).toBe(true)
+
+    await withImage.get('img').trigger('error')
+    expect(withImage.find('img').exists()).toBe(false)
+    expect(withImage.find('.nt-icon').exists()).toBe(true)
+  })
 })
 
 describe('LibraryView growing its list', () => {

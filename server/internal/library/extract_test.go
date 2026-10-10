@@ -275,6 +275,9 @@ func TestEveryHttpImageIsRewrittenToHttps(t *testing.T) {
 			t.Errorf("content_html is missing %s:\n%s", want, extracted.ContentHTML)
 		}
 	}
+	if extracted.LeadImage != "https://cdn.example/one.png" {
+		t.Errorf("lead_image = %q, want the first usable article image", extracted.LeadImage)
+	}
 }
 
 // TestHeadingsCarryTheirAnchors is the contract between content_headings and
@@ -450,10 +453,58 @@ func TestALeadImageKeepsOnlyHTTPAndHTTPSSchemes(t *testing.T) {
 		{"/a.png", "https://pages.example/a.png"},
 	} {
 		declared := libraryDeclarations{meta: map[string]string{"og:image": tc.declared}}
-		got := libraryResolveMetadata(declared, trafilatura.Metadata{}, pageURL).LeadImage
+		article := libraryParseFragment(t, `<div><img src="https://pages.example/article.png"></div>`)
+		got := libraryResolveMetadata(declared, trafilatura.Metadata{}, pageURL, article).LeadImage
 		if got != tc.want {
 			t.Errorf("og:image %q stored as %q, want %q", tc.declared, got, tc.want)
 		}
+	}
+}
+
+func TestALeadImageFallsBackToTheFirstUsableArticleImage(t *testing.T) {
+	pageURL, err := url.Parse("https://pages.example/articles/notes")
+	if err != nil {
+		t.Fatalf("parsing the page URL: %v", err)
+	}
+	for _, tc := range []struct {
+		name   string
+		markup string
+		want   string
+	}{
+		{
+			name:   "relative source is made absolute",
+			markup: `<img src="/images/cover.png">`,
+			want:   "https://pages.example/images/cover.png",
+		},
+		{
+			name:   "data source is skipped",
+			markup: `<img src="data:image/gif;base64,AAAA"><img src="/images/cover.png">`,
+			want:   "https://pages.example/images/cover.png",
+		},
+		{
+			name:   "one pixel width is skipped",
+			markup: `<img src="/images/pixel.gif" width="1" height="100"><img src="/images/cover.png">`,
+			want:   "https://pages.example/images/cover.png",
+		},
+		{
+			name:   "one pixel height is skipped",
+			markup: `<img src="/images/pixel.gif" width="100" height="1"><img src="/images/cover.png">`,
+			want:   "https://pages.example/images/cover.png",
+		},
+		{
+			name:   "no usable image leaves the field empty",
+			markup: `<img src="data:image/gif;base64,AAAA"><img src="/images/pixel.gif" width="1">`,
+			want:   "",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			article := libraryParseFragment(t, `<div>`+tc.markup+`</div>`)
+			got := libraryResolveMetadata(libraryDeclarations{meta: map[string]string{}},
+				trafilatura.Metadata{}, pageURL, article).LeadImage
+			if got != tc.want {
+				t.Errorf("lead image = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 
