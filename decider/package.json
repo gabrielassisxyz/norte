@@ -1,0 +1,13 @@
+{
+    "name": "norte-decider",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "scripts": {
+        "start": "node server.mjs",
+        "test": "node --test server.test.mjs"
+    },
+    "dependencies": {
+        "@receptron/laya": "0.1.2"
+    }
+}

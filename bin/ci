@@ -20,7 +20,7 @@ cd "$repo" || exit 1
 # check that regenerates the tree: contracts-test runs the real bin/generate, and
 # placed earlier it rewrote stale generated files before the freshness snapshot
 # was taken, letting a contract edited without regeneration pass the gate.
-checks=(pins pins-test contracts sqlc generate contracts-test gofmt go-vet go-build go-test go-test-race web-test extension-test extension-e2e extension-firefox web-e2e-csp web-e2e-phone web-e2e-library-search-sort web-e2e-shell-boot web-e2e-anchoring web-e2e-reader-position)
+checks=(pins pins-test contracts sqlc generate contracts-test gofmt go-vet go-build go-test go-test-race web-test extension-test decider-test extension-e2e extension-firefox web-e2e-csp web-e2e-phone web-e2e-library-search-sort web-e2e-shell-boot web-e2e-anchoring web-e2e-reader-position)
 
 # A temporary NORTE_DATA keeps the suite off the real data directory, so a test
 # that writes cannot touch whatever is installed on the machine running the gate.
@@ -121,6 +121,21 @@ ensure_extension_dependencies() {
 check_extension_test() {
     ensure_extension_dependencies || return
     (cd extension && npm test && npm run build)
+}
+
+ensure_decider_dependencies() {
+    if [ ! -d decider/node_modules ]; then
+        (cd decider && npm ci --ignore-scripts) || return
+    fi
+}
+
+# The decider sidecar's HTTP layer, with the model stubbed: the gate never
+# downloads the 1.7 GB of weights. The npm ci runs with --ignore-scripts for
+# the same reason the extension's does, and the suite proves the package
+# still imports with its native bindings intact.
+check_decider_test() {
+    ensure_decider_dependencies || return
+    (cd decider && npm test)
 }
 
 # The frontend build is not repeated here: the gate's `generate` check has
