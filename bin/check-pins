@@ -74,6 +74,19 @@ if [ -f "$dockerfile" ]; then
     fi
 fi
 
+# The decider sidecar's Dockerfile repeats the Node version as its base image
+# and is checked the same way, once it exists -- it pins node:<version>-slim
+# rather than an ARG, because it builds no frontend.
+decider_dockerfile="$repo/decider/Dockerfile"
+if [ -f "$decider_dockerfile" ]; then
+    node_in_decider="$(first_capture '^[[:space:]]*FROM[[:space:]]+node:([0-9][0-9.]*)-slim[[:space:]]*$' "$decider_dockerfile")"
+    if [ -z "$node_in_decider" ]; then
+        fail "$decider_dockerfile has no node base image to read a Node version from"
+    elif [ "$node_in_decider" != "$node_pinned" ]; then
+        fail "Node version mismatch: $node_version_file says $node_pinned, $decider_dockerfile says $node_in_decider"
+    fi
+fi
+
 if [ "$failures" -gt 0 ]; then
     exit 1
 fi

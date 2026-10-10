@@ -38,6 +38,7 @@ type Config struct {
 	LLMURL        string
 	LLMModel      string
 	LLMKey        string
+	DeciderURL    string
 	TelegramToken string
 	TelegramChat  string
 	FetchMaxBytes int64
@@ -154,6 +155,15 @@ var settings = []setting{
 		def:   func(*LoadOptions) (string, error) { return "", nil },
 		parse: func(c *Config, v string) error { c.LLMKey = v; return nil },
 		show:  func(c *Config) string { return c.LLMKey },
+	},
+	// decider_url is where the Laya decision sidecar (decider/) answers;
+	// empty means none is configured. Its display redacts credentials the
+	// same way llm_url's does, since a URL can carry them.
+	{
+		name: "decider_url", env: "NORTE_DECIDER_URL", flag: "decider-url",
+		def:   func(*LoadOptions) (string, error) { return "", nil },
+		parse: func(c *Config, v string) error { c.DeciderURL = v; return nil },
+		show:  func(c *Config) string { return redactLLMURLUserinfoAndQuery(c.DeciderURL) },
 	},
 	{
 		name: "telegram_token", env: "NORTE_TELEGRAM_TOKEN", secret: true,

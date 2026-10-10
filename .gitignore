@@ -1,6 +1,10 @@
 web/node_modules/
 web/dist/
 web/coverage/
+
+# The decider sidecar is its own npm package (see decider/).
+decider/node_modules/
+
 # Playwright's per-run output: reports, traces and failure context.
 web/test-results/
 web/playwright-report/
