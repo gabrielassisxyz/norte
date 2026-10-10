@@ -248,6 +248,29 @@ func TestRelativeAddressesComeOutAbsolute(t *testing.T) {
 	}
 }
 
+// TestATrackingPixelIsNotTheLeadImageAfterExtraction goes through the whole
+// extraction rather than a parsed fragment: the extractors drop width and
+// height from the content tree, so a fragment-level test passes while the real
+// path picks the pixel.
+func TestATrackingPixelIsNotTheLeadImageAfterExtraction(t *testing.T) {
+	prose := `<p>` + strings.Repeat("Enough prose to extract at all. ", 20) + `</p>`
+	page := []byte(`<!doctype html><html><head><title>Pixel</title></head><body><article>` +
+		`<h1>Pixel</h1><img src="/px.gif" width="1" height="1">` + prose +
+		`<img src="/img/cover.jpg" alt="cover">` + prose + prose +
+		`</article></body></html>`)
+	pageURL, err := url.Parse("https://pages.example/post")
+	if err != nil {
+		t.Fatalf("parsing the page URL: %v", err)
+	}
+	extracted, err := libraryExtractPage(page, pageURL, "")
+	if err != nil {
+		t.Fatalf("libraryExtractPage: %v", err)
+	}
+	if extracted.LeadImage != "https://pages.example/img/cover.jpg" {
+		t.Errorf("lead_image = %q, want the cover rather than the tracking pixel", extracted.LeadImage)
+	}
+}
+
 func TestEveryHttpImageIsRewrittenToHttps(t *testing.T) {
 	page := []byte(`<!doctype html><html><head><title>Images</title></head><body><article>` +
 		`<h1>Images</h1><p>` + strings.Repeat("Enough prose to extract at all. ", 20) + `</p>` +
@@ -274,6 +297,9 @@ func TestEveryHttpImageIsRewrittenToHttps(t *testing.T) {
 		if !strings.Contains(extracted.ContentHTML, want) {
 			t.Errorf("content_html is missing %s:\n%s", want, extracted.ContentHTML)
 		}
+	}
+	if extracted.LeadImage != "https://cdn.example/one.png" {
+		t.Errorf("lead_image = %q, want the first usable article image", extracted.LeadImage)
 	}
 }
 
@@ -450,10 +476,58 @@ func TestALeadImageKeepsOnlyHTTPAndHTTPSSchemes(t *testing.T) {
 		{"/a.png", "https://pages.example/a.png"},
 	} {
 		declared := libraryDeclarations{meta: map[string]string{"og:image": tc.declared}}
-		got := libraryResolveMetadata(declared, trafilatura.Metadata{}, pageURL).LeadImage
+		article := libraryParseFragment(t, `<div><img src="https://pages.example/article.png"></div>`)
+		got := libraryResolveMetadata(declared, trafilatura.Metadata{}, pageURL, article).LeadImage
 		if got != tc.want {
 			t.Errorf("og:image %q stored as %q, want %q", tc.declared, got, tc.want)
 		}
+	}
+}
+
+func TestALeadImageFallsBackToTheFirstUsableArticleImage(t *testing.T) {
+	pageURL, err := url.Parse("https://pages.example/articles/notes")
+	if err != nil {
+		t.Fatalf("parsing the page URL: %v", err)
+	}
+	for _, tc := range []struct {
+		name   string
+		markup string
+		want   string
+	}{
+		{
+			name:   "relative source is made absolute",
+			markup: `<img src="/images/cover.png">`,
+			want:   "https://pages.example/images/cover.png",
+		},
+		{
+			name:   "data source is skipped",
+			markup: `<img src="data:image/gif;base64,AAAA"><img src="/images/cover.png">`,
+			want:   "https://pages.example/images/cover.png",
+		},
+		{
+			name:   "one pixel width is skipped",
+			markup: `<img src="/images/pixel.gif" width="1" height="100"><img src="/images/cover.png">`,
+			want:   "https://pages.example/images/cover.png",
+		},
+		{
+			name:   "one pixel height is skipped",
+			markup: `<img src="/images/pixel.gif" width="100" height="1"><img src="/images/cover.png">`,
+			want:   "https://pages.example/images/cover.png",
+		},
+		{
+			name:   "no usable image leaves the field empty",
+			markup: `<img src="data:image/gif;base64,AAAA"><img src="/images/pixel.gif" width="1">`,
+			want:   "",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			article := libraryParseFragment(t, `<div>`+tc.markup+`</div>`)
+			got := libraryResolveMetadata(libraryDeclarations{meta: map[string]string{}},
+				trafilatura.Metadata{}, pageURL, article).LeadImage
+			if got != tc.want {
+				t.Errorf("lead image = %q, want %q", got, tc.want)
+			}
+		})
 	}
 }
 

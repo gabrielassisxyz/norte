@@ -265,6 +265,7 @@ const { data: counts } = useLibraryCounts()
 const writing = useAsyncAction()
 
 const items = computed<LibraryItemSummary[]>(() => page.value?.items ?? [])
+const failedLibraryThumbnailSources = ref<Record<string, string>>({})
 
 /**
  * The tabs, the shelves counted and the queue not.
@@ -380,6 +381,19 @@ function sourceOf(item: LibraryItemSummary): string {
     return new URL(item.canonical_url).hostname.replace(/^www\./, '')
   } catch {
     return 'fonte desconhecida'
+  }
+}
+
+function libraryThumbnailSource(item: LibraryItemSummary): string | undefined {
+  if (!item.lead_image || failedLibraryThumbnailSources.value[item.id] === item.lead_image) return undefined
+  return item.lead_image
+}
+
+function markLibraryThumbnailFailed(item: LibraryItemSummary): void {
+  if (!item.lead_image) return
+  failedLibraryThumbnailSources.value = {
+    ...failedLibraryThumbnailSources.value,
+    [item.id]: item.lead_image
   }
 }
 
@@ -680,7 +694,16 @@ function toggleRowMenu(item: LibraryItemSummary): void {
         @click="openItem(item, $event)"
       >
         <div class="item-thumb" aria-hidden="true">
-          <Icon name="note" :size="18" />
+          <img
+            v-if="libraryThumbnailSource(item)"
+            class="item-thumb-image"
+            :src="libraryThumbnailSource(item)"
+            alt=""
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            @error="markLibraryThumbnailFailed(item)"
+          />
+          <Icon v-else name="note" :size="18" />
           <span v-if="item.unread" class="item-dot" role="img" aria-label="Não lido" />
         </div>
         <div class="item-main">
@@ -1038,6 +1061,14 @@ function toggleRowMenu(item: LibraryItemSummary): void {
   display: grid;
   place-items: center;
   color: var(--muted);
+}
+
+.item-thumb-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
 }
 
 .item-dot {

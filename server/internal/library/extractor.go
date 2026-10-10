@@ -119,7 +119,7 @@ func libraryExtractPage(source []byte, pageURL *url.URL, contentType string) (li
 	sanitized := libraryExtractPolicy().Sanitize(libraryRenderFragment(content))
 	text := libraryTextFromHTML(sanitized)
 
-	extracted := libraryResolveMetadata(libraryReadDeclarations(source, contentType), result.Metadata, pageURL)
+	extracted := libraryResolveMetadata(libraryReadDeclarations(source, contentType), result.Metadata, pageURL, content)
 	extracted.ContentHTML = sanitized
 	extracted.ContentText = text
 	extracted.Headings = headings

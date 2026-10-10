@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"io"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -67,6 +68,10 @@ type libraryDeclarations struct {
 	meta      map[string]string
 	pageTitle string
 	headings  []string
+	// tinyImages holds the src of every image the page sizes at one pixel or
+	// less. The extractors drop width and height on the way to the content
+	// tree, so this is the only place a tracking pixel can still be recognised.
+	tinyImages []string
 }
 
 // libraryReadDeclarations parses the page and collects what it declares. It
@@ -94,6 +99,10 @@ func libraryReadDeclarations(source []byte, contentType string) libraryDeclarati
 		case "h1", "h2":
 			if text := libraryNodeText(node); text != "" {
 				declared.headings = append(declared.headings, text)
+			}
+		case "img":
+			if libraryImageHasTinyDimension(node) {
+				declared.tinyImages = append(declared.tinyImages, libraryAttr(node, "src"))
 			}
 		}
 		for child := node.FirstChild; child != nil; child = child.NextSibling {
@@ -164,6 +173,7 @@ func libraryResolveMetadata(
 	declared libraryDeclarations,
 	extractorMeta trafilatura.Metadata,
 	pageURL *url.URL,
+	content *html.Node,
 ) libraryExtracted {
 	resolved := libraryExtracted{
 		Title:       libraryResolveTitle(declared, extractorMeta),
@@ -175,10 +185,65 @@ func libraryResolveMetadata(
 	if image == "" {
 		image = strings.TrimSpace(extractorMeta.Image)
 	}
-	if image != "" {
-		resolved.LeadImage = libraryAbsoluteImageURL(image, pageURL)
+	if image == "" {
+		resolved.LeadImage = libraryFirstUsableArticleImage(content, pageURL, declared.tinyImages)
+		return resolved
 	}
+	resolved.LeadImage = libraryAbsoluteImageURL(image, pageURL)
 	return resolved
+}
+
+// libraryFirstUsableArticleImage is the last lead-image fallback. It only
+// runs after the page's declarations and trafilatura have answered nothing,
+// so an article image cannot displace a page's own preview choice.
+func libraryFirstUsableArticleImage(content *html.Node, pageURL *url.URL, tinySources []string) string {
+	if content == nil || pageURL == nil {
+		return ""
+	}
+	tiny := map[string]bool{}
+	for _, src := range tinySources {
+		if resolved := libraryAbsoluteImageURL(src, pageURL); resolved != "" {
+			tiny[resolved] = true
+		}
+	}
+	leadImage := ""
+	libraryWalkElements(content, func(node *html.Node) {
+		if leadImage != "" || libraryTagName(node) != "img" || libraryImageHasTinyDimension(node) {
+			return
+		}
+		for _, attr := range node.Attr {
+			if !strings.EqualFold(attr.Key, "src") {
+				continue
+			}
+			if resolved := libraryAbsoluteImageURL(attr.Val, pageURL); resolved != "" && !tiny[resolved] {
+				leadImage = resolved
+			}
+			return
+		}
+	})
+	return leadImage
+}
+
+func libraryAttr(node *html.Node, name string) string {
+	for _, attr := range node.Attr {
+		if strings.EqualFold(attr.Key, name) {
+			return attr.Val
+		}
+	}
+	return ""
+}
+
+func libraryImageHasTinyDimension(node *html.Node) bool {
+	for _, attr := range node.Attr {
+		if !strings.EqualFold(attr.Key, "width") && !strings.EqualFold(attr.Key, "height") {
+			continue
+		}
+		dimension, err := strconv.ParseFloat(strings.TrimSpace(attr.Val), 64)
+		if err == nil && dimension <= 1 {
+			return true
+		}
+	}
+	return false
 }
 
 // libraryResolveTitle takes the declared title, with the site suffix removed
