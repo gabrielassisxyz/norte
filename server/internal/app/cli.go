@@ -37,6 +37,7 @@ var flagUsage = map[string]string{
 	"timezone":        "IANA timezone used for dates and schedules",
 	"llm_url":         "base URL of the LLM API",
 	"llm_model":       "LLM model name",
+	"decider_url":     "URL of the decider sidecar, which answers typed questions with the Laya model",
 	"telegram_chat":   "Telegram chat id notifications go to",
 	"fetch_max_bytes": "largest response the fetcher will download",
 	"body_max_bytes":  "largest request body the server accepts",

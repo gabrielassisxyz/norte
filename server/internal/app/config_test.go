@@ -143,6 +143,58 @@ func TestReportHidesSecretValuesAndNamesEverySource(t *testing.T) {
 	}
 }
 
+func TestLoadReadsTheDeciderURLFromEnvFlagAndFile(t *testing.T) {
+	cfg, _, err := Load(LoadOptions{Env: envFromMap(nil), Home: "/home/tester"})
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.DeciderURL != "" {
+		t.Errorf("DeciderURL = %q, want empty by default: no sidecar is configured", cfg.DeciderURL)
+	}
+
+	file := writeConfigFile(t, "decider_url = \"http://127.0.0.1:8092\"\n", 0o600)
+	const fromEnv = "http://127.0.0.1:8091"
+	cfg, _, err = Load(LoadOptions{
+		Env:        envFromMap(map[string]string{"NORTE_DECIDER_URL": fromEnv}),
+		Home:       "/home/tester",
+		ConfigPath: file,
+	})
+	if err != nil {
+		t.Fatalf("Load with env and file: %v", err)
+	}
+	if cfg.DeciderURL != fromEnv {
+		t.Errorf("DeciderURL = %q, want the environment value %q", cfg.DeciderURL, fromEnv)
+	}
+	if got := cfg.Sources["decider_url"]; got != SourceEnv {
+		t.Errorf("source = %q, want %q", got, SourceEnv)
+	}
+
+	const fromFlag = "http://127.0.0.1:8093"
+	cfg, _, err = Load(LoadOptions{
+		Env:   envFromMap(map[string]string{"NORTE_DECIDER_URL": fromEnv}),
+		Home:  "/home/tester",
+		Flags: map[string]string{"decider-url": fromFlag},
+	})
+	if err != nil {
+		t.Fatalf("Load with flag and env: %v", err)
+	}
+	if cfg.DeciderURL != fromFlag {
+		t.Errorf("DeciderURL = %q, want the flag value %q", cfg.DeciderURL, fromFlag)
+	}
+	if got := cfg.Sources["decider_url"]; got != SourceFlag {
+		t.Errorf("source = %q, want %q", got, SourceFlag)
+	}
+
+	if report := cfg.Report(); !strings.Contains(report, fromFlag) {
+		t.Errorf("report does not show decider_url's value:\n%s", report)
+	}
+
+	root := NewRootCommand()
+	if flag := root.PersistentFlags().Lookup("decider-url"); flag == nil {
+		t.Error("--decider-url does not exist on the command line")
+	}
+}
+
 func TestLoadWarnsAboutASecretInAGroupReadableConfigFile(t *testing.T) {
 	loose := writeConfigFile(t, "llm_key = \"topsecretvalue\"\n", 0o644)
 	_, warnings, err := Load(LoadOptions{Env: envFromMap(nil), Home: "/home/tester", ConfigPath: loose})
