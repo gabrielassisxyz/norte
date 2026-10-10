@@ -77,13 +77,57 @@ function titles(wrapper: VueWrapper): string[] {
 function segCounts(wrapper: VueWrapper): Record<string, number> {
   const counts: Record<string, number> = {}
   for (const button of wrapper.findAll('.nt-seg-btn')) {
-    // The screen carries a second segmented control, for the order, whose
-    // options are not counted; only the shelves answer this question.
     const count = button.find('.nt-seg-count')
     if (!count.exists()) continue
     counts[button.find('span').text()] = Number(count.text())
   }
   return counts
+}
+
+/** The tabs as they read, in the order they are on screen. */
+function tabLabels(wrapper: VueWrapper): string[] {
+  return wrapper.findAll('.library-tabs .nt-seg-btn').map((button) => button.find('span').text())
+}
+
+/** The trigger of one of the header's two menus. */
+function menuTrigger(wrapper: VueWrapper, menu: 'sort' | 'filter') {
+  return wrapper.get(`.library-${menu} button.nt-menu-trigger`)
+}
+
+/**
+ * Open a menu if it is closed and pick the row carrying `selector`.
+ *
+ * The extra flush is the route: a choice that writes `tipo` navigates, and the
+ * screen's own route is behind a dynamic import, so the navigation settles
+ * several microtasks after the click.
+ */
+async function pick(wrapper: VueWrapper, menu: 'sort' | 'filter', selector: string): Promise<void> {
+  if (menuTrigger(wrapper, menu).attributes('aria-expanded') !== 'true') {
+    await menuTrigger(wrapper, menu).trigger('click')
+  }
+  await wrapper.get(`.library-${menu} ${selector}`).trigger('click')
+  await flushReads(20)
+}
+
+/** Click one tab by its label, and let the navigation it starts settle. */
+async function clickTab(wrapper: VueWrapper, label: string): Promise<void> {
+  const found = wrapper
+    .findAll('.library-tabs .nt-seg-btn')
+    .find((button) => button.find('span').text() === label)
+  if (!found) throw new Error(`no tab labelled ${label}`)
+  await found.trigger('click')
+  await flushReads(20)
+}
+
+/** Choose one order from the sort menu. */
+function chooseSort(wrapper: VueWrapper, value: string): Promise<void> {
+  return pick(wrapper, 'sort', `[data-sort="${value}"]`)
+}
+
+/** The rows of a menu, by the text they read, with the open menu left open. */
+async function menuRows(wrapper: VueWrapper, menu: 'sort' | 'filter'): Promise<string[]> {
+  await menuTrigger(wrapper, menu).trigger('click')
+  return wrapper.findAll(`.library-${menu} .library-menu-row`).map((row) => row.text())
 }
 
 function lastQuery(library: FakeLibrarySource) {
@@ -143,6 +187,9 @@ describe('LibraryView over the API', () => {
     expect(wrapper.find('h1').text()).toBe('Biblioteca')
     // The counts are the whole library's, not the page's: one row is on screen.
     expect(segCounts(wrapper)).toEqual({ Inbox: 1, Depois: 1, Arquivo: 1, Tudo: 3 })
+    expect(tabLabels(wrapper)).toEqual(['Inbox', 'Depois', 'Tudo', 'Arquivo', 'Sugestões'])
+    // Nothing in the address names a shelf, so the inbox is the one that opens.
+    expect(wrapper.get('.library-tabs [aria-selected="true"]').text()).toContain('Inbox')
     expect(titles(wrapper)).toEqual(['Um texto guardado'])
     expect(wrapper.find('.library-count').text()).toBe('1 item')
     expect(library.calls.counts).toBe(1)
@@ -162,7 +209,7 @@ describe('LibraryView over the API', () => {
 
     expect(lastQuery(library)?.unread).toBeNull()
 
-    await wrapper.find('button[aria-label="Só não lidos"]').trigger('click')
+    await pick(wrapper, 'filter', '[data-filter="unread"]')
     await flushReads()
 
     expect(lastQuery(library)).toMatchObject({ view: 'tudo', unread: true })
@@ -191,13 +238,13 @@ describe('LibraryView over the API', () => {
     expect(titles(wrapper)).toEqual(['Um paper guardado'])
 
     await wrapper.get('#library-search').setValue('')
-    await wrapper.get('.library-sort').trigger('click')
+    await chooseSort(wrapper, 'title')
     await flushReads()
 
     expect(lastQuery(library)).toMatchObject({ sort: 'title' })
   })
 
-  it('sends q without sort while a search text is active, and hides the sort toggle', async () => {
+  it('sends q without sort while a search text is active, and disables the sort menu', async () => {
     const library = fakeLibrarySource(shelf())
     const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
 
@@ -212,15 +259,19 @@ describe('LibraryView over the API', () => {
     expect(lastQuery(library)).toMatchObject({ q: 'paper' })
     expect(lastQuery(library)?.sort).toBeUndefined()
     expect('sort' in (lastQuery(library) ?? {})).toBe(false)
-    // While the text is active the toggle has nothing to do, so it is gone.
-    expect(wrapper.find('.library-sort').exists()).toBe(false)
+    // The server refuses the pair, so the control that would produce it cannot
+    // be reached while the text is there -- and it stays on screen, because a
+    // control that disappears leaves nothing to explain why.
+    expect(menuTrigger(wrapper, 'sort').attributes('disabled')).toBeDefined()
+    await menuTrigger(wrapper, 'sort').trigger('click')
+    expect(wrapper.find('.library-sort [role="menu"]').exists()).toBe(false)
   })
 
   it('sends the chosen sort again once the search text is cleared', async () => {
     const library = fakeLibrarySource(shelf())
     const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
 
-    await wrapper.get('.library-sort').trigger('click')
+    await chooseSort(wrapper, 'title')
     await flushReads()
     expect(lastQuery(library)).toMatchObject({ sort: 'title' })
 
@@ -234,7 +285,7 @@ describe('LibraryView over the API', () => {
 
     expect(lastQuery(library)).toMatchObject({ sort: 'title' })
     expect(lastQuery(library)?.q).toBeUndefined()
-    expect(wrapper.find('.library-sort').exists()).toBe(true)
+    expect(menuTrigger(wrapper, 'sort').attributes('disabled')).toBeUndefined()
   })
 
   it('points every row at the reader', async () => {
@@ -306,7 +357,7 @@ describe('LibraryView growing its list', () => {
     await wrapper.get('.library-more').trigger('click')
     await flushReads()
 
-    await wrapper.find('button[aria-label="Só não lidos"]').trigger('click')
+    await pick(wrapper, 'filter', '[data-filter="unread"]')
     await flushReads()
 
     expect(wrapper.findAll('article.item')).toHaveLength(50)
@@ -534,15 +585,6 @@ describe('LibraryView superseding a read it no longer needs', () => {
 })
 
 describe('LibraryView ranked by the focus', () => {
-  /** The order button carrying a label, which is not the shelf control. */
-  function orderingButton(wrapper: VueWrapper, label: string) {
-    const found = wrapper
-      .findAll('.library-ordering .nt-seg-btn')
-      .find((button) => button.text().includes(label))
-    if (!found) throw new Error(`no order option labelled ${label}`)
-    return found
-  }
-
   /** Items the fake ranks: the score it means is stated on `why`. */
   function focusShelf(): LibraryItemRecord[] {
     return [
@@ -572,7 +614,7 @@ describe('LibraryView ranked by the focus', () => {
     expect(library.calls.list[0].view).toBe('inbox')
     expect(library.calls.list.some((query) => query.view === 'now')).toBe(false)
 
-    await orderingButton(wrapper, 'O que ler agora').trigger('click')
+    await chooseSort(wrapper, 'now')
     await flushReads()
 
     expect(lastQuery(library)).toMatchObject({ view: 'now' })
@@ -584,22 +626,92 @@ describe('LibraryView ranked by the focus', () => {
     // Ranked above the newer item, and from another shelf than the one open.
     expect(titles(wrapper)).toEqual(['Ligado ao foco de agora', 'Guardado sem assunto'])
 
-    await orderingButton(wrapper, 'Por data').trigger('click')
+    await chooseSort(wrapper, 'saved_desc')
     await flushReads()
 
     expect(lastQuery(library)).toMatchObject({ view: 'inbox' })
   })
 
-  it('hides the search, the sort and the unread filter while the ranking is on', async () => {
+  it('offers five orders, marks the one in force, and names it on the button', async () => {
     const library = fakeLibrarySource(focusShelf())
     const { wrapper } = await mountAt('/biblioteca', library)
 
-    expect(wrapper.find('#library-search').exists()).toBe(true)
-    await orderingButton(wrapper, 'O que ler agora').trigger('click')
+    expect(menuTrigger(wrapper, 'sort').attributes('aria-label')).toBe('Ordenar: Mais recentes')
+    expect(await menuRows(wrapper, 'sort')).toEqual([
+      'Mais recentes',
+      'Mais antigos',
+      'Título',
+      'Abertos recentemente',
+      'O que ler agora'
+    ])
+    expect(wrapper.get('.library-sort [aria-checked="true"]').text()).toBe('Mais recentes')
+
+    await chooseSort(wrapper, 'saved_asc')
     await flushReads()
 
-    expect(wrapper.find('#library-search').exists()).toBe(false)
-    expect(wrapper.find('.library-sort').exists()).toBe(false)
+    expect(menuTrigger(wrapper, 'sort').attributes('aria-label')).toBe('Ordenar: Mais antigos')
+    expect((await menuRows(wrapper, 'sort')).length).toBe(5)
+    expect(wrapper.get('.library-sort [aria-checked="true"]').text()).toBe('Mais antigos')
+  })
+
+  it('sends each order the way the contract spells it', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    for (const value of ['saved_asc', 'title', 'last_opened_desc', 'saved_desc']) {
+      await chooseSort(wrapper, value)
+      await flushReads()
+      expect(lastQuery(library), value).toMatchObject({ view: 'tudo', sort: value })
+    }
+  })
+
+  it('disables the search box and selects no shelf while the ranking is on', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper } = await mountAt('/biblioteca', library)
+
+    expect(wrapper.get('#library-search').attributes('disabled')).toBeUndefined()
+    await chooseSort(wrapper, 'now')
+    await flushReads()
+
+    // The box stays on screen and refuses text: the ranked list is read over
+    // every shelf and the server refuses a text query alongside it.
+    expect(wrapper.get('#library-search').attributes('disabled')).toBeDefined()
+    // The tabs are still there -- they are the way back -- and none is marked,
+    // because the rows on screen come from no single shelf.
+    expect(tabLabels(wrapper)).toHaveLength(5)
+    expect(wrapper.find('.library-tabs [aria-selected="true"]').exists()).toBe(false)
+  })
+
+  it('puts the order back to the default when a shelf tab is picked', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper } = await mountAt('/biblioteca?v=inbox', library)
+
+    await chooseSort(wrapper, 'now')
+    await flushReads()
+    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+
+    // The shelf that was already addressed, so the route does not change and
+    // the reset cannot be coming from the navigation.
+    await clickTab(wrapper, 'Inbox')
+
+    expect(lastQuery(library)).toMatchObject({ view: 'inbox', sort: 'saved_desc' })
+    expect(menuTrigger(wrapper, 'sort').attributes('aria-label')).toBe('Ordenar: Mais recentes')
+    expect(wrapper.get('.library-tabs [aria-selected="true"]').text()).toContain('Inbox')
+  })
+
+  it('cannot be chosen while a search is running, because the pair is refused', async () => {
+    const library = fakeLibrarySource(focusShelf())
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    await wrapper.get('#library-search').setValue('foco')
+    await flushReads()
+
+    // The whole menu is out of reach while the text is there, the ranking with
+    // it: the ranked list takes no text query, so the two are never both on.
+    expect(menuTrigger(wrapper, 'sort').attributes('disabled')).toBeDefined()
+    await menuTrigger(wrapper, 'sort').trigger('click')
+    expect(wrapper.find('.library-sort [role="menu"]').exists()).toBe(false)
+    expect(lastQuery(library)).toMatchObject({ q: 'foco' })
   })
 
   it('draws away from the focus and opens the item the server picked', async () => {
@@ -641,31 +753,32 @@ describe('LibraryView with the review queue and the focus ranking together', () 
     const library = fakeLibrarySource(shelf())
     const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
 
-    expect(wrapper.find('.library-ordering').exists()).toBe(true)
+    expect(wrapper.find('.library-sort').exists()).toBe(true)
+    expect(wrapper.find('.library-filter').exists()).toBe(true)
     expect(wrapper.find('.library-surprise').exists()).toBe(true)
 
     await router.push('/biblioteca?v=sugestoes')
     await flushReads()
 
-    expect(wrapper.find('.library-ordering').exists()).toBe(false)
+    expect(wrapper.find('.library-sort').exists()).toBe(false)
+    expect(wrapper.find('.library-filter').exists()).toBe(false)
     expect(wrapper.find('.library-surprise').exists()).toBe(false)
     expect(wrapper.find('#library-search').exists()).toBe(false)
   })
 
-  it('shows the tabs on the review queue though the ranking was on, and ranks again on the way back', async () => {
+  it('keeps the ranking waiting while the queue is on screen, and ranks again on the way back', async () => {
     const library = fakeLibrarySource(shelf())
     const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
 
-    await tabLabelled(wrapper, 'O que ler agora')!.trigger('click')
+    await chooseSort(wrapper, 'now')
     await flushReads()
     expect(lastQuery(library)).toMatchObject({ view: 'now' })
-    expect(tabLabelled(wrapper, 'Sugestões')).toBeUndefined()
 
-    // Reached from outside the hidden control, as the sidebar would.
+    // Reached from the sidebar rather than from the tabs, which is the one way
+    // in that does not go through the reset a tab performs.
     await router.push('/biblioteca?v=sugestoes')
     await flushReads()
 
-    // The order control is not on this screen, so the tabs are the only way off it.
     expect(wrapper.get('[aria-selected="true"]').text()).toContain('Sugestões')
     expect(wrapper.text()).not.toContain('primeiro o que está ligado ao foco')
 
@@ -675,11 +788,26 @@ describe('LibraryView with the review queue and the focus ranking together', () 
     expect(lastQuery(library)).toMatchObject({ view: 'now' })
   })
 
+  it('puts the order back when the queue is reached through its own tab', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+
+    await chooseSort(wrapper, 'now')
+    await flushReads()
+
+    await clickTab(wrapper, 'Sugestões')
+    expect(wrapper.get('[aria-selected="true"]').text()).toContain('Sugestões')
+
+    await clickTab(wrapper, 'Inbox')
+
+    expect(lastQuery(library)).toMatchObject({ view: 'inbox', sort: 'saved_desc' })
+  })
+
   it('drops the unread notice on the review queue', async () => {
     const library = fakeLibrarySource(shelf())
     const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
 
-    await wrapper.get('[aria-label="Só não lidos"]').trigger('click')
+    await pick(wrapper, 'filter', '[data-filter="unread"]')
     await flushReads()
     expect(wrapper.text()).toContain('Mostrando só não lidos')
 
@@ -687,5 +815,99 @@ describe('LibraryView with the review queue and the focus ranking together', () 
     await flushReads()
 
     expect(wrapper.text()).not.toContain('Mostrando só não lidos')
+  })
+})
+
+describe('LibraryView filtering from the header', () => {
+  it('offers the unread toggle and one entry per kind, named as the sidebar names them', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    expect(await menuRows(wrapper, 'filter')).toEqual([
+      'Só não lidos',
+      'Todos os tipos',
+      'Posts',
+      'Livros',
+      'Papers',
+      'Vídeos',
+      'Podcasts',
+      'Newsletters',
+      'Cursos'
+    ])
+  })
+
+  it('narrows to the chosen kind, in the spelling the contract uses', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper, router } = await mountAt('/biblioteca?v=tudo', library)
+
+    await pick(wrapper, 'filter', '[data-kind="livro"]')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ view: 'tudo', tipo: 'livro' })
+    expect(titles(wrapper)).toEqual(['Um livro guardado'])
+    // The kind is an address, so the sidebar's link and this menu agree on it.
+    expect(router.currentRoute.value.query.tipo).toBe('livro')
+
+    await pick(wrapper, 'filter', '[data-kind=""]')
+    await flushReads()
+
+    expect(lastQuery(library)?.tipo).toBeNull()
+    expect(router.currentRoute.value.query.tipo).toBeUndefined()
+    expect(titles(wrapper)).toHaveLength(3)
+  })
+
+  it('marks the kind in force and shows the icon as set whenever any filter is', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    expect(menuTrigger(wrapper, 'filter').classes()).not.toContain('is-active')
+    await menuTrigger(wrapper, 'filter').trigger('click')
+    expect(wrapper.get('.library-filter [role="menuitemradio"][aria-checked="true"]').text()).toBe(
+      'Todos os tipos'
+    )
+    await menuTrigger(wrapper, 'filter').trigger('click')
+
+    await pick(wrapper, 'filter', '[data-kind="paper"]')
+    await flushReads()
+
+    expect(menuTrigger(wrapper, 'filter').classes()).toContain('is-active')
+    await menuTrigger(wrapper, 'filter').trigger('click')
+    expect(wrapper.get('.library-filter [role="menuitemradio"][aria-checked="true"]').text()).toBe('Papers')
+  })
+
+  it('shows the icon as set for the unread toggle alone, and reports it on the checkbox', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    await pick(wrapper, 'filter', '[data-filter="unread"]')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ unread: true })
+    expect(menuTrigger(wrapper, 'filter').classes()).toContain('is-active')
+    await menuTrigger(wrapper, 'filter').trigger('click')
+    expect(wrapper.get('.library-filter [role="menuitemcheckbox"]').attributes('aria-checked')).toBe('true')
+    await menuTrigger(wrapper, 'filter').trigger('click')
+
+    await pick(wrapper, 'filter', '[data-filter="unread"]')
+    await flushReads()
+
+    expect(lastQuery(library)?.unread).toBeNull()
+    expect(menuTrigger(wrapper, 'filter').classes()).not.toContain('is-active')
+  })
+
+  it('keeps the kind and the unread filter on the ranked list, which the contract allows', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+
+    await pick(wrapper, 'filter', '[data-kind="post"]')
+    await pick(wrapper, 'filter', '[data-filter="unread"]')
+    await chooseSort(wrapper, 'now')
+    await flushReads()
+
+    // unread=true is the one of the three the contract takes alongside now;
+    // the sort and the text query are the two it refuses, and neither is sent.
+    expect(lastQuery(library)).toMatchObject({ view: 'now', tipo: 'post', unread: true })
+    expect(lastQuery(library)?.sort).toBeUndefined()
+    expect(lastQuery(library)?.q).toBeUndefined()
   })
 })

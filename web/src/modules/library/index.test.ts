@@ -22,6 +22,19 @@ async function holdSidebar(records: LibraryItemRecord[]) {
   return captured as ReturnType<typeof useSidebar>
 }
 
+describe('the library sidebar shelf rows', () => {
+  it('list the shelves in the order the Biblioteca tabs list them', async () => {
+    const sidebar = await holdSidebar([])
+
+    const rows = sidebar.sections[0]?.rows?.() ?? []
+    const labels = rows.filter((row) => 'id' in row).map((row) => ('label' in row ? row.label : ''))
+
+    expect(labels.slice(0, 4)).toEqual(['Inbox', 'Depois', 'Tudo', 'Arquivo'])
+    // The Tipos group follows, unchanged.
+    expect(rows[4]).toMatchObject({ head: true, label: 'Tipos' })
+  })
+})
+
 describe('the library sidebar kind links', () => {
   it('name the whole library, because the counts beside them count every shelf', async () => {
     const sidebar = await holdSidebar([])
