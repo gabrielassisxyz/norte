@@ -37,7 +37,9 @@ jobs:
         with:
           node-version: '24.18.0'
           cache: npm
-          cache-dependency-path: web/package-lock.json
+          cache-dependency-path: |
+            web/package-lock.json
+            decider/package-lock.json
 
       # Chromium is a few hundred MB; the browser suites would download it on
       # every run. The key is the lockfile because it pins the Playwright

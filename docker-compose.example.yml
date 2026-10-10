@@ -1,4 +1,5 @@
-# Example deployment for Norte: one container, one named volume.
+# Example deployment for Norte: the server's container plus the decider
+# sidecar it asks about saved links, and two named volumes.
 #
 # Start it with:
 #
@@ -38,6 +39,10 @@ services:
       # database, so any IANA name resolves even though the image carries no
       # zoneinfo files.
       NORTE_TIMEZONE: "America/Sao_Paulo"
+      # Where the decider sidecar below answers its POST /decide. Take the
+      # sidecar out together with this value when its decisions are not
+      # wanted and its memory is.
+      NORTE_DECIDER_URL: "http://decider:8091"
     ports:
       # Published on 127.0.0.1 only. This version has no authentication: the
       # boundary is localhost (or the Tailscale network below), so binding
@@ -53,12 +58,35 @@ services:
       - norte-data:/data
     restart: unless-stopped
 
+  decider:
+    build: ./decider
+    image: norte-decider:latest
+    environment:
+      # The image already sets DECIDER_LISTEN=0.0.0.0:8091, LAYA_CACHE=/cache
+      # and runs as a non-root user; what varies per install goes in the
+      # env_file next to this one, like Norte's own settings.
+      DECIDER_LISTEN: "0.0.0.0:8091"
+    ports:
+      # Norte reaches the sidecar over the compose network using the service
+      # name, so this published port is only for poking the model by hand:
+      # curl http://127.0.0.1:8091/health while the stack is up.
+      - "127.0.0.1:8091:8091"
+    volumes:
+      # The weights download into this volume on first use, about 1.7 GB;
+      # the container itself stays disposable. The model needs about 2 GB of
+      # RAM once loaded, so leave the machine that headroom.
+      - laya-cache:/cache
+    restart: unless-stopped
+
 volumes:
   norte-data:
     # An explicit name, so the volume is called norte-data whatever the compose
     # project is named. Without it compose creates <project>_norte-data and the
     # backup command at the bottom would archive an empty, new volume.
     name: norte-data
+  laya-cache:
+    # Same reason as norte-data: one model cache shared by any project name.
+    name: laya-cache
 
 # Phone over Tailscale (commented second example). The phone cannot reach
 # 127.0.0.1 on this machine, so bind the container to this machine's Tailscale
