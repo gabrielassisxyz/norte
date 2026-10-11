@@ -27,35 +27,35 @@ afterEach(() => {
 function queueLinks(): CoreLink[] {
   return [
     coreLink({
-      id: 'link-sugerido',
+      id: 'link-suggested',
       status: 'suggested',
       source: 'llm',
       confidence: 0.88,
       created_at: '2026-10-07T12:03:00.000Z',
-      src: registryItem({ id: 'item-consenso', title: 'Notas sobre consenso' }),
-      dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Sistemas distribuídos' })
+      src: registryItem({ id: 'item-consensus', title: 'Consensus notes' }),
+      dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Distributed systems' })
     }),
     coreLink({
-      id: 'link-confirmado',
+      id: 'link-confirmed',
       status: 'confirmed',
       created_at: '2026-10-07T12:02:00.000Z',
-      src: registryItem({ id: 'item-ja-ligado', title: 'Um texto já ligado' }),
-      dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Sistemas distribuídos' })
+      src: registryItem({ id: 'item-already-linked', title: 'An already linked text' }),
+      dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Distributed systems' })
     }),
     coreLink({
-      id: 'link-rejeitado',
+      id: 'link-rejected',
       status: 'rejected',
       source: 'llm',
       created_at: '2026-10-07T12:01:00.000Z',
-      src: registryItem({ id: 'item-recusado', title: 'Um texto recusado' }),
-      dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Sistemas distribuídos' })
+      src: registryItem({ id: 'item-rejected', title: 'A rejected text' }),
+      dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Distributed systems' })
     })
   ]
 }
 
 function newCoreSource(links: CoreLink[] = queueLinks()) {
   return fakeCoreSource({
-    subjects: [subjectRecord({ id: 'subject-sd', name: 'Sistemas distribuídos', slug: 'sistemas-distribuidos' })],
+    subjects: [subjectRecord({ id: 'subject-sd', name: 'Distributed systems', slug: 'distributed-systems' })],
     links
   })
 }
@@ -84,7 +84,7 @@ function action(wrapper: VueWrapper, label: string) {
   return found
 }
 
-describe('the "Sugestões" tab', () => {
+describe('the "Pending connections" tab', () => {
   it('lists exactly the suggested about links, narrowed by the server', async () => {
     const { wrapper, core } = await mountQueue()
 
@@ -94,10 +94,10 @@ describe('the "Sugestões" tab', () => {
     expect(core.calls.listLinks).toEqual([{ kind: 'about', status: 'suggested', cursor: undefined }])
 
     expect(rows(wrapper)).toHaveLength(1)
-    expect(rows(wrapper)[0]).toContain('Notas sobre consenso')
-    expect(rows(wrapper)[0]).toContain('Sistemas distribuídos')
-    expect(wrapper.text()).not.toContain('Um texto já ligado')
-    expect(wrapper.text()).not.toContain('Um texto recusado')
+    expect(rows(wrapper)[0]).toContain('Consensus notes')
+    expect(rows(wrapper)[0]).toContain('Distributed systems')
+    expect(wrapper.text()).not.toContain('An already linked text')
+    expect(wrapper.text()).not.toContain('A rejected text')
   })
 
   it('shows the model’s confidence as a percentage', async () => {
@@ -109,7 +109,7 @@ describe('the "Sugestões" tab', () => {
   it('opens both ends at the addresses the registry holds', async () => {
     const { wrapper } = await mountQueue()
 
-    expect(wrapper.get('.suggestion-item').attributes('href')).toBe('/library/item-consenso')
+    expect(wrapper.get('.suggestion-item').attributes('href')).toBe('/library/item-consensus')
     expect(wrapper.get('.suggestion-dst').attributes('href')).toBe('/library/subject-sd')
   })
 
@@ -129,41 +129,41 @@ describe('the "Sugestões" tab', () => {
     mounted.push(panel)
     await flushReads()
 
-    expect(panel.text()).not.toContain('Notas sobre consenso')
+    expect(panel.text()).not.toContain('Consensus notes')
 
-    await action(queue, 'Aceitar Sistemas distribuídos').trigger('click')
+    await action(queue, 'Accept Distributed systems').trigger('click')
     await flushReads()
 
     // The panel first: it is the criterion, and an assertion behind three
     // others is one that has never been seen to fail.
-    expect(panel.text()).toContain('Notas sobre consenso')
-    expect(core.calls.decideLink).toEqual([{ id: 'link-sugerido', decision: 'accept' }])
+    expect(panel.text()).toContain('Consensus notes')
+    expect(core.calls.decideLink).toEqual([{ id: 'link-suggested', decision: 'accept' }])
     expect(rows(queue)).toHaveLength(0)
-    expect(queue.text()).toContain('Nenhuma sugestão pendente.')
+    expect(queue.text()).toContain('No pending connection.')
   })
 
   it('rejecting removes it from the tab', async () => {
     const { wrapper, core } = await mountQueue()
 
-    await action(wrapper, 'Rejeitar Sistemas distribuídos').trigger('click')
+    await action(wrapper, 'Reject Distributed systems').trigger('click')
     await flushReads()
 
-    expect(core.calls.decideLink).toEqual([{ id: 'link-sugerido', decision: 'reject' }])
+    expect(core.calls.decideLink).toEqual([{ id: 'link-suggested', decision: 'reject' }])
     expect(rows(wrapper)).toHaveLength(0)
-    expect(wrapper.text()).toContain('Nenhuma sugestão pendente.')
+    expect(wrapper.text()).toContain('No pending connection.')
   })
 
   it('leaves the row where it is and says so when the decision fails', async () => {
     const core = fakeCoreSource(
       { links: queueLinks() },
-      { decideLink: async () => { throw new Error('rede indisponível') } }
+      { decideLink: async () => { throw new Error('network unavailable') } }
     )
     const { wrapper } = await mountQueue(core)
 
-    await action(wrapper, 'Aceitar Sistemas distribuídos').trigger('click')
+    await action(wrapper, 'Accept Distributed systems').trigger('click')
     await flushReads()
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível decidir: rede indisponível')
+    expect(wrapper.get('[role="alert"]').text()).toContain('Could not decide: network unavailable')
     expect(rows(wrapper)).toHaveLength(1)
   })
 
@@ -179,15 +179,15 @@ describe('the "Sugestões" tab', () => {
           confidence: 0.5,
           // Descending, so the fake's newest-first order is the order below.
           created_at: `2026-10-07T12:00:${String(59 - index).padStart(2, '0')}.000Z`,
-          src: registryItem({ id: `item-${number}`, title: `Texto ${number}` }),
-          dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Sistemas distribuídos' })
+          src: registryItem({ id: `item-${number}`, title: `Text ${number}` }),
+          dst: registryItem({ id: 'subject-sd', module: 'core', type: 'subject', title: 'Distributed systems' })
         })
       )
     }
     const { wrapper } = await mountQueue(newCoreSource(many))
 
     expect(rows(wrapper)).toHaveLength(50)
-    await wrapper.findAll('button').filter((button) => button.text() === 'Carregar mais')[0]!.trigger('click')
+    await wrapper.findAll('button').filter((button) => button.text() === 'Load more')[0]!.trigger('click')
     await flushReads()
 
     expect(rows(wrapper)).toHaveLength(60)
@@ -200,7 +200,7 @@ describe('the "Sugestões" tab', () => {
       {
         listLinks: async () => {
           attempts += 1
-          if (attempts === 1) throw new Error('rede indisponível')
+          if (attempts === 1) throw new Error('network unavailable')
           return { items: queueLinks().filter((link) => link.status === 'suggested'), next_cursor: null }
         }
       }
@@ -208,7 +208,7 @@ describe('the "Sugestões" tab', () => {
     const { wrapper } = await mountQueue(core)
 
     expect(wrapper.get('[role="alert"]').text()).toContain(
-      'Não foi possível carregar as sugestões: rede indisponível'
+      'The pending connections could not be loaded: network unavailable'
     )
 
     await wrapper.get('[role="alert"] button').trigger('click')

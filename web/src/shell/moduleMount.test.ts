@@ -104,7 +104,7 @@ describe('an api-backed module the server does serve', () => {
     setEnabledModules(['library'])
     const { wrapper } = await mountAt('/library')
 
-    expect(wrapper.find('.app-content h1').text()).toBe('Biblioteca')
-    expect(wrapper.get('.app-sidebar').text()).toContain('Biblioteca')
+    expect(wrapper.find('.app-content h1').text()).toBe('Library')
+    expect(wrapper.get('.app-sidebar').text()).toContain('Library')
   })
 })

@@ -126,8 +126,8 @@ const panelAnnotations = computed<PanelAnnotation[]>(() => {
       quote: highlight.exact,
       note: annotation?.text,
       n: index + 1,
-      location: kind.value === 'book' ? 'Capítulo atual' : 'Texto principal',
-      time: annotation ? formatTimeOfDay(annotation.created_at) : 'agora'
+      location: kind.value === 'book' ? 'Current chapter' : 'Main text',
+      time: annotation ? formatTimeOfDay(annotation.created_at) : 'just now'
     })
   })
 
@@ -137,7 +137,7 @@ const panelAnnotations = computed<PanelAnnotation[]>(() => {
       entries.push({
         id: annotation.id,
         note: annotation.text,
-        location: 'Sobre o material',
+        location: 'About the material',
         time: formatTimeOfDay(annotation.created_at)
       })
     })
@@ -146,13 +146,13 @@ const panelAnnotations = computed<PanelAnnotation[]>(() => {
 })
 
 const panelTabs = computed(() => [
-  { value: 'note', label: 'Nota', icon: 'note' as const },
-  { value: 'annotations', label: 'Anotações', count: panelAnnotations.value.length, icon: 'comment' as const }
+  { value: 'note', label: 'Note', icon: 'note' as const },
+  { value: 'annotations', label: 'Annotations', count: panelAnnotations.value.length, icon: 'comment' as const }
 ])
 
 const selectionActions = computed(() => [
-  ...(canReachNotes.value ? ['Destacar', 'Anotar', 'Virar pergunta'] : []),
-  ...(canReachReview.value ? ['Criar cartão'] : [])
+  ...(canReachNotes.value ? ['Highlight', 'Annotate', 'Turn into a question'] : []),
+  ...(canReachReview.value ? ['Create a card'] : [])
 ])
 
 const backTarget = computed(() => {
@@ -195,18 +195,18 @@ async function handleSelectionAction(payload: { action: string; text: string }):
   const text = payload.text.trim()
   if (!current || !text) return
 
-  if (payload.action === 'Destacar' || payload.action === 'Anotar') {
+  if (payload.action === 'Highlight' || payload.action === 'Annotate') {
     const highlight = await writing.run(() => notesSource.addHighlight({ item_id: current.id, exact: text }))
     if (!highlight) return
     applyHighlight(highlight)
     highlightedQuote.value = text
 
-    if (payload.action === 'Anotar') {
+    if (payload.action === 'Annotate') {
       const annotation = await writing.run(() =>
         notesSource.addAnnotation({
           item_id: current.id,
           highlight_id: highlight.id,
-          text: 'Revisar esta ideia antes da próxima sessão de estudo.'
+          text: 'Revisit this idea before the next study session.'
         })
       )
       if (annotation) applyAnnotation(annotation)
@@ -216,18 +216,18 @@ async function handleSelectionAction(payload: { action: string; text: string }):
     return
   }
 
-  if (payload.action === 'Virar pergunta') {
+  if (payload.action === 'Turn into a question') {
     const question = await writing.run(() =>
       notesSource.addQuestion({
         item_id: current.id,
-        text: `O que este trecho muda na forma de estudar?`
+        text: `What does this passage change about how to study?`
       })
     )
     if (question && canReachNotes.value) router.push({ name: 'notas', query: { tab: 'perguntas' } })
     return
   }
 
-  if (payload.action === 'Criar cartão' && canReachReview.value) router.push({ name: 'revisao' })
+  if (payload.action === 'Create a card' && canReachReview.value) router.push({ name: 'revisao' })
 }
 
 async function addPanelAnnotation(text: string): Promise<void> {
@@ -249,20 +249,20 @@ function submitExercise(): void {
 
 <template>
   <main v-if="firstLoad" class="material-view material-state" role="status">
-    <p>Carregando o material…</p>
+    <p>Loading the material…</p>
   </main>
 
   <main v-else-if="error" class="material-view material-state" role="alert">
-    <p>Não foi possível carregar o material: {{ error }}</p>
-    <button type="button" class="material-state-action" @click="refresh()">Tentar de novo</button>
+    <p>The material could not be loaded: {{ error }}</p>
+    <button type="button" class="material-state-action" @click="refresh()">Try again</button>
   </main>
 
   <main v-else-if="material" class="material-view" :class="`material-view-${kind}`">
     <header class="material-top">
       <div class="material-top-start">
-        <a class="material-back" :href="backHref" aria-label="Voltar" @click.prevent="goBack">
+        <a class="material-back" :href="backHref" aria-label="Back" @click.prevent="goBack">
           <Icon name="arrowLeft" />
-          <span>{{ materialContext?.curriculumTitle ?? 'Biblioteca' }}</span>
+          <span>{{ materialContext?.curriculumTitle ?? 'Library' }}</span>
         </a>
         <span v-if="materialContext" class="material-crumb">
           {{ materialContext.moduleTitle }} · item
@@ -272,11 +272,11 @@ function submitExercise(): void {
 
       <SegmentedControl
         :options="[
-          { value: 'read', label: 'Leitura' },
-          { value: 'exercises', label: 'Exercícios' }
+          { value: 'read', label: 'Reading' },
+          { value: 'exercises', label: 'Exercises' }
         ]"
         :model-value="mode"
-        label="Modo"
+        label="Mode"
         @update:model-value="setMode"
       />
 
@@ -287,7 +287,7 @@ function submitExercise(): void {
           :href="router.resolve({ name: 'material', params: { kind: nextMaterial.kind, id: nextMaterial.id } }).href"
           @click.prevent="router.push({ name: 'material', params: { kind: nextMaterial.kind, id: nextMaterial.id } })"
         >
-          Próximo: {{ nextMaterial.title }}
+          Next: {{ nextMaterial.title }}
           <Icon name="arrow" />
         </a>
         <Button
@@ -296,7 +296,7 @@ function submitExercise(): void {
           icon="check"
           @click="markComplete"
         >
-          {{ isComplete ? 'Concluído' : 'Marcar como concluído' }}
+          {{ isComplete ? 'Done' : 'Mark as done' }}
         </Button>
       </div>
     </header>
@@ -335,15 +335,15 @@ function submitExercise(): void {
     </div>
 
     <p v-if="writing.error.value" class="material-write-error" role="alert">
-      Não foi possível salvar: {{ writing.error.value }}
+      Could not save: {{ writing.error.value }}
     </p>
   </main>
 
   <main v-else class="material-view material-state">
-    <h1>Material não encontrado</h1>
-    <p>Este material não existe mais, ou o endereço está errado.</p>
+    <h1>Material not found</h1>
+    <p>This material no longer exists, or the address is wrong.</p>
     <RouterLink class="material-state-action" :to="{ name: 'library', query: { v: 'all' } }">
-      Voltar para a biblioteca
+      Back to the library
     </RouterLink>
   </main>
 </template>

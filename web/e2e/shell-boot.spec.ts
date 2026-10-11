@@ -101,8 +101,8 @@ test.describe('the browser tab and the addresses nothing claims', () => {
     await page.goto(`${server.baseURL}/`)
     await expect(page).toHaveTitle('Início · Norte')
 
-    await page.getByRole('link', { name: 'Biblioteca' }).first().click()
-    await expect(page).toHaveTitle('Biblioteca · Norte')
+    await page.getByRole('link', { name: 'Library' }).first().click()
+    await expect(page).toHaveTitle('Library · Norte')
   })
 
   test('answers an unknown address with a page that says so', async ({ page }) => {

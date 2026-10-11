@@ -19,14 +19,14 @@ import MaterialView from './MaterialView.vue'
  * selection actions — is withheld by the gating rule. What is left is the
  * reading surface itself, and that is what these cases hold.
  */
-const ARTICLE_HTML = '<p>Abertura do artigo.</p><h2 id="uma-secao">Uma seção</h2><p>Corpo.</p>'
+const ARTICLE_HTML = '<p>Opening of the article.</p><h2 id="a-section">A section</h2><p>Body.</p>'
 
 function record(overrides: Partial<LibraryItemRecord> = {}): LibraryItemRecord {
   return libraryRecord({
     id: 'post-um',
     kind: 'article',
-    title: 'Um texto guardado',
-    author: 'Equipe Norte',
+    title: 'A saved text',
+    author: 'Norte team',
     content_html: ARTICLE_HTML,
     ...overrides
   })
@@ -34,8 +34,8 @@ function record(overrides: Partial<LibraryItemRecord> = {}): LibraryItemRecord {
 
 const SHELF: LibraryItemRecord[] = [
   record(),
-  record({ id: 'livro-um', kind: 'book', title: 'Um livro guardado', author: 'Marina Costa' }),
-  record({ id: 'paper-um', kind: 'paper', title: 'Um paper guardado', site: 'papers.example' })
+  record({ id: 'book-one', kind: 'book', title: 'A saved book', author: 'Marina Costa' }),
+  record({ id: 'paper-um', kind: 'paper', title: 'A saved paper', site: 'papers.example' })
 ]
 
 beforeEach(() => {
@@ -67,8 +67,8 @@ function tab(wrapper: VueWrapper, label: string) {
 
 describe('MaterialView', () => {
   it.each([
-    ['/material/article/post-um', '.reader-post', 'Leitura', '[aria-label="Nota e anotações"]'],
-    ['/material/book/livro-um', '.reader-book', 'Leitura', '.nt-rail']
+    ['/material/article/post-um', '.reader-post', 'Reading', '[aria-label="Note and annotations"]'],
+    ['/material/book/book-one', '.reader-book', 'Reading', '.nt-rail']
   ])('renders the %s reading variant with its open or collapsed panel', async (path, readerClass, mode, panelSelector) => {
     const { wrapper } = await mountAt(path)
 
@@ -81,15 +81,15 @@ describe('MaterialView', () => {
   it('renders the extracted article in the post variant', async () => {
     const { wrapper } = await mountAt('/material/article/post-um')
 
-    expect(wrapper.get('.article-content').text()).toContain('Abertura do artigo')
-    expect(wrapper.find('[id="uma-secao"]').exists()).toBe(true)
+    expect(wrapper.get('.article-content').text()).toContain('Opening of the article')
+    expect(wrapper.find('[id="a-section"]').exists()).toBe(true)
   })
 
   it('renders the book controls and starts its panel collapsed', async () => {
-    const { wrapper } = await mountAt('/material/book/livro-um')
+    const { wrapper } = await mountAt('/material/book/book-one')
 
-    expect(wrapper.text()).toContain('Sumário')
-    expect(wrapper.find('button[aria-label="Tipografia"]').exists()).toBe(true)
+    expect(wrapper.text()).toContain('Contents')
+    expect(wrapper.find('button[aria-label="Typography"]').exists()).toBe(true)
     expect(wrapper.find('.nt-rail').exists()).toBe(true)
     expect(wrapper.find('.nt-panel').exists()).toBe(false)
     expect(wrapper.find('[aria-label="Open the panel"]').exists()).toBe(true)
@@ -99,14 +99,14 @@ describe('MaterialView', () => {
     const { wrapper } = await mountAt('/material/paper/paper-um')
 
     expect(wrapper.find('.material-exercises').exists()).toBe(true)
-    expect(tab(wrapper, 'Exercícios').attributes('aria-selected')).toBe('true')
+    expect(tab(wrapper, 'Exercises').attributes('aria-selected')).toBe('true')
     expect(wrapper.find('.nt-panel').exists()).toBe(false)
 
-    await tab(wrapper, 'Leitura').trigger('click')
+    await tab(wrapper, 'Reading').trigger('click')
 
     expect(wrapper.find('.reader-paper').exists()).toBe(true)
-    expect(wrapper.text()).toContain('Seções')
-    expect(wrapper.text()).toContain('PDF original')
+    expect(wrapper.text()).toContain('Sections')
+    expect(wrapper.text()).toContain('Original PDF')
     expect(wrapper.find('.nt-panel').exists()).toBe(true)
   })
 
@@ -116,14 +116,14 @@ describe('MaterialView', () => {
     await wrapper.find('button[aria-label="Collapse the panel"]').trigger('click')
     expect(wrapper.find('.nt-rail').exists()).toBe(true)
 
-    await wrapper.find('button[aria-label^="Open Anotações"]').trigger('click')
+    await wrapper.find('button[aria-label^="Open Annotations"]').trigger('click')
     expect(wrapper.find('.nt-panel').exists()).toBe(true)
-    expect(wrapper.find('.nt-panel .nt-tab.is-active').text()).toContain('Anotações')
+    expect(wrapper.find('.nt-panel .nt-tab.is-active').text()).toContain('Annotations')
   })
 
   it('withholds the selection actions while the notes module reads elsewhere', async () => {
     const selection = {
-      toString: () => 'o detalhe observável',
+      toString: () => 'the observable detail',
       removeAllRanges: vi.fn()
     }
     vi.spyOn(window, 'getSelection').mockReturnValue(selection as unknown as Selection)
@@ -140,35 +140,35 @@ describe('MaterialView', () => {
     const { wrapper } = await mountAt('/material/article/post-um')
 
     expect(wrapper.find('.material-next').exists()).toBe(false)
-    expect(wrapper.get('.material-back').text()).toContain('Biblioteca')
+    expect(wrapper.get('.material-back').text()).toContain('Library')
   })
 
   it('refuses short exercise answers and accepts a response with ten characters', async () => {
-    const { wrapper } = await mountAt('/material/book/livro-um')
-    await tab(wrapper, 'Exercícios').trigger('click')
+    const { wrapper } = await mountAt('/material/book/book-one')
+    await tab(wrapper, 'Exercises').trigger('click')
 
     const answer = wrapper.find('#material-answer')
-    await answer.setValue('curto')
+    await answer.setValue('short')
     expect(wrapper.find('.exercise-actions button').attributes('disabled')).toBeDefined()
     expect(wrapper.find('.exercise-item:nth-child(2)').classes()).not.toContain('is-done')
 
-    await answer.setValue('uma resposta longa')
+    await answer.setValue('a long-enough answer')
     await wrapper.find('.exercise-actions button').trigger('click')
     expect(wrapper.find('.exercise-item:nth-child(2)').classes()).toContain('is-done')
-    expect(wrapper.find('.exercise-item:nth-child(2) .exercise-meta').text()).toContain('Feito')
+    expect(wrapper.find('.exercise-item:nth-child(2) .exercise-meta').text()).toContain('Done')
   })
 
   it('marks the material as read and returns to the previous route', async () => {
     const library: FakeLibrarySource = fakeLibrarySource(SHELF)
-    const { wrapper, router } = await mountAt('/material/book/livro-um', '/library', library)
+    const { wrapper, router } = await mountAt('/material/book/book-one', '/library', library)
 
     await wrapper.find('[data-action="complete"]').trigger('click')
     await flushReads()
 
     // Reading it does not move it out of the shelf it was on.
-    expect(library.calls.patch).toEqual([{ id: 'livro-um', patch: { unread: false } }])
+    expect(library.calls.patch).toEqual([{ id: 'book-one', patch: { unread: false } }])
     expect(library.records[1]).toMatchObject({ location: 'inbox', unread: false })
-    expect(wrapper.find('[data-action="complete"]').text()).toContain('Concluído')
+    expect(wrapper.find('[data-action="complete"]').text()).toContain('Done')
 
     await wrapper.find('.material-back').trigger('click')
     await new Promise((resolve) => setTimeout(resolve, 0))
@@ -192,14 +192,14 @@ describe('MaterialView', () => {
       }
     })
 
-    expect(wrapper.get('[role="status"]').text()).toContain('Carregando o material')
+    expect(wrapper.get('[role="status"]').text()).toContain('Loading the material')
     expect(wrapper.find('.material-body').exists()).toBe(false)
   })
 
   it('offers a way back instead of a reader for a material that does not exist', async () => {
-    const { wrapper } = await mountAt('/material/article/nao-existe')
+    const { wrapper } = await mountAt('/material/article/missing-item')
 
-    expect(wrapper.get('h1').text()).toBe('Material não encontrado')
+    expect(wrapper.get('h1').text()).toBe('Material not found')
     expect(wrapper.get('a.material-state-action').attributes('href')).toBe('/library?v=all')
     expect(wrapper.find('.material-body').exists()).toBe(false)
   })
@@ -210,12 +210,12 @@ describe('MaterialView', () => {
       ...fakeLibrarySource(SHELF),
       getItem: async () => {
         attempts += 1
-        if (attempts === 1) throw new Error('rede indisponível')
+        if (attempts === 1) throw new Error('network unavailable')
         return record()
       }
     })
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar o material: rede indisponível')
+    expect(wrapper.get('[role="alert"]').text()).toContain('The material could not be loaded: network unavailable')
 
     await wrapper.get('.material-state-action').trigger('click')
     await flushReads()
@@ -227,14 +227,14 @@ describe('MaterialView', () => {
     const { wrapper } = await mountAt('/material/article/post-um', undefined, {
       ...fakeLibrarySource(SHELF),
       patchItem: async () => {
-        throw new Error('conflito no servidor')
+        throw new Error('server conflict')
       }
     })
 
     await wrapper.get('[data-action="complete"]').trigger('click')
     await flushReads()
 
-    expect(wrapper.get('.material-write-error').text()).toContain('Não foi possível salvar: conflito no servidor')
-    expect(wrapper.get('[data-action="complete"]').text()).toContain('Marcar como concluído')
+    expect(wrapper.get('.material-write-error').text()).toContain('Could not save: server conflict')
+    expect(wrapper.get('[data-action="complete"]').text()).toContain('Mark as done')
   })
 })

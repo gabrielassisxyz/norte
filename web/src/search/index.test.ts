@@ -53,7 +53,7 @@ describe('search index', () => {
   it('builds routes and records with targets that resolve in the application', async () => {
     const index = await readIndex()
 
-    expect(index.find((entry) => entry.title === 'Biblioteca')?.to).toEqual({ name: 'library' })
+    expect(index.find((entry) => entry.title === 'Library')?.to).toEqual({ name: 'library' })
     expect(index.find((entry) => entry.title === 'Horta da varanda')?.to).toEqual({
       name: 'projeto',
       params: { id: 'project-horta' }
@@ -71,7 +71,7 @@ describe('search index', () => {
     // its rows are found through GET /api/core/search, over everything saved
     // rather than over the first page the shell happened to have read.
     const fromLibrary = index.filter((entry) => entry.group === 'Biblioteca')
-    expect(fromLibrary.map((entry) => entry.title)).toEqual(['Biblioteca'])
+    expect(fromLibrary.map((entry) => entry.title)).toEqual(['Library'])
     expect(index.find((entry) => entry.title === 'Um texto guardado')).toBeUndefined()
   })
 
@@ -114,8 +114,8 @@ describe('search index', () => {
 
     expect(filterSearchIndex(index, 'decisao').some((entry) => entry.kind === 'decisão')).toBe(true)
     expect(filterSearchIndex(index, 'flashcards').some((entry) => entry.title === 'Revisão')).toBe(true)
-    expect(filterSearchIndex(index, 'arquivo').some((entry) => entry.title === 'Biblioteca')).toBe(true)
-    expect(filterSearchIndex(index, 'materiais').some((entry) => entry.title === 'Biblioteca')).toBe(true)
+    expect(filterSearchIndex(index, 'archive').some((entry) => entry.title === 'Library')).toBe(true)
+    expect(filterSearchIndex(index, 'materials').some((entry) => entry.title === 'Library')).toBe(true)
   })
 
   it('keeps matching results in their product groups', async () => {

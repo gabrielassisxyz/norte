@@ -58,8 +58,8 @@ describe('HomeView', () => {
   it('reads both library bands from the API, each with the order its band promises', async () => {
     await mountHome()
 
-    // "Salvos recentemente" is the inbox newest-saved first; "continuar
-    // lendo" is the whole shelf ordered by when it was last opened, which is
+    // "Recently saved" is the inbox newest-saved first; "continue
+    // reading" is the whole shelf ordered by when it was last opened, which is
     // also the only order the server filters the never-opened out of.
     expect(library.calls.list).toEqual(
       expect.arrayContaining([
@@ -69,26 +69,26 @@ describe('HomeView', () => {
     )
   })
 
-  it('lists the recent saves newest first and leaves the never-opened out of continuar lendo', async () => {
+  it('lists the recent saves newest first and leaves the never-opened out of continue reading', async () => {
     // Its own fixtures, because the shared ones have all been opened and the
     // claim under test is about an item that has not.
     library = fakeLibrarySource([
       libraryRecord({
-        id: 'lib-novo',
-        title: 'Salvo agora',
+        id: 'lib-new',
+        title: 'Saved just now',
         location: 'inbox',
         saved_at: `${TODAY}T11:00:00Z`
       }),
       libraryRecord({
-        id: 'lib-antigo',
-        title: 'Salvo ontem',
+        id: 'lib-old',
+        title: 'Saved yesterday',
         location: 'inbox',
         saved_at: `${shiftIsoDate(TODAY, -1)}T11:00:00Z`,
         last_opened_at: `${TODAY}T09:00:00Z`
       }),
       libraryRecord({
-        id: 'lib-arquivado',
-        title: 'Lido e arquivado',
+        id: 'lib-archived',
+        title: 'Read and archived',
         location: 'archive',
         saved_at: `${shiftIsoDate(TODAY, -4)}T11:00:00Z`,
         last_opened_at: `${TODAY}T10:00:00Z`
@@ -99,14 +99,14 @@ describe('HomeView', () => {
     // Newest saved first, and the inbox only: an archived item is not a
     // recent save however recently it was read.
     expect(wrapper.findAll('.home-save-title').map((node) => node.text())).toEqual([
-      'Salvo agora',
-      'Salvo ontem'
+      'Saved just now',
+      'Saved yesterday'
     ])
     // Last opened first, and never an item that was never opened -- which is
     // the one claim this band makes about itself.
     expect(wrapper.findAll('.home-reading-title').map((node) => node.text())).toEqual([
-      'Lido e arquivado',
-      'Salvo ontem'
+      'Read and archived',
+      'Saved yesterday'
     ])
   })
 
@@ -139,8 +139,8 @@ describe('HomeView', () => {
     expect(wrapper.get('h1').text()).toBe('Sábado, 3 de outubro')
     expect(wrapper.get('#home-search').attributes('placeholder')).toBe('Buscar artigos, notas, cursos…')
     expect(wrapper.get('#continue-study').text()).toBe('Continuar estudando')
-    expect(wrapper.get('#continue-reading').text()).toBe('Continuar lendo')
-    expect(wrapper.get('#recent-saves').text()).toBe('Salvos recentemente')
+    expect(wrapper.get('#continue-reading').text()).toBe('Continue reading')
+    expect(wrapper.get('#recent-saves').text()).toBe('Recently saved')
     expect(wrapper.findAll('.home-study-row')).toHaveLength(2)
     expect(wrapper.findAll('.home-study-continue')).toHaveLength(2)
     expect(wrapper.findAll('.home-study-percent')).toHaveLength(2)
@@ -155,7 +155,7 @@ describe('HomeView', () => {
     expect(wrapper.get('.home-review').attributes('href')).toBe('/revisao')
     expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curriculos/fundamentos-de-compiladores')
     // The reading list arrives in the order the server sorts it: most recently
-    // opened first, which is what "continuar lendo" means.
+    // opened first, which is what "continue reading" means.
     expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/library/lib-post')
   })
 
@@ -172,9 +172,9 @@ describe('HomeView', () => {
   it('opens the save dialog from the URL, rejects an empty URL, and posts the link', async () => {
     const wrapper = await mountHome('/?save=1')
 
-    expect(wrapper.get('[role="dialog"]').text()).toContain('Salvar link')
+    expect(wrapper.get('[role="dialog"]').text()).toContain('Save a link')
     await wrapper.get('form').trigger('submit')
-    expect(wrapper.get('[role="alert"]').text()).toBe('Informe uma URL para salvar.')
+    expect(wrapper.get('[role="alert"]').text()).toBe('Enter a URL to save.')
 
     await wrapper.get('.nt-input').setValue('https://example.org/reading-list')
     await wrapper.get('form').trigger('submit')
@@ -188,35 +188,35 @@ describe('HomeView', () => {
     expect(wrapper.findAll('.home-save-title').map((node) => node.text())).toContain(
       'https://example.org/reading-list'
     )
-    expect(wrapper.get('.save-done').text()).toContain('Salvo na inbox')
-    expect(wrapper.get('.save-done').text()).not.toContain('Já estava salvo')
+    expect(wrapper.get('.save-done').text()).toContain('Saved to the inbox')
+    expect(wrapper.get('.save-done').text()).not.toContain('Already saved')
   })
 
   it('names the current shelf when the link was already saved', async () => {
     library = fakeLibrarySource([
       ...shellLibraryRecords(),
       libraryRecord({
-        id: 'lib-arquivada',
-        title: 'Guardada no arquivo',
-        url: 'https://example.org/duplicada',
-        canonical_url: 'https://example.org/duplicada',
+        id: 'lib-archived',
+        title: 'Kept in the archive',
+        url: 'https://example.org/duplicate',
+        canonical_url: 'https://example.org/duplicate',
         location: 'archive',
         unread: true
       })
     ])
     const wrapper = await mountHome('/?save=1')
 
-    await wrapper.get('.nt-input').setValue('https://example.org/duplicada')
+    await wrapper.get('.nt-input').setValue('https://example.org/duplicate')
     await wrapper.get('form').trigger('submit')
     await flushReads()
 
     const done = wrapper.get('.save-done').text()
     // The whole phrase, because what this asserts is that the dialog names
     // the location the existing item is in rather than claiming the inbox.
-    expect(done).toContain('Já estava salvo no arquivo')
-    expect(done).toContain('Guardada no arquivo')
+    expect(done).toContain('Already saved in the Archive')
+    expect(done).toContain('Kept in the archive')
     // No second copy: the save folded into the archived item.
-    expect(library.records.filter((record) => record.canonical_url === 'https://example.org/duplicada')).toHaveLength(1)
+    expect(library.records.filter((record) => record.canonical_url === 'https://example.org/duplicate')).toHaveLength(1)
   })
 
   it('prints the site once on rows with no author', async () => {
@@ -241,13 +241,13 @@ describe('HomeView', () => {
     // 8 minutes at 42% read leaves ceil(8 × 0.58) = 5 minutes, not the whole 8.
     const started = cards.find((node) => node.text().includes('Um texto guardado'))
     expect(started).toBeDefined()
-    expect(started!.get('.home-reading-meta').text()).toContain('5 min restantes')
-    expect(started!.get('.home-reading-meta').text()).not.toContain('8 min restantes')
+    expect(started!.get('.home-reading-meta').text()).toContain('5 min left')
+    expect(started!.get('.home-reading-meta').text()).not.toContain('8 min left')
 
     // No minutes stored means no invented duration.
     const unknown = cards.find((node) => node.text().includes('Um vídeo guardado'))
     expect(unknown).toBeDefined()
-    expect(unknown!.text()).not.toContain('min restantes')
+    expect(unknown!.text()).not.toContain('min left')
   })
 
   it('saves a link about the subject chosen in the dialog, in one call', async () => {
@@ -288,7 +288,7 @@ describe('HomeView', () => {
 
     await wrapper.get('button.nt-btn-secondary').trigger('click')
 
-    expect(wrapper.get('[role="dialog"]').text()).toContain('Salvar link')
+    expect(wrapper.get('[role="dialog"]').text()).toContain('Save a link')
   })
 
   it('titles the day from the clock, so the home follows the calendar', async () => {
@@ -348,8 +348,8 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
     )
     const waiting = wrapper.findAll('[role="status"]').map((node) => node.text())
 
-    expect(waiting).toContain('Carregando as leituras…')
-    expect(waiting).toContain('Carregando os salvos…')
+    expect(waiting).toContain('Loading the readings…')
+    expect(waiting).toContain('Loading the saved items…')
     expect(waiting).toContain('Carregando os currículos…')
   })
 
@@ -358,7 +358,7 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
 
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
-    expect(wrapper.get('#continue-reading').text()).toBe('Continuar lendo')
+    expect(wrapper.get('#continue-reading').text()).toBe('Continue reading')
     expect(wrapper.findAll('.home-reading-card')).toHaveLength(0)
     expect(wrapper.findAll('.home-study-row')).toHaveLength(0)
     expect(wrapper.findAll('.home-save-title')).toHaveLength(0)
@@ -369,7 +369,7 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
       homeSources({
         library: {
           listItems: async () => {
-            throw new Error('rede fora do ar')
+            throw new Error('network down')
           }
         },
         study: {
@@ -381,8 +381,8 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
     )
     const failures = wrapper.findAll('[role="alert"]').map((node) => node.text())
 
-    expect(failures).toContain('Não foi possível carregar as leituras: rede fora do ar')
-    expect(failures).toContain('Não foi possível carregar os salvos: rede fora do ar')
+    expect(failures).toContain('The readings could not be loaded: network down')
+    expect(failures).toContain('The saved items could not be loaded: network down')
     expect(failures).toContain('Não foi possível carregar os currículos: servidor sem resposta')
   })
 })

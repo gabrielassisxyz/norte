@@ -30,7 +30,7 @@ describe('the library sidebar location rows', () => {
     const idRows = rows.filter((row) => 'id' in row)
     const labels = idRows.map((row) => ('label' in row ? row.label : ''))
 
-    expect(labels.slice(0, 6)).toEqual(['Inbox', 'Próximos', 'Depois', 'Arquivo', 'Reserva', 'Tudo'])
+    expect(labels.slice(0, 6)).toEqual(['Inbox', 'Up Next', 'Later', 'Archive', 'Stash', 'All'])
     expect(idRows.slice(0, 6).map((row) => ('id' in row ? row.id : ''))).toEqual([
       'inbox',
       'up_next',
@@ -39,8 +39,8 @@ describe('the library sidebar location rows', () => {
       'stash',
       'all'
     ])
-    // The Tipos group follows, unchanged.
-    expect(rows[6]).toMatchObject({ head: true, label: 'Tipos' })
+    // The Kinds group follows, unchanged.
+    expect(rows[6]).toMatchObject({ head: true, label: 'Kinds' })
   })
 })
 
@@ -57,7 +57,7 @@ describe('the library sidebar kind links', () => {
 
   })
 
-  it('opens Artigos on the whole library, where its count comes from', async () => {
+  it('opens Articles on the whole library, where its count comes from', async () => {
     const sidebar = await holdSidebar([
       libraryRecord({ id: 'a', kind: 'article', location: 'inbox' }),
       libraryRecord({ id: 'b', kind: 'article', location: 'archive' }),
@@ -65,11 +65,11 @@ describe('the library sidebar kind links', () => {
     ])
 
     const entries = sidebar.shortcuts[0]?.entries() ?? []
-    const artigos = entries.find((entry) => entry.id === 'atalho-artigos')
-    expect(artigos).toBeDefined()
+    const articles = entries.find((entry) => entry.id === 'shortcut-articles')
+    expect(articles).toBeDefined()
     // The label names a kind, so the link reads the whole library filtered to
-    // posts — the same set the count counts.
-    expect(artigos!.to).toMatchObject({ query: { v: 'all', kind: 'article' } })
-    expect(artigos!.count).toBe(2)
+    // articles — the same set the count counts.
+    expect(articles!.to).toMatchObject({ query: { v: 'all', kind: 'article' } })
+    expect(articles!.count).toBe(2)
   })
 })

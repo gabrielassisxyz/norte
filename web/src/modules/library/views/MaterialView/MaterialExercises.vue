@@ -23,53 +23,53 @@ const baseDone = props.kind === 'book' ? 0 : 1
   <section class="material-exercises" aria-labelledby="material-exercises-title">
     <div class="exercise-column">
       <div class="exercise-heading">
-        <h1 id="material-exercises-title">Exercícios</h1>
-        <span class="material-mono">{{ baseDone + (submitted ? 1 : 0) }}/3 feitos</span>
+        <h1 id="material-exercises-title">Exercises</h1>
+        <span class="material-mono">{{ baseDone + (submitted ? 1 : 0) }}/3 done</span>
       </div>
       <p class="exercise-intro">
-        <span class="exercise-material-title">{{ material.title }}</span> · O
-        {{ kind === 'book' ? 'book' : kind === 'paper' ? 'paper' : 'texto' }} e as suas anotações ficam fora de vista aqui.
-        Responda de memória; depois, compare com o original.
+        <span class="exercise-material-title">{{ material.title }}</span> · The
+        {{ kind === 'book' ? 'book' : kind === 'paper' ? 'paper' : 'text' }} and your annotations stay out of sight here.
+        Answer from memory; then compare with the original.
       </p>
 
       <div class="exercise-list">
         <article class="exercise-item" :class="{ 'is-done': baseDone > 0 }">
           <span class="exercise-number material-mono">{{ baseDone > 0 ? '✓' : '01' }}</span>
           <div>
-            <div class="exercise-kind">Explicar sem consultar</div>
+            <div class="exercise-kind">Explain without looking</div>
             <p class="exercise-prompt">
-              {{ kind === 'paper' ? 'Explique a ideia central do paper em três frases.' : kind === 'book' ? 'Qual é a diferença entre reconhecer uma ideia e conseguir recuperá-la?' : 'Descreva o caminho entre uma observação e uma hipótese testável.' }}
+              {{ kind === 'paper' ? 'Explain the central idea of the paper in three sentences.' : kind === 'book' ? 'What is the difference between recognizing an idea and being able to recall it?' : 'Describe the path from an observation to a testable hypothesis.' }}
             </p>
             <p v-if="baseDone > 0" class="exercise-reference">
-              Uma resposta curta deve nomear o que foi observado, o que foi previsto e como comparar os dois.
+              A short answer should name what was observed, what was predicted, and how to compare the two.
             </p>
-            <div v-if="baseDone > 0" class="exercise-meta"><span>Feito</span><span class="material-mono">agora</span></div>
+            <div v-if="baseDone > 0" class="exercise-meta"><span>Done</span><span class="material-mono">just now</span></div>
           </div>
         </article>
 
         <article class="exercise-item" :class="{ 'is-done': submitted }">
           <span class="exercise-number material-mono">{{ submitted ? '✓' : '02' }}</span>
           <div class="exercise-main">
-            <div class="exercise-kind">Aplicar</div>
+            <div class="exercise-kind">Apply</div>
             <p class="exercise-prompt">
-              Escreva uma situação da sua semana em que uma previsão poderia ter sido comparada com o resultado.
+              Write down a situation from your week where a prediction could have been compared with the outcome.
             </p>
-            <label class="visually-hidden" for="material-answer">Resposta</label>
+            <label class="visually-hidden" for="material-answer">Answer</label>
             <textarea
               id="material-answer"
               class="exercise-field"
               :value="answer"
               :disabled="submitted"
-              placeholder="Responda sem consultar o material…"
+              placeholder="Answer without looking at the material…"
               @input="emit('update:answer', ($event.target as HTMLTextAreaElement).value)"
             />
-            <div v-if="submitted" class="exercise-meta"><span>Feito</span><span class="material-mono">agora</span></div>
+            <div v-if="submitted" class="exercise-meta"><span>Done</span><span class="material-mono">just now</span></div>
             <div v-else class="exercise-actions">
-              <a href="/notas?tab=anotacoes">Abrir anotações</a>
-              <Button size="sm" variant="primary" :disabled="answer.trim().length < 10" @click="emit('submit')">Enviar resposta</Button>
+              <a href="/notas?tab=anotacoes">Open the annotations</a>
+              <Button size="sm" variant="primary" :disabled="answer.trim().length < 10" @click="emit('submit')">Send the answer</Button>
             </div>
             <p v-if="!submitted && answer.trim().length > 0 && answer.trim().length < 10" class="exercise-hint">
-              Escreva pelo menos 10 caracteres para enviar.
+              Write at least 10 characters to send.
             </p>
           </div>
         </article>
@@ -77,9 +77,9 @@ const baseDone = props.kind === 'book' ? 0 : 1
         <article class="exercise-item">
           <span class="exercise-number material-mono">03</span>
           <div>
-            <div class="exercise-kind">Conectar</div>
-            <p class="exercise-prompt">Escolha uma nota recente e escreva qual próximo teste ela sugere.</p>
-            <a class="exercise-link" href="/notas?tab=anotacoes">Abrir anotações</a>
+            <div class="exercise-kind">Connect</div>
+            <p class="exercise-prompt">Pick a recent note and write down what next test it suggests.</p>
+            <a class="exercise-link" href="/notas?tab=anotacoes">Open the annotations</a>
           </div>
         </article>
       </div>

@@ -28,7 +28,7 @@ async function mountAt(path: string) {
 }
 
 async function expandAll(wrapper: VueWrapper) {
-  for (const label of ['Biblioteca', 'Estudo', 'Projetos', 'Notas']) {
+  for (const label of ['Library', 'Estudo', 'Projetos', 'Notas']) {
     await wrapper.find(`button[aria-label="Expandir ${label}"]`).trigger('click')
   }
 }
@@ -64,7 +64,7 @@ describe('app shell', () => {
 
   it('names every screen on its own route', async () => {
     const cases: Array<[string, string]> = [
-      ['/library', 'Biblioteca'],
+      ['/library', 'Library'],
       ['/revisao', 'Revisão'],
       ['/projetos', 'Projetos'],
       ['/areas/a-casa', 'Casa'],
@@ -96,9 +96,9 @@ describe('app shell', () => {
     }
 
     expect(targets['Inbox']).toMatchObject({ name: 'library', query: { v: 'inbox' } })
-    expect(targets['Tudo']).toMatchObject({ name: 'library', query: { v: 'all' } })
-    expect(targets['Depois']).toMatchObject({ name: 'library', query: { v: 'later' } })
-    expect(targets['Livros']).toMatchObject({ name: 'library', query: { kind: 'book' } })
+    expect(targets['All']).toMatchObject({ name: 'library', query: { v: 'all' } })
+    expect(targets['Later']).toMatchObject({ name: 'library', query: { v: 'later' } })
+    expect(targets['Books']).toMatchObject({ name: 'library', query: { kind: 'book' } })
     expect(targets['Revisão']).toMatchObject({ name: 'revisao' })
     expect(targets['Currículos']).toMatchObject({ name: 'estudo' })
     expect(targets['Anotações']).toMatchObject({ name: 'notas', query: { tab: 'anotacoes' } })
@@ -123,7 +123,7 @@ describe('app shell', () => {
     await clickAndSettle(inbox!, router, '/library?v=inbox')
 
     expect(router.currentRoute.value.fullPath).toBe('/library?v=inbox')
-    expect(wrapper.find('.app-content h1').text()).toBe('Biblioteca')
+    expect(wrapper.find('.app-content h1').text()).toBe('Library')
   })
 
   it('marks the entry for the current route as active', async () => {
@@ -136,15 +136,15 @@ describe('app shell', () => {
 
   it('collapses and expands sidebar sections', async () => {
     const { wrapper } = await mountAt('/')
-    const toggle = wrapper.find('button[aria-label="Expandir Biblioteca"]')
+    const toggle = wrapper.find('button[aria-label="Expandir Library"]')
 
-    expect(wrapper.text()).not.toContain('Arquivo')
+    expect(wrapper.text()).not.toContain('Archive')
     await toggle.trigger('click')
     expect(toggle.attributes('aria-expanded')).toBe('true')
-    expect(wrapper.text()).toContain('Arquivo')
+    expect(wrapper.text()).toContain('Archive')
     await toggle.trigger('click')
     expect(toggle.attributes('aria-expanded')).toBe('false')
-    expect(wrapper.text()).not.toContain('Arquivo')
+    expect(wrapper.text()).not.toContain('Archive')
   })
 
   it('toggles the sidebar collapsed state from the brand button', async () => {
@@ -174,7 +174,7 @@ describe('app shell', () => {
     await router.push('/library?v=inbox')
     await wrapper.vm.$nextTick()
     expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(true)
-    expect(wrapper.find('.app-content h1').text()).toBe('Biblioteca')
+    expect(wrapper.find('.app-content h1').text()).toBe('Library')
   })
 
   it('shows the prototype shortcut groups with counts and no Fixados group', async () => {
@@ -183,9 +183,9 @@ describe('app shell', () => {
 
     expect(wrapper.find('nav[aria-label="Fixados"]').exists()).toBe(false)
     expect(shortcuts.exists()).toBe(true)
-    expect(shortcuts.text()).toContain('Biblioteca')
+    expect(shortcuts.text()).toContain('Library')
     expect(shortcuts.text()).toContain('Estudo')
-    for (const label of ['Inbox', 'Artigos', 'Currículos']) {
+    for (const label of ['Inbox', 'Articles', 'Currículos']) {
       expect(shortcuts.text()).toContain(label)
     }
     // The prototype's Shortlist shortcut pointed at the whole library and
@@ -207,7 +207,7 @@ describe('app shell', () => {
     }
 
     expect(targets['Inbox']).toBe('/library?v=inbox')
-    expect(targets['Artigos']).toBe('/library?v=all&kind=article')
+    expect(targets['Articles']).toBe('/library?v=all&kind=article')
     expect(targets['Currículos']).toBe('/estudo')
     expect(targets['Shortlist']).toBeUndefined()
 

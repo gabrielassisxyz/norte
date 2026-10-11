@@ -35,7 +35,7 @@ export function libraryRecord(overrides: Partial<LibraryItemRecord> = {}): Libra
     kind: 'article',
     url: `https://example.com/${id}`,
     canonical_url: `https://example.com/${id}`,
-    title: `Texto ${id}`,
+    title: `Item ${id}`,
     title_edited: false,
     location: 'inbox',
     unread: true,

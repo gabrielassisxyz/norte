@@ -77,7 +77,7 @@ describe('the navigation drawer', () => {
     await flushReads()
 
     expect(wrapper.find('.app-drawer').classes()).not.toContain('is-open')
-    expect(wrapper.find('.app-content h1').text()).toBe('Biblioteca')
+    expect(wrapper.find('.app-content h1').text()).toBe('Library')
   })
 
   it('closes when an overlay it opened takes the screen', async () => {
