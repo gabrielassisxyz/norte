@@ -99,7 +99,7 @@ test.describe('a configuration the browser cannot use', () => {
 test.describe('the browser tab and the addresses nothing claims', () => {
   test('names the tab after the screen', async ({ page }) => {
     await page.goto(`${server.baseURL}/`)
-    await expect(page).toHaveTitle('Início · Norte')
+    await expect(page).toHaveTitle('Home · Norte')
 
     await page.getByRole('link', { name: 'Library' }).first().click()
     await expect(page).toHaveTitle('Library · Norte')

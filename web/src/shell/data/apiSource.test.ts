@@ -236,7 +236,7 @@ describe('the core API source: search', () => {
     fetchStub.mockResolvedValue(
       json({
         entries: [
-          { id: 's1', module: 'core', type: 'subject', title: 'Memória', path: '/assuntos/memoria', score: 1 },
+          { id: 's1', module: 'core', type: 'subject', title: 'Memória', path: '/subjects/memoria', score: 1 },
           {
             id: 'i1',
             module: 'library',

@@ -1,19 +1,21 @@
 import { afterEach, describe, expect, it } from 'vitest'
+import { computed } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
+import type { NorteModule } from '@/modules/types'
 import { clearShellNavigationFailure, shellNavigationFailure } from '@/shell/navigationFailure'
 
-import router, { installShellRouterBehaviour, shellDocumentTitle } from './index'
+import router, { disabledModuleRoutes, installShellRouterBehaviour, shellDocumentTitle } from './index'
 
 afterEach(() => {
   clearShellNavigationFailure()
 })
 
 const APP_PATHS: Array<[string, string]> = [
-  ['/', 'inicio'],
+  ['/', 'home'],
   // The subject screen is the shell's, not a module's: subjects belong to the
   // core, so the address answers whatever the server lists.
-  ['/assuntos/kubernetes', 'assunto'],
+  ['/subjects/kubernetes', 'subject'],
   ['/library', 'library'],
   ['/notas', 'notas'],
   ['/revisao', 'revisao'],
@@ -30,8 +32,8 @@ const APP_PATHS: Array<[string, string]> = [
 ]
 
 const TITLES: Record<string, string> = {
-  inicio: 'Início',
-  assunto: 'Assunto',
+  home: 'Home',
+  subject: 'Subject',
   library: 'Library',
   notas: 'Notas',
   revisao: 'Revisão',
@@ -50,7 +52,7 @@ describe('router table', () => {
     expect(router.resolve(path).name).toBe(name)
   })
 
-  it('names every screen in Portuguese', () => {
+  it('names every screen with its route record title', () => {
     for (const [name, title] of Object.entries(TITLES)) {
       const match = router.getRoutes().find((route) => route.name === name)
       expect(match?.meta.title).toBe(title)
@@ -73,7 +75,7 @@ describe('an address no screen claims', () => {
   it('resolves to the not-found view rather than to nothing', () => {
     const match = router.resolve('/nao-existe')
 
-    expect(match.name).toBe('nao-encontrado')
+    expect(match.name).toBe('not-found')
     expect(match.meta.title).toBe('Página não encontrada')
   })
 
@@ -83,6 +85,30 @@ describe('an address no screen claims', () => {
     }
   })
 })
+
+describe('the addresses of a module the server is not serving', () => {
+  it('answers one address per routePaths entry, named with the module and its order', () => {
+    const records = disabledModuleRoutes(moduleWithRoutePaths('notes', ['/notas', '/notas/conjuntos', '/notas/conjuntos/:id']))
+
+    expect(records.map((record) => record.name)).toEqual([
+      'module-off-notes-0',
+      'module-off-notes-1',
+      'module-off-notes-2'
+    ])
+    expect(records.map((record) => record.path)).toEqual(['/notas', '/notas/conjuntos', '/notas/conjuntos/:id'])
+  })
+})
+
+/** A module with the manifest the router reads and no screens behind it. */
+function moduleWithRoutePaths(name: NorteModule['manifest']['name'], routePaths: string[]): NorteModule {
+  return {
+    manifest: { name, backing: 'api', routePaths },
+    routes: [],
+    useSidebar: () => ({ sections: [], shortcuts: [] }),
+    homeBlocks: [],
+    useSearchEntries: () => computed(() => [])
+  }
+}
 
 describe('the browser tab', () => {
   it('names the screen and then the app', () => {
@@ -95,7 +121,7 @@ describe('the browser tab', () => {
 
   it('is renamed by each navigation', async () => {
     await router.push('/')
-    expect(document.title).toBe('Início · Norte')
+    expect(document.title).toBe('Home · Norte')
 
     await router.push('/nao-existe')
     expect(document.title).toBe('Página não encontrada · Norte')

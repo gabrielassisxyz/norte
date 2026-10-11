@@ -240,7 +240,7 @@ describe('deep-linking into a module the server is not serving', () => {
     await flushReads()
 
     expect(bootState.phase).toBe('ready')
-    expect(router.currentRoute.value.name).toBe('modulo-desligado-notes-0')
+    expect(router.currentRoute.value.name).toBe('module-off-notes-0')
     expect(notesCalls).toEqual([])
     expect(wrapper.text()).toContain('Módulo desligado')
   })

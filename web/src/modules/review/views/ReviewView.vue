@@ -228,7 +228,7 @@ function restart(): void {
           <p v-else class="review-text">Não havia cartões vencidos neste baralho.</p>
           <div class="review-panel-actions">
             <Button variant="primary" @click="restart">Revisar de novo</Button>
-            <RouterLink :to="{ name: 'inicio' }" class="review-home">Voltar ao início</RouterLink>
+            <RouterLink :to="{ name: 'home' }" class="review-home">Voltar ao início</RouterLink>
           </div>
         </section>
 

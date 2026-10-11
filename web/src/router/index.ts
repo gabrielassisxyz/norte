@@ -8,7 +8,7 @@ import { isShellChunkLoadFailure, reportShellNavigationFailure } from '@/shell/n
 
 declare module 'vue-router' {
   interface RouteMeta {
-    /** Portuguese screen name shown by the placeholder and the document title. */
+    /** Screen name shown by the placeholder and the document title. */
     title: string
     /** Material screens render without the sidebar. */
     layout?: 'app' | 'bare'
@@ -24,12 +24,12 @@ declare module 'vue-router' {
  * every module off must not take the vocabulary with it.
  */
 export const shellRoutes: RouteRecordRaw[] = [
-  { path: '/', name: 'inicio', component: () => import('@/shell/HomeView.vue'), meta: { title: 'Início' } },
+  { path: '/', name: 'home', component: () => import('@/shell/HomeView.vue'), meta: { title: 'Home' } },
   {
-    path: '/assuntos/:slug',
-    name: 'assunto',
+    path: '/subjects/:slug',
+    name: 'subject',
     component: () => import('@/shell/SubjectView.vue'),
-    meta: { title: 'Assunto' }
+    meta: { title: 'Subject' }
   }
 ]
 
@@ -38,7 +38,7 @@ if (import.meta.env.DEV) {
     path: '/_ds',
     name: 'design-system-gallery',
     component: () => import('@/components/ds/gallery/DsGallery.vue'),
-    meta: { title: 'Galeria' }
+    meta: { title: 'Gallery' }
   })
 }
 
@@ -50,7 +50,7 @@ if (import.meta.env.DEV) {
 export function disabledModuleRoutes(module: NorteModule): RouteRecordRaw[] {
   return module.manifest.routePaths.map((path, index) => ({
     path,
-    name: `modulo-desligado-${module.manifest.name}-${index}`,
+    name: `module-off-${module.manifest.name}-${index}`,
     component: () => import('@/shell/ModuleDisabled.vue'),
     meta: { title: 'Módulo desligado' }
   }))
@@ -66,7 +66,7 @@ export function disabledModuleRoutes(module: NorteModule): RouteRecordRaw[] {
  */
 export const notFoundRoute: RouteRecordRaw = {
   path: '/:unmatchedPath(.*)*',
-  name: 'nao-encontrado',
+  name: 'not-found',
   component: () => import('@/shell/NotFoundView.vue'),
   meta: { title: 'Página não encontrada' }
 }

@@ -9,7 +9,7 @@ import PageTitle from '@/components/ds/PageTitle.vue'
       Ligue o módulo na configuração do servidor e recarregue a página. Até lá, as outras partes do aplicativo continuam
       funcionando normalmente.
     </p>
-    <RouterLink :to="{ name: 'inicio' }" class="module-disabled-link">Voltar ao início</RouterLink>
+    <RouterLink :to="{ name: 'home' }" class="module-disabled-link">Voltar ao início</RouterLink>
   </main>
 </template>
 

@@ -127,7 +127,7 @@ export function useShellSidebarSections(): ShellSidebarSection[] {
 
   return [
     {
-      id: 'assuntos',
+      id: 'subjects',
       label: 'Assuntos',
       // Ahead of every product: a subject is what the other lines are filed
       // under, and the core is on before any of them.
@@ -142,9 +142,9 @@ export function useShellSidebarSections(): ShellSidebarSection[] {
       },
       rows: () =>
         (page.value?.items ?? []).map<SidebarRow>((subject) => ({
-          id: `assunto-${subject.slug}`,
+          id: `subject-${subject.slug}`,
           label: subject.name,
-          to: { name: 'assunto', params: { slug: subject.slug } },
+          to: { name: 'subject', params: { slug: subject.slug } },
           count: subject.counts.total
         })),
       hasMore: () => subjects.hasMore.value,

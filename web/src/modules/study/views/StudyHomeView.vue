@@ -152,7 +152,7 @@ function openPaletteWith(typed: string): void {
           </Button>
           <div v-if="addOpen" class="study-menu" role="menu" @keydown.escape="closeAdd">
             <RouterLink role="menuitem" to="/curriculos/nova" @click="closeAdd">Novo currículo</RouterLink>
-            <RouterLink role="menuitem" :to="{ name: 'inicio', query: { save: '1' } }" @click="closeAdd">
+            <RouterLink role="menuitem" :to="{ name: 'home', query: { save: '1' } }" @click="closeAdd">
               Salvar link na inbox
             </RouterLink>
             <RouterLink v-if="canReachNotes" role="menuitem" :to="{ name: 'notas', query: { tab: 'perguntas' } }" @click="closeAdd">
@@ -250,7 +250,7 @@ function openPaletteWith(typed: string): void {
             :title="subject.name"
             :meta="`${subjectTotal(subject)} ${subjectTotal(subject) === 1 ? 'item' : 'itens'}`"
             :cover-height="200"
-            :href="`/assuntos/${subject.slug}`"
+            :href="`/subjects/${subject.slug}`"
           />
         </div>
 
@@ -262,7 +262,7 @@ function openPaletteWith(typed: string): void {
           </div>
           <div v-for="subject in subjects" :key="subject.id" class="study-row" role="row">
             <div role="cell" class="study-first">
-              <RouterLink :to="{ name: 'assunto', params: { slug: subject.slug } }" class="study-row-link">
+              <RouterLink :to="{ name: 'subject', params: { slug: subject.slug } }" class="study-row-link">
                 {{ subject.name }}
               </RouterLink>
             </div>

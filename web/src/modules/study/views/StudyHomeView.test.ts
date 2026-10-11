@@ -207,7 +207,7 @@ describe('StudyHomeView', () => {
 
     expect(wrapper.get('.study-review').attributes('href')).toBe('/revisao')
     // A subject opens its own page, not the whole library.
-    expect(wrapper.get('.study-grid .nt-cover-card').attributes('href')).toBe('/assuntos/escrita')
+    expect(wrapper.get('.study-grid .nt-cover-card').attributes('href')).toBe('/subjects/escrita')
     expect(wrapper.get('#study-search').attributes('placeholder')).toBe('Buscar cursos, notas, perguntas…')
 
     await wrapper.get('.study-add button').trigger('click')
@@ -219,7 +219,7 @@ describe('StudyHomeView', () => {
     expect(items.map((item) => item.attributes('href'))).toEqual(['/curriculos/nova', '/?save=1'])
 
     await wrapper.get('[role="tablist"] [role="tab"]:last-child').trigger('click')
-    expect(wrapper.get('.study-row-link').attributes('href')).toBe('/assuntos/escrita')
+    expect(wrapper.get('.study-row-link').attributes('href')).toBe('/subjects/escrita')
   })
 
   it('creates a subject from the grid and opens its page', async () => {
@@ -242,8 +242,8 @@ describe('StudyHomeView', () => {
     await flushReads()
 
     expect(core.calls.createSubject).toEqual(['Observabilidade'])
-    await vi.waitUntil(() => router.currentRoute.value.name === 'assunto')
-    expect(router.currentRoute.value.fullPath).toBe('/assuntos/observabilidade')
+    await vi.waitUntil(() => router.currentRoute.value.name === 'subject')
+    expect(router.currentRoute.value.fullPath).toBe('/subjects/observabilidade')
   })
 
   it('says it is loading before the study home answers', async () => {

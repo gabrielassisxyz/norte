@@ -17,7 +17,7 @@ import PageTitle from '@/components/ds/PageTitle.vue'
       Confira o endereço na barra do navegador. Se você chegou aqui por um link dentro do aplicativo, a tela pode ter
       sido renomeada.
     </p>
-    <RouterLink :to="{ name: 'inicio' }" class="not-found-link">Voltar ao início</RouterLink>
+    <RouterLink :to="{ name: 'home' }" class="not-found-link">Voltar ao início</RouterLink>
   </main>
 </template>
 

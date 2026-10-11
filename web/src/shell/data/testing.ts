@@ -243,7 +243,7 @@ export function fakeCoreSource(
           module: 'core',
           type: 'subject',
           title: subject.name,
-          path: `/assuntos/${subject.slug}`,
+          path: `/subjects/${subject.slug}`,
           score: [1, 0.8, 0.6][rank] ?? 0.6
         }))
       const fromModules = hits.filter((hit) =>
