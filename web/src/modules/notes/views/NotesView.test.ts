@@ -334,7 +334,10 @@ describe('NotesView', () => {
     expect(rows[0].text()).toContain('Open')
     expect(rows[1].text()).toContain('Answered')
     expect(rows[2].text()).toContain('Dropped')
-    expect(rows[2].text()).not.toContain('Open')
+    // Scoped to the state badge: the row also links to its source, whose
+    // label starts with "Open".
+    expect(rows[2].get('.nt-q-meta').text()).toContain('Dropped')
+    expect(rows[2].get('.nt-q-meta').text()).not.toContain('Open')
   })
 
   it('aborts the list in flight when the filter changes again', async () => {

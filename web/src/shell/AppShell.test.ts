@@ -28,7 +28,7 @@ async function mountAt(path: string) {
 }
 
 async function expandAll(wrapper: VueWrapper) {
-  for (const label of ['Library', 'Estudo', 'Projetos', 'Notas']) {
+  for (const label of ['Library', 'Estudo', 'Projetos', 'Notes']) {
     await wrapper.find(`button[aria-label="Expandir ${label}"]`).trigger('click')
   }
 }
@@ -101,14 +101,14 @@ describe('app shell', () => {
     expect(targets['Books']).toMatchObject({ name: 'library', query: { kind: 'book' } })
     expect(targets['Revisão']).toMatchObject({ name: 'revisao' })
     expect(targets['Currículos']).toMatchObject({ name: 'estudo' })
-    expect(targets['Anotações']).toMatchObject({ name: 'notas', query: { tab: 'anotacoes' } })
-    expect(targets['Highlights']).toMatchObject({ name: 'notas', query: { tab: 'highlights' } })
+    expect(targets['Annotations']).toMatchObject({ name: 'notes', query: { tab: 'annotations' } })
+    expect(targets['Highlights']).toMatchObject({ name: 'notes', query: { tab: 'highlights' } })
     expect(targets['Casa']).toMatchObject({ name: 'area' })
     expect(targets['Projetos'].name).toBe('projetos')
 
     for (const [label, target] of Object.entries(targets)) {
       expect(
-        ['home', 'library', 'notas', 'notas-conjuntos', 'revisao', 'estudo', 'area', 'projetos'],
+        ['home', 'library', 'notes', 'notes-question-sets', 'revisao', 'estudo', 'area', 'projetos'],
         `sidebar entry "${label}" points at an unknown route`
       ).toContain(target.name)
     }

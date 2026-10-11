@@ -65,7 +65,7 @@ const baseDone = props.kind === 'book' ? 0 : 1
             />
             <div v-if="submitted" class="exercise-meta"><span>Done</span><span class="material-mono">just now</span></div>
             <div v-else class="exercise-actions">
-              <a href="/notas?tab=anotacoes">Open the annotations</a>
+              <a href="/notes?tab=annotations">Open the annotations</a>
               <Button size="sm" variant="primary" :disabled="answer.trim().length < 10" @click="emit('submit')">Send the answer</Button>
             </div>
             <p v-if="!submitted && answer.trim().length > 0 && answer.trim().length < 10" class="exercise-hint">
@@ -79,7 +79,7 @@ const baseDone = props.kind === 'book' ? 0 : 1
           <div>
             <div class="exercise-kind">Connect</div>
             <p class="exercise-prompt">Pick a recent note and write down what next test it suggests.</p>
-            <a class="exercise-link" href="/notas?tab=anotacoes">Open the annotations</a>
+            <a class="exercise-link" href="/notes?tab=annotations">Open the annotations</a>
           </div>
         </article>
       </div>

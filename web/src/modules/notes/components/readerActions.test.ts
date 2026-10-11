@@ -155,7 +155,7 @@ describe('marking a passage in the article', () => {
   it('marks nothing when two occurrences have the same context', async () => {
     const { marks } = await markedArticle('<p>Same: the same sentence. end. Same: the same sentence. end.</p>', [
       { id: 'h-1', exact: 'the same sentence.', prefix: 'Same: ', suffix: ' end.' }
-    })
+    ])
 
     expect(marks).toHaveLength(0)
   })
@@ -341,6 +341,8 @@ describe("the reader's notes actions", () => {
 
     await wrapper.get('[aria-label="Source annotation"]').setValue(annotationId)
     await wrapper.get('#notes-reader-question').setValue('Why does this deserve a question?')
+    // The conversion carries one verb everywhere: the button reads as it acts.
+    expect(wrapper.get('[data-action="turn-into-question"]').text()).toBe('Turn into a question')
     await wrapper.get('[data-action="turn-into-question"]').trigger('click')
     await flushReads()
 
@@ -368,6 +370,7 @@ describe("the reader's notes actions", () => {
     const { wrapper, notes } = await mountReader({ item: record({ selection: SELECTION }) })
 
     expect(wrapper.get('.reader-selection').text()).toContain('The marked passage.')
+    expect(wrapper.get('[data-action="turn-into-highlight"]').text()).toBe('Turn into a highlight')
     await wrapper.get('[data-action="turn-into-highlight"]').trigger('click')
     await flushReads()
 

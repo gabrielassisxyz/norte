@@ -17,7 +17,7 @@ const APP_PATHS: Array<[string, string]> = [
   // core, so the address answers whatever the server lists.
   ['/subjects/kubernetes', 'subject'],
   ['/library', 'library'],
-  ['/notas', 'notas'],
+  ['/notes', 'notes'],
   ['/revisao', 'revisao'],
   ['/estudo', 'estudo'],
   ['/curriculos/fundamentos-de-compiladores', 'curriculo'],
@@ -35,7 +35,7 @@ const TITLES: Record<string, string> = {
   home: 'Home',
   subject: 'Subject',
   library: 'Library',
-  notas: 'Notas',
+  notes: 'Notes',
   revisao: 'Revisão',
   estudo: 'Estudo',
   curriculo: 'Currículo',
@@ -88,14 +88,14 @@ describe('an address no screen claims', () => {
 
 describe('the addresses of a module the server is not serving', () => {
   it('answers one address per routePaths entry, named with the module and its order', () => {
-    const records = disabledModuleRoutes(moduleWithRoutePaths('notes', ['/notas', '/notas/conjuntos', '/notas/conjuntos/:id']))
+    const records = disabledModuleRoutes(moduleWithRoutePaths('notes', ['/notes', '/notes/sets', '/notes/sets/:id']))
 
     expect(records.map((record) => record.name)).toEqual([
       'module-off-notes-0',
       'module-off-notes-1',
       'module-off-notes-2'
     ])
-    expect(records.map((record) => record.path)).toEqual(['/notas', '/notas/conjuntos', '/notas/conjuntos/:id'])
+    expect(records.map((record) => record.path)).toEqual(['/notes', '/notes/sets', '/notes/sets/:id'])
   })
 })
 

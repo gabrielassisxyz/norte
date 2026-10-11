@@ -114,9 +114,9 @@ test.describe('a highlight whose context crosses a paragraph boundary', () => {
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
     await selectInsideParagraph(page, PASSAGE, skip)
-    const destacar = page.locator('.notes-selection-bar [data-action="destacar"]')
-    await expect(destacar).toBeEnabled()
-    await destacar.click()
+    const highlight = page.locator('.notes-selection-bar [data-action="highlight"]')
+    await expect(highlight).toBeEnabled()
+    await highlight.click()
 
     // The server's half: the passage was placed, at the offset counted above.
     await expect

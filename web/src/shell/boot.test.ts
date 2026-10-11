@@ -220,10 +220,10 @@ describe('deep-linking into a module the server is not serving', () => {
     const notesCalls: string[] = []
     const router = createRouter({ history: createMemoryHistory(), routes })
     // The deep link resolves against the unpruned table first, exactly as the
-    // browser's initial navigation does: /notas is still the notes module's own
+    // browser's initial navigation does: /notes is still the notes module's own
     // screen at this point, and nothing has asked the server anything yet.
-    await router.replace('/notas')
-    expect(router.currentRoute.value.name).toBe('notas')
+    await router.replace('/notes')
+    expect(router.currentRoute.value.name).toBe('notes')
     const wrapper = mount(AppRoot, {
       global: {
         plugins: [router, sourcesPlugin(appSourcesWithLibrary({ notes: recordingNotesSource(notesCalls) }))]

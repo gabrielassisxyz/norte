@@ -223,7 +223,7 @@ async function handleSelectionAction(payload: { action: string; text: string }):
         text: `What does this passage change about how to study?`
       })
     )
-    if (question && canReachNotes.value) router.push({ name: 'notas', query: { tab: 'perguntas' } })
+    if (question && canReachNotes.value) router.push({ name: 'notes', query: { tab: 'questions' } })
     return
   }
 

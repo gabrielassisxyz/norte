@@ -110,6 +110,14 @@ func TestEachKindOfWritingIsFoundAndCarriesItsDestination(t *testing.T) {
 	if byID["ann-1"].Path != notesAnnotationsPath {
 		t.Fatalf("an annotation points at %q, want %q", byID["ann-1"].Path, notesAnnotationsPath)
 	}
+	// The wants are written out rather than built from the constants above: a
+	// test whose expectations the code under test computes proves nothing.
+	if byID["q-1"].Path != "/notes?tab=questions" {
+		t.Fatalf("a question points at %q, want the questions tab", byID["q-1"].Path)
+	}
+	if byID["ann-1"].Path != "/notes?tab=annotations" {
+		t.Fatalf("an annotation points at %q, want the annotations tab", byID["ann-1"].Path)
+	}
 }
 
 // TestAnItemNoteHitOpensTheItemsReaderOnItsNote is the one hit with no tab:

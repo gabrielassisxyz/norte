@@ -103,9 +103,9 @@ describe('the reader on a phone', () => {
       expect(bar.find(`[data-action="${action}"]`).exists()).toBe(true)
     }
     // The notes module's own controls arrive through the bottom-actions slot.
-    expect(bar.find('[data-action="destacar"]').exists()).toBe(true)
-    expect(bar.find('[data-action="anotar-abrir"]').exists()).toBe(true)
-    expect(bar.find('[data-action="pergunta-abrir"]').exists()).toBe(true)
+    expect(bar.find('[data-action="highlight"]').exists()).toBe(true)
+    expect(bar.find('[data-action="annotate-open"]').exists()).toBe(true)
+    expect(bar.find('[data-action="question-open"]').exists()).toBe(true)
   })
 
   it('marks the item read from the bar', async () => {
@@ -131,14 +131,14 @@ describe('the reader on a phone', () => {
 
     // A long press and the handles that follow it produce neither a mouseup nor
     // a keyup, which is all the reader used to listen to. This is that case.
-    expect(wrapper.get('[data-action="destacar"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-action="highlight"]').attributes('disabled')).toBeDefined()
 
     selectInArticle('The marked passage.')
     document.dispatchEvent(new Event('selectionchange'))
     await settleSelection()
 
-    expect(wrapper.get('[data-action="destacar"]').attributes('disabled')).toBeUndefined()
-    await wrapper.get('[data-action="destacar"]').trigger('click')
+    expect(wrapper.get('[data-action="highlight"]').attributes('disabled')).toBeUndefined()
+    await wrapper.get('[data-action="highlight"]').trigger('click')
     await flushReads()
 
     expect(notes.calls.addedHighlights).toHaveLength(1)
@@ -154,10 +154,10 @@ describe('the reader on a phone', () => {
     // Nothing yet: the debounce is what keeps the control from flickering
     // through every passage a dragged handle passes over.
     await flushReads()
-    expect(wrapper.get('[data-action="destacar"]').attributes('disabled')).toBeDefined()
+    expect(wrapper.get('[data-action="highlight"]').attributes('disabled')).toBeDefined()
 
     await settleSelection()
-    expect(wrapper.get('[data-action="destacar"]').attributes('disabled')).toBeUndefined()
+    expect(wrapper.get('[data-action="highlight"]').attributes('disabled')).toBeUndefined()
   })
 
   it('opens the annotations sheet from the bar and closes it again', async () => {
@@ -166,7 +166,7 @@ describe('the reader on a phone', () => {
     const sheet = () => wrapper.get('[data-reader-sheet]')
     expect(sheet().attributes('style')).toContain('display: none')
 
-    await wrapper.get('[data-action="anotar-abrir"]').trigger('click')
+    await wrapper.get('[data-action="annotate-open"]').trigger('click')
     expect(sheet().attributes('style')).not.toContain('display: none')
     expect(sheet().find('#notes-reader-annotation').exists()).toBe(true)
 
@@ -176,7 +176,7 @@ describe('the reader on a phone', () => {
 
   it('closes the sheet on Escape', async () => {
     const { wrapper } = await mountReader()
-    await wrapper.get('[data-action="anotar-abrir"]').trigger('click')
+    await wrapper.get('[data-action="annotate-open"]').trigger('click')
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await wrapper.vm.$nextTick()
@@ -187,12 +187,12 @@ describe('the reader on a phone', () => {
   it('writes a question from the sheet', async () => {
     const { wrapper, notes } = await mountReader()
 
-    await wrapper.get('[data-action="pergunta-abrir"]').trigger('click')
+    await wrapper.get('[data-action="question-open"]').trigger('click')
     await flushReads()
 
     const field = wrapper.get('[data-reader-sheet] #notes-reader-question')
     await field.setValue('What does this change?')
-    await wrapper.get('[data-reader-sheet] [data-action="virar-pergunta"]').trigger('click')
+    await wrapper.get('[data-reader-sheet] [data-action="turn-into-question"]').trigger('click')
     await flushReads()
 
     expect(notes.calls.addedQuestions).toHaveLength(1)
@@ -207,7 +207,7 @@ describe('the reader on a phone', () => {
     // The panel is behind the sheet and it is also what wraps the passage in the
     // article. A `v-if` would undo the marking every time the sheet was closed.
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(1)
-    await wrapper.get('[data-action="anotar-abrir"]').trigger('click')
+    await wrapper.get('[data-action="annotate-open"]').trigger('click')
     await wrapper.get('[data-action="close-notes"]').trigger('click')
 
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(1)
