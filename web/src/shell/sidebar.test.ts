@@ -169,7 +169,7 @@ describe('Assuntos in the sidebar', () => {
     await expand(wrapper, 'Estudo')
     const estudoRows = wrapper
       .findAll('nav[aria-label="Principal"] .app-children .app-sub')
-      .filter((row) => row.attributes('href')?.startsWith('/estudo'))
+      .filter((row) => row.attributes('href')?.startsWith('/study'))
       .map((row) => row.text().replace(/\d+$/, '').trim())
     expect(estudoRows).toEqual(['Currículos'])
   })

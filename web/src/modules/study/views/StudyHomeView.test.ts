@@ -43,7 +43,7 @@ function coreSubjects() {
 }
 
 async function mountStudy(sources?: Partial<AppSources>) {
-  await router.push('/estudo')
+  await router.push('/study')
   await router.isReady()
   const wrapper = mount(StudyHomeView, {
     global: {
@@ -99,7 +99,7 @@ describe('StudyHomeView', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date(`${TODAY}T12:00:00Z`))
     store = createMockStore()
-    await router.push('/estudo')
+    await router.push('/study')
   })
 
   afterEach(() => {
@@ -112,12 +112,12 @@ describe('StudyHomeView', () => {
     const wrapper = await mountStudy()
     const search = wrapper.get('#study-search')
 
-    await search.setValue('memória')
+    await search.setValue('memory')
 
     // The box was an input bound to nothing at all before this: it took what
     // was typed and dropped it. There is one search in Norte, and it is the
     // palette's.
-    expect(paletteRequest().value?.query).toBe('memória')
+    expect(paletteRequest().value?.query).toBe('memory')
     expect((search.element as HTMLInputElement).value).toBe('')
   })
 
@@ -159,7 +159,7 @@ describe('StudyHomeView', () => {
     expect(prev.attributes('disabled')).toBeDefined()
     expect(next.attributes('disabled')).toBeUndefined()
     expect(wrapper.find('.nt-carousel-item .nt-cover-card').attributes('href')).toBe(
-      '/curriculos/fundamentos-de-compiladores'
+      '/curricula/fundamentos-de-compiladores'
     )
 
     await next.trigger('click')
@@ -216,7 +216,7 @@ describe('StudyHomeView', () => {
     // this screen still reads the mock, so the id a question would be stored
     // against is one neither side could resolve. The entry comes back when
     // study moves to the API.
-    expect(items.map((item) => item.attributes('href'))).toEqual(['/curriculos/nova', '/?save=1'])
+    expect(items.map((item) => item.attributes('href'))).toEqual(['/curricula/new', '/?save=1'])
 
     await wrapper.get('[role="tablist"] [role="tab"]:last-child').trigger('click')
     expect(wrapper.get('.study-row-link').attributes('href')).toBe('/subjects/escrita')
@@ -247,7 +247,7 @@ describe('StudyHomeView', () => {
   })
 
   it('says it is loading before the study home answers', async () => {
-    await router.push('/estudo')
+    await router.push('/study')
     await router.isReady()
     const wrapper = mount(StudyHomeView, {
       global: {

@@ -4,7 +4,10 @@ import type { RouteLocationRaw } from 'vue-router'
 import type { NorteModule } from '@/modules/types'
 import { mountedModules } from '@/shell/composition'
 
-export type SearchGroup = 'Biblioteca' | 'Estudo' | 'Projects'
+// 'Estudo' is still the group the review, notes and shell entries carry; the
+// study module answers as 'Study' already, so for a while the union holds
+// both and the two groups sit side by side in the palette.
+export type SearchGroup = 'Biblioteca' | 'Estudo' | 'Study' | 'Projects'
 
 export interface SearchEntry {
   group: SearchGroup

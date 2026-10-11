@@ -83,7 +83,7 @@ async function save(draft: CurriculumDraft): Promise<void> {
     const created = await writing.run(() => study.addCurriculum({ title: draft.title, goal: draft.goal }))
     if (!created) return
     editing.value = false
-    void router.replace(`/curriculos/${created.slug}`)
+    void router.replace(`/curricula/${created.slug}`)
     return
   }
 
@@ -109,7 +109,7 @@ async function save(draft: CurriculumDraft): Promise<void> {
 
 function cancel(): void {
   if (isNew.value) {
-    void router.push('/estudo')
+    void router.push('/study')
     return
   }
   editing.value = false
@@ -132,13 +132,13 @@ function cancel(): void {
         title="Currículo não encontrado"
         objective="Nenhum currículo responde por este endereço. Ele pode ter sido renomeado."
       />
-      <RouterLink class="curriculum-back" to="/estudo">Ver todos os currículos</RouterLink>
+      <RouterLink class="curriculum-back" to="/study">Ver todos os currículos</RouterLink>
     </div>
 
     <div v-else class="curriculum-inner">
       <div class="curriculum-top">
         <nav class="curriculum-crumbs" aria-label="Caminho">
-          <RouterLink class="curriculum-crumb" to="/estudo">Currículos</RouterLink>
+          <RouterLink class="curriculum-crumb" to="/study">Currículos</RouterLink>
           <span class="curriculum-sep" aria-hidden="true">/</span>
           <span class="curriculum-here">{{ shortTitle }}</span>
         </nav>
@@ -151,7 +151,7 @@ function cancel(): void {
           >
             {{ editing ? 'Fechar edição' : 'Editar currículo' }}
           </Button>
-          <RouterLink v-if="!isNew" class="curriculum-new" to="/curriculos/nova">Novo currículo</RouterLink>
+          <RouterLink v-if="!isNew" class="curriculum-new" to="/curricula/new">Novo currículo</RouterLink>
           <component
             :is="continueTarget?.external ? 'a' : 'RouterLink'"
             v-if="continueTarget"

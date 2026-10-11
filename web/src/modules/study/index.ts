@@ -11,16 +11,16 @@ export { manifest }
 
 export const routes = [
   {
-    path: '/estudo',
-    name: 'estudo',
+    path: '/study',
+    name: 'study',
     component: () => import('./views/StudyHomeView.vue'),
-    meta: { title: 'Estudo' }
+    meta: { title: 'Study' }
   },
   {
-    path: '/curriculos/:slug',
-    name: 'curriculo',
+    path: '/curricula/:slug',
+    name: 'curriculum',
     component: () => import('./views/CurriculumView.vue'),
-    meta: { title: 'Currículo' }
+    meta: { title: 'Curriculum' }
   }
 ]
 
@@ -29,7 +29,7 @@ export function useSidebar(): ModuleSidebar {
 
   function studyRows(): SidebarRow[] {
     return [
-      { id: 'curriculos', label: 'Currículos', to: { name: 'estudo' }, count: summary.value?.counts.curricula ?? 0 }
+      { id: 'curricula', label: 'Currículos', to: { name: 'study' }, count: summary.value?.counts.curricula ?? 0 }
       // Assuntos is no longer a row here. Subjects are the core's and have
       // their own pages, so the shell lists them as a top-level section; a
       // second entry under Estudo would point at a screen that only shows the
@@ -40,9 +40,9 @@ export function useSidebar(): ModuleSidebar {
   function shortcutEntries(): SidebarLink[] {
     return [
       {
-        id: 'atalho-curriculos',
+        id: 'shortcut-curricula',
         label: 'Currículos',
-        to: { name: 'estudo' },
+        to: { name: 'study' },
         count: summary.value?.counts.curricula ?? 0
       }
     ]
@@ -51,11 +51,11 @@ export function useSidebar(): ModuleSidebar {
   return {
     sections: [
       {
-        id: 'estudo',
+        id: 'study',
         label: 'Estudo',
-        to: { name: 'estudo' },
+        to: { name: 'study' },
         order: 20,
-        activeRouteNames: ['estudo', 'curriculo'],
+        activeRouteNames: ['study', 'curriculum'],
         rows: studyRows
       }
     ],
@@ -71,7 +71,7 @@ const SCREEN_ENTRY: SearchEntry = {
   subtitle: 'Currículos e assuntos',
   kind: 'tela',
   keywords: 'curriculos assuntos aprender',
-  to: { name: 'estudo' }
+  to: { name: 'study' }
 }
 
 /**
@@ -89,7 +89,7 @@ export function useSearchEntries(): ComputedRef<SearchEntry[]> {
       subtitle: curriculum.goal,
       kind: 'currículo',
       keywords: curriculum.modules.map((module) => module.title).join(' '),
-      to: { name: 'curriculo', params: { slug: curriculum.slug } }
+      to: { name: 'curriculum', params: { slug: curriculum.slug } }
     }))
   ])
 }

@@ -100,7 +100,7 @@ describe('app shell', () => {
     expect(targets['Later']).toMatchObject({ name: 'library', query: { v: 'later' } })
     expect(targets['Books']).toMatchObject({ name: 'library', query: { kind: 'book' } })
     expect(targets['Revisão']).toMatchObject({ name: 'revisao' })
-    expect(targets['Currículos']).toMatchObject({ name: 'estudo' })
+    expect(targets['Currículos']).toMatchObject({ name: 'study' })
     expect(targets['Annotations']).toMatchObject({ name: 'notes', query: { tab: 'annotations' } })
     expect(targets['Highlights']).toMatchObject({ name: 'notes', query: { tab: 'highlights' } })
     expect(targets['Home']).toMatchObject({ name: 'area' })
@@ -108,7 +108,7 @@ describe('app shell', () => {
 
     for (const [label, target] of Object.entries(targets)) {
       expect(
-        ['home', 'library', 'notes', 'notes-question-sets', 'revisao', 'estudo', 'area', 'projects'],
+        ['home', 'library', 'notes', 'notes-question-sets', 'revisao', 'study', 'area', 'projects'],
         `sidebar entry "${label}" points at an unknown route`
       ).toContain(target.name)
     }
@@ -208,7 +208,7 @@ describe('app shell', () => {
 
     expect(targets['Inbox']).toBe('/library?v=inbox')
     expect(targets['Articles']).toBe('/library?v=all&kind=article')
-    expect(targets['Currículos']).toBe('/estudo')
+    expect(targets['Currículos']).toBe('/study')
     expect(targets['Shortlist']).toBeUndefined()
 
     const inbox = shortcuts.findAll('a.app-item').find((link) => link.text().includes('Inbox'))

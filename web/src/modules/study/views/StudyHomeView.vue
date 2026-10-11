@@ -151,7 +151,7 @@ function openPaletteWith(typed: string): void {
             Adicionar
           </Button>
           <div v-if="addOpen" class="study-menu" role="menu" @keydown.escape="closeAdd">
-            <RouterLink role="menuitem" to="/curriculos/nova" @click="closeAdd">Novo currículo</RouterLink>
+            <RouterLink role="menuitem" to="/curricula/new" @click="closeAdd">Novo currículo</RouterLink>
             <RouterLink role="menuitem" :to="{ name: 'home', query: { save: '1' } }" @click="closeAdd">
               Salvar link na inbox
             </RouterLink>
@@ -219,7 +219,7 @@ function openPaletteWith(typed: string): void {
             :key="curriculum.slug"
             :title="curriculum.title"
             :description="curriculum.goal"
-            :href="`/curriculos/${curriculum.slug}`"
+            :href="`/curricula/${curriculum.slug}`"
           />
         </Carousel>
       </section>

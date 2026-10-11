@@ -110,12 +110,12 @@ describe('design-system components', () => {
 
   it('SectionHeader supports heading level, action, and trailing slot', () => {
     const wrapper = mount(SectionHeader, {
-      props: { title: 'Upcoming studies', level: 3, actionLabel: 'See all', actionHref: '/estudo' },
+      props: { title: 'Upcoming studies', level: 3, actionLabel: 'See all', actionHref: '/study' },
       slots: { trailing: 'Filters' }
     })
 
     expect(wrapper.find('h3').text()).toBe('Upcoming studies')
-    expect(wrapper.get('.nt-sechead-link').attributes('href')).toBe('/estudo')
+    expect(wrapper.get('.nt-sechead-link').attributes('href')).toBe('/study')
     expect(wrapper.get('.nt-sechead-trailing').text()).toBe('Filters')
   })
 

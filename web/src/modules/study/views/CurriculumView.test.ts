@@ -46,7 +46,7 @@ function fieldByLabel(wrapper: VueWrapper, label: string) {
 describe('curriculum screen', () => {
   it('renders every mock curriculum with its own title and modules', async () => {
     for (const curriculum of store.curricula) {
-      const { wrapper } = await mountAt(`/curriculos/${curriculum.slug}`)
+      const { wrapper } = await mountAt(`/curricula/${curriculum.slug}`)
 
       expect(wrapper.find('.app-content h1').text()).toBe(curriculum.title)
       expect(wrapper.text()).toContain(curriculum.goal)
@@ -58,7 +58,7 @@ describe('curriculum screen', () => {
   })
 
   it('shows the objective, the ruler and every module region of the open module', async () => {
-    const { wrapper } = await mountAt('/curriculos/fundamentos-de-compiladores')
+    const { wrapper } = await mountAt('/curricula/fundamentos-de-compiladores')
 
     expect(wrapper.find('.nt-pagetitle-objective').text()).toBe('Construir um interpretador pequeno e legível.')
     expect(wrapper.findAll('.ruler-step')).toHaveLength(4)
@@ -71,7 +71,7 @@ describe('curriculum screen', () => {
   })
 
   it('marks each material status and the O/P of required and optional materials', async () => {
-    const { wrapper } = await mountAt('/curriculos/horta-caseira')
+    const { wrapper } = await mountAt('/curricula/horta-caseira')
 
     const rows = wrapper.findAll('.nt-mat')
     expect(rows.length).toBeGreaterThan(2)
@@ -85,7 +85,7 @@ describe('curriculum screen', () => {
   })
 
   it('collapses and expands a module', async () => {
-    const { wrapper } = await mountAt('/curriculos/fundamentos-de-compiladores')
+    const { wrapper } = await mountAt('/curricula/fundamentos-de-compiladores')
     const heads = moduleHeads(wrapper)
 
     expect(heads[0].attributes('aria-expanded')).toBe('true')
@@ -99,7 +99,7 @@ describe('curriculum screen', () => {
   })
 
   it('opens a module from the ruler', async () => {
-    const { wrapper } = await mountAt('/curriculos/fundamentos-de-compiladores')
+    const { wrapper } = await mountAt('/curricula/fundamentos-de-compiladores')
 
     await moduleHeads(wrapper)[0].trigger('click')
     await wrapper.findAll('.ruler-step')[2].trigger('click')
@@ -112,7 +112,7 @@ describe('curriculum screen', () => {
     // The library reads the server and this module reads the mock, so a row
     // leads to the material's own address rather than to a reader that would
     // look up a mock id against the API and find nothing.
-    const { wrapper } = await mountAt('/curriculos/fundamentos-de-compiladores')
+    const { wrapper } = await mountAt('/curricula/fundamentos-de-compiladores')
 
     const titles = wrapper.findAll('.nt-mat-title')
     expect(titles.length).toBeGreaterThan(0)
@@ -126,7 +126,7 @@ describe('curriculum screen', () => {
 
   it('routes a material row into the app once the library reads the same place', async () => {
     overrideModuleBacking('library', 'mock')
-    const { wrapper, router } = await mountAt('/curriculos/fundamentos-de-compiladores')
+    const { wrapper, router } = await mountAt('/curricula/fundamentos-de-compiladores')
 
     const href = wrapper.findAll('.nt-mat-title')[0].attributes('href')!
     expect(href).toMatch(/^\/material\/(article|book|paper)\//)
@@ -134,14 +134,14 @@ describe('curriculum screen', () => {
   })
 
   it('links the breadcrumb to the study home and offers a new curriculum', async () => {
-    const { wrapper, router } = await mountAt('/curriculos/tipografia-pratica')
+    const { wrapper, router } = await mountAt('/curricula/tipografia-pratica')
 
-    expect(router.resolve(wrapper.find('.curriculum-crumb').attributes('href')!).name).toBe('estudo')
-    expect(wrapper.find('.curriculum-new').attributes('href')).toBe('/curriculos/nova')
+    expect(router.resolve(wrapper.find('.curriculum-crumb').attributes('href')!).name).toBe('study')
+    expect(wrapper.find('.curriculum-new').attributes('href')).toBe('/curricula/new')
   })
 
   it('edits the title, the objective and a module title, and saves them to the page', async () => {
-    const { wrapper } = await mountAt('/curriculos/casa-conectada')
+    const { wrapper } = await mountAt('/curricula/casa-conectada')
 
     await wrapper.find('.curriculum-actions .nt-btn').trigger('click')
     expect(wrapper.find('.editor-heading').text()).toBe('Editar currículo')
@@ -159,7 +159,7 @@ describe('curriculum screen', () => {
   })
 
   it('opens an empty form on nova and saves a new curriculum', async () => {
-    const { wrapper, router } = await mountAt('/curriculos/nova')
+    const { wrapper, router } = await mountAt('/curricula/new')
 
     expect(wrapper.find('.editor-heading').text()).toBe('Novo currículo')
     expect((fieldByLabel(wrapper, 'Título').element as HTMLInputElement).value).toBe('')
@@ -173,21 +173,21 @@ describe('curriculum screen', () => {
     await flushReads()
 
     expect(store.curricula[0]).toMatchObject({ slug: 'marcenaria-de-fim-de-semana', title: 'Marcenaria de fim de semana' })
-    expect(router.currentRoute.value.fullPath).toBe('/curriculos/marcenaria-de-fim-de-semana')
+    expect(router.currentRoute.value.fullPath).toBe('/curricula/marcenaria-de-fim-de-semana')
     expect(wrapper.find('.app-content h1').text()).toBe('Marcenaria de fim de semana')
   })
 
   it('shows a not-found state for an unknown slug', async () => {
-    const { wrapper, router } = await mountAt('/curriculos/nao-existe')
+    const { wrapper, router } = await mountAt('/curricula/nao-existe')
 
     expect(wrapper.find('.app-content h1').text()).toBe('Currículo não encontrado')
     expect(wrapper.findAll('.nt-mod-head')).toHaveLength(0)
-    expect(router.resolve(wrapper.find('.curriculum-back').attributes('href')!).name).toBe('estudo')
+    expect(router.resolve(wrapper.find('.curriculum-back').attributes('href')!).name).toBe('study')
   })
 
   it('says it is loading before the curriculum answers', async () => {
     const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/curriculos/horta-caseira')
+    await router.push('/curricula/horta-caseira')
     await router.isReady()
     const wrapper = mount(App, {
       global: {
@@ -213,7 +213,7 @@ describe('curriculum screen', () => {
   it('says why the curriculum could not be read, and reads again when asked', async () => {
     let attempts = 0
     const sources = createMockSources(store)
-    const { wrapper } = await mountAt('/curriculos/horta-caseira', {
+    const { wrapper } = await mountAt('/curricula/horta-caseira', {
       ...sources,
       study: {
         ...sources.study,
@@ -237,7 +237,7 @@ describe('curriculum screen', () => {
 
   it('keeps the editor open with the reason when saving fails', async () => {
     const sources = createMockSources(store)
-    const { wrapper } = await mountAt('/curriculos/casa-conectada', {
+    const { wrapper } = await mountAt('/curricula/casa-conectada', {
       ...sources,
       study: {
         ...sources.study,

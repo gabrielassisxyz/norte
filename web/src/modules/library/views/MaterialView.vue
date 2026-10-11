@@ -157,7 +157,7 @@ const selectionActions = computed(() => [
 
 const backTarget = computed(() => {
   if (materialContext.value && canReachStudy.value) {
-    return { name: 'curriculo', params: { slug: materialContext.value.curriculumSlug } }
+    return { name: 'curriculum', params: { slug: materialContext.value.curriculumSlug } }
   }
   return { name: 'library', query: { v: 'all' } }
 })

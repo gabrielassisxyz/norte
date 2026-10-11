@@ -81,7 +81,7 @@ describe('a module the server does not serve', () => {
       expect(wrapper.find('.app-content h1').text()).toBe(title)
     }
 
-    const { wrapper } = await mountAt('/estudo')
+    const { wrapper } = await mountAt('/study')
     expect(wrapper.find('.app-content h1').text().length).toBeGreaterThan(0)
     expect(wrapper.find('.app-content h1').text()).not.toBe('Módulo desligado')
   })

@@ -153,7 +153,7 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     expect(wrapper.get('.home-review').attributes('href')).toBe('/revisao')
-    expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curriculos/fundamentos-de-compiladores')
+    expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curricula/fundamentos-de-compiladores')
     // The reading list arrives in the order the server sorts it: most recently
     // opened first, which is what "continue reading" means.
     expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/library/lib-post')

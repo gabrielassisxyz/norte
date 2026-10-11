@@ -32,13 +32,13 @@ const studies = computed(() =>
   <section aria-labelledby="continue-study" class="home-section home-study">
     <div class="home-section-head">
       <h2 id="continue-study">Continuar estudando</h2>
-      <RouterLink :to="{ name: 'estudo' }" class="home-see-all">Todos os currículos</RouterLink>
+      <RouterLink :to="{ name: 'study' }" class="home-see-all">Todos os currículos</RouterLink>
     </div>
     <p v-if="firstLoad" class="home-study-state" role="status">Carregando os currículos…</p>
     <p v-else-if="error" class="home-study-state" role="alert">Não foi possível carregar os currículos: {{ error }}</p>
     <p v-else-if="studies.length === 0" class="home-study-state">Nenhum currículo em andamento.</p>
     <div v-else class="home-list">
-      <RouterLink v-for="study in studies" :key="study.slug" :to="`/curriculos/${study.slug}`" class="home-study-row">
+      <RouterLink v-for="study in studies" :key="study.slug" :to="`/curricula/${study.slug}`" class="home-study-row">
         <span class="home-study-main">
           <span class="home-study-title">{{ study.title }}</span>
           <span class="home-study-sub">

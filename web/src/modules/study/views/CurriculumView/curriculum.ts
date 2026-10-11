@@ -3,8 +3,8 @@ import type { ModuleStatus } from '@/components/ds/ModuleItem.vue'
 import type { Curriculum, CurriculumModule, LibraryItem, LibraryKind, MaterialKind } from '@/mock/types'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 
-/** The slug that opens the screen as an empty "novo currículo" form. */
-export const NEW_CURRICULUM_SLUG = 'nova'
+/** The slug that opens the screen as an empty "new curriculum" form. */
+export const NEW_CURRICULUM_SLUG = 'new'
 
 const KIND_LABELS: Record<LibraryKind, string> = {
   article: 'Post',
