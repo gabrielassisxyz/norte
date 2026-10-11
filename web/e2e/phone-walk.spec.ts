@@ -78,7 +78,7 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await tap(menu)
     await expect(drawer).toBeVisible()
 
-    await tap(drawer.locator('a.app-line-link', { hasText: 'Biblioteca' }))
+    await tap(drawer.locator('a.app-line-link', { hasText: 'Library' }))
     await expect(page).toHaveURL(/\/library\?v=all$/)
     // Arriving is what the drawer was opened for, so it is gone again.
     await expect(drawer).toBeHidden()
@@ -88,14 +88,14 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect(row).toBeVisible()
     // Nothing is behind hover: the group is not on the page until it is tapped
     // open. A pointer cannot be over a row here, and this is why that is fine.
-    await expect(row.locator('[role="group"][aria-label="Ações"]')).toHaveCount(0)
+    await expect(row.locator('[role="group"][aria-label="Actions"]')).toHaveCount(0)
 
-    await tap(row.locator('[data-action="mais"]'))
+    await tap(row.locator('[data-action="more"]'))
     // Revealed by the tap itself, not by what it leaves behind: iOS Safari does
     // not focus a button on tap, and Chromium keeps the row hovered after one,
     // re-applying it when the layout changes. So drop both until neither holds
     // for a while, and only then read what is computed.
-    const revealed = row.locator('[role="group"][aria-label="Ações"]')
+    const revealed = row.locator('[role="group"][aria-label="Actions"]')
     await expect(async () => {
       await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur())
       await page.mouse.move(0, 0)
@@ -106,7 +106,7 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await revealed.evaluate((node) => Promise.all(node.getAnimations().map((animation) => animation.finished)))
     await expect(revealed).toHaveCSS('opacity', '1')
     await expect(revealed).toHaveCSS('pointer-events', 'auto')
-    await tap(row.locator('button[aria-label="Depois"]'))
+    await tap(row.locator('button[aria-label="Later"]'))
     await expect.poll(async () => (await item()).location).toBe('later')
 
     // --- the reader -------------------------------------------------------
@@ -114,7 +114,7 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect(page).toHaveURL(new RegExp(`/library/${article.id}$`))
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
-    const bar = page.locator('nav[aria-label="Ações da leitura"]')
+    const bar = page.locator('nav[aria-label="Reading actions"]')
     await expect(bar).toBeVisible()
     // The header's actions are the ones a mouse used; on a phone they are gone
     // and the bar is the only place they live, so neither is a duplicate.
@@ -175,7 +175,7 @@ test.describe('at 390x844, with touch and no mouse', () => {
       })
       .toEqual(['O que isso muda na prática?'])
 
-    await tap(sheet.locator('[data-action="fechar-notas"]'))
+    await tap(sheet.locator('[data-action="close-notes"]'))
     await expect(sheet).toBeHidden()
 
     // --- marked read, from the bar ----------------------------------------
@@ -349,17 +349,17 @@ for (const phone of PHONES) {
       // having fewer controls left to fit.
       await expect(tabs).toHaveText([
         /Inbox/,
-        /Próximos/,
-        /Depois/,
-        /Arquivo/,
-        /Reserva/,
-        /Tudo/,
-        /Sugestões/
+        /Up Next/,
+        /Later/,
+        /Archive/,
+        /Stash/,
+        /All/,
+        /Pending connections/
       ])
 
       const controls = [
         ['the seven tabs', tabs],
-        ['Surpresa', page.locator('.library-surprise')],
+        ['Surprise', page.locator('.library-surprise')],
         ['the search box', page.locator('.library-search')],
         ['the sort menu', page.locator('.library-sort button')],
         ['the filter menu', page.locator('.library-filter button')]
@@ -380,12 +380,12 @@ for (const phone of PHONES) {
       await boot(page, `/library/${own.id}`)
       await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
-      const bar = page.locator('nav[aria-label="Ações da leitura"]')
+      const bar = page.locator('nav[aria-label="Reading actions"]')
       const sheet = page.locator('[data-reader-sheet]')
       await tap(bar.locator('[data-action="anotar-abrir"]'))
       await expect(sheet).toBeVisible()
 
-      for (const label of ['Inbox', 'Próximos', 'Depois', 'Arquivo', 'Reserva', 'Lido']) {
+      for (const label of ['Inbox', 'Up Next', 'Later', 'Archive', 'Stash', 'Read']) {
         const chip = bar.locator('.reader-bar-chip', { hasText: label })
         await expect(chip).toBeVisible()
         expect(await hits(chip), `${label} under the open sheet`).toBe(true)
@@ -416,7 +416,7 @@ for (const phone of PHONES) {
       expect(width).toBeGreaterThan(200)
       // The drawer slides in, so the link reaches its place a moment after the
       // tap; a single hit test can land while it is still off the left edge.
-      await expect.poll(() => hits(drawer.locator('a.app-line-link', { hasText: 'Biblioteca' }))).toBe(true)
+      await expect.poll(() => hits(drawer.locator('a.app-line-link', { hasText: 'Library' }))).toBe(true)
     })
   })
 }
@@ -440,12 +440,12 @@ test.describe('at 1440x900, unchanged', () => {
     const row = page.locator('.item', { hasText: article.title })
     // The group is rendered and revealed by the pointer, which is what it did
     // before this bead; the "more" button belongs to the phone and is not here.
-    await expect(row.locator('[data-action="mais"]')).toHaveCount(0)
-    const actions = row.locator('[role="group"][aria-label="Ações"]')
+    await expect(row.locator('[data-action="more"]')).toHaveCount(0)
+    const actions = row.locator('[role="group"][aria-label="Actions"]')
     await expect(actions).toHaveCount(1)
     await row.hover()
     await expect(actions).toBeVisible()
-    await actions.locator('button[aria-label="Marcar como não lido"]').click()
+    await actions.locator('button[aria-label="Mark as unread"]').click()
     await expect.poll(async () => (await item()).unread).toBe(true)
 
     await row.locator('.item-title').click()
@@ -453,7 +453,7 @@ test.describe('at 1440x900, unchanged', () => {
     // The reader's own actions are in the header, and the phone's bar and sheet
     // are not rendered at all.
     await expect(page.locator('.reader-top-actions [data-action="read"]')).toBeVisible()
-    await expect(page.locator('nav[aria-label="Ações da leitura"]')).toHaveCount(0)
+    await expect(page.locator('nav[aria-label="Reading actions"]')).toHaveCount(0)
     await expect(page.locator('[data-reader-sheet]')).toHaveCount(0)
     // And the panel is under the article, where a wide screen has room for it.
     await expect(page.locator('#notes-reader-title')).toBeVisible()

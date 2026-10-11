@@ -74,7 +74,7 @@ test('choosing an order from the menu sends it, and the server accepts it', asyn
 
   await page.goto(`${server.baseURL}/library?v=all`)
   await expect(page.locator('.item').first()).toBeVisible()
-  await expect(page.locator(sortTrigger)).toHaveAttribute('aria-label', 'Ordenar: Mais recentes')
+  await expect(page.locator(sortTrigger)).toHaveAttribute('aria-label', 'Sort: Newest')
 
   const sorted = page.waitForResponse((response) => response.url().includes('/api/library/items'))
   await page.locator(sortTrigger).click()
@@ -83,7 +83,7 @@ test('choosing an order from the menu sends it, and the server accepts it', asyn
 
   expect(answered.ok()).toBe(true)
   expect(new URL(answered.url()).searchParams.get('sort')).toBe('title')
-  await expect(page.locator(sortTrigger)).toHaveAttribute('aria-label', 'Ordenar: Título')
+  await expect(page.locator(sortTrigger)).toHaveAttribute('aria-label', 'Sort: Title')
   // A choice closes the menu, and the list is still a list.
   await expect(page.locator('.library-sort [role="menu"]')).toHaveCount(0)
   await expect(page.locator('.library-error')).toHaveCount(0)
@@ -130,7 +130,7 @@ test('the filter menu asks for unread only, and the server accepts that too', as
   const answered = await filtered
 
   expect(answered.ok()).toBe(true)
-  await expect(page.locator('.library-unread')).toContainText('Mostrando só não lidos')
+  await expect(page.locator('.library-unread')).toContainText('Showing unread only')
   await expect(page.locator('.library-error')).toHaveCount(0)
 })
 
