@@ -43,7 +43,7 @@ function manyRecords(count: number): LibraryItemRecord[] {
 describe('useLibraryItems over a paginated list', () => {
   it('grows the list page by page and repeats no row', async () => {
     const library = fakeLibrarySource(manyRecords(120))
-    const items = await hold(library, () => useLibraryItems({ view: 'tudo' }))
+    const items = await hold(library, () => useLibraryItems({ view: 'all' }))
 
     expect(items.data.value?.items).toHaveLength(50)
     expect(items.hasMore.value).toBe(true)
@@ -74,7 +74,7 @@ describe('useLibraryItems over a paginated list', () => {
         return { items: page, next_cursor: from === 0 ? '50' : null }
       }
     })
-    const items = await hold(library, () => useLibraryItems({ view: 'tudo' }))
+    const items = await hold(library, () => useLibraryItems({ view: 'all' }))
 
     await items.loadMore()
     const loaded = items.data.value?.items ?? []
@@ -85,7 +85,7 @@ describe('useLibraryItems over a paginated list', () => {
 
   it('asks for the first page again, not for a cursor, when the query changes', async () => {
     const library = fakeLibrarySource(manyRecords(120))
-    const query: Ref<LibraryListQuery> = ref({ view: 'tudo' })
+    const query: Ref<LibraryListQuery> = ref({ view: 'all' })
     const items = await hold(library, () => useLibraryItems(query))
 
     await items.loadMore()
@@ -101,48 +101,61 @@ describe('useLibraryItems over a paginated list', () => {
 
   it('keeps the loaded pages when a write replaces one row', async () => {
     const library = fakeLibrarySource(manyRecords(120))
-    const items = await hold(library, () => useLibraryItems({ view: 'tudo' }))
+    const items = await hold(library, () => useLibraryItems({ view: 'all' }))
     await items.loadMore()
 
-    const updated = await library.patchItem('item-000', { status: 'arquivo' })
+    const updated = await library.patchItem('item-000', { location: 'archive' })
     items.applyItem(updated)
 
     expect(items.data.value?.items).toHaveLength(100)
-    expect(items.data.value?.items[0]).toMatchObject({ id: 'item-000', status: 'arquivo' })
+    expect(items.data.value?.items[0]).toMatchObject({ id: 'item-000', location: 'archive' })
   })
 })
 
 describe('useLibraryItems after a write moves a row', () => {
   it('drops a row archived from the inbox, and keeps it on the whole shelf', async () => {
-    const records = [libraryRecord({ id: 'a', status: 'inbox' }), libraryRecord({ id: 'b', status: 'inbox' })]
+    const records = [libraryRecord({ id: 'a', location: 'inbox' }), libraryRecord({ id: 'b', location: 'inbox' })]
     const inbox = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'inbox' }))
-    inbox.applyItem({ ...records[0], status: 'arquivo' })
+    inbox.applyItem({ ...records[0], location: 'archive' })
     expect(inbox.data.value?.items.map((item) => item.id)).toEqual(['b'])
 
-    const everything = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'tudo' }))
-    everything.applyItem({ ...records[0], status: 'arquivo' })
+    const everything = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'all' }))
+    everything.applyItem({ ...records[0], location: 'archive' })
     expect(everything.data.value?.items.map((item) => item.id)).toEqual(['a', 'b'])
   })
 
-  it('keeps an unread row on view=now across a shelf change, and drops it once read', async () => {
-    const records = [libraryRecord({ id: 'a', status: 'inbox', unread: true }), libraryRecord({ id: 'b', status: 'inbox', unread: true })]
-    const items = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'now' }))
+  it('keeps a row on view=suggestions through every location, read or not', async () => {
+    const records = [libraryRecord({ id: 'a', location: 'inbox', unread: true }), libraryRecord({ id: 'b', location: 'inbox', unread: true })]
+    const items = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'suggestions' }))
 
-    items.applyItem({ ...records[0], status: 'depois' })
+    items.applyItem({ ...records[0], location: 'later' })
     expect(items.data.value?.items.map((item) => item.id)).toEqual(['a', 'b'])
-    expect(items.data.value?.items[0]).toMatchObject({ id: 'a', status: 'depois' })
+    expect(items.data.value?.items[0]).toMatchObject({ id: 'a', location: 'later' })
 
-    items.applyItem({ ...records[0], status: 'arquivo' })
+    items.applyItem({ ...records[0], location: 'archive' })
     expect(items.data.value?.items.map((item) => item.id)).toEqual(['a', 'b'])
-    expect(items.data.value?.items[0]).toMatchObject({ id: 'a', status: 'arquivo' })
+    expect(items.data.value?.items[0]).toMatchObject({ id: 'a', location: 'archive' })
 
-    items.applyItem({ ...records[0], status: 'arquivo', unread: false })
+    // Reading it no longer takes it off the view: Suggestions lists read items
+    // after unread ones instead of leaving them out.
+    items.applyItem({ ...records[0], location: 'archive', unread: false })
+    expect(items.data.value?.items.map((item) => item.id)).toEqual(['a', 'b'])
+    expect(items.data.value?.items[0]).toMatchObject({ id: 'a', unread: false })
+  })
+
+  it('drops a row marked read on view=suggestions while unread=true is in force', async () => {
+    const records = [libraryRecord({ id: 'a', location: 'inbox', unread: true }), libraryRecord({ id: 'b', location: 'inbox', unread: true })]
+    const items = await hold(fakeLibrarySource(records), () =>
+      useLibraryItems({ view: 'suggestions', unread: true })
+    )
+
+    items.applyItem({ ...records[0], unread: false })
     expect(items.data.value?.items.map((item) => item.id)).toEqual(['b'])
   })
 
   it('drops a row marked read while only unread rows are asked for', async () => {
     const records = [libraryRecord({ id: 'a', unread: true }), libraryRecord({ id: 'b', unread: true })]
-    const items = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'tudo', unread: true }))
+    const items = await hold(fakeLibrarySource(records), () => useLibraryItems({ view: 'all', unread: true }))
 
     items.applyItem({ ...records[0], unread: false })
 
@@ -160,7 +173,7 @@ describe('useLibraryItems when the next page fails', () => {
         return base.listItems(query, signal)
       }
     })
-    const items = await hold(library, () => useLibraryItems({ view: 'tudo' }))
+    const items = await hold(library, () => useLibraryItems({ view: 'all' }))
 
     await items.loadMore()
 
@@ -174,30 +187,44 @@ describe('useLibraryItems when the next page fails', () => {
 describe('useLibraryCounts', () => {
   it('answers with the counts endpoint, over the whole library and not one page', async () => {
     const library = fakeLibrarySource([
-      libraryRecord({ id: 'a', status: 'inbox', unread: true }),
-      libraryRecord({ id: 'b', status: 'depois', unread: true }),
-      libraryRecord({ id: 'c', status: 'arquivo', unread: false, kind: 'livro' })
+      libraryRecord({ id: 'a', location: 'inbox', unread: true }),
+      libraryRecord({ id: 'b', location: 'later', unread: true }),
+      libraryRecord({ id: 'c', location: 'archive', unread: false, kind: 'book' })
     ])
     const counts = await hold(library, () => useLibraryCounts())
 
-    expect(counts.data.value?.views).toEqual({ inbox: 1, depois: 1, arquivo: 1, tudo: 3 })
+    expect(counts.data.value?.views).toEqual({
+      inbox: 1,
+      up_next: 0,
+      later: 1,
+      archive: 1,
+      stash: 0,
+      all: 3
+    })
     expect(counts.data.value?.unread).toBe(2)
-    expect(counts.data.value?.kinds.livro).toBe(1)
+    expect(counts.data.value?.kinds.book).toBe(1)
   })
 
   it('asks the endpoint again after a write instead of adjusting a total by hand', async () => {
-    const library = fakeLibrarySource([libraryRecord({ id: 'a', status: 'inbox' })])
+    const library = fakeLibrarySource([libraryRecord({ id: 'a', location: 'inbox' })])
     const counts = await hold(library, () => useLibraryCounts())
 
     expect(library.calls.counts).toBe(1)
     expect(counts.data.value?.views.inbox).toBe(1)
 
-    await library.patchItem('a', { status: 'arquivo' })
+    await library.patchItem('a', { location: 'archive' })
     libraryItemChanged()
     await flushReads()
 
     expect(library.calls.counts).toBe(2)
-    expect(counts.data.value?.views).toEqual({ inbox: 0, depois: 0, arquivo: 1, tudo: 1 })
+    expect(counts.data.value?.views).toEqual({
+      inbox: 0,
+      up_next: 0,
+      later: 0,
+      archive: 1,
+      stash: 0,
+      all: 1
+    })
   })
 })
 

@@ -167,7 +167,7 @@ describe('NotesView', () => {
   it('links to the reader only while the library is mounted', async () => {
     const withLibrary = await mountNotes()
     expect(withLibrary.get('.notes-highlight .notes-links a').attributes('href')).toBe(
-      `/biblioteca/${compilation.id}`
+      `/library/${compilation.id}`
     )
 
     // Notes alone: the registry still gives the title, and there is nowhere to

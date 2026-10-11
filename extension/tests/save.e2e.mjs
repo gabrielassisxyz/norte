@@ -29,7 +29,7 @@ test('loaded extension saves authenticated HTML, metadata and Unicode selection,
   await view.keyboard.press('Enter');
   await expect(view.locator('#status')).toHaveText('salvo');
   expect(posts).toHaveLength(1);
-  expect(posts[0]).toMatchObject({ url: `${origin}/article`, why: 'Compare observations next month', link_to: [subject.id], source: 'extension' });
+  expect(posts[0]).toMatchObject({ url: `${origin}/article`, reason: 'Compare observations next month', link_to: [subject.id], source: 'extension' });
   expect(posts[0].html).toContain(articleText);
   expect(posts[0].selection.exact).toBe(selectedText);
   expect(Array.from(posts[0].selection.prefix)).toHaveLength(32);
@@ -41,10 +41,14 @@ test('loaded extension saves authenticated HTML, metadata and Unicode selection,
     return item.extract_status;
   }).toBe('done');
   expect(item.source).toBe('extension');
+  // The reason the contract pins additionalProperties: false, so a body still
+  // carrying `why` would have been refused rather than silently stripped --
+  // reading it back off the saved item is what proves the field was accepted.
+  expect(item.reason).toBe('Compare observations next month');
   expect(item.content_text).toContain(articleText);
   const reader = await harness.context.newPage();
   await reader.goto(norteOrigin);
-  await reader.locator(`a[href="/biblioteca/${id}"]`).click();
+  await reader.locator(`a[href="/library/${id}"]`).click();
   await expect(reader.getByText(articleText, { exact: false }).first()).toBeVisible();
 });
 

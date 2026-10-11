@@ -41,7 +41,7 @@ function record(overrides: Partial<LibraryItemRecord> = {}): LibraryItemRecord {
 
 async function mountReader(library: FakeLibrarySource, id = 'item-1') {
   const router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push(`/biblioteca/${id}`)
+  await router.push(`/library/${id}`)
   await router.isReady()
   const wrapper = mount(ReaderView, {
     global: { plugins: [router, sourcesPlugin({ library })] },
@@ -408,7 +408,7 @@ describe('the reader and the place reading stopped', () => {
     await vi.advanceTimersByTimeAsync(10)
 
     view.scrollTo(600)
-    await router.push('/biblioteca/item-2')
+    await router.push('/library/item-2')
     await flushPromises()
 
     const written = positionPatches(library)
@@ -456,7 +456,7 @@ describe('the reader and the restore guard', () => {
 describe('the reader and what was selected when the link was saved', () => {
   it('shows the passage, read-only, under its own label', async () => {
     const library = fakeLibrarySource([
-      record({ selection: { exact: 'o detalhe observável é o material', prefix: 'antes', suffix: 'depois' } })
+      record({ selection: { exact: 'o detalhe observável é o material', prefix: 'antes', suffix: 'later' } })
     ])
     const { wrapper } = await mountReader(library)
     const section = wrapper.get('.reader-selection')
@@ -497,7 +497,7 @@ describe('the reader and the shelf an item sits on', () => {
   })
 
   it('moves it to another shelf, and asks for nothing when it is already there', async () => {
-    const library = fakeLibrarySource([record({ status: 'inbox' })])
+    const library = fakeLibrarySource([record({ location: 'inbox' })])
     const { wrapper } = await mountReader(library)
 
     const chips = wrapper.findAll('.reader-chip')
@@ -505,7 +505,7 @@ describe('the reader and the shelf an item sits on', () => {
     await depois.trigger('click')
     await flushReads()
 
-    expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { status: 'depois' } }])
+    expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { location: 'later' } }])
     expect(wrapper.findAll('.reader-chip').find((chip) => chip.text() === 'Depois')!.classes()).toContain(
       'is-current'
     )
@@ -513,6 +513,30 @@ describe('the reader and the shelf an item sits on', () => {
     await wrapper.findAll('.reader-chip').find((chip) => chip.text() === 'Depois')!.trigger('click')
     await flushReads()
     expect(library.calls.patch).toHaveLength(1)
+  })
+
+  it('offers all five locations, so none of them is reachable from nowhere', async () => {
+    const library = fakeLibrarySource([record({ location: 'inbox' })])
+    const { wrapper } = await mountReader(library)
+
+    const labels = wrapper.findAll('.reader-chip').map((chip) => chip.text())
+    expect(labels).toEqual(['Inbox', 'Próximos', 'Depois', 'Arquivo', 'Reserva'])
+  })
+
+  it('sends up_next and stash as the patch body, which no other control can reach', async () => {
+    for (const [label, location] of [
+      ['Próximos', 'up_next'],
+      ['Reserva', 'stash']
+    ] as const) {
+      const library = fakeLibrarySource([record({ location: 'inbox' })])
+      const { wrapper } = await mountReader(library)
+
+      await wrapper.findAll('.reader-chip').find((chip) => chip.text() === label)!.trigger('click')
+      await flushReads()
+
+      expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { location } }])
+      wrapper.unmount()
+    }
   })
 })
 
@@ -525,7 +549,7 @@ describe('the reader moving between items', () => {
       id === 'item-1' ? new Promise<LibraryItemRecord>((resolve) => (release = resolve)) : realOpen(id)
     const { wrapper, router } = await mountReader(library, 'item-1')
 
-    await router.push('/biblioteca/item-2')
+    await router.push('/library/item-2')
     await flushReads()
     release(record({ id: 'item-1', title: 'Primeiro' }))
     await flushReads()

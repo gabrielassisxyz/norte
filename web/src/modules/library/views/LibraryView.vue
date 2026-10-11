@@ -23,77 +23,81 @@ import type {
   LibraryItemSummary,
   LibraryKind,
   LibraryListQuery,
-  LibrarySort,
-  LibraryShelf,
-  LibraryStatus
+  LibraryLocation,
+  LibraryLocationName,
+  LibrarySort
 } from '../data/source'
 
 /**
- * The shelves, in the one order the whole app lists them in.
+ * The locations, in the one order the whole app lists them in.
  *
- * The sidebar lists the same four, and listing them in two different orders
+ * The sidebar lists the same six, and listing them in two different orders
  * made the same place move depending on where it was read. The order here is
- * the reading order of a saved link: it arrives in the inbox, is put off until
- * later, and ends up archived; `tudo` is the view over all three and sits
- * before the shelf a person visits least.
+ * the reading order of a saved link: it arrives in the inbox, is chosen for
+ * next, is put off until later, ends up archived, or is kept with no intent to
+ * read; `all` is the view over all five and sits last.
  */
-const VIEWS: LibraryShelf[] = ['inbox', 'depois', 'tudo', 'arquivo']
-const VIEW_LABELS: Record<LibraryShelf, string> = {
+const VIEWS: LibraryLocationName[] = ['inbox', 'up_next', 'later', 'archive', 'stash', 'all']
+const VIEW_LABELS: Record<LibraryLocationName, string> = {
   inbox: 'Inbox',
-  depois: 'Depois',
-  tudo: 'Tudo',
-  arquivo: 'Arquivo'
+  up_next: 'Próximos',
+  later: 'Depois',
+  archive: 'Arquivo',
+  stash: 'Reserva',
+  all: 'Tudo'
 }
 
 /**
- * The review queue's tab, which is addressed like a shelf and is not one.
+ * The pending-connections queue's tab, which is addressed like a location and
+ * is not one.
  *
- * It shares the `v` parameter with the shelves because it is one more thing the
- * Biblioteca shows, and a person switching to it and back expects the browser's
- * own back button to do that. It is not a `LibraryShelf`: no library list is
- * read for it, and sending `v=sugestoes` to `/api/library/items` would be
- * asking the server for a shelf that does not exist.
+ * It shares the `v` parameter with the locations because it is one more thing
+ * the library shows, and a person switching to it and back expects the
+ * browser's own back button to do that. It is not a `LibraryLocationName`: no
+ * library list is read for it, and sending `v=pending-connections` to
+ * `/api/library/items` would be asking the server for a location that does not
+ * exist.
+ *
+ * It is named for what it holds rather than for the word "suggestions", which
+ * the focus-ranked view now carries: a screen with a Suggestions view and a
+ * Suggestions tab meaning different things is a screen nobody can describe.
  */
-const SUGGESTIONS_TAB = 'sugestoes'
+const PENDING_CONNECTIONS_TAB = 'pending-connections'
 
 /**
- * The spellings the `tipo` query parameter accepts.
+ * The spellings the `kind` query parameter accepts.
  *
  * The addresses in the sidebar, the prototype and anything already bookmarked
- * use Portuguese plurals; the contract's kinds are singular and English-ish, so
- * the screen translates rather than making the server accept both.
+ * may carry a plural; the contract's kinds are singular, so the screen
+ * translates rather than making the server accept both.
  */
 const KIND_BY_TYPE: Record<string, LibraryKind> = {
-  artigo: 'post',
-  artigos: 'post',
-  post: 'post',
-  posts: 'post',
-  livro: 'livro',
-  livros: 'livro',
+  article: 'article',
+  articles: 'article',
+  book: 'book',
+  books: 'book',
   pdf: 'paper',
   pdfs: 'paper',
   paper: 'paper',
   papers: 'paper',
   video: 'video',
   videos: 'video',
-  'vídeo': 'video',
-  'vídeos': 'video',
   podcast: 'podcast',
   podcasts: 'podcast',
   newsletter: 'newsletter',
   newsletters: 'newsletter',
-  curso: 'curso',
-  cursos: 'curso'
+  course: 'course',
+  courses: 'course'
 }
 
 const TYPE_TITLES: Record<LibraryKind, string> = {
-  post: 'Artigos',
-  livro: 'Livros',
+  article: 'Artigos',
+  book: 'Livros',
   paper: 'PDFs',
   video: 'Vídeos',
   podcast: 'Podcasts',
   newsletter: 'Newsletters',
-  curso: 'Cursos'
+  course: 'Cursos'
 }
 
 /**
@@ -105,26 +109,26 @@ const TYPE_TITLES: Record<LibraryKind, string> = {
  * file pulls in the home blocks and is loaded with the shell, while this view
  * is loaded only when someone opens the Biblioteca.
  */
-const KIND_FILTER_ORDER: LibraryKind[] = ['post', 'livro', 'paper', 'video', 'podcast', 'newsletter', 'curso']
+const KIND_FILTER_ORDER: LibraryKind[] = ['article', 'book', 'paper', 'video', 'podcast', 'newsletter', 'course']
 
 const KIND_FILTER_LABELS: Record<LibraryKind, string> = {
-  post: 'Posts',
-  livro: 'Livros',
+  article: 'Posts',
+  book: 'Livros',
   paper: 'Papers',
   video: 'Vídeos',
   podcast: 'Podcasts',
   newsletter: 'Newsletters',
-  curso: 'Cursos'
+  course: 'Cursos'
 }
 
 const KIND_LABELS: Record<LibraryKind, string> = {
-  post: 'Artigo',
-  livro: 'Livro',
+  article: 'Artigo',
+  book: 'Livro',
   paper: 'PDF',
   video: 'Vídeo',
   podcast: 'Podcast',
   newsletter: 'Newsletter',
-  curso: 'Curso'
+  course: 'Curso'
 }
 
 const route = useRoute()
@@ -135,20 +139,20 @@ const phone = usePhoneViewport()
 /**
  * One order for the list, whether the server takes it as a sort or as a view.
  *
- * `now` is the focus ranking, which the contract spells as `view=now` rather
- * than as a sort because it answers over every shelf at once. It is one of
- * these choices anyway: to the person reading, "o que ler agora" is one more
- * answer to "in what order", and keeping it as a control of its own is what
- * made the header need a second row.
+ * `suggestions` is the focus ranking, which the contract spells as
+ * `view=suggestions` rather than as a sort because it answers over every
+ * location at once. It is one of these choices anyway: to the person reading,
+ * "o que ler agora" is one more answer to "in what order", and keeping it as a
+ * control of its own is what made the header need a second row.
  */
-type SortChoice = LibrarySort | 'now'
+type SortChoice = LibrarySort | 'suggestions'
 
 const SORT_OPTIONS: Array<{ value: SortChoice; label: string }> = [
   { value: 'saved_desc', label: 'Mais recentes' },
   { value: 'saved_asc', label: 'Mais antigos' },
   { value: 'title', label: 'Título' },
   { value: 'last_opened_desc', label: 'Abertos recentemente' },
-  { value: 'now', label: 'O que ler agora' }
+  { value: 'suggestions', label: 'O que ler agora' }
 ]
 
 const DEFAULT_SORT: SortChoice = 'saved_desc'
@@ -185,42 +189,43 @@ const requestedTab = computed<string>(() => {
   return typeof value === 'string' ? value : ''
 })
 
-const showSuggestions = computed(() => requestedTab.value === SUGGESTIONS_TAB)
+const showPendingConnections = computed(() => requestedTab.value === PENDING_CONNECTIONS_TAB)
 
 /**
  * Which tab the control shows as selected, the queue included.
  *
  * Nothing is selected while the focus ranking is on: that list is drawn from
- * every shelf, so marking one of them would name a shelf the rows are not
- * from. The tabs stay on screen, because they are then the only way back.
+ * every location, so marking one of them would name a location the rows are
+ * not from. The tabs stay on screen, because they are then the only way back.
  */
 const activeTab = computed<string>(() => {
-  if (showSuggestions.value) return SUGGESTIONS_TAB
+  if (showPendingConnections.value) return PENDING_CONNECTIONS_TAB
   if (focusRanked.value) return ''
   return activeView.value
 })
 
-const activeView = computed<LibraryShelf>(() =>
-  (VIEWS as string[]).includes(requestedTab.value) ? (requestedTab.value as LibraryShelf) : 'inbox'
+const activeView = computed<LibraryLocationName>(() =>
+  (VIEWS as string[]).includes(requestedTab.value) ? (requestedTab.value as LibraryLocationName) : 'inbox'
 )
 
 /**
  * The focus ranking is on.
  *
- * The order is local state and not an address, unlike the shelf: the shelf is
- * something the sidebar links to and a bookmark should survive, while the
- * order is a way of looking at whatever is open -- and this one answers over
- * every shelf at once, so there is no address it would belong to.
+ * The order is local state and not an address, unlike the location: the
+ * location is something the sidebar links to and a bookmark should survive,
+ * while the order is a way of looking at whatever is open -- and this one
+ * answers over every location at once, so there is no address it would belong
+ * to.
  *
- * The review queue is not a list of shelf items, so the ranking never applies
- * to it: it is reached from the sidebar as well as from the tabs, and the
- * sidebar does not go through the tabs that put the order back.
+ * The pending-connections queue is not a list of saved items, so the ranking
+ * never applies to it: it is reached from the sidebar as well as from the
+ * tabs, and the sidebar does not go through the tabs that put the order back.
  */
-const focusRanked = computed(() => sortChoice.value === 'now' && !showSuggestions.value)
+const focusRanked = computed(() => sortChoice.value === 'suggestions' && !showPendingConnections.value)
 
 /** The requested type filter, or null for every kind. */
 const activeKind = computed<LibraryKind | null>(() => {
-  const raw = route.query.tipo
+  const raw = route.query.kind
   const value = Array.isArray(raw) ? raw[0] : raw
   if (typeof value !== 'string' || value === '') return null
   return KIND_BY_TYPE[value.toLowerCase()] ?? null
@@ -241,19 +246,19 @@ const hasSearchText = computed(() => search.value.trim() !== '')
  * What the list is asked for — every filter of it a query parameter.
  *
  * None of this is applied over the rows already held. The server sends one page
- * at a time, so a shelf or an unread filter computed here would narrow the
- * first fifty rows and present the result as the whole shelf.
+ * at a time, so a location or an unread filter computed here would narrow the
+ * first fifty rows and present the result as the whole location.
  */
 const query = computed<LibraryListQuery>(() => {
-  // The ranked view carries its own order over every shelf, and the server
-  // refuses a sort, a text query or unread=false alongside it. The screen
-  // sends none of the three rather than relying on that refusal, and hides
-  // the controls that would produce them.
+  // The ranked view carries its own order over every location, and the server
+  // refuses a sort or a text query alongside it. The screen sends neither
+  // rather than relying on that refusal, and hides the controls that would
+  // produce them.
   if (focusRanked.value) {
-    // `unread=true` is the one of the three the contract does allow here, and
-    // it changes nothing about this list: view=now is unread already. It is
-    // sent anyway so that the filter means the same thing in every order.
-    return { view: 'now', tipo: activeKind.value, unread: unreadOnly.value ? true : null }
+    // unread is not one of the refusals: the view reads every location and
+    // orders unread first, so the flag narrows it like it narrows any other
+    // view, and the toggle does the same thing here as everywhere else.
+    return { view: 'suggestions', kind: activeKind.value, unread: unreadOnly.value ? true : null }
   }
   const text = search.value.trim()
   // A text query orders by full-text rank, and the server refuses a sort
@@ -261,28 +266,28 @@ const query = computed<LibraryListQuery>(() => {
   if (text) {
     return {
       view: activeView.value,
-      tipo: activeKind.value,
+      kind: activeKind.value,
       unread: unreadOnly.value ? true : null,
       q: text
     }
   }
   return {
     view: activeView.value,
-    tipo: activeKind.value,
+    kind: activeKind.value,
     unread: unreadOnly.value ? true : null,
-    // `now` is not a sort the contract takes, and it cannot be the choice on
-    // this branch: it is either focus-ranked, which returned above, or the
-    // review queue, which reads no list at all.
-    sort: sortChoice.value === 'now' ? 'saved_desc' : sortChoice.value,
+    // `suggestions` is not a sort the contract takes, and it cannot be the
+    // choice on this branch: it is either focus-ranked, which returned above,
+    // or the pending-connections queue, which reads no list at all.
+    sort: sortChoice.value === 'suggestions' ? 'saved_desc' : sortChoice.value,
     q: undefined
   }
 })
 
-// The shelf is not read while the review queue is on screen: the list is not
-// rendered then, and asking for a page nothing displays is a request paid for
-// twice over -- once on the way out and again when the person comes back.
+// The list is not read while the pending-connections queue is on screen: it is
+// not rendered then, and asking for a page nothing displays is a request paid
+// for twice over -- once on the way out and again when the person comes back.
 const { data: page, loading, error, refresh, hasMore, loadingMore, loadMoreError, loadMore, applyItem } =
-  useLibraryItems(query, () => !showSuggestions.value)
+  useLibraryItems(query, () => !showPendingConnections.value)
 const { data: counts } = useLibraryCounts()
 const writing = useAsyncAction()
 
@@ -290,7 +295,7 @@ const items = computed<LibraryItemSummary[]>(() => page.value?.items ?? [])
 const failedLibraryThumbnailSources = ref<Record<string, string>>({})
 
 /**
- * The tabs, the shelves counted and the queue not.
+ * The tabs, the locations counted and the queue not.
  *
  * The queue carries no count on purpose. The only number this screen could
  * print is how many suggestions the first page happens to hold, and labelling
@@ -299,7 +304,7 @@ const failedLibraryThumbnailSources = ref<Record<string, string>>({})
  */
 const segOptions = computed(() => [
   ...VIEWS.map((view) => ({ value: view, label: VIEW_LABELS[view], count: counts.value?.views[view] ?? 0 })),
-  { value: SUGGESTIONS_TAB, label: 'Sugestões' }
+  { value: PENDING_CONNECTIONS_TAB, label: 'Sugestões' }
 ])
 
 /** Nothing has arrived yet, as opposed to nothing matching what was asked. */
@@ -310,13 +315,15 @@ const emptyText = computed(() => {
   if (search.value.trim()) return `Nada encontrado para “${search.value.trim()}”.`
   if (unreadOnly.value) return 'Tudo lido por aqui.'
   if (activeView.value === 'inbox') return 'Inbox vazia. O que entrar pela extensão, upload ou feed aparece aqui.'
-  if (activeView.value === 'depois') return 'Nada guardado para depois.'
-  if (activeView.value === 'arquivo') return 'Nada arquivado ainda.'
+  if (activeView.value === 'up_next') return 'Nada escolhido para ler em seguida.'
+  if (activeView.value === 'later') return 'Nada guardado para depois.'
+  if (activeView.value === 'archive') return 'Nada arquivado ainda.'
+  if (activeView.value === 'stash') return 'Nada na reserva.'
   return 'Nenhum item deste tipo.'
 })
 
 /**
- * How many rows are on screen, which is not how many the shelf holds.
+ * How many rows are on screen, which is not how many the location holds.
  *
  * The total is the counts endpoint's answer; this line counts what has been
  * loaded, because that is the number "carregar mais" changes.
@@ -334,11 +341,11 @@ const sortButtonLabel = computed(() => `Ordenar: ${sortLabel.value}`)
 const filtered = computed(() => unreadOnly.value || activeKind.value !== null)
 
 function setView(view: string): void {
-  if (!(VIEWS as string[]).includes(view) && view !== SUGGESTIONS_TAB) return
+  if (!(VIEWS as string[]).includes(view) && view !== PENDING_CONNECTIONS_TAB) return
   // Picking a tab is picking what is on screen, and the focus ranking reads
-  // every shelf at once: left on, it would answer a shelf tab with a list that
-  // is not that shelf. The tabs are the one control that is never hidden, so
-  // they are what puts the order back.
+  // every location at once: left on, it would answer a location's tab with a
+  // list that is not that location. The tabs are the one control that is never
+  // hidden, so they are what puts the order back.
   sortChoice.value = DEFAULT_SORT
   void router.push({ query: { ...route.query, v: view } })
 }
@@ -352,17 +359,17 @@ function setSort(value: SortChoice): void {
  *
  * The kind is an address and not local state: the sidebar's Tipos rows link to
  * it, the title names it, and a bookmark of "my papers" has to survive a
- * reload. So the menu writes the same `tipo` parameter those links carry.
+ * reload. So the menu writes the same `kind` parameter those links carry.
  */
 function setKind(kind: LibraryKind | null): void {
   const next = { ...route.query }
-  if (kind === null) delete next.tipo
-  else next.tipo = kind
+  if (kind === null) delete next.kind
+  else next.kind = kind
   void router.push({ query: next })
 }
 
 function readerTarget(item: LibraryItemSummary): { name: string; params: { id: string } } {
-  return { name: 'leitor', params: { id: item.id } }
+  return { name: 'reader', params: { id: item.id } }
 }
 
 function openItem(item: LibraryItemSummary, event: MouseEvent): void {
@@ -420,11 +427,11 @@ function markLibraryThumbnailFailed(item: LibraryItemSummary): void {
 }
 
 function laterTitle(item: LibraryItemSummary): string {
-  return item.status === 'depois' ? 'Voltar para a inbox' : 'Depois'
+  return item.location === 'later' ? 'Voltar para a inbox' : 'Depois'
 }
 
 function archiveTitle(item: LibraryItemSummary): string {
-  return item.status === 'arquivo' ? 'Desarquivar' : 'Arquivar'
+  return item.location === 'archive' ? 'Desarquivar' : 'Arquivar'
 }
 
 function readTitle(item: LibraryItemSummary): string {
@@ -439,7 +446,7 @@ function readTitle(item: LibraryItemSummary): string {
  * The counts are asked for again rather than adjusted here: they are totals
  * over the whole library, and the response to a write carries one row.
  */
-async function patch(item: LibraryItemSummary, patchBody: { status?: LibraryStatus; unread?: boolean }): Promise<void> {
+async function patch(item: LibraryItemSummary, patchBody: { location?: LibraryLocation; unread?: boolean }): Promise<void> {
   const updated = await writing.run(() => library.patchItem(item.id, patchBody))
   if (!updated) return
   applyItem(updated)
@@ -447,11 +454,11 @@ async function patch(item: LibraryItemSummary, patchBody: { status?: LibraryStat
 }
 
 function toggleLater(item: LibraryItemSummary): Promise<void> {
-  return patch(item, { status: item.status === 'depois' ? 'inbox' : 'depois' })
+  return patch(item, { location: item.location === 'later' ? 'inbox' : 'later' })
 }
 
 function toggleArchive(item: LibraryItemSummary): Promise<void> {
-  return patch(item, { status: item.status === 'arquivo' ? 'inbox' : 'arquivo' })
+  return patch(item, { location: item.location === 'archive' ? 'inbox' : 'archive' })
 }
 
 function toggleRead(item: LibraryItemSummary): Promise<void> {
@@ -565,7 +572,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
           @change="setView"
         />
         <button
-          v-if="!showSuggestions"
+          v-if="!showPendingConnections"
           type="button"
           class="ghost library-surprise"
           :disabled="drawing.pending.value"
@@ -575,7 +582,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
           {{ drawing.pending.value ? 'Sorteando…' : 'Surpresa' }}
         </button>
       </div>
-      <div v-if="!showSuggestions" class="library-tools">
+      <div v-if="!showPendingConnections" class="library-tools">
         <label class="library-search-label" for="library-search">Buscar na biblioteca</label>
         <input
           id="library-search"
@@ -684,13 +691,13 @@ function toggleRowMenu(item: LibraryItemSummary): void {
       </div>
     </div>
 
-    <div v-if="unreadOnly && !showSuggestions" class="library-unread">
+    <div v-if="unreadOnly && !showPendingConnections" class="library-unread">
       Mostrando só não lidos
       <button type="button" class="ghost ghost-clear" @click="unreadOnly = false">Limpar</button>
     </div>
 
     <div v-if="focusRanked" class="library-unread">
-      Não lidos, primeiro o que está ligado ao foco de agora
+      Primeiro o que está ligado ao foco de agora, e os não lidos antes dos lidos
     </div>
 
     <p v-if="nothingToDraw" class="library-unread library-nothing" role="status">
@@ -707,7 +714,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
       <button type="button" class="ghost ghost-clear" @click="writing.clear()">Fechar</button>
     </p>
 
-    <LibrarySuggestions v-if="showSuggestions" />
+    <LibrarySuggestions v-if="showPendingConnections" />
 
     <div v-else-if="firstLoad" class="library-loading" role="status">Carregando a biblioteca…</div>
 
@@ -867,7 +874,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
       <div v-if="items.length === 0" class="library-empty">{{ emptyText }}</div>
     </div>
 
-    <div v-if="!showSuggestions && !firstLoad && !error" class="library-foot">
+    <div v-if="!showPendingConnections && !firstLoad && !error" class="library-foot">
       <button
         v-if="hasMore"
         type="button"

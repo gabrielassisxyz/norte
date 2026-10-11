@@ -110,7 +110,7 @@ test.describe('a highlight whose context crosses a paragraph boundary', () => {
     expect(text.slice(expectedHint - skip, expectedHint)).toBe(PASSAGE.slice(0, skip))
     expect(text[expectedHint - skip - 1]).toBe(' ')
 
-    await page.goto(`${server.baseURL}/biblioteca/${article.id}`)
+    await page.goto(`${server.baseURL}/library/${article.id}`)
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
     await selectInsideParagraph(page, PASSAGE, skip)

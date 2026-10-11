@@ -13,7 +13,7 @@ import ArticleContent from '../components/ArticleContent.vue'
 import { useLibraryItem } from '../data/composables'
 import { libraryItemChanged } from '../data/revision'
 import { readerSlotEntries, type ReaderLiveSelection, type ReaderNotesRequest } from '../readerSlots'
-import { parseHeadings, type LibraryStatus, type ReadPosition } from '../data/source'
+import { parseHeadings, type LibraryLocation, type ReadPosition } from '../data/source'
 import ReaderActionBar from './ReaderActionBar.vue'
 import ReaderNotesSheet from './ReaderNotesSheet.vue'
 
@@ -63,10 +63,19 @@ const ANCHOR_CORRECTION = 0.01
  */
 const SELECTION_SETTLE_MS = 200
 
-const STATUS_ACTIONS: Array<{ status: LibraryStatus; label: string }> = [
-  { status: 'inbox', label: 'Inbox' },
-  { status: 'depois', label: 'Depois' },
-  { status: 'arquivo', label: 'Arquivo' }
+/**
+ * Every location the reader can move an item to.
+ *
+ * All five, not a chosen three: a control that offered fewer would leave the
+ * locations it left out reachable from nowhere at all, since the reader is
+ * where an item is triaged.
+ */
+const LOCATION_ACTIONS: Array<{ location: LibraryLocation; label: string }> = [
+  { location: 'inbox', label: 'Inbox' },
+  { location: 'up_next', label: 'Próximos' },
+  { location: 'later', label: 'Depois' },
+  { location: 'archive', label: 'Arquivo' },
+  { location: 'stash', label: 'Reserva' }
 ]
 
 const route = useRoute()
@@ -357,10 +366,10 @@ async function toggleRead(): Promise<void> {
   libraryItemChanged()
 }
 
-async function moveTo(status: LibraryStatus): Promise<void> {
+async function moveTo(location: LibraryLocation): Promise<void> {
   const record = item.value
-  if (!record || record.status === status) return
-  const updated = await writing.run(() => library.patchItem(record.id, { status }))
+  if (!record || record.location === location) return
+  const updated = await writing.run(() => library.patchItem(record.id, { location }))
   if (!updated) return
   apply(updated)
   libraryItemChanged()
@@ -493,7 +502,7 @@ watch(itemId, closeNotes)
 
 /**
  * A search hit for an item's note lands here naming the reader's note
- * section, `?notas=nota`.
+ * section, `?notes=note`.
  *
  * The name travels through unexamined, the way `openNotes` carries it to
  * whatever fills the notes slot: the reader never learns the panel's
@@ -502,7 +511,7 @@ watch(itemId, closeNotes)
  * item the ask arrived before.
  */
 watch(
-  [() => item.value?.id, () => route.query.notas],
+  [() => item.value?.id, () => route.query.notes],
   async ([id, section]) => {
     if (!id || typeof section !== 'string' || section === '') return
     await nextTick()
@@ -570,24 +579,24 @@ async function retryExtraction(): Promise<void> {
 
   <main v-else-if="!item" class="reader reader-state">
     <p>Este item não está na biblioteca.</p>
-    <RouterLink :to="{ name: 'biblioteca', query: { v: 'tudo' } }">Voltar para a Biblioteca</RouterLink>
+    <RouterLink :to="{ name: 'library', query: { v: 'all' } }">Voltar para a Biblioteca</RouterLink>
   </main>
 
   <main v-else class="reader">
     <header class="reader-top">
-      <RouterLink class="reader-back" :to="{ name: 'biblioteca', query: { v: 'tudo' } }">
+      <RouterLink class="reader-back" :to="{ name: 'library', query: { v: 'all' } }">
         <Icon name="arrowLeft" />
         <span>Biblioteca</span>
       </RouterLink>
       <div v-if="!phone" class="reader-top-actions">
         <button
-          v-for="action in STATUS_ACTIONS"
-          :key="action.status"
+          v-for="action in LOCATION_ACTIONS"
+          :key="action.location"
           type="button"
           class="reader-chip"
-          :class="{ 'is-current': item.status === action.status }"
-          :aria-pressed="item.status === action.status"
-          @click="moveTo(action.status)"
+          :class="{ 'is-current': item.location === action.location }"
+          :aria-pressed="item.location === action.location"
+          @click="moveTo(action.location)"
         >
           {{ action.label }}
         </button>
@@ -631,7 +640,7 @@ async function retryExtraction(): Promise<void> {
           />
         </section>
 
-        <p v-if="item.why" class="reader-why">{{ item.why }}</p>
+        <p v-if="item.reason" class="reader-reason">{{ item.reason }}</p>
 
         <div class="reader-rule" />
 
@@ -671,9 +680,9 @@ async function retryExtraction(): Promise<void> {
         <component :is="entry.component" v-for="entry in notesSlots" :key="entry.id" v-bind="slotProps" />
       </ReaderNotesSheet>
       <ReaderActionBar
-        :status="item.status"
+        :location="item.location"
         :unread="item.unread"
-        :statuses="STATUS_ACTIONS"
+        :locations="LOCATION_ACTIONS"
         :busy="writing.pending.value"
         @toggle-read="toggleRead"
         @move="moveTo"
@@ -828,7 +837,7 @@ async function retryExtraction(): Promise<void> {
   line-height: 24px;
 }
 
-.reader-why { margin: 16px 0 0; color: var(--ink-2); font-size: 14px; line-height: 22px; }
+.reader-reason { margin: 16px 0 0; color: var(--ink-2); font-size: 14px; line-height: 22px; }
 
 .reader-rule { margin: 28px 0; border-top: 1px solid var(--line); }
 

@@ -28,7 +28,7 @@ afterEach(() => {
 
 async function mountLibrary() {
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
-  await router.push('/biblioteca?v=tudo')
+  await router.push('/library?v=all')
   await router.isReady()
   const wrapper = mount(LibraryView, {
     global: {
@@ -38,7 +38,7 @@ async function mountLibrary() {
           appSourcesWithLibrary({
             store,
             core,
-            records: [libraryRecord({ id: 'post-um', title: 'Um texto guardado', status: 'inbox' })]
+            records: [libraryRecord({ id: 'post-um', title: 'Um texto guardado', location: 'inbox' })]
           })
         )
       ]

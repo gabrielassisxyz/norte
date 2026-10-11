@@ -13,12 +13,12 @@ describe('MaterialRow', () => {
         type: 'Livro',
         status: 'current',
         description: 'Capítulos 3 e 4.',
-        href: '/material/livro/7',
+        href: '/material/book/7',
         url: 'https://example.org/'
       }
     })
 
-    expect(wrapper.find('.nt-mat-title').attributes('href')).toBe('/material/livro/7')
+    expect(wrapper.find('.nt-mat-title').attributes('href')).toBe('/material/book/7')
     expect(wrapper.find('.nt-mat-by').text()).toBe('R. Nogueira')
     expect(wrapper.find('.nt-mat-state').text()).toBe('Lendo agora')
     expect(wrapper.find('.nt-mat-node').text()).toBe('2')

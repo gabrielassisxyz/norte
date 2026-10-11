@@ -64,7 +64,7 @@ describe('app shell', () => {
 
   it('names every screen on its own route', async () => {
     const cases: Array<[string, string]> = [
-      ['/biblioteca', 'Biblioteca'],
+      ['/library', 'Biblioteca'],
       ['/revisao', 'Revisão'],
       ['/projetos', 'Projetos'],
       ['/areas/a-casa', 'Casa'],
@@ -95,10 +95,10 @@ describe('app shell', () => {
       }
     }
 
-    expect(targets['Inbox']).toMatchObject({ name: 'biblioteca', query: { v: 'inbox' } })
-    expect(targets['Tudo']).toMatchObject({ name: 'biblioteca', query: { v: 'tudo' } })
-    expect(targets['Depois']).toMatchObject({ name: 'biblioteca', query: { v: 'depois' } })
-    expect(targets['Livros']).toMatchObject({ name: 'biblioteca', query: { tipo: 'livro' } })
+    expect(targets['Inbox']).toMatchObject({ name: 'library', query: { v: 'inbox' } })
+    expect(targets['Tudo']).toMatchObject({ name: 'library', query: { v: 'all' } })
+    expect(targets['Depois']).toMatchObject({ name: 'library', query: { v: 'later' } })
+    expect(targets['Livros']).toMatchObject({ name: 'library', query: { kind: 'book' } })
     expect(targets['Revisão']).toMatchObject({ name: 'revisao' })
     expect(targets['Currículos']).toMatchObject({ name: 'estudo' })
     expect(targets['Anotações']).toMatchObject({ name: 'notas', query: { tab: 'anotacoes' } })
@@ -108,7 +108,7 @@ describe('app shell', () => {
 
     for (const [label, target] of Object.entries(targets)) {
       expect(
-        ['inicio', 'biblioteca', 'notas', 'notas-conjuntos', 'revisao', 'estudo', 'area', 'projetos'],
+        ['inicio', 'library', 'notas', 'notas-conjuntos', 'revisao', 'estudo', 'area', 'projetos'],
         `sidebar entry "${label}" points at an unknown route`
       ).toContain(target.name)
     }
@@ -120,9 +120,9 @@ describe('app shell', () => {
 
     const inbox = sidebarLinks(wrapper).find((link) => link.text().includes('Inbox'))
     expect(inbox).toBeDefined()
-    await clickAndSettle(inbox!, router, '/biblioteca?v=inbox')
+    await clickAndSettle(inbox!, router, '/library?v=inbox')
 
-    expect(router.currentRoute.value.fullPath).toBe('/biblioteca?v=inbox')
+    expect(router.currentRoute.value.fullPath).toBe('/library?v=inbox')
     expect(wrapper.find('.app-content h1').text()).toBe('Biblioteca')
   })
 
@@ -171,7 +171,7 @@ describe('app shell', () => {
     await wrapper.find('button.app-collapse').trigger('click')
     expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(true)
 
-    await router.push('/biblioteca?v=inbox')
+    await router.push('/library?v=inbox')
     await wrapper.vm.$nextTick()
     expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(true)
     expect(wrapper.find('.app-content h1').text()).toBe('Biblioteca')
@@ -185,9 +185,13 @@ describe('app shell', () => {
     expect(shortcuts.exists()).toBe(true)
     expect(shortcuts.text()).toContain('Biblioteca')
     expect(shortcuts.text()).toContain('Estudo')
-    for (const label of ['Inbox', 'Artigos', 'Shortlist', 'Currículos']) {
+    for (const label of ['Inbox', 'Artigos', 'Currículos']) {
       expect(shortcuts.text()).toContain(label)
     }
+    // The prototype's Shortlist shortcut pointed at the whole library and
+    // borrowed its count. Up Next is the location it stood in for, and it is a
+    // sidebar row with a count of its own, so the shortcut is gone.
+    expect(shortcuts.text()).not.toContain('Shortlist')
     expect(wrapper.find('button.app-star').exists()).toBe(false)
   })
 
@@ -202,17 +206,15 @@ describe('app shell', () => {
       targets[link.text().replace(/\d+$/, '').trim()] = router.resolve(href).fullPath
     }
 
-    expect(targets['Inbox']).toBe('/biblioteca?v=inbox')
-    expect(targets['Artigos']).toBe('/biblioteca?v=tudo&tipo=post')
-    expect(targets['Shortlist']).toBe('/biblioteca?v=tudo')
+    expect(targets['Inbox']).toBe('/library?v=inbox')
+    expect(targets['Artigos']).toBe('/library?v=all&kind=article')
     expect(targets['Currículos']).toBe('/estudo')
+    expect(targets['Shortlist']).toBeUndefined()
 
-    const shortlist = shortcuts
-      .findAll('a.app-item')
-      .find((link) => link.text().includes('Shortlist'))
-    expect(shortlist).toBeDefined()
-    await clickAndSettle(shortlist!, router, '/biblioteca?v=tudo')
-    expect(router.currentRoute.value.fullPath).toBe('/biblioteca?v=tudo')
+    const inbox = shortcuts.findAll('a.app-item').find((link) => link.text().includes('Inbox'))
+    expect(inbox).toBeDefined()
+    await clickAndSettle(inbox!, router, '/library?v=inbox')
+    expect(router.currentRoute.value.fullPath).toBe('/library?v=inbox')
   })
 
   it('makes no claim about syncing in the sidebar footer', async () => {
@@ -298,7 +300,7 @@ describe('app shell', () => {
   })
 
   it('renders the bare reader route without the sidebar', async () => {
-    const { wrapper } = await mountAt('/biblioteca/lib-post')
+    const { wrapper } = await mountAt('/library/lib-post')
 
     expect(wrapper.find('.app-sidebar').exists()).toBe(false)
     expect(wrapper.find('.app-content h1').text()).toBe('Um texto guardado')

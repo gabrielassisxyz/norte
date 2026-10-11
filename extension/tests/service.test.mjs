@@ -23,13 +23,13 @@ test('save posts the captured page and explicit wire fields once and stores by U
     posts.push({ url, options });
     return { ok: true, status: 201, json: async () => ({ id: 'item-id' }) };
   });
-  const first = save(tab, { why: ' Read later ', link_to: 'focus-id' });
+  const first = save(tab, { reason: ' Read later ', link_to: 'focus-id' });
   await Promise.all([first, save(tab)]);
   assert.equal(posts.length, 1);
   assert.equal(posts[0].url, 'http://host:8080/api/library/items');
   assert.equal(posts[0].options.method, 'POST');
   assert.deepEqual(JSON.parse(posts[0].options.body), { url: tab.url, title: 'Title', html: '<article>Private text</article>',
-    selection: { exact: 'text', prefix: 'Private ', suffix: '' }, source: 'extension', why: 'Read later', link_to: ['focus-id'] });
+    selection: { exact: 'text', prefix: 'Private ', suffix: '' }, source: 'extension', reason: 'Read later', link_to: ['focus-id'] });
   assert.equal(api.injections[0].target.tabId, 17);
   assert.equal(api.stored[resultKey(tab.url)].state, 'saved');
   assert.equal(api.stored[resultKey('https://other.test')], undefined);

@@ -1,13 +1,17 @@
-export type LibraryKind = 'post' | 'livro' | 'paper' | 'video' | 'podcast' | 'curso'
+export type LibraryKind = 'article' | 'book' | 'paper' | 'video' | 'podcast' | 'course'
 
 /**
  * Where an item sits. Reading is not a place: an item that has been read keeps
- * the status it had and carries `unread`/`read_at` instead, so marking it read
- * does not move it out of the list the user put it in.
+ * the location it was in and carries `unread`/`read_at` instead, so marking it
+ * read does not move it out of the list the user put it in.
+ *
+ * The five values are the contract's: these mock records are compared against
+ * contract-typed ones by the screens that read both, so the union has to stay
+ * in lockstep with `ItemLocation` rather than describe a model of its own.
  */
-export type LibraryStatus = 'inbox' | 'depois' | 'arquivo'
+export type LibraryLocation = 'inbox' | 'up_next' | 'later' | 'archive' | 'stash'
 
-export type MaterialKind = Extract<LibraryKind, 'post' | 'livro' | 'paper'>
+export type MaterialKind = Extract<LibraryKind, 'article' | 'book' | 'paper'>
 
 export interface LibraryItem {
   id: string
@@ -18,7 +22,7 @@ export interface LibraryItem {
   domain?: string
   minutes?: number
   readProgress?: number
-  status: LibraryStatus
+  location: LibraryLocation
   unread: boolean
   /** When it was read, and absent while `unread` is true. */
   read_at?: string

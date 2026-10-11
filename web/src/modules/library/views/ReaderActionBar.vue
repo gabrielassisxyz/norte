@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 
-import type { LibraryStatus } from '../data/source'
+import type { LibraryLocation } from '../data/source'
 
 /**
  * The reader's actions on a phone, in a bar across the bottom of the screen.
@@ -12,15 +12,15 @@ import type { LibraryStatus } from '../data/source'
  * no module.
  */
 defineProps<{
-  status: LibraryStatus
+  location: LibraryLocation
   unread: boolean
-  statuses: ReadonlyArray<{ status: LibraryStatus; label: string }>
+  locations: ReadonlyArray<{ location: LibraryLocation; label: string }>
   busy: boolean
 }>()
 
 defineEmits<{
   'toggle-read': []
-  move: [LibraryStatus]
+  move: [LibraryLocation]
 }>()
 
 /**
@@ -30,7 +30,7 @@ defineEmits<{
  * bar is two rows, one of them filled by whatever another module puts in the
  * slot, and the bottom padding grows by the device's safe-area inset. The
  * number that was written down was 62px against a bar that measures 103, which
- * is how the sheet came to cover the status buttons it was placed to clear.
+ * is how the sheet came to cover the location buttons it was placed to clear.
  *
  * The property goes on the document root because the sheet is a sibling under
  * a different fixed container, so there is no shared box to scope it to. The
@@ -65,15 +65,15 @@ onBeforeUnmount(() => {
   <nav ref="bar" class="reader-bar" aria-label="Ações da leitura">
     <div class="reader-bar-row">
       <button
-        v-for="action in statuses"
-        :key="action.status"
+        v-for="action in locations"
+        :key="action.location"
         type="button"
         class="reader-bar-chip"
-        :class="{ 'is-current': status === action.status }"
-        :data-action="`status-${action.status}`"
-        :aria-pressed="status === action.status"
+        :class="{ 'is-current': location === action.location }"
+        :data-action="`location-${action.location}`"
+        :aria-pressed="location === action.location"
         :disabled="busy"
-        @click="$emit('move', action.status)"
+        @click="$emit('move', action.location)"
       >
         {{ action.label }}
       </button>

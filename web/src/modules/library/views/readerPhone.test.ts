@@ -52,7 +52,7 @@ async function mountReader(options: { item?: LibraryItemRecord; notes?: FakeNote
   const library = fakeLibrarySource([options.item ?? record()])
   const notes = fakeNotesSource(options.notes ?? {})
   const router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push('/biblioteca/item-1')
+  await router.push('/library/item-1')
   await router.isReady()
   const wrapper = mount(ReaderView, {
     global: { plugins: [router, sourcesPlugin({ library, notes })] },
@@ -99,7 +99,7 @@ describe('the reader on a phone', () => {
 
     expect(wrapper.find('.reader-top-actions').exists()).toBe(false)
     const bar = wrapper.get('nav[aria-label="Ações da leitura"]')
-    for (const action of ['status-inbox', 'status-depois', 'status-arquivo', 'read']) {
+    for (const action of ['location-inbox', 'location-up_next', 'location-later', 'location-archive', 'location-stash', 'read']) {
       expect(bar.find(`[data-action="${action}"]`).exists()).toBe(true)
     }
     // The notes module's own controls arrive through the bottom-actions slot.
@@ -120,10 +120,10 @@ describe('the reader on a phone', () => {
   it('moves the item to another shelf from the bar', async () => {
     const { wrapper, library } = await mountReader()
 
-    await wrapper.get('[data-action="status-depois"]').trigger('click')
+    await wrapper.get('[data-action="location-later"]').trigger('click')
     await flushReads()
 
-    expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { status: 'depois' } }])
+    expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { location: 'later' } }])
   })
 
   it('reads a selection that fired no mouseup, and highlights it from the bar', async () => {

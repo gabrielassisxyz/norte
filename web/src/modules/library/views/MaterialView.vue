@@ -40,7 +40,7 @@ function routeParam(value: unknown): string {
 }
 
 function isMaterialKind(value: string): value is MaterialKind {
-  return value === 'post' || value === 'livro' || value === 'paper'
+  return value === 'article' || value === 'book' || value === 'paper'
 }
 
 function defaultMode(value: MaterialKind): ReadingMode {
@@ -48,16 +48,16 @@ function defaultMode(value: MaterialKind): ReadingMode {
 }
 
 function defaultPanelCollapsed(value: MaterialKind): boolean {
-  return value === 'livro'
+  return value === 'book'
 }
 
 function defaultPanelTab(value: MaterialKind): PanelTab {
-  return value === 'livro' ? 'note' : 'annotations'
+  return value === 'book' ? 'note' : 'annotations'
 }
 
 const kind = computed<MaterialKind>(() => {
   const value = routeParam(route.params.kind)
-  return isMaterialKind(value) ? value : 'post'
+  return isMaterialKind(value) ? value : 'article'
 })
 
 const materialId = computed(() => routeParam(route.params.id))
@@ -126,7 +126,7 @@ const panelAnnotations = computed<PanelAnnotation[]>(() => {
       quote: highlight.exact,
       note: annotation?.text,
       n: index + 1,
-      location: kind.value === 'livro' ? 'Capítulo atual' : 'Texto principal',
+      location: kind.value === 'book' ? 'Capítulo atual' : 'Texto principal',
       time: annotation ? formatTimeOfDay(annotation.created_at) : 'agora'
     })
   })
@@ -159,7 +159,7 @@ const backTarget = computed(() => {
   if (materialContext.value && canReachStudy.value) {
     return { name: 'curriculo', params: { slug: materialContext.value.curriculumSlug } }
   }
-  return { name: 'biblioteca', query: { v: 'tudo' } }
+  return { name: 'library', query: { v: 'all' } }
 })
 
 const backHref = computed(() => router.resolve(backTarget.value).href)
@@ -342,7 +342,7 @@ function submitExercise(): void {
   <main v-else class="material-view material-state">
     <h1>Material não encontrado</h1>
     <p>Este material não existe mais, ou o endereço está errado.</p>
-    <RouterLink class="material-state-action" :to="{ name: 'biblioteca', query: { v: 'tudo' } }">
+    <RouterLink class="material-state-action" :to="{ name: 'library', query: { v: 'all' } }">
       Voltar para a biblioteca
     </RouterLink>
   </main>

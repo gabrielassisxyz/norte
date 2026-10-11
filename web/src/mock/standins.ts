@@ -2,12 +2,12 @@ import { daysAgo, timestampDaysAgo } from './relative'
 import type { LibraryItem, LibraryKind } from './types'
 
 const KIND_BY_ID_PREFIX: Record<string, LibraryKind> = {
-  post: 'post',
-  book: 'livro',
+  post: 'article',
+  book: 'book',
   paper: 'paper',
   video: 'video',
   podcast: 'podcast',
-  course: 'curso'
+  course: 'course'
 }
 
 /**
@@ -27,11 +27,11 @@ export function createStandInLibraryItem(
 ): LibraryItem {
   return {
     id,
-    kind: KIND_BY_ID_PREFIX[id.split('-')[0] ?? ''] ?? 'post',
+    kind: KIND_BY_ID_PREFIX[id.split('-')[0] ?? ''] ?? 'article',
     title: `Material ${id}`,
     author: 'Material referenciado',
     url: `https://example.com/${id}`,
-    status: 'arquivo',
+    location: 'archive',
     unread: false,
     read_at: timestampDaysAgo(today, 30),
     savedAt: daysAgo(today, 32),
@@ -48,5 +48,5 @@ export function createStandInLibraryItem(
  * that is finished.
  */
 export function createUnreadStandInLibraryItem(id: string, today: string): LibraryItem {
-  return createStandInLibraryItem(id, today, { status: 'inbox', unread: true, read_at: undefined })
+  return createStandInLibraryItem(id, today, { location: 'inbox', unread: true, read_at: undefined })
 }

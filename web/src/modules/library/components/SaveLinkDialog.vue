@@ -11,7 +11,7 @@ import SubjectPicker from '@/shell/SubjectPicker.vue'
 import { useSources } from '@/sources'
 
 import { libraryGainedItem } from '../data/revision'
-import type { LibraryItemRecord, LibraryStatus } from '../data/source'
+import type { LibraryItemRecord, LibraryLocation } from '../data/source'
 import { readerHref } from '../home/items'
 
 const props = defineProps<{ open: boolean }>()
@@ -23,7 +23,7 @@ const dialog = ref<HTMLFormElement | null>(null)
 const { library } = useSources()
 const saving = useAsyncAction()
 const saveUrl = ref('')
-const saveWhy = ref('')
+const saveReason = ref('')
 const saveError = ref('')
 const savedItem = ref<LibraryItemRecord | null>(null)
 const savedDuplicate = ref(false)
@@ -36,18 +36,20 @@ const isOpen = computed({
 /**
  * Where the saved item sits, in the dialog's own words.
  *
- * A new save always lands in the inbox; a duplicate keeps the shelf the
- * existing item is on, so the message names that shelf instead of claiming
+ * A new save always lands in the inbox; a duplicate keeps the location the
+ * existing item is in, so the message names that location instead of claiming
  * the inbox.
  */
-const SHELF_PHRASE: Record<LibraryStatus, string> = {
+const LOCATION_PHRASE: Record<LibraryLocation, string> = {
   inbox: 'na inbox',
-  depois: 'em Depois',
-  arquivo: 'no arquivo'
+  up_next: 'em Próximos',
+  later: 'em Depois',
+  archive: 'no arquivo',
+  stash: 'na reserva'
 }
 
 const savedShelfPhrase = computed(() =>
-  savedItem.value ? (SHELF_PHRASE[savedItem.value.status] ?? savedItem.value.status) : ''
+  savedItem.value ? (LOCATION_PHRASE[savedItem.value.location] ?? savedItem.value.location) : ''
 )
 
 /**
@@ -107,12 +109,12 @@ async function saveLink(): Promise<void> {
     return
   }
 
-  const why = saveWhy.value.trim()
+  const reason = saveReason.value.trim()
   const linkTo = chosenIds.value
   const saved = await saving.run(() =>
     library.saveLink({
       url: url.toString(),
-      ...(why ? { why } : {}),
+      ...(reason ? { reason } : {}),
       ...(linkTo.length ? { link_to: linkTo } : {})
     })
   )
@@ -131,7 +133,7 @@ async function saveLink(): Promise<void> {
   savedItem.value = saved.record
   savedDuplicate.value = saved.duplicate
   saveUrl.value = ''
-  saveWhy.value = ''
+  saveReason.value = ''
   chosen.value = []
 }
 
@@ -169,7 +171,7 @@ watch(
       </template>
       <template v-else>
         <TextField id="save-url" v-model="saveUrl" label="URL" placeholder="https://…" type="url" />
-        <TextField v-model="saveWhy" label="Por que salvar (opcional)" placeholder="Uma linha para o eu de daqui a um mês" :multiline="true" :rows="2" />
+        <TextField id="save-reason" v-model="saveReason" label="Por que salvar (opcional)" placeholder="Uma linha para o eu de daqui a um mês" :multiline="true" :rows="2" />
         <div class="save-subjects">
           <ul v-if="chosen.length > 0" class="save-chosen" aria-label="Assuntos escolhidos">
             <li v-for="subject in chosen" :key="subject.id">

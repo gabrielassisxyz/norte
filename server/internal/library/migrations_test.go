@@ -112,7 +112,7 @@ func (h *libraryMigrationHarness) writePortugueseItem(id, kind, status, why stri
 	stamp := core.FormatTime(libraryFixedInstant)
 	h.exec(`INSERT INTO core_items (id, module, type, title, url, created_at)
 	        VALUES (?, 'library', ?, ?, ?, ?)`,
-		id, kind, "Título de "+id, "/biblioteca/"+id, stamp)
+		id, kind, "Título de "+id, "https://example.org/"+id, stamp)
 	h.exec(`INSERT INTO library_items
 	          (id, kind, url, canonical_url, title, title_edited, why, status, unread,
 	           saved_at, source, extract_status, extract_generation, meta, created_at, updated_at)

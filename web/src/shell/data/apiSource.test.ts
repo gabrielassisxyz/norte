@@ -240,10 +240,10 @@ describe('the core API source: search', () => {
           {
             id: 'i1',
             module: 'library',
-            type: 'post',
+            type: 'article',
             title: 'Sobre hábitos',
             subtitle: 'Uma autora',
-            path: '/biblioteca/i1',
+            path: '/library/i1',
             score: 0.4
           }
         ]
@@ -256,7 +256,7 @@ describe('the core API source: search', () => {
     expect(lastUrl().pathname).toBe('/api/core/search')
     expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ q: 'memória de trabalho' })
     expect(entries.map((entry) => entry.id)).toEqual(['s1', 'i1'])
-    expect(entries[1]).toMatchObject({ path: '/biblioteca/i1', subtitle: 'Uma autora', score: 0.4 })
+    expect(entries[1]).toMatchObject({ path: '/library/i1', subtitle: 'Uma autora', score: 0.4 })
   })
 
   it('throws the server sentence when the query holds no searchable word', async () => {

@@ -16,7 +16,7 @@ const emit = defineEmits<{
   submit: []
 }>()
 
-const baseDone = props.kind === 'livro' ? 0 : 1
+const baseDone = props.kind === 'book' ? 0 : 1
 </script>
 
 <template>
@@ -28,7 +28,7 @@ const baseDone = props.kind === 'livro' ? 0 : 1
       </div>
       <p class="exercise-intro">
         <span class="exercise-material-title">{{ material.title }}</span> · O
-        {{ kind === 'livro' ? 'livro' : kind === 'paper' ? 'paper' : 'texto' }} e as suas anotações ficam fora de vista aqui.
+        {{ kind === 'book' ? 'book' : kind === 'paper' ? 'paper' : 'texto' }} e as suas anotações ficam fora de vista aqui.
         Responda de memória; depois, compare com o original.
       </p>
 
@@ -38,7 +38,7 @@ const baseDone = props.kind === 'livro' ? 0 : 1
           <div>
             <div class="exercise-kind">Explicar sem consultar</div>
             <p class="exercise-prompt">
-              {{ kind === 'paper' ? 'Explique a ideia central do paper em três frases.' : kind === 'livro' ? 'Qual é a diferença entre reconhecer uma ideia e conseguir recuperá-la?' : 'Descreva o caminho entre uma observação e uma hipótese testável.' }}
+              {{ kind === 'paper' ? 'Explique a ideia central do paper em três frases.' : kind === 'book' ? 'Qual é a diferença entre reconhecer uma ideia e conseguir recuperá-la?' : 'Descreva o caminho entre uma observação e uma hipótese testável.' }}
             </p>
             <p v-if="baseDone > 0" class="exercise-reference">
               Uma resposta curta deve nomear o que foi observado, o que foi previsto e como comparar os dois.

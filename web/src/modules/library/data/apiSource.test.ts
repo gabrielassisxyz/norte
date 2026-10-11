@@ -39,18 +39,18 @@ describe('the library API source: list', () => {
   })
 
   it('asks for the shelf and sends no filter that was not set', async () => {
-    const page = await createApiLibrarySource().listItems({ view: 'depois', tipo: null, unread: null }, signal)
+    const page = await createApiLibrarySource().listItems({ view: 'later', kind: null, unread: null }, signal)
 
     const url = lastUrl()
     expect(url.pathname).toBe('/api/library/items')
-    expect(Object.fromEntries(url.searchParams)).toEqual({ view: 'depois' })
+    expect(Object.fromEntries(url.searchParams)).toEqual({ view: 'later' })
     expect(page).toEqual({ items: [], next_cursor: 'c2' })
   })
 
   it('sends the cursor of the page after the one held', async () => {
-    await createApiLibrarySource().listItems({ view: 'tudo', cursor: 'c1', limit: 50 }, signal)
+    await createApiLibrarySource().listItems({ view: 'all', cursor: 'c1', limit: 50 }, signal)
 
-    expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ view: 'tudo', cursor: 'c1', limit: '50' })
+    expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ view: 'all', cursor: 'c1', limit: '50' })
   })
 
   it('sends unread=false, which is a filter, and unread=true', async () => {
@@ -63,9 +63,9 @@ describe('the library API source: list', () => {
   })
 
   it('sends the kind, the sort and the trimmed search text', async () => {
-    await createApiLibrarySource().listItems({ tipo: 'post', sort: 'saved_desc', q: '  rust  ' }, signal)
+    await createApiLibrarySource().listItems({ kind: 'article', sort: 'saved_desc', q: '  rust  ' }, signal)
 
-    expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ tipo: 'post', sort: 'saved_desc', q: 'rust' })
+    expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ kind: 'article', sort: 'saved_desc', q: 'rust' })
   })
 
   it('reports an absent next cursor as null', async () => {
@@ -123,11 +123,11 @@ describe('the library API source: counts and writes', () => {
       return json({ id: url.pathname.split('/').at(-1), title: 'lido do servidor' })
     })
 
-    const saved = await createApiLibrarySource().saveLink({ url: 'https://example.test/a', why: '  porque ' })
+    const saved = await createApiLibrarySource().saveLink({ url: 'https://example.test/a', reason: '  porque ' })
 
     const [post, get] = fetchStub.mock.calls.map(([request]) => request)
     expect(post.method).toBe('POST')
-    expect(await post.clone().json()).toEqual({ url: 'https://example.test/a', why: 'porque' })
+    expect(await post.clone().json()).toEqual({ url: 'https://example.test/a', reason: 'porque' })
     expect(get.method).toBe('GET')
     expect(new URL(get.url, 'http://norte.test').pathname).toBe('/api/library/items/item-9')
     expect(saved.record).toMatchObject({ id: 'item-9', title: 'lido do servidor' })
@@ -138,12 +138,12 @@ describe('the library API source: counts and writes', () => {
     fetchStub.mockImplementation(async (request) => {
       const url = new URL(request.url, 'http://norte.test')
       if (request.method === 'POST') return json({ id: 'item-4' }, 200)
-      return json({ id: 'item-4', title: 'já estava lá', status: 'arquivo' })
+      return json({ id: 'item-4', title: 'já estava lá', location: 'archive' })
     })
 
     const saved = await createApiLibrarySource().saveLink({ url: 'https://example.test/duplicada' })
 
-    expect(saved.record).toMatchObject({ id: 'item-4', status: 'arquivo' })
+    expect(saved.record).toMatchObject({ id: 'item-4', location: 'archive' })
     expect(saved.duplicate).toBe(true)
   })
 

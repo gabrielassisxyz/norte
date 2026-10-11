@@ -117,7 +117,10 @@ watch(
   async (request) => {
     if (!request) return
     if (request.section === 'anotacoes') tab.value = 'margem'
-    if (request.section === 'nota') tab.value = 'nota'
+    // `note` is the section the reader's own `?notes=note` deep link carries,
+    // and the note search entry on the server builds that address. The other
+    // section names are still this module's and are translated with it.
+    if (request.section === 'note') tab.value = 'nota'
     if (request.section !== 'pergunta') return
     await nextTick()
     questionField.value?.scrollIntoView({ block: 'nearest' })

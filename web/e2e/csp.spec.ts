@@ -59,7 +59,7 @@ async function watchViolations(page: Page): Promise<() => Promise<Violation[]>> 
 test.describe('the content security policy the server sends', () => {
   test('renders the app, an external image and a dynamic style without a violation', async ({ page }) => {
     const violations = await watchViolations(page)
-    await page.goto(`${server.baseURL}/biblioteca/${article.id}`)
+    await page.goto(`${server.baseURL}/library/${article.id}`)
 
     // The header is the promise; everything below is the browser keeping it.
     const policy = await page.evaluate(async () => {
@@ -103,7 +103,7 @@ test.describe('the content security policy the server sends', () => {
 
   test('blocks an inline script injected into the page', async ({ page }) => {
     const violations = await watchViolations(page)
-    await page.goto(`${server.baseURL}/biblioteca/${article.id}`)
+    await page.goto(`${server.baseURL}/library/${article.id}`)
     await expect(page.locator('.article-content')).toBeVisible()
 
     const ran = await page.evaluate(() => {

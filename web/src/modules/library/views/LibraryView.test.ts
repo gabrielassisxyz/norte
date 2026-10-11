@@ -144,19 +144,19 @@ function shelf(): LibraryItemRecord[] {
   return [
     libraryRecord({
       id: 'post-um',
-      kind: 'post',
+      kind: 'article',
       title: 'Um texto guardado',
       author: 'Equipe Norte',
-      status: 'inbox',
+      location: 'inbox',
       unread: true,
       saved_at: `${TODAY}T10:00:00Z`
     }),
     libraryRecord({
       id: 'livro-um',
-      kind: 'livro',
+      kind: 'book',
       title: 'Um livro guardado',
       author: 'Marina Costa',
-      status: 'depois',
+      location: 'later',
       unread: true,
       saved_at: '2026-10-01T10:00:00Z'
     }),
@@ -165,7 +165,7 @@ function shelf(): LibraryItemRecord[] {
       kind: 'paper',
       title: 'Um paper guardado',
       site: 'papers.example',
-      status: 'arquivo',
+      location: 'archive',
       unread: false,
       read_at: '2026-10-02T10:00:00Z',
       saved_at: '2026-09-28T10:00:00Z'
@@ -188,12 +188,27 @@ function manyRecords(count: number): LibraryItemRecord[] {
 describe('LibraryView over the API', () => {
   it('renders its title, the endpoint counts and the rows the server sent', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca', library)
+    const { wrapper } = await mountAt('/library', library)
 
     expect(wrapper.find('h1').text()).toBe('Biblioteca')
     // The counts are the whole library's, not the page's: one row is on screen.
-    expect(segCounts(wrapper)).toEqual({ Inbox: 1, Depois: 1, Arquivo: 1, Tudo: 3 })
-    expect(tabLabels(wrapper)).toEqual(['Inbox', 'Depois', 'Tudo', 'Arquivo', 'Sugestões'])
+    expect(segCounts(wrapper)).toEqual({
+      Inbox: 1,
+      'Próximos': 0,
+      Depois: 1,
+      Arquivo: 1,
+      Reserva: 0,
+      Tudo: 3
+    })
+    expect(tabLabels(wrapper)).toEqual([
+      'Inbox',
+      'Próximos',
+      'Depois',
+      'Arquivo',
+      'Reserva',
+      'Tudo',
+      'Sugestões'
+    ])
     // One segmented control on the screen: the order used to be a second one,
     // and it is a sort option now, which is what makes the header one row.
     expect(wrapper.findAll('.nt-seg')).toHaveLength(1)
@@ -206,39 +221,39 @@ describe('LibraryView over the API', () => {
 
   it('asks the server for the shelf rather than filtering the page it has', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=arquivo', library)
+    const { wrapper } = await mountAt('/library?v=archive', library)
 
-    expect(lastQuery(library)).toMatchObject({ view: 'arquivo' })
+    expect(lastQuery(library)).toMatchObject({ view: 'archive' })
     expect(titles(wrapper)).toEqual(['Um paper guardado'])
   })
 
   it('asks the server for unread only, and says so on the page', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     expect(lastQuery(library)?.unread).toBeNull()
 
     await pick(wrapper, 'filter', '[data-filter="unread"]')
     await flushReads()
 
-    expect(lastQuery(library)).toMatchObject({ view: 'tudo', unread: true })
+    expect(lastQuery(library)).toMatchObject({ view: 'all', unread: true })
     expect(titles(wrapper)).toEqual(['Um texto guardado', 'Um livro guardado'])
     expect(wrapper.get('.library-unread').text()).toContain('Mostrando só não lidos')
   })
 
-  it('narrows to a kind from ?tipo, in the spelling the contract uses', async () => {
+  it('narrows to a kind from ?kind, in the spelling the contract uses', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo&tipo=livros', library)
+    const { wrapper } = await mountAt('/library?v=all&kind=books', library)
 
     expect(wrapper.find('h1').text()).toBe('Livros')
-    expect(lastQuery(library)).toMatchObject({ tipo: 'livro' })
+    expect(lastQuery(library)).toMatchObject({ kind: 'book' })
     expect(titles(wrapper)).toEqual(['Um livro guardado'])
     expect(wrapper.findAll('.item-date')[0].text()).toBe('1 out')
   })
 
   it('sends the search term as q and the order as the contract spells it', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     await wrapper.get('#library-search').setValue('paper')
     await flushReads()
@@ -255,7 +270,7 @@ describe('LibraryView over the API', () => {
 
   it('sends q without sort while a search text is active, and disables the sort menu', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     // Blank text sends the default sort, the way it always did.
     expect(lastQuery(library)).toMatchObject({ sort: 'saved_desc' })
@@ -278,7 +293,7 @@ describe('LibraryView over the API', () => {
 
   it('sends the chosen sort again once the search text is cleared', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     await chooseSort(wrapper, 'title')
     await flushReads()
@@ -299,11 +314,11 @@ describe('LibraryView over the API', () => {
 
   it('points every row at the reader', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper, router } = await mountAt('/biblioteca', library)
+    const { wrapper, router } = await mountAt('/library', library)
     const href = wrapper.get('.item-title').attributes('href')!
 
-    expect(href).toBe('/biblioteca/post-um')
-    expect(router.resolve(href).name).toBe('leitor')
+    expect(href).toBe('/library/post-um')
+    expect(router.resolve(href).name).toBe('reader')
   })
 
   it('renders a saved lead image with the thumbnail attributes', async () => {
@@ -311,7 +326,7 @@ describe('LibraryView over the API', () => {
     const library = fakeLibrarySource([
       libraryRecord({ id: 'with-image', lead_image: leadImage, saved_at: `${TODAY}T10:00:00Z` })
     ])
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     const thumbnail = wrapper.get('.item-thumb')
     const image = thumbnail.get('img')
@@ -330,7 +345,7 @@ describe('LibraryView over the API', () => {
       libraryRecord({ id: 'with-image', title: 'Com imagem', lead_image: 'https://images.example/cover.jpg' }),
       libraryRecord({ id: 'without-image', title: 'Sem imagem', saved_at: '2026-10-02T10:00:00Z' })
     ])
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
     const rows = wrapper.findAll('article.item')
     const withImage = rows.find((row) => row.find('.item-title').text() === 'Com imagem')
     const withoutImage = rows.find((row) => row.find('.item-title').text() === 'Sem imagem')
@@ -348,7 +363,7 @@ describe('LibraryView over the API', () => {
 describe('LibraryView growing its list', () => {
   it('shows 50, then 100, then 120, with no row twice and no button left', async () => {
     const library = fakeLibrarySource(manyRecords(120))
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     expect(wrapper.findAll('article.item')).toHaveLength(50)
     expect(wrapper.get('.library-more').text()).toBe('Carregar mais')
@@ -374,7 +389,7 @@ describe('LibraryView growing its list', () => {
         return base.listItems(query, signal)
       }
     })
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     await wrapper.get('.library-more').trigger('click')
     await flushReads()
@@ -387,7 +402,7 @@ describe('LibraryView growing its list', () => {
 
   it('keeps the whole-library counts while the page grows', async () => {
     const library = fakeLibrarySource(manyRecords(120))
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     expect(segCounts(wrapper)).toMatchObject({ Tudo: 120, Inbox: 120 })
     await wrapper.get('.library-more').trigger('click')
@@ -400,7 +415,7 @@ describe('LibraryView growing its list', () => {
 
   it('starts over from the first page when a filter changes', async () => {
     const library = fakeLibrarySource(manyRecords(120))
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
     await wrapper.get('.library-more').trigger('click')
     await flushReads()
 
@@ -415,7 +430,7 @@ describe('LibraryView growing its list', () => {
 describe('LibraryView while it waits, finds nothing, or fails', () => {
   it('says it is loading before the first answer arrives', async () => {
     const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/biblioteca')
+    await router.push('/library')
     const library = fakeLibrarySource([], { listItems: () => new Promise<LibraryItemList>(() => {}) })
     const wrapper = mount(LibraryView, {
       global: { plugins: [router, sourcesPlugin({ ...companionSources(), library })] }
@@ -427,11 +442,18 @@ describe('LibraryView while it waits, finds nothing, or fails', () => {
   })
 
   it('says the list is empty once it has answered with nothing', async () => {
-    const { wrapper } = await mountAt('/biblioteca', fakeLibrarySource([]))
+    const { wrapper } = await mountAt('/library', fakeLibrarySource([]))
 
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
     expect(wrapper.get('.library-empty').text()).toContain('Inbox vazia')
-    expect(segCounts(wrapper)).toEqual({ Inbox: 0, Depois: 0, Arquivo: 0, Tudo: 0 })
+    expect(segCounts(wrapper)).toEqual({
+      Inbox: 0,
+      'Próximos': 0,
+      Depois: 0,
+      Arquivo: 0,
+      Reserva: 0,
+      Tudo: 0
+    })
   })
 
   it('says why it could not load, and reads again when asked', async () => {
@@ -443,7 +465,7 @@ describe('LibraryView while it waits, finds nothing, or fails', () => {
         return { items: [], next_cursor: null }
       }
     })
-    const { wrapper } = await mountAt('/biblioteca', library)
+    const { wrapper } = await mountAt('/library', library)
 
     expect(wrapper.get('.library-error').text()).toContain('Não foi possível carregar a biblioteca: rede indisponível')
     expect(wrapper.findAll('article.item')).toHaveLength(0)
@@ -456,7 +478,7 @@ describe('LibraryView while it waits, finds nothing, or fails', () => {
   })
 
   it('reports nothing found for a search that matches no row', async () => {
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', fakeLibrarySource(shelf()))
+    const { wrapper } = await mountAt('/library?v=all', fakeLibrarySource(shelf()))
 
     await wrapper.get('#library-search').setValue('xilofone')
     await flushReads()
@@ -467,13 +489,13 @@ describe('LibraryView while it waits, finds nothing, or fails', () => {
 
 describe('LibraryView writing to the API', () => {
   it('shows the row the server answered with, not the one it asked for', async () => {
-    const stored = libraryRecord({ id: 'post-um', title: 'O título que estava lá', status: 'inbox' })
+    const stored = libraryRecord({ id: 'post-um', title: 'O título que estava lá', location: 'inbox' })
     // The server archives it *and* renames it: only a page that renders the
     // response can show the new title.
     const library = fakeLibrarySource([stored], {
-      patchItem: async () => ({ ...stored, status: 'arquivo', title: 'O título que o servidor devolveu' })
+      patchItem: async () => ({ ...stored, location: 'archive', title: 'O título que o servidor devolveu' })
     })
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     await wrapper.get('button[aria-label="Arquivar"]').trigger('click')
     await flushReads()
@@ -484,7 +506,7 @@ describe('LibraryView writing to the API', () => {
 
   it('asks the counts endpoint again after a write instead of recounting the page', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     expect(library.calls.counts).toBe(1)
     await wrapper.get('button[aria-label="Arquivar"]').trigger('click')
@@ -495,13 +517,13 @@ describe('LibraryView writing to the API', () => {
   })
 
   it('leaves the row untouched and says so when the write fails', async () => {
-    const stored = libraryRecord({ id: 'post-um', title: 'O título que estava lá', status: 'inbox' })
+    const stored = libraryRecord({ id: 'post-um', title: 'O título que estava lá', location: 'inbox' })
     const library = fakeLibrarySource([stored], {
       patchItem: async () => {
         throw new Error('conflito no servidor')
       }
     })
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     await wrapper.get('button[aria-label="Arquivar"]').trigger('click')
     await flushReads()
@@ -514,7 +536,7 @@ describe('LibraryView writing to the API', () => {
 
   it('marks an item read without moving it out of the shelf it is on', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca', library)
+    const { wrapper } = await mountAt('/library', library)
 
     await wrapper.get('button[aria-label="Marcar como lido"]').trigger('click')
     await flushReads()
@@ -527,7 +549,7 @@ describe('LibraryView writing to the API', () => {
 
   it('shows an item saved elsewhere without a reload', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca', library)
+    const { wrapper } = await mountAt('/library', library)
 
     expect(titles(wrapper)).toEqual(['Um texto guardado'])
 
@@ -543,7 +565,7 @@ describe('LibraryView writing to the API', () => {
 
 describe('LibraryView adding links', () => {
   it('puts the URL action immediately before the title', async () => {
-    const { wrapper } = await mountAt('/biblioteca', fakeLibrarySource(shelf()))
+    const { wrapper } = await mountAt('/library', fakeLibrarySource(shelf()))
 
     expect(wrapper.find('.library-title-row > .library-add + h1').exists()).toBe(true)
     expect(addMenuTrigger(wrapper).attributes('aria-label')).toBe('Adicionar')
@@ -559,7 +581,7 @@ describe('LibraryView adding links', () => {
   it('opens the save dialog with the URL field focused from the menu', async () => {
     // Attached, because focus only moves inside a document.
     const host = document.body.appendChild(document.createElement('div'))
-    const { wrapper } = await mountAt('/biblioteca', fakeLibrarySource(shelf()), undefined, host)
+    const { wrapper } = await mountAt('/library', fakeLibrarySource(shelf()), undefined, host)
 
     await addMenuTrigger(wrapper).trigger('click')
     await wrapper.get('.library-add [role="menuitem"]').trigger('click')
@@ -572,7 +594,7 @@ describe('LibraryView adding links', () => {
   })
 
   it('opens from A or a, but not from an input or a modifier', async () => {
-    const { wrapper } = await mountAt('/biblioteca', fakeLibrarySource(shelf()))
+    const { wrapper } = await mountAt('/library', fakeLibrarySource(shelf()))
     const search = wrapper.get('#library-search')
 
     await search.trigger('keydown', { key: 'a' })
@@ -597,7 +619,7 @@ describe('LibraryView adding links', () => {
 
   it('reloads the list and counts after saving from the library', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca', library)
+    const { wrapper } = await mountAt('/library', library)
 
     await addMenuTrigger(wrapper).trigger('click')
     await wrapper.get('.library-add [role="menuitem"]').trigger('click')
@@ -621,7 +643,7 @@ describe('LibraryView superseding a read it no longer needs', () => {
         return new Promise<LibraryItemList>(() => {})
       }
     } as Partial<LibrarySource>)
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     await wrapper.get('#library-search').setValue('comp')
     await wrapper.get('#library-search').setValue('compila')
@@ -642,7 +664,7 @@ describe('LibraryView superseding a read it no longer needs', () => {
       }
     } as Partial<LibrarySource>)
 
-    await router.push('/biblioteca')
+    await router.push('/library')
     await router.isReady()
     mount(RouterView, {
       global: {
@@ -674,7 +696,7 @@ describe('LibraryView superseding a read it no longer needs', () => {
         })
       ]
     })
-    const { wrapper } = await mountAt('/biblioteca?v=sugestoes', library, core)
+    const { wrapper } = await mountAt('/library?v=pending-connections', library, core)
 
     // The tab is selected, the shelf was never asked for, and the queue is on
     // screen instead of the item list.
@@ -684,20 +706,27 @@ describe('LibraryView superseding a read it no longer needs', () => {
     expect(wrapper.text()).toContain('Notas sobre consenso')
     // The queue carries no count, because the only number this screen could
     // print is the size of the first page.
-    expect(segCounts(wrapper)).toEqual({ Inbox: 1, Depois: 1, Arquivo: 1, Tudo: 3 })
+    expect(segCounts(wrapper)).toEqual({
+      Inbox: 1,
+      'Próximos': 0,
+      Depois: 1,
+      Arquivo: 1,
+      Reserva: 0,
+      Tudo: 3
+    })
   })
 
   it('reads the shelf when the person leaves the review queue', async () => {
     const library = fakeLibrarySource(shelf())
     const core = fakeCoreSource({})
-    const { wrapper, router } = await mountAt('/biblioteca?v=sugestoes', library, core)
+    const { wrapper, router } = await mountAt('/library?v=pending-connections', library, core)
 
     expect(library.calls.list).toHaveLength(0)
 
-    await router.push('/biblioteca?v=tudo')
+    await router.push('/library?v=all')
     await flushReads()
 
-    expect(lastQuery(library)?.view).toBe('tudo')
+    expect(lastQuery(library)?.view).toBe('all')
     expect(titles(wrapper)).toHaveLength(3)
   })
 })
@@ -709,33 +738,33 @@ describe('LibraryView ranked by the focus', () => {
       libraryRecord({
         id: 'sem-foco',
         title: 'Guardado sem assunto',
-        status: 'inbox',
+        location: 'inbox',
         unread: true,
         saved_at: `${TODAY}T11:00:00Z`
       }),
       libraryRecord({
         id: 'no-foco',
         title: 'Ligado ao foco de agora',
-        status: 'arquivo',
+        location: 'archive',
         unread: true,
-        why: 'focus:1',
+        reason: 'focus:1',
         saved_at: '2026-09-20T10:00:00Z'
       })
     ]
   }
 
-  it('reads the date order first and asks for view=now only once it is chosen', async () => {
+  it('reads the date order first and asks for view=suggestions only once it is chosen', async () => {
     const library = fakeLibrarySource(focusShelf())
-    const { wrapper } = await mountAt('/biblioteca', library)
+    const { wrapper } = await mountAt('/library', library)
 
     expect(library.calls.list).toHaveLength(1)
     expect(library.calls.list[0].view).toBe('inbox')
-    expect(library.calls.list.some((query) => query.view === 'now')).toBe(false)
+    expect(library.calls.list.some((query) => query.view === 'suggestions')).toBe(false)
 
-    await chooseSort(wrapper, 'now')
+    await chooseSort(wrapper, 'suggestions')
     await flushReads()
 
-    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+    expect(lastQuery(library)).toMatchObject({ view: 'suggestions' })
     // The ranked view carries its own order: the three parameters the server
     // refuses alongside it must not be sent.
     expect(lastQuery(library)?.sort).toBeUndefined()
@@ -752,7 +781,7 @@ describe('LibraryView ranked by the focus', () => {
 
   it('offers five orders, marks the one in force, and names it on the button', async () => {
     const library = fakeLibrarySource(focusShelf())
-    const { wrapper } = await mountAt('/biblioteca', library)
+    const { wrapper } = await mountAt('/library', library)
 
     expect(menuTrigger(wrapper, 'sort').attributes('aria-label')).toBe('Ordenar: Mais recentes')
     expect(await menuRows(wrapper, 'sort')).toEqual([
@@ -774,21 +803,21 @@ describe('LibraryView ranked by the focus', () => {
 
   it('sends each order the way the contract spells it', async () => {
     const library = fakeLibrarySource(focusShelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     for (const value of ['saved_asc', 'title', 'last_opened_desc', 'saved_desc']) {
       await chooseSort(wrapper, value)
       await flushReads()
-      expect(lastQuery(library), value).toMatchObject({ view: 'tudo', sort: value })
+      expect(lastQuery(library), value).toMatchObject({ view: 'all', sort: value })
     }
   })
 
   it('disables the search box and selects no shelf while the ranking is on', async () => {
     const library = fakeLibrarySource(focusShelf())
-    const { wrapper } = await mountAt('/biblioteca', library)
+    const { wrapper } = await mountAt('/library', library)
 
     expect(wrapper.get('#library-search').attributes('disabled')).toBeUndefined()
-    await chooseSort(wrapper, 'now')
+    await chooseSort(wrapper, 'suggestions')
     await flushReads()
 
     // The box stays on screen and refuses text: the ranked list is read over
@@ -796,17 +825,17 @@ describe('LibraryView ranked by the focus', () => {
     expect(wrapper.get('#library-search').attributes('disabled')).toBeDefined()
     // The tabs are still there -- they are the way back -- and none is marked,
     // because the rows on screen come from no single shelf.
-    expect(tabLabels(wrapper)).toHaveLength(5)
+    expect(tabLabels(wrapper)).toHaveLength(7)
     expect(wrapper.find('.library-tabs [aria-selected="true"]').exists()).toBe(false)
   })
 
   it('puts the order back to the default when a shelf tab is picked', async () => {
     const library = fakeLibrarySource(focusShelf())
-    const { wrapper } = await mountAt('/biblioteca?v=inbox', library)
+    const { wrapper } = await mountAt('/library?v=inbox', library)
 
-    await chooseSort(wrapper, 'now')
+    await chooseSort(wrapper, 'suggestions')
     await flushReads()
-    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+    expect(lastQuery(library)).toMatchObject({ view: 'suggestions' })
 
     // The shelf that was already addressed, so the route does not change and
     // the reset cannot be coming from the navigation.
@@ -819,7 +848,7 @@ describe('LibraryView ranked by the focus', () => {
 
   it('cannot be chosen while a search is running, because the pair is refused', async () => {
     const library = fakeLibrarySource(focusShelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     await wrapper.get('#library-search').setValue('foco')
     await flushReads()
@@ -834,7 +863,7 @@ describe('LibraryView ranked by the focus', () => {
 
   it('draws away from the focus and opens the item the server picked', async () => {
     const library = fakeLibrarySource(focusShelf())
-    const { wrapper, router } = await mountAt('/biblioteca', library)
+    const { wrapper, router } = await mountAt('/library', library)
     // The navigation itself is asserted on the call rather than on the route
     // that follows: the reader's component is loaded lazily, so the route
     // settles on the module loader's schedule and not on this test's.
@@ -844,14 +873,14 @@ describe('LibraryView ranked by the focus', () => {
     await flushReads()
 
     expect(library.calls.draw).toEqual([{ away_from_focus: true }])
-    expect(pushed).toHaveBeenCalledWith({ name: 'leitor', params: { id: 'sem-foco' } })
+    expect(pushed).toHaveBeenCalledWith({ name: 'reader', params: { id: 'sem-foco' } })
   })
 
   it('says there is nothing to read when the draw comes back empty', async () => {
     const library = fakeLibrarySource(focusShelf(), {
       drawItems: async () => []
     } as Partial<LibrarySource>)
-    const { wrapper, router } = await mountAt('/biblioteca', library)
+    const { wrapper, router } = await mountAt('/library', library)
     const pushed = vi.spyOn(router, 'push')
 
     await wrapper.get('.library-surprise').trigger('click')
@@ -869,13 +898,13 @@ describe('LibraryView with the review queue and the focus ranking together', () 
 
   it('keeps the order control and the draw on the shelves, off the review queue', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+    const { wrapper, router } = await mountAt('/library', library, fakeCoreSource({}))
 
     expect(wrapper.find('.library-sort').exists()).toBe(true)
     expect(wrapper.find('.library-filter').exists()).toBe(true)
     expect(wrapper.find('.library-surprise').exists()).toBe(true)
 
-    await router.push('/biblioteca?v=sugestoes')
+    await router.push('/library?v=pending-connections')
     await flushReads()
 
     expect(wrapper.find('.library-sort').exists()).toBe(false)
@@ -886,31 +915,31 @@ describe('LibraryView with the review queue and the focus ranking together', () 
 
   it('keeps the ranking waiting while the queue is on screen, and ranks again on the way back', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+    const { wrapper, router } = await mountAt('/library', library, fakeCoreSource({}))
 
-    await chooseSort(wrapper, 'now')
+    await chooseSort(wrapper, 'suggestions')
     await flushReads()
-    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+    expect(lastQuery(library)).toMatchObject({ view: 'suggestions' })
 
     // Reached from the sidebar rather than from the tabs, which is the one way
     // in that does not go through the reset a tab performs.
-    await router.push('/biblioteca?v=sugestoes')
+    await router.push('/library?v=pending-connections')
     await flushReads()
 
     expect(wrapper.get('[aria-selected="true"]').text()).toContain('Sugestões')
     expect(wrapper.text()).not.toContain('primeiro o que está ligado ao foco')
 
-    await router.push('/biblioteca?v=inbox')
+    await router.push('/library?v=inbox')
     await flushReads()
 
-    expect(lastQuery(library)).toMatchObject({ view: 'now' })
+    expect(lastQuery(library)).toMatchObject({ view: 'suggestions' })
   })
 
   it('puts the order back when the queue is reached through its own tab', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+    const { wrapper } = await mountAt('/library', library, fakeCoreSource({}))
 
-    await chooseSort(wrapper, 'now')
+    await chooseSort(wrapper, 'suggestions')
     await flushReads()
 
     await clickTab(wrapper, 'Sugestões')
@@ -923,13 +952,13 @@ describe('LibraryView with the review queue and the focus ranking together', () 
 
   it('drops the unread notice on the review queue', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper, router } = await mountAt('/biblioteca', library, fakeCoreSource({}))
+    const { wrapper, router } = await mountAt('/library', library, fakeCoreSource({}))
 
     await pick(wrapper, 'filter', '[data-filter="unread"]')
     await flushReads()
     expect(wrapper.text()).toContain('Mostrando só não lidos')
 
-    await router.push('/biblioteca?v=sugestoes')
+    await router.push('/library?v=pending-connections')
     await flushReads()
 
     expect(wrapper.text()).not.toContain('Mostrando só não lidos')
@@ -939,7 +968,7 @@ describe('LibraryView with the review queue and the focus ranking together', () 
 describe('LibraryView filtering from the header', () => {
   it('offers the unread toggle and one entry per kind, named as the sidebar names them', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     expect(await menuRows(wrapper, 'filter')).toEqual([
       'Só não lidos',
@@ -956,27 +985,27 @@ describe('LibraryView filtering from the header', () => {
 
   it('narrows to the chosen kind, in the spelling the contract uses', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper, router } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper, router } = await mountAt('/library?v=all', library)
 
-    await pick(wrapper, 'filter', '[data-kind="livro"]')
+    await pick(wrapper, 'filter', '[data-kind="book"]')
     await flushReads()
 
-    expect(lastQuery(library)).toMatchObject({ view: 'tudo', tipo: 'livro' })
+    expect(lastQuery(library)).toMatchObject({ view: 'all', kind: 'book' })
     expect(titles(wrapper)).toEqual(['Um livro guardado'])
     // The kind is an address, so the sidebar's link and this menu agree on it.
-    expect(router.currentRoute.value.query.tipo).toBe('livro')
+    expect(router.currentRoute.value.query.kind).toBe('book')
 
     await pick(wrapper, 'filter', '[data-kind=""]')
     await flushReads()
 
-    expect(lastQuery(library)?.tipo).toBeNull()
-    expect(router.currentRoute.value.query.tipo).toBeUndefined()
+    expect(lastQuery(library)?.kind).toBeNull()
+    expect(router.currentRoute.value.query.kind).toBeUndefined()
     expect(titles(wrapper)).toHaveLength(3)
   })
 
   it('marks the kind in force and shows the icon as set whenever any filter is', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     expect(menuTrigger(wrapper, 'filter').classes()).not.toContain('is-active')
     await menuTrigger(wrapper, 'filter').trigger('click')
@@ -995,7 +1024,7 @@ describe('LibraryView filtering from the header', () => {
 
   it('shows the icon as set for the unread toggle alone, and reports it on the checkbox', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
     await pick(wrapper, 'filter', '[data-filter="unread"]')
     await flushReads()
@@ -1015,17 +1044,53 @@ describe('LibraryView filtering from the header', () => {
 
   it('keeps the kind and the unread filter on the ranked list, which the contract allows', async () => {
     const library = fakeLibrarySource(shelf())
-    const { wrapper } = await mountAt('/biblioteca?v=tudo', library)
+    const { wrapper } = await mountAt('/library?v=all', library)
 
-    await pick(wrapper, 'filter', '[data-kind="post"]')
+    await pick(wrapper, 'filter', '[data-kind="article"]')
     await pick(wrapper, 'filter', '[data-filter="unread"]')
-    await chooseSort(wrapper, 'now')
+    await chooseSort(wrapper, 'suggestions')
     await flushReads()
 
-    // unread=true is the one of the three the contract takes alongside now;
-    // the sort and the text query are the two it refuses, and neither is sent.
-    expect(lastQuery(library)).toMatchObject({ view: 'now', tipo: 'post', unread: true })
+    // The sort and the text query are what the view refuses, and neither is
+    // sent; unread is an ordinary filter over it and is.
+    expect(lastQuery(library)).toMatchObject({ view: 'suggestions', kind: 'article', unread: true })
     expect(lastQuery(library)?.sort).toBeUndefined()
     expect(lastQuery(library)?.q).toBeUndefined()
+  })
+
+  it('makes the unread toggle do something under Suggestions, both ways', async () => {
+    const library = fakeLibrarySource([
+      libraryRecord({ id: 'sem-foco', location: 'inbox', unread: true }),
+      libraryRecord({ id: 'no-foco', location: 'archive', unread: true, reason: 'focus:1' })
+    ])
+    const { wrapper } = await mountAt('/library', library)
+
+    await chooseSort(wrapper, 'suggestions')
+    await flushReads()
+
+    // Suggestions used to be unread-only whatever the toggle said, which is
+    // why the comment it carried claimed the flag changed nothing here.
+    expect(lastQuery(library)).toMatchObject({ view: 'suggestions' })
+    expect(lastQuery(library)?.unread).toBeNull()
+    expect(wrapper.find('.library-unread').text()).not.toContain('Mostrando só não lidos')
+
+    await pick(wrapper, 'filter', '[data-filter="unread"]')
+    await flushReads()
+
+    expect(lastQuery(library)).toMatchObject({ view: 'suggestions', unread: true })
+    expect(wrapper.get('.library-unread').text()).toContain('Mostrando só não lidos')
+
+    await pick(wrapper, 'filter', '[data-filter="unread"]')
+    await flushReads()
+
+    // Off is "no unread filter", not "read only": the view's default answer is
+    // every location, unread first and read after, which is what it exists to
+    // rank. unread=false is a filter of its own and the server takes it, but
+    // it is not what clearing the toggle asks for.
+    expect(lastQuery(library)).toMatchObject({ view: 'suggestions' })
+    expect(lastQuery(library)?.unread).toBeNull()
+    expect(
+      wrapper.findAll('.library-unread').some((banner) => banner.text().includes('Mostrando só não lidos'))
+    ).toBe(false)
   })
 })

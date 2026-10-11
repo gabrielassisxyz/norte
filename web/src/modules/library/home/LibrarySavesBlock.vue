@@ -19,7 +19,7 @@ const recentItems = computed(() => page.value?.items ?? [])
   <section aria-labelledby="recent-saves" class="home-section">
     <div class="home-section-head">
       <h2 id="recent-saves">Salvos recentemente</h2>
-      <RouterLink :to="{ name: 'biblioteca', query: { v: 'inbox' } }" class="home-see-all">Ver inbox</RouterLink>
+      <RouterLink :to="{ name: 'library', query: { v: 'inbox' } }" class="home-see-all">Ver inbox</RouterLink>
     </div>
     <p v-if="firstLoad" class="home-saves-state" role="status">Carregando os salvos…</p>
     <p v-else-if="error" class="home-saves-state" role="alert">Não foi possível carregar os salvos: {{ error }}</p>

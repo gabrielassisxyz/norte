@@ -23,7 +23,7 @@ import type {
  * never constructs it: `main.ts` installs the API source, and this module is
  * named by test files only.
  */
-const KINDS: LibraryKind[] = ['post', 'livro', 'paper', 'video', 'podcast', 'newsletter', 'curso']
+const KINDS: LibraryKind[] = ['article', 'book', 'paper', 'video', 'podcast', 'newsletter', 'course']
 
 const DEFAULT_LIMIT = 50
 
@@ -32,12 +32,12 @@ export function libraryRecord(overrides: Partial<LibraryItemRecord> = {}): Libra
   const id = overrides.id ?? 'item-1'
   return {
     id,
-    kind: 'post',
+    kind: 'article',
     url: `https://example.com/${id}`,
     canonical_url: `https://example.com/${id}`,
     title: `Texto ${id}`,
     title_edited: false,
-    status: 'inbox',
+    location: 'inbox',
     unread: true,
     saved_at: '2026-10-03T12:00:00Z',
     source: 'app',
@@ -75,14 +75,14 @@ export interface FakeLibrarySource extends LibrarySource {
 }
 
 function matchesQuery(record: LibraryItemRecord, query: LibraryListQuery): boolean {
-  // view=now is not a shelf: it reads every status and keeps only what is
-  // unread, which is the one filter the screen never sends alongside it.
-  if (query.view === 'now') return record.unread
-  if (query.view && query.view !== 'tudo' && record.status !== query.view) return false
-  if (query.tipo && record.kind !== query.tipo) return false
+  if (query.kind && record.kind !== query.kind) return false
   if (query.unread !== null && query.unread !== undefined && record.unread !== query.unread) return false
-  const needle = query.q?.trim().toLocaleLowerCase('pt-BR')
-  if (needle && !record.title.toLocaleLowerCase('pt-BR').includes(needle)) return false
+  const needle = query.q?.trim().toLocaleLowerCase('en')
+  if (needle && !record.title.toLocaleLowerCase('en').includes(needle)) return false
+  // view=suggestions is not a location: it reads every one of them, so only
+  // the filters above narrow it.
+  if (query.view === 'suggestions') return true
+  if (query.view && query.view !== 'all' && record.location !== query.view) return false
   return true
 }
 
@@ -91,17 +91,17 @@ function matchesQuery(record: LibraryItemRecord, query: LibraryListQuery): boole
  *
  * The fake holds no links, so the score cannot be derived here the way the
  * server derives it. A test that cares about the ranking states the score it
- * means on the record's `why` as `focus:<number>`, which keeps the shape of
+ * means on the record's `reason` as `focus:<number>`, which keeps the shape of
  * the record the contract's and the fixture readable in one line.
  */
 function fakeFocusScore(record: LibraryItemRecord): number {
-  const marked = /(?:^|\s)focus:(\d+(?:\.\d+)?)/.exec(record.why ?? '')
+  const marked = /(?:^|\s)focus:(\d+(?:\.\d+)?)/.exec(record.reason ?? '')
   return marked ? Number(marked[1]) : 0
 }
 
 function ordered(records: LibraryItemRecord[], sort: LibraryListQuery['sort']): LibraryItemRecord[] {
   const rows = [...records]
-  if (sort === 'title') return rows.sort((left, right) => left.title.localeCompare(right.title, 'pt-BR'))
+  if (sort === 'title') return rows.sort((left, right) => left.title.localeCompare(right.title, 'en'))
   if (sort === 'saved_asc') return rows.sort((left, right) => left.saved_at.localeCompare(right.saved_at))
   if (sort === 'last_opened_desc') {
     return rows
@@ -140,9 +140,17 @@ export function fakeLibrarySource(
     async listItems(query: LibraryListQuery): Promise<LibraryItemList> {
       calls.list.push({ ...query })
       const matching = held.filter((record) => matchesQuery(record, query))
+      // Suggestions orders by the focus score, then by what is still unread
+      // within one score, then by the saved order -- the same keys the server
+      // uses, because a fake that ranked by the score alone would let a screen
+      // test pass against an order the server does not produce.
       const selected =
-        query.view === 'now'
-          ? ordered(matching, 'saved_desc').sort((left, right) => fakeFocusScore(right) - fakeFocusScore(left))
+        query.view === 'suggestions'
+          ? ordered(matching, 'saved_desc').sort(
+              (left, right) =>
+                fakeFocusScore(right) - fakeFocusScore(left) ||
+                Number(right.unread) - Number(left.unread)
+            )
           : ordered(matching, query.sort)
       // The cursor is the offset it was issued at, which is the simplest thing
       // that still makes a second page a different page.
@@ -160,13 +168,16 @@ export function fakeLibrarySource(
 
     async counts(): Promise<LibraryCounts> {
       calls.counts += 1
-      const byStatus = (status: string): number => held.filter((record) => record.status === status).length
+      const byLocation = (location: string): number =>
+        held.filter((record) => record.location === location).length
       return {
         views: {
-          inbox: byStatus('inbox'),
-          depois: byStatus('depois'),
-          arquivo: byStatus('arquivo'),
-          tudo: held.length
+          inbox: byLocation('inbox'),
+          up_next: byLocation('up_next'),
+          later: byLocation('later'),
+          archive: byLocation('archive'),
+          stash: byLocation('stash'),
+          all: held.length
         },
         kinds: Object.fromEntries(
           KINDS.map((kind) => [kind, held.filter((record) => record.kind === kind).length])
@@ -181,7 +192,7 @@ export function fakeLibrarySource(
       // the existing item instead of creating a second copy.
       const existing = held.find((record) => record.canonical_url === link.url || record.url === link.url)
       if (existing) {
-        if (link.why?.trim()) existing.why = link.why.trim()
+        if (link.reason?.trim()) existing.reason = link.reason.trim()
         return { record: { ...existing }, duplicate: true }
       }
       const created = libraryRecord({
@@ -189,7 +200,7 @@ export function fakeLibrarySource(
         url: link.url,
         canonical_url: link.url,
         title: link.url,
-        ...(link.why ? { why: link.why } : {}),
+        ...(link.reason ? { reason: link.reason } : {}),
         extract_status: 'pending'
       })
       held.unshift(created)

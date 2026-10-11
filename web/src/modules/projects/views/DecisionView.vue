@@ -168,7 +168,7 @@ const references = computed(() => {
 })
 
 function isReadableMaterial(item: LibraryItemSummary): item is LibraryItemSummary & { kind: MaterialKind } {
-  return item.kind === 'post' || item.kind === 'livro' || item.kind === 'paper'
+  return item.kind === 'article' || item.kind === 'book' || item.kind === 'paper'
 }
 
 function daysRemaining(value: string): number {
@@ -479,7 +479,7 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
                 v-for="reference in references"
                 :key="reference.id"
                 class="decision-reference"
-                :to="canReachLibrary ? { name: 'leitor', params: { id: reference.id } } : undefined"
+                :to="canReachLibrary ? { name: 'reader', params: { id: reference.id } } : undefined"
               >
                 <span class="decision-reference-kind decision-mono">{{ reference.kind }}</span>
                 <span class="decision-reference-title">{{ reference.title }}</span>

@@ -23,7 +23,7 @@ describe('mock data integrity', () => {
     const store = createMockStore()
 
     expect(store.libraryItems).toHaveLength(18)
-    expect(new Set(store.libraryItems.map((item) => item.kind))).toEqual(new Set(['post', 'livro', 'paper', 'video', 'podcast', 'curso']))
+    expect(new Set(store.libraryItems.map((item) => item.kind))).toEqual(new Set(['article', 'book', 'paper', 'video', 'podcast', 'course']))
     expect(store.curricula).toHaveLength(9)
     expect(store.curricula.filter((curriculum) => curriculum.status === 'active')).toHaveLength(2)
     expect(store.reviewDecks).toHaveLength(3)

@@ -61,7 +61,7 @@ export function createSaveService(browserAPI, fetcher = fetch, now = Date.now) {
         if (!capture || capture.url !== tab.url) throw new Error('Page changed');
       } catch { throw new Error(CANNOT_READ); }
       const payload = { ...capture, source: 'extension' };
-      if (fields.why?.trim()) payload.why = fields.why.trim();
+      if (fields.reason?.trim()) payload.reason = fields.reason.trim();
       if (fields.link_to) payload.link_to = [fields.link_to];
       const body = JSON.stringify(payload);
       const timeout = saveTimeoutMs(new TextEncoder().encode(body).length);

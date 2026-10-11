@@ -51,7 +51,7 @@ function storedPosition(id: string): Promise<PositionedItem> {
 }
 
 async function openReader(page: Page, id: string): Promise<void> {
-  await page.goto(`${server.baseURL}/biblioteca/${id}`)
+  await page.goto(`${server.baseURL}/library/${id}`)
   await expect(page.locator('.article-content')).toBeVisible()
 }
 
@@ -120,7 +120,7 @@ test.describe('reopening a long article', () => {
     // tearing the reader down used to throw it away.
     await page.waitForTimeout(300)
     await page.locator('.reader-back').click()
-    await expect(page).toHaveURL(/\/biblioteca/)
+    await expect(page).toHaveURL(/\/library/)
 
     await expect
       .poll(async () => (await storedPosition(article.id)).read_position?.percent, { timeout: 10_000 })

@@ -74,7 +74,7 @@ function unwrap<T>(answered: Answered<T>): T {
 function listQuery(query: LibraryListQuery): Record<string, string | number | boolean> {
   const sent: Record<string, string | number | boolean> = {}
   if (query.view) sent.view = query.view
-  if (query.tipo) sent.tipo = query.tipo
+  if (query.kind) sent.kind = query.kind
   if (query.unread !== null && query.unread !== undefined) sent.unread = query.unread
   if (query.sort) sent.sort = query.sort
   if (query.q?.trim()) sent.q = query.q.trim()
@@ -127,7 +127,7 @@ export function createApiLibrarySource(): LibrarySource {
       const answered = await libraryClient.POST('/api/library/items', {
         body: {
           url: link.url,
-          ...(link.why?.trim() ? { why: link.why.trim() } : {}),
+          ...(link.reason?.trim() ? { reason: link.reason.trim() } : {}),
           ...(link.link_to?.length ? { link_to: link.link_to } : {})
         }
       })

@@ -56,7 +56,7 @@ function isSubjectsView(value: unknown): value is SubjectsView {
 }
 
 function formatHours(value: number): string {
-  return value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+  return value.toLocaleString('en', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
 
 function formatSignedHours(value: number): string {
@@ -99,7 +99,7 @@ const subjectTypes = computed<string[]>(() => {
   for (const subject of subjects.value) {
     for (const count of subject.counts.by_type) types.add(count.type)
   }
-  return [...types].sort((left, right) => left.localeCompare(right, 'pt-BR'))
+  return [...types].sort((left, right) => left.localeCompare(right, 'en'))
 })
 
 function subjectTypeCount(subject: Subject, type: string): number {
@@ -228,7 +228,7 @@ function openPaletteWith(typed: string): void {
         <div class="study-section-head">
           <div class="study-section-titles">
             <h2 id="study-subjects">Assuntos</h2>
-            <RouterLink v-if="canReachLibrary" :to="{ name: 'biblioteca', query: { v: 'tudo' } }" class="study-see-all">
+            <RouterLink v-if="canReachLibrary" :to="{ name: 'library', query: { v: 'all' } }" class="study-see-all">
               Ver na biblioteca
             </RouterLink>
             <NewSubjectButton />

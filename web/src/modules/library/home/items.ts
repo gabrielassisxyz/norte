@@ -1,18 +1,18 @@
 import type { LibraryItemSummary, LibraryKind } from '../data/source'
 
 export const LIBRARY_KIND_LABELS: Record<LibraryKind, string> = {
-  post: 'Artigo',
-  livro: 'Livro',
+  article: 'Artigo',
+  book: 'Livro',
   paper: 'PDF',
   video: 'Vídeo',
   podcast: 'Podcast',
   newsletter: 'Newsletter',
-  curso: 'Curso'
+  course: 'Curso'
 }
 
 /** Where a row leads: the API-backed reader, keyed by the item's own id. */
 export function readerHref(item: Pick<LibraryItemSummary, 'id'>): string {
-  return `/biblioteca/${item.id}`
+  return `/library/${item.id}`
 }
 
 /**
