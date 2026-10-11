@@ -30,8 +30,13 @@ const (
 )
 
 // libraryTagVersion is the tags migration, which a database holding rows from
-// 00003 reaches through 00004's rename on its way up.
-const libraryTagVersion = 5
+// 00003 reaches through 00004's rename on its way up, and
+// libraryRouterVersion the router's, which arrives over the tags it must not
+// cascade away.
+const (
+	libraryTagVersion    = 5
+	libraryRouterVersion = 6
+)
 
 // newLibraryMigrationHarness opens a database, migrates the core in full and
 // the library only as far as the migration before this one.
@@ -479,5 +484,102 @@ func TestTheTagMigrationHoldsTheTagShapeOnExistingItems(t *testing.T) {
 	}
 	if got := harness.queryString(`SELECT location FROM library_items WHERE id = 'row-inbox'`); got != "inbox" {
 		t.Errorf("the item came back in %q after the down step, want inbox", got)
+	}
+}
+
+// TestTheRouterMigrationKeepsTheTagsItArrivesOver is the up step over a
+// database that already holds items and their tags: the rules table and the
+// location_source column arrive, every stored location stands, and nothing
+// cascades away.
+//
+// The tags are the point. library_item_tags and library_item_removed_tags
+// reference library_items (id) ON DELETE CASCADE and the store runs with
+// foreign keys on, so the create-copy-drop-rename 00004 used would empty both
+// on the way past -- which is why this column arrives with ALTER TABLE, and
+// why the proof is a tag written before the step and read after it.
+func TestTheRouterMigrationKeepsTheTagsItArrivesOver(t *testing.T) {
+	harness := newLibraryMigrationHarness(t)
+	harness.writePortugueseItem("row-inbox", "post", "inbox", "zarabatana")
+	harness.upTo(libraryTagVersion)
+	if err := harness.writeEnglishItem("row-stash", "article", "stash", "kept"); err != nil {
+		t.Fatalf("inserting a stash row: %v", err)
+	}
+
+	stamp := core.FormatTime(libraryFixedInstant)
+	harness.exec(`INSERT INTO library_tags (name, created_at) VALUES ('llm', ?)`, stamp)
+	harness.exec(`INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+	              VALUES ('row-inbox', 'llm', 'auto', ?)`, stamp)
+	harness.exec(`INSERT INTO library_item_removed_tags (item_id, tag_name, created_at)
+	              VALUES ('row-stash', 'llm', ?)`, stamp)
+
+	harness.upTo(libraryRouterVersion)
+
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_item_tags`); got != 1 {
+		t.Errorf("%d item tag rows survived the step, want 1", got)
+	}
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_item_removed_tags`); got != 1 {
+		t.Errorf("%d removal records survived the step, want 1", got)
+	}
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_tags`); got != 1 {
+		t.Errorf("%d vocabulary rows survived the step, want 1", got)
+	}
+	for id, want := range map[string]string{"row-inbox": "inbox", "row-stash": "stash"} {
+		if got := harness.queryString(`SELECT location FROM library_items WHERE id = ?`, id); got != want {
+			t.Errorf("%s is in %q after the step, want %q", id, got, want)
+		}
+	}
+
+	// Every row that predates the column reads as placed by nobody, which is
+	// what makes the decider's guard true of an existing library: its items
+	// are the ones the person has been triaging by hand, and the default is
+	// the only value the router may act on.
+	if got := harness.queryInt(
+		`SELECT COUNT(*) FROM library_items WHERE location_source = 'default'`); got != 2 {
+		t.Errorf("%d existing rows read as placed by default, want 2", got)
+	}
+	// The column is closed to the five values the router writes.
+	if err := harness.execErr(
+		`UPDATE library_items SET location_source = 'guess' WHERE id = 'row-inbox'`); err == nil {
+		t.Error("a location_source outside the five values was accepted")
+	}
+	for _, source := range []string{"rule", "decider", "default", "user", "import"} {
+		if err := harness.execErr(
+			`UPDATE library_items SET location_source = ? WHERE id = 'row-inbox'`, source); err != nil {
+			t.Errorf("the location_source %q was refused: %v", source, err)
+		}
+	}
+
+	// The rules table: one answer per domain, and only the two locations the
+	// router chooses between.
+	harness.exec(`INSERT INTO library_domain_rules (domain, location, created_at)
+	              VALUES ('pinterest.com', 'stash', ?)`, stamp)
+	if err := harness.execErr(`INSERT INTO library_domain_rules (domain, location, created_at)
+	           VALUES ('pinterest.com', 'inbox', ?)`, stamp); err == nil {
+		t.Error("a second rule for one domain was accepted")
+	}
+	if err := harness.execErr(`INSERT INTO library_domain_rules (domain, location, created_at)
+	           VALUES ('example.org', 'up_next', ?)`, stamp); err == nil {
+		t.Error("a rule naming a location the router cannot choose was accepted")
+	}
+
+	// The down step retires both and moves nothing: an item stashed by a rule
+	// stays stashed, because where it sits is the person's library and only
+	// the record of who put it there belongs to this migration.
+	harness.down()
+	if got := harness.queryInt(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'library_domain_rules'`); got != 0 {
+		t.Error("library_domain_rules survived the down step")
+	}
+	if got := harness.queryInt(
+		`SELECT COUNT(*) FROM pragma_table_info('library_items') WHERE name = 'location_source'`); got != 0 {
+		t.Error("location_source survived the down step")
+	}
+	for id, want := range map[string]string{"row-inbox": "inbox", "row-stash": "stash"} {
+		if got := harness.queryString(`SELECT location FROM library_items WHERE id = ?`, id); got != want {
+			t.Errorf("%s is in %q after the down step, want %q", id, got, want)
+		}
+	}
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_item_tags`); got != 1 {
+		t.Errorf("%d item tag rows survived the down step, want 1", got)
 	}
 }
