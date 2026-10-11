@@ -136,6 +136,46 @@ func advanceJobsTestClock(clock *clocktest.Clock, d time.Duration) {
 	}
 }
 
+// waitJobsTestIdleWorkerParked spins until the clock reports want pending
+// timers, so the next Advance fires a timer a worker goroutine waits on. It
+// is bounded by the wall clock rather than by a fixed number of yields: the
+// worker arms its timers after goroutine startup and a database round trip,
+// which a fixed yield budget can outrun on a loaded machine. No sleep is used
+// anywhere, only yields, and the fake-time property below is untouched: the
+// claim still follows from exactly two one-second Advances.
+func waitJobsTestIdleWorkerParked(t *testing.T, clock *clocktest.Clock, want int, message string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if clock.PendingTimers() >= want {
+			return
+		}
+		runtime.Gosched()
+	}
+	t.Fatalf("timed out waiting: %s", message)
+}
+
+// waitJobsTestIdleWorkerClaimed spins until the handler signals its call, so
+// the test observes a claim the fake clock already caused. It is bounded by
+// the wall clock rather than by a fixed number of yields: under load the
+// worker's claim and handler round trips through the database can outlast a
+// yield budget even after the timer fired. No sleep is used anywhere, only
+// yields, and no further Advance happens here, so the property under test
+// stays exact: the claim follows from the single one-second Advance above.
+func waitJobsTestIdleWorkerClaimed(t *testing.T, called <-chan struct{}, message string) {
+	t.Helper()
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		select {
+		case <-called:
+			return
+		default:
+		}
+		runtime.Gosched()
+	}
+	t.Fatalf("timed out waiting: %s", message)
+}
+
 // waitJobsTestRetryScheduled waits until the worker has recorded the given
 // number of failed attempts and put the job back in the queue.
 func waitJobsTestRetryScheduled(t *testing.T, database *core.Database, id string, attempts int) {
@@ -707,17 +747,20 @@ func TestJobsEnqueuedWhileIdleClaimsWithinOneSecond(t *testing.T) {
 	workerDone := make(chan error, 1)
 	go func() { workerDone <- worker.Run(workerCtx) }()
 
+	// Wait until the worker has parked on the fake clock: Run arms its poll
+	// and reclaim timers before its first claim, so two pending timers means
+	// the next Advance fires a timer the worker observes instead of moving
+	// time nobody waits on. The wait uses only the condition the clock
+	// exposes, with no sleep; it changes no fake-time timeout.
+	waitJobsTestIdleWorkerParked(t, clock, 2, "the idle worker parking on the fake clock")
 	advanceJobsTestClock(clock, time.Second)
+	// The first Advance fires the poll timer. Wait until the worker has
+	// re-armed it before enqueueing, so the second Advance fires a timer the
+	// worker waits on too.
+	waitJobsTestIdleWorkerParked(t, clock, 2, "the idle worker re-arming its poll timer")
 	enqueueJobsTestJob(t, queue, "extract", "{}", "")
 	advanceJobsTestClock(clock, time.Second)
-	waitJobsTestCondition(t, func() bool {
-		select {
-		case <-called:
-			return true
-		default:
-			return false
-		}
-	}, "the idle worker claiming within one second")
+	waitJobsTestIdleWorkerClaimed(t, called, "the idle worker claiming within one second")
 	workerStop()
 	<-workerDone
 }
