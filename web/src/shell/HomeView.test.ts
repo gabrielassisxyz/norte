@@ -154,7 +154,7 @@ describe('HomeView', () => {
   it('uses the promised routes for review, curricula, and reading items', async () => {
     const wrapper = await mountHome()
 
-    expect(wrapper.get('.home-review').attributes('href')).toBe('/revisao')
+    expect(wrapper.get('.home-review').attributes('href')).toBe('/review')
     expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curricula/compiler-fundamentals')
     // The reading list arrives in the order the server sorts it: most recently
     // opened first, which is what "continue reading" means.

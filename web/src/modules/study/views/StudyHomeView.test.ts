@@ -205,7 +205,7 @@ describe('StudyHomeView', () => {
   it('routes subjects, review, and the Add menu to the promised routes', async () => {
     const wrapper = await mountStudy()
 
-    expect(wrapper.get('.study-review').attributes('href')).toBe('/revisao')
+    expect(wrapper.get('.study-review').attributes('href')).toBe('/review')
     // A subject opens its own page, not the whole library.
     expect(wrapper.get('.study-grid .nt-cover-card').attributes('href')).toBe('/subjects/kubernetes')
     expect(wrapper.get('#study-search').attributes('placeholder')).toBe('Search courses, notes, questions…')

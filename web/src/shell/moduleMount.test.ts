@@ -59,7 +59,7 @@ describe('a module the server does not serve', () => {
     expect(wrapper.find('#recent-saves').exists()).toBe(false)
     // The study block and the review action are mock-backed and stay.
     expect(wrapper.get('#continue-study').text()).toBe('Continue studying')
-    expect(wrapper.get('.home-review').attributes('href')).toBe('/revisao')
+    expect(wrapper.get('.home-review').attributes('href')).toBe('/review')
   })
 
   it('answers its addresses with the switched-off page instead of a blank screen', async () => {
@@ -73,7 +73,7 @@ describe('a module the server does not serve', () => {
   it('leaves the mock-backed screens rendering', async () => {
     libraryOff()
     for (const [path, title] of [
-      ['/revisao', 'Revisão'],
+      ['/review', 'Review'],
       ['/projects', 'Projects'],
       ['/areas/a-casa', 'Home']
     ] as const) {

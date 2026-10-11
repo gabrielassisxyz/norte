@@ -27,7 +27,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-async function mountReview(path = '/revisao', sources?: Partial<AppSources>) {
+async function mountReview(path = '/review', sources?: Partial<AppSources>) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
@@ -208,7 +208,7 @@ describe('review view', () => {
 
   it('says it is loading before the queue answers', async () => {
     const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/revisao')
+    await router.push('/review')
     await router.isReady()
     const wrapper = mount(ReviewView, {
       global: {
@@ -221,7 +221,7 @@ describe('review view', () => {
   })
 
   it('says there are no cards once the queue answers empty', async () => {
-    const { wrapper } = await mountReview('/revisao', reviewWith({}))
+    const { wrapper } = await mountReview('/review', reviewWith({}))
 
     expect(wrapper.get('.review-state').text()).toContain('Nenhum cartão ainda')
     expect(wrapper.find('button.deck').exists()).toBe(false)
@@ -230,7 +230,7 @@ describe('review view', () => {
   it('says why the queue could not be read, and reads again when asked', async () => {
     let attempts = 0
     const { wrapper } = await mountReview(
-      '/revisao',
+      '/review',
       reviewWith({
         listCards: async () => {
           attempts += 1
@@ -249,7 +249,7 @@ describe('review view', () => {
   })
 
   it('keeps the card in front of the reader when the rating cannot be recorded', async () => {
-    const { wrapper } = await mountReview('/revisao', {
+    const { wrapper } = await mountReview('/review', {
       ...createMockSources(store),
       review: {
         ...createMockSources(store).review,
@@ -315,11 +315,11 @@ describe('review view against the calendar', () => {
   it('moves a card into the due list when the day it is due arrives', async () => {
     const sources = queueDueOn(['2026-10-03', '2026-10-04', '2026-10-05'])
 
-    const { wrapper: onThird } = await mountReview('/revisao', sources)
+    const { wrapper: onThird } = await mountReview('/review', sources)
     expect(deckButton(onThird, 'Tudo de hoje').text()).toContain('1 / 3')
 
     vi.setSystemTime(new Date('2026-10-04T12:00:00Z'))
-    const { wrapper: onFourth } = await mountReview('/revisao', sources)
+    const { wrapper: onFourth } = await mountReview('/review', sources)
     expect(deckButton(onFourth, 'Tudo de hoje').text()).toContain('2 / 3')
   })
 })

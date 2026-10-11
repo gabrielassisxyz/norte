@@ -11,10 +11,10 @@ export { manifest }
 
 export const routes = [
   {
-    path: '/revisao',
-    name: 'revisao',
+    path: '/review',
+    name: 'review',
     component: () => import('./views/ReviewView.vue'),
-    meta: { title: 'Revisão' }
+    meta: { title: 'Review' }
   }
 ]
 
@@ -24,12 +24,12 @@ export function useSidebar(): ModuleSidebar {
   return {
     sections: [
       {
-        id: 'revisao',
+        id: 'review',
         label: 'Revisão',
-        to: { name: 'revisao' },
+        to: { name: 'review' },
         order: 25,
-        activeRouteNames: ['revisao'],
-        // Revisão is a way into Estudo when Estudo is there, and a product of its
+        activeRouteNames: ['review'],
+        // Review is a way into Study when Study is there, and a product of its
         // own when it is not.
         nestUnder: 'study' as const,
         count: () => counts.value?.cards ?? 0
@@ -50,7 +50,7 @@ export function useSearchEntries(): ComputedRef<SearchEntry[]> {
       subtitle: 'Cartões para revisar',
       kind: 'tela',
       keywords: 'flashcards cartões anki',
-      to: { name: 'revisao' }
+      to: { name: 'review' }
     }
   ])
 }

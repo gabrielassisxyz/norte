@@ -227,7 +227,7 @@ async function handleSelectionAction(payload: { action: string; text: string }):
     return
   }
 
-  if (payload.action === 'Create a card' && canReachReview.value) router.push({ name: 'revisao' })
+  if (payload.action === 'Create a card' && canReachReview.value) router.push({ name: 'review' })
 }
 
 async function addPanelAnnotation(text: string): Promise<void> {

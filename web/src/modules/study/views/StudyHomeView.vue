@@ -160,7 +160,7 @@ function openPaletteWith(typed: string): void {
             </RouterLink>
           </div>
         </div>
-        <RouterLink v-if="canReachReview" :to="{ name: 'revisao' }" class="study-review">
+        <RouterLink v-if="canReachReview" :to="{ name: 'review' }" class="study-review">
           <svg
             width="16"
             height="16"
