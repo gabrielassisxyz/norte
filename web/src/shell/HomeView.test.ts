@@ -136,7 +136,7 @@ describe('HomeView', () => {
   it('renders its title and the main home regions', async () => {
     const wrapper = await mountHome()
 
-    expect(wrapper.get('h1').text()).toBe('Sábado, 3 de outubro')
+    expect(wrapper.get('h1').text()).toBe('Saturday, 3 October')
     expect(wrapper.get('#home-search').attributes('placeholder')).toBe('Buscar artigos, notas, cursos…')
     expect(wrapper.get('#continue-study').text()).toBe('Continue studying')
     // The block's see-all names the study module's own home.
@@ -161,12 +161,12 @@ describe('HomeView', () => {
     expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/library/lib-post')
   })
 
-  it('formats saved dates as today, yesterday, and a Portuguese calendar date', async () => {
+  it('formats saved dates as today, yesterday, and a short calendar date', async () => {
     const wrapper = await mountHome()
     const dates = wrapper.findAll('.home-save-date').map((date) => date.text())
 
-    expect(dates).toContain('hoje')
-    expect(dates).toContain('ontem')
+    expect(dates).toContain('today')
+    expect(dates).toContain('yesterday')
     // The oldest of the five recent saves sits four days back.
     expect(dates).toContain(formatShortDate(shiftIsoDate(todayIsoDate(), -4)))
   })
@@ -294,10 +294,10 @@ describe('HomeView', () => {
   })
 
   it('titles the day from the clock, so the home follows the calendar', async () => {
-    expect((await mountHome()).get('h1').text()).toBe('Sábado, 3 de outubro')
+    expect((await mountHome()).get('h1').text()).toBe('Saturday, 3 October')
 
     vi.setSystemTime(new Date('2026-10-04T12:00:00Z'))
-    expect((await mountHome()).get('h1').text()).toBe('Domingo, 4 de outubro')
+    expect((await mountHome()).get('h1').text()).toBe('Sunday, 4 October')
   })
 })
 

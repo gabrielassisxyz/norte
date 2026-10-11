@@ -56,7 +56,7 @@ describe('app shell', () => {
 
       expect(wrapper.find('.app-sidebar').exists()).toBe(true)
       expect(wrapper.find('.app-content main').exists()).toBe(true)
-      expect(wrapper.find('.app-content h1').text()).toBe('Sábado, 3 de outubro')
+      expect(wrapper.find('.app-content h1').text()).toBe('Saturday, 3 October')
     } finally {
       vi.useRealTimers()
     }

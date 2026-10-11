@@ -15,7 +15,7 @@ const state = reactive<{ timeZone: string }>({ timeZone: 'UTC' })
 const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000
 const ISO_DATE = /^(\d{4})-(\d{2})-(\d{2})/
 
-const MONTH_ABBREVIATIONS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez']
+const MONTH_ABBREVIATIONS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 /** Point the calendar at the zone `/api/config` reported. */
 export function setClockTimeZone(timeZone: string): void {
@@ -71,27 +71,27 @@ export function daysBetweenIsoDates(from: string, to: string): number {
   return Math.round((end - start) / DAY_IN_MILLISECONDS)
 }
 
-/** "Sábado, 3 de outubro" — the home screen's own title. */
+/** "Saturday, 3 October" — the home screen's own title. */
 export function formatLongWeekdayDate(isoDate: string): string {
   const value = isoDateValue(isoDate)
   if (value === null) return isoDate
-  const text = new Intl.DateTimeFormat('pt-BR', {
+  const text = new Intl.DateTimeFormat('en-IE', {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     timeZone: 'UTC'
   }).format(new Date(value))
-  return text.replace(/^./, (letter) => letter.toLocaleUpperCase('pt-BR'))
+  return text.replace(/^./, (letter) => letter.toLocaleUpperCase('en'))
 }
 
-/** "outubro", for a band labelled by the month it covers. */
+/** "October", for a band labelled by the month it covers. */
 export function formatMonthName(isoDate: string): string {
   const value = isoDateValue(isoDate)
   if (value === null) return isoDate
-  return new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'UTC' }).format(new Date(value))
+  return new Intl.DateTimeFormat('en', { month: 'long', timeZone: 'UTC' }).format(new Date(value))
 }
 
-/** "3 out" — a date short enough for a list row. */
+/** "3 Oct" — a date short enough for a list row. */
 export function formatShortDate(isoDate: string): string {
   const match = ISO_DATE.exec(isoDate)
   if (!match) return isoDate
@@ -99,12 +99,12 @@ export function formatShortDate(isoDate: string): string {
   return `${Number(day)} ${MONTH_ABBREVIATIONS[Number(month) - 1] ?? month}`
 }
 
-/** "hoje", "ontem", or the short date once a record stops being recent. */
+/** "today", "yesterday", or the short date once a record stops being recent. */
 export function formatRelativeDay(isoDate: string, today: string): string {
   if (isoDateValue(isoDate) === null) return isoDate
   const days = daysBetweenIsoDates(isoDate, today)
-  if (days <= 0) return 'hoje'
-  if (days === 1) return 'ontem'
+  if (days <= 0) return 'today'
+  if (days === 1) return 'yesterday'
   return formatShortDate(isoDate)
 }
 
@@ -117,7 +117,7 @@ export function formatDayAge(isoDate: string, today: string): string {
 export function formatTimeOfDay(timestamp: string): string {
   const parsed = new Date(timestamp)
   if (Number.isNaN(parsed.getTime())) return timestamp
-  return new Intl.DateTimeFormat('pt-BR', {
+  return new Intl.DateTimeFormat('en', {
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,

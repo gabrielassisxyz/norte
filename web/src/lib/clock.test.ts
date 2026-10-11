@@ -22,7 +22,7 @@ afterEach(() => {
 })
 
 describe('the configured zone decides which day it is', () => {
-  // 23:30 in São Paulo is already the next day in UTC, which is the case a
+  // 23:30 in Sao Paulo is already the next day in UTC, which is the case a
   // browser in the wrong zone gets wrong.
   const instant = new Date('2026-10-04T02:30:00Z')
 
@@ -80,21 +80,21 @@ describe('date arithmetic', () => {
   })
 })
 
-describe('Portuguese formatting', () => {
+describe('English formatting', () => {
   it('writes the home title the way the screen shows it', () => {
-    expect(formatLongWeekdayDate('2026-10-03')).toBe('Sábado, 3 de outubro')
-    expect(formatLongWeekdayDate('2026-10-04')).toBe('Domingo, 4 de outubro')
+    expect(formatLongWeekdayDate('2026-10-03')).toBe('Saturday, 3 October')
+    expect(formatLongWeekdayDate('2026-10-04')).toBe('Sunday, 4 October')
   })
 
   it('names a month and a short date', () => {
-    expect(formatMonthName('2026-10-03')).toBe('outubro')
-    expect(formatShortDate('2026-09-09')).toBe('9 set')
+    expect(formatMonthName('2026-10-03')).toBe('October')
+    expect(formatShortDate('2026-09-09')).toBe('9 Sep')
   })
 
-  it('says hoje and ontem before falling back to a date', () => {
-    expect(formatRelativeDay('2026-10-03', '2026-10-03')).toBe('hoje')
-    expect(formatRelativeDay('2026-10-02', '2026-10-03')).toBe('ontem')
-    expect(formatRelativeDay('2026-09-20', '2026-10-03')).toBe('20 set')
+  it('says today and yesterday before falling back to a date', () => {
+    expect(formatRelativeDay('2026-10-03', '2026-10-03')).toBe('today')
+    expect(formatRelativeDay('2026-10-02', '2026-10-03')).toBe('yesterday')
+    expect(formatRelativeDay('2026-09-20', '2026-10-03')).toBe('20 Sep')
   })
 
   it('ages a record in whole days, never negative', () => {
@@ -107,7 +107,7 @@ describe('Portuguese formatting', () => {
     expect(formatTimeOfDay('2026-10-03T12:00:00Z')).toBe('09:00')
     setClockTimeZone('UTC')
     expect(formatTimeOfDay('2026-10-03T12:00:00Z')).toBe('12:00')
-    expect(formatTimeOfDay('agora')).toBe('agora')
+    expect(formatTimeOfDay('not-a-date')).toBe('not-a-date')
   })
 
   it('strips the separators for a key or a seed', () => {
