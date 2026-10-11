@@ -127,7 +127,7 @@ export interface paths {
         /**
          * Read one subject by its slug
          * @description The same answer as reading by id, for the address bar: the subject
-         *     screen is reached at /assuntos/<slug> and has no id to open with.
+         *     screen is reached at /subjects/<slug> and has no id to open with.
          */
         get: operations["getCoreSubjectBySlug"];
         put?: never;
