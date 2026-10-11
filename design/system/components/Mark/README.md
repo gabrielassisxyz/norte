@@ -1,6 +1,6 @@
 # Mark
 
-Trecho destacado no texto do leitor: fundo `lime`, texto `on-lime`. Com `note`, ganha um número em `norte` que liga à `MarginNote` de mesmo número.
+Highlighted passage in the reader body: `lime` background, `on-lime` text. With `note`, it gains a number in `norte` that links to the `MarginNote` with the same number.
 
-- Use dentro do texto corrido do leitor. Destaque sem nota é válido e comum.
-- `lime` só aparece aqui, em `AnnotationItem` e em `Highlight`. Nunca como cor de UI.
+- Use inside the running text of the reader. A highlight without a note is valid and common.
+- `lime` appears only here, in `AnnotationItem`, and in `Highlight`. Never as a UI color.

@@ -1,7 +1,7 @@
 # NavItem
 
-Item da sidebar do app. A sidebar é uma coluna de 232px em `sunken` com a marca no topo, os itens de navegação e um grupo "Fixados".
+One entry of the app sidebar. The sidebar is a 232px column in `sunken` with the brand on top, the navigation entries, and a "Pinned" group.
 
-- Forneça `label`, `href` e, quando houver, `count` (mono, `muted`). O item da página atual recebe `active`: fundo `norte-soft`, texto `norte`, `aria-current="page"`.
-- Rótulos curtos em sentence case. Nada de ícone em tile; nesta sidebar, sem ícone algum.
-- Abaixo de 900px a sidebar some; a navegação vai para a barra superior.
+- Pass `label`, `href`, and, where present, `count` (mono, `muted`). The entry for the current page takes `active`: `norte-soft` background, `norte` text, `aria-current="page"`.
+- Short labels in sentence case. No tile icon; in this sidebar, no icon at all.
+- Below 900px the sidebar disappears; navigation moves to the top bar.

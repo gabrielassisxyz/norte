@@ -1,6 +1,6 @@
 # Stat
 
-Um número que importa: streak, horas, cartões em dia. Valor em `metric` (Commit Mono), rótulo em `body-sm`.
+A number that matters: streak, hours, cards up to date. Value in `metric` (Commit Mono), label in `body-sm`.
 
-- Forneça `value`, `label` e, se fizer sentido, `unit` ("dias", "h") e `delta` ("+3 vs. semana passada").
-- No máximo 3–4 lado a lado, alinhados pela base. Nunca dentro de cartões coloridos nem com ícone em tile.
+- Pass `value`, `label` and, where it fits, `unit` ("days", "h") and `delta` ("+3 vs. last week").
+- At most 3-4 side by side, aligned at the baseline. Never inside tinted cards, never with a tiled icon.

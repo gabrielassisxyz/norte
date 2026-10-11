@@ -1,6 +1,6 @@
 # TextField
 
-Campo de texto com label de verdade; `multiline` vira textarea (anotações, respostas de exercício).
+Text field with a real label; `multiline` turns it into a textarea (annotations, exercise answers).
 
-- Forneça `label` (ou `hideLabel` quando o contexto já diz o que é), `placeholder` que sugere o formato da resposta e `hint` quando ajuda.
-- Borda `line-strong`, fundo `ground`, foco com `focus-ring`. `mono` para números (previsões, porcentagens); `inline` põe label e campo na mesma linha.
+- Pass `label` (or `hideLabel` where the context already says what it is), a `placeholder` that hints at the answer shape, and a `hint` where it helps.
+- `line-strong` border, `ground` background, focus with `focus-ring`. `mono` for numbers (forecasts, percentages); `inline` puts label and field on one row.

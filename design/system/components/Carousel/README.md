@@ -1,7 +1,7 @@
 # Carousel
 
-Linha horizontal de cards (os currículos da home) com setas que andam dois itens por clique; a ponta do próximo card fica visível.
+A horizontal row of cards (home curricula) with arrows that move two entries per click; the edge of the next card stays visible.
 
-- Forneça os itens como `children` (em geral `CoverCard`), `itemWidth` (248), `visible` (4) e `step` (2). `arrowTop` centraliza as setas na altura da capa.
-- A seta de voltar só aparece depois de andar. Acompanhe sempre de um "Ver todos" no `SectionHeader`.
-- Sem autoplay, sem bolinhas de paginação.
+- Provide the entries as `children` (usually `CoverCard`), `itemWidth` (248), `visible` (4) and `step` (2). `arrowTop` centers the arrows at cover height.
+- The back arrow only appears after moving. Always pair with a "See all" action in `SectionHeader`.
+- No autoplay, no pagination dots.

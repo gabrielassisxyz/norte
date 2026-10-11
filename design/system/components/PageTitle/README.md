@@ -1,8 +1,8 @@
 # PageTitle
 
-Abre toda página de trilha, curso, plano ou assunto: o título em `display` e, logo abaixo, a frase de objetivo.
+Opens every path, course, plan, or topic page: the title in `display` with the goal sentence right below.
 
-- Forneça `title` (curto, sem ponto final) e `objective`, escrito como capacidade: "Conseguir escrever um parser recursivo descendente."
-- `meta` recebe tags, `ProgressBar` ou `SyncStatus`; `actions` recebe no máximo um `Button` primary e um secondary.
-- Um por página. Deixe `space-16` acima e `space-9` abaixo; não coloque nada acima do título (sem eyebrow, sem chip, sem ícone em tile). Breadcrumb, se houver, vai na barra superior do app, não colado no título.
-- Abaixo de 640px o título cai para o tamanho de `title`.
+- Pass `title` (short, no trailing period) and `objective`, written as a capability: "Being able to write a recursive descent parser."
+- `meta` takes tags, `ProgressBar`, or `SyncStatus`; `actions` takes at most one primary `Button` and one secondary.
+- One per page. Leave `space-16` above and `space-9` below; put nothing above the title (no eyebrow, no chip, no tile icon). A breadcrumb, if present, lives in the app top bar, not attached to the title.
+- Below 640px the title drops to the `title` size.

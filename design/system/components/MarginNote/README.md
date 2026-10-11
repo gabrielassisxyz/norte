@@ -1,6 +1,6 @@
 # MarginNote
 
-Anotação ligada a um `Mark`, mostrada na margem direita do texto (coluna de 200px, a 40px do texto), alinhada ao parágrafo do trecho.
+An annotation tied to a `Mark`, shown in the right margin of the text (200px column, 40px from the text), aligned with the passage paragraph.
 
-- Forneça `n` (o mesmo do `Mark`) e o texto. Curta: duas a quatro linhas. A versão completa vive em `AnnotationItem`.
-- Abaixo de 1180px a margem some e as notas ficam só no painel de anotações.
+- Provide `n` (the same as `Mark`) and the text. Short: two to four lines. The full version lives in `AnnotationItem`.
+- Below 1180px the margin goes away and notes live only in the annotation panel.

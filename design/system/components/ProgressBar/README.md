@@ -1,6 +1,6 @@
 # ProgressBar
 
-Barra de progresso fina (6px) em `norte` sobre `sunken`, com o valor em mono tabular.
+Slim progress bar (6px) in `norte` over `sunken`, with the value in tabular mono.
 
-- Forneça `value` e `max` (padrão 1). `label` opcional à esquerda; `valueText` substitui a porcentagem ("3/12 lições").
-- Uma barra por item. Sem cores por faixa, sem gradiente, sem animação de preenchimento ao carregar.
+- Pass `value` and `max` (default 1). Optional `label` on the left; `valueText` replaces the percentage ("3/12 lessons").
+- One bar per entry. No band colors, no gradient, no fill animation on load.

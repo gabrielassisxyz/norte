@@ -1,6 +1,6 @@
 # SelectionToolbar
 
-O menu que aparece sobre uma seleção de texto no leitor: Destacar, Anotar, Virar pergunta, Criar cartão.
+The menu that appears over a text selection in the reader: Highlight, Annotate, Turn into a question, Create a card.
 
-- O consumidor posiciona (acima da seleção, alinhado à esquerda, 10px de folga). Única coisa no leitor com `shadow-pop`.
-- "Virar pergunta" manda o trecho para a lista de curiosidade; "Criar cartão" abre um flashcard com o trecho.
+- The consumer positions it (above the selection, left-aligned, 10px of clearance). The only thing in the reader with `shadow-pop`.
+- "Turn into a question" sends the passage to the curiosity list; "Create a card" opens a flashcard holding the passage.

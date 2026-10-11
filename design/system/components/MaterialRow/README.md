@@ -1,6 +1,6 @@
 # MaterialRow
 
-Um material dentro do módulo, na ordem de consumo: nó de status, título (link para o leitor), autor, descrição, tipo e link para o original.
+One material inside the module, in consumption order: status node, title (link to the reader), author, description, type, and link to the original.
 
-- Forneça `n`, `title`, `by`, `type` (Livro, Paper, Post, Curso, Palestra…), `optional`, `status` (`done`, `current`, `next`, `skipped`), `description`, `href` (leitor interno) e `url` (original).
-- Concluído: nó cheio em `norte` com ✓. Atual: anel e "Lendo agora". Pulado: nó tracejado, título `muted` e "Pulado". Opcional aparece no tipo ("Livro · opcional").
+- Pass `n`, `title`, `by`, `type` (Book, Paper, Post, Course, Talk...), `optional`, `status` (`done`, `current`, `next`, `skipped`), `description`, `href` (internal reader), and `url` (original).
+- Done: filled node in `norte` with ✓. Current: ring plus "Reading now". Skipped: dashed node, `muted` title, and "Skipped". Optional shows in the type ("Book · optional").

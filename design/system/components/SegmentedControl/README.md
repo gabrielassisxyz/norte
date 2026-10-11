@@ -1,7 +1,7 @@
 # SegmentedControl
 
-Alterna modos de uma mesma área: "Capas / Tabela" nos assuntos, "Leitura / Exercícios" no leitor de materiais.
+Switches modes of one area: "Covers / Table" for topics, "Reading / Exercises" in the material reader.
 
-- Forneça `options` (`value`, `label`, `count` opcional em mono) e `value` + `onChange`, ou só `defaultValue`.
-- Use para 2–3 modos mutuamente exclusivos da mesma coisa. Para alternar conteúdos de um painel, use `Tabs`.
-- O ativo fica em `surface` sobre o trilho `sunken`; nunca em `norte`.
+- Pass `options` (`value`, `label`, optional mono `count`) and `value` + `onChange`, or only `defaultValue`.
+- Use for 2-3 mutually exclusive modes of the same thing. To switch the content of a panel, use `Tabs`.
+- The active one sits on `surface` over the `sunken` track; never in `norte`.

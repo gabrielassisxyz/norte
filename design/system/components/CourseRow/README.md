@@ -1,7 +1,7 @@
 # CourseRow
 
-Um curso numa lista: título, assunto e origem, progresso, lições e último estudo, em colunas alinhadas.
+One course in a list: title, topic and source, progress, lessons and last study, in aligned columns.
 
-- Forneça `title`, `topic`, `source` (de onde vem: "Livro", "YouTube", "Coursera"), `progress` (0–1), `lessons` ("4/6") e `lastStudied` ("há 2d").
-- Use dentro de uma lista simples sobre `ground`; as linhas se separam por `line`, sem cartão. Números em `data` (mono tabular), alinhados à direita.
-- Abaixo de 560px some a barra e a coluna de último estudo.
+- Provide `title`, `topic`, `source` (where it comes from: "Book", "YouTube", "Coursera"), `progress` (0-1), `lessons` ("4/6") and `lastStudied` ("2d ago").
+- Use inside a plain list over `ground`; rows split with `line`, no card. Numbers use `data` (tabular mono), right-aligned.
+- Below 560px the bar and the last-study column go away.
