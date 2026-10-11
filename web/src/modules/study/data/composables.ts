@@ -35,7 +35,7 @@ export interface CurriculumResource extends AsyncResource<CurriculumDetail | nul
 /**
  * One curriculum, with the library items its modules name already resolved.
  *
- * `enabled` is false while the screen is the empty "novo currículo" form: there
+ * `enabled` is false while the screen is the empty "new curriculum" form: there
  * is nothing to read yet, and reading would answer "not found" for a slug that
  * is not meant to exist.
  */

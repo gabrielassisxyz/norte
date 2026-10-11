@@ -36,7 +36,7 @@ const view = computed(() =>
   detail.value ? buildCurriculumView(detail.value.curriculum, detail.value.materials) : undefined
 )
 
-const shortTitle = computed(() => curriculum.value?.title.split(/[,:]/)[0] ?? 'Novo currículo')
+const shortTitle = computed(() => curriculum.value?.title.split(/[,:]/)[0] ?? 'New curriculum')
 
 // The next required material may be a kind with no reading screen, and then only its source exists.
 const continueTarget = computed(() => {
@@ -83,7 +83,7 @@ async function save(draft: CurriculumDraft): Promise<void> {
     const created = await writing.run(() => study.addCurriculum({ title: draft.title, goal: draft.goal }))
     if (!created) return
     editing.value = false
-    void router.replace(`/curriculos/${created.slug}`)
+    void router.replace(`/curricula/${created.slug}`)
     return
   }
 
@@ -109,7 +109,7 @@ async function save(draft: CurriculumDraft): Promise<void> {
 
 function cancel(): void {
   if (isNew.value) {
-    void router.push('/estudo')
+    void router.push('/study')
     return
   }
   editing.value = false
@@ -119,26 +119,26 @@ function cancel(): void {
 <template>
   <main class="curriculum">
     <div v-if="firstLoad" class="curriculum-inner curriculum-missing" role="status">
-      <p>Carregando o currículo…</p>
+      <p>Loading the curriculum…</p>
     </div>
 
     <div v-else-if="error" class="curriculum-inner curriculum-missing" role="alert">
-      <p>Não foi possível carregar o currículo: {{ error }}</p>
-      <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+      <p>The curriculum could not be loaded: {{ error }}</p>
+      <Button variant="secondary" @click="refresh()">Try again</Button>
     </div>
 
     <div v-else-if="!curriculum && !isNew" class="curriculum-inner curriculum-missing">
       <PageTitle
-        title="Currículo não encontrado"
-        objective="Nenhum currículo responde por este endereço. Ele pode ter sido renomeado."
+        title="Curriculum not found"
+        objective="No curriculum answers at this address. It may have been renamed."
       />
-      <RouterLink class="curriculum-back" to="/estudo">Ver todos os currículos</RouterLink>
+      <RouterLink class="curriculum-back" to="/study">View all curricula</RouterLink>
     </div>
 
     <div v-else class="curriculum-inner">
       <div class="curriculum-top">
-        <nav class="curriculum-crumbs" aria-label="Caminho">
-          <RouterLink class="curriculum-crumb" to="/estudo">Currículos</RouterLink>
+        <nav class="curriculum-crumbs" aria-label="Breadcrumb">
+          <RouterLink class="curriculum-crumb" to="/study">Curricula</RouterLink>
           <span class="curriculum-sep" aria-hidden="true">/</span>
           <span class="curriculum-here">{{ shortTitle }}</span>
         </nav>
@@ -149,9 +149,9 @@ function cancel(): void {
             :aria-pressed="editing"
             @click="editing = !editing"
           >
-            {{ editing ? 'Fechar edição' : 'Editar currículo' }}
+            {{ editing ? 'Close editor' : 'Edit curriculum' }}
           </Button>
-          <RouterLink v-if="!isNew" class="curriculum-new" to="/curriculos/nova">Novo currículo</RouterLink>
+          <RouterLink v-if="!isNew" class="curriculum-new" to="/curricula/new">New curriculum</RouterLink>
           <component
             :is="continueTarget?.external ? 'a' : 'RouterLink'"
             v-if="continueTarget"
@@ -159,7 +159,7 @@ function cancel(): void {
             v-bind="continueTarget.external ? { href: continueTarget.href } : { to: continueTarget.href }"
           >
             <Icon name="play" />
-            Continuar: {{ continueTarget.title }}
+            Continue: {{ continueTarget.title }}
           </component>
         </div>
       </div>
@@ -179,7 +179,7 @@ function cancel(): void {
           <PageTitle v-else-if="curriculum" :title="curriculum.title" :objective="curriculum.goal" />
 
           <p v-if="writing.error.value" class="curriculum-write-error" role="alert">
-            Não foi possível salvar: {{ writing.error.value }}
+            Could not save: {{ writing.error.value }}
           </p>
 
           <template v-if="view">
@@ -188,7 +188,7 @@ function cancel(): void {
               <ProgressBar
                 :value="view.requiredDone"
                 :max="Math.max(view.requiredTotal, 1)"
-                label="Obrigatórios concluídos"
+                label="Required completed"
                 :value-text="`${view.requiredDone}/${view.requiredTotal}`"
               />
             </div>
@@ -196,28 +196,28 @@ function cancel(): void {
         </div>
         <div class="curriculum-cover">
           <Icon name="image" :size="20" />
-          <span>Foto de capa</span>
+          <span>Cover photo</span>
         </div>
       </div>
 
       <template v-if="view && curriculum">
-        <section class="curriculum-band" aria-label="O tamanho do currículo">
-          <Stat :value="view.modules.length" label="Módulos" />
-          <Stat :value="view.materialCount" label="Materiais" />
-          <Stat :value="view.exerciseCount" label="Exercícios" />
+        <section class="curriculum-band" aria-label="The size of the curriculum">
+          <Stat :value="view.modules.length" label="Modules" />
+          <Stat :value="view.materialCount" label="Materials" />
+          <Stat :value="view.exerciseCount" label="Exercises" />
         </section>
 
-        <section class="curriculum-section" aria-labelledby="h-percurso">
-          <h2 id="h-percurso" class="curriculum-h2">Percurso</h2>
+        <section class="curriculum-section" aria-labelledby="h-track">
+          <h2 id="h-track" class="curriculum-h2">Track</h2>
           <p class="curriculum-lead">{{ view.modules.map((module) => module.title).join(', ') }}.</p>
           <ModuleRuler :modules="view.modules" @open="revealModule" />
         </section>
 
-        <section class="curriculum-section" aria-labelledby="h-modulos">
+        <section class="curriculum-section" aria-labelledby="h-modules">
           <div class="curriculum-section-head">
-            <h2 id="h-modulos" class="curriculum-h2">Módulos</h2>
+            <h2 id="h-modules" class="curriculum-h2">Modules</h2>
             <span class="curriculum-note">
-              A numeração é a ordem de consumo. Pulou um opcional? Siga para o próximo item.
+              The numbering is the consumption order. Skipped an optional? Move on to the next item.
             </span>
           </div>
 
@@ -236,7 +236,7 @@ function cancel(): void {
             <p v-if="module.summary" class="curriculum-intro">{{ module.summary }}</p>
 
             <template v-if="module.materials.length > 0">
-              <h3 class="curriculum-h3">Materiais</h3>
+              <h3 class="curriculum-h3">Materials</h3>
               <div class="curriculum-materials">
                 <MaterialRow
                   v-for="material in module.materials"
@@ -256,7 +256,7 @@ function cancel(): void {
             <InstrumentTable v-if="module.instrument" :instrument="module.instrument" />
 
             <template v-if="module.exercises.length > 0">
-              <h3 class="curriculum-h3">Exercícios</h3>
+              <h3 class="curriculum-h3">Exercises</h3>
               <ul class="curriculum-exercises">
                 <li v-for="exercise in module.exercises" :key="exercise.n">
                   <span class="curriculum-exercise-n">{{ exercise.n }}</span>
@@ -269,7 +269,7 @@ function cancel(): void {
             </template>
 
             <template v-if="module.evaluation">
-              <h3 class="curriculum-h3">Avaliação</h3>
+              <h3 class="curriculum-h3">Evaluation</h3>
               <p class="curriculum-intro">{{ module.evaluation }}</p>
             </template>
           </ModuleItem>

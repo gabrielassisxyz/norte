@@ -160,7 +160,7 @@ function restart(): void {
     <div class="review-top">
       <nav class="crumb" aria-label="Navegação estrutural">
         <template v-if="canReachStudy">
-          <RouterLink :to="{ name: 'estudo' }">Estudo</RouterLink>
+          <RouterLink :to="{ name: 'study' }">Estudo</RouterLink>
           <span aria-hidden="true">/</span>
         </template>
         <span class="crumb-current">Revisão</span>

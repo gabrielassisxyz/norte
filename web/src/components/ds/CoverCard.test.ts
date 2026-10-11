@@ -15,12 +15,12 @@ describe('CoverCard', () => {
 
   it('shows the photo and honours coverHeight and meta', () => {
     const wrapper = mount(CoverCard, {
-      props: { title: 'Writing', cover: '/cover.jpg', coverHeight: 200, meta: '169 items · active today', href: '/curriculos/escrita' }
+      props: { title: 'Writing', cover: '/cover.jpg', coverHeight: 200, meta: '169 items · active today', href: '/curricula/escrita' }
     })
 
     expect(wrapper.find('.nt-cover-img').attributes('src')).toBe('/cover.jpg')
     expect(wrapper.find('.nt-cover').attributes('style')).toContain('height: 200px')
     expect(wrapper.find('.nt-cover-meta').text()).toBe('169 items · active today')
-    expect(wrapper.attributes('href')).toBe('/curriculos/escrita')
+    expect(wrapper.attributes('href')).toBe('/curricula/escrita')
   })
 })

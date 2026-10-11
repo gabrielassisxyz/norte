@@ -193,7 +193,7 @@ describe('review view', () => {
   it('links the breadcrumb to its route and names the source without linking it', async () => {
     const { wrapper, router } = await mountReview()
 
-    expect(resolveName(router, wrapper.get('.crumb a').attributes('href'))).toBe('estudo')
+    expect(resolveName(router, wrapper.get('.crumb a').attributes('href'))).toBe('study')
 
     await deckButton(wrapper, 'Tudo de hoje').trigger('click')
     await flushReads()

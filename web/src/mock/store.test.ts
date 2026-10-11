@@ -139,9 +139,9 @@ describe('mock store mutations', () => {
 
     store.updateArea(area.id, { title: 'Leitura compartilhada', intention: 'Compartilhar leituras curtas.' })
     store.archiveArea(area.id)
-    store.updateCurriculum('horta-caseira', { title: 'Horta doméstica', goal: 'Cultivar alimentos em vasos.', status: 'active' })
+    store.updateCurriculum('backyard-garden', { title: 'Horta doméstica', goal: 'Cultivar alimentos em vasos.', status: 'active' })
 
     expect(store.areas[0]).toMatchObject({ id: 'a-leitura-publica', title: 'Leitura compartilhada', archived: true })
-    expect(store.curricula.find((curriculum) => curriculum.slug === 'horta-caseira')).toMatchObject({ title: 'Horta doméstica', status: 'active' })
+    expect(store.curricula.find((curriculum) => curriculum.slug === 'backyard-garden')).toMatchObject({ title: 'Horta doméstica', status: 'active' })
   })
 })

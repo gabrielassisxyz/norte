@@ -18,8 +18,8 @@ const draftTitle = ref(props.title)
 const draftGoal = ref(props.goal)
 const draftModules = ref<EditableModule[]>(props.modules.map((module) => ({ ...module })))
 
-const heading = computed(() => (props.mode === 'new' ? 'Novo currículo' : 'Editar currículo'))
-const saveLabel = computed(() => (props.mode === 'new' ? 'Criar currículo' : 'Salvar'))
+const heading = computed(() => (props.mode === 'new' ? 'New curriculum' : 'Edit curriculum'))
+const saveLabel = computed(() => (props.mode === 'new' ? 'Create curriculum' : 'Save'))
 const cannotSave = computed(() => draftTitle.value.trim().length === 0 || draftGoal.value.trim().length === 0)
 
 function save(): void {
@@ -37,31 +37,31 @@ function save(): void {
     <h1 class="editor-heading">{{ heading }}</h1>
     <TextField
       v-model="draftTitle"
-      label="Título"
-      placeholder="O assunto, como você o chama"
+      label="Title"
+      placeholder="The subject, as you call it"
     />
     <TextField
       v-model="draftGoal"
-      label="Objetivo"
+      label="Objective"
       multiline
       :rows="2"
-      placeholder="Conseguir… (uma capacidade, não um tópico)"
+      placeholder="Be able to… (a capability, not a topic)"
     />
     <div v-if="draftModules.length > 0" class="editor-modules">
       <TextField
         v-for="(module, index) in draftModules"
         :key="module.id"
         v-model="draftModules[index].title"
-        :label="`Módulo ${index + 1}`"
+        :label="`Module ${index + 1}`"
       />
     </div>
     <p class="editor-hint">
-      Materiais e exercícios são adicionados depois, na própria página. Um currículo novo nasce com
-      um módulo vazio.
+      Materials and exercises are added later, on the page itself. A new curriculum starts with
+      one empty module.
     </p>
     <div class="editor-actions">
       <Button variant="primary" :disabled="cannotSave" @click="save">{{ saveLabel }}</Button>
-      <Button variant="secondary" @click="$emit('cancel')">Cancelar</Button>
+      <Button variant="secondary" @click="$emit('cancel')">Cancel</Button>
     </div>
   </form>
 </template>

@@ -13,13 +13,13 @@ describe('CourseRow', () => {
         progress: 0.5,
         lessons: '6/12',
         lastStudied: '2d ago',
-        href: '/curriculos/filas'
+        href: '/curricula/filas'
       }
     })
 
     expect(wrapper.find('.nt-course-title').text()).toBe('Queueing theory')
     expect(wrapper.find('.nt-course-sub').text()).toContain('Systems')
-    expect(wrapper.attributes('href')).toBe('/curriculos/filas')
+    expect(wrapper.attributes('href')).toBe('/curricula/filas')
     expect(wrapper.findAll('.nt-course-num').map((node) => node.text())).toEqual(['6/12', '2d ago'])
     expect(wrapper.find('.nt-progress-fill').attributes('style')).toContain('width: 50%')
   })

@@ -2,9 +2,9 @@ import { createStandInLibraryItem } from '@/mock/standins'
 import type { LibraryItem, ReviewCard, ReviewDeck } from '@/mock/types'
 
 export const reviewDecks: ReviewDeck[] = [
-  { id: 'deck-compiladores', title: 'Construção de linguagens', curriculumSlug: 'fundamentos-de-compiladores', description: 'Conceitos de análise e execução.' },
-  { id: 'deck-tipografia', title: 'Letras e leitura', curriculumSlug: 'tipografia-pratica', description: 'Ritmo, escala e leitura.' },
-  { id: 'deck-aprendizagem', title: 'Aprendizagem', curriculumSlug: 'aprendizagem-autodirigida', description: 'Prática, memória e revisão.' }
+  { id: 'deck-compiladores', title: 'Construção de linguagens', curriculumSlug: 'compiler-fundamentals', description: 'Conceitos de análise e execução.' },
+  { id: 'deck-tipografia', title: 'Letras e leitura', curriculumSlug: 'practical-typography', description: 'Ritmo, escala e leitura.' },
+  { id: 'deck-aprendizagem', title: 'Aprendizagem', curriculumSlug: 'self-directed-learning', description: 'Prática, memória e revisão.' }
 ]
 
 /** Every seeded card is due the day the app is opened, so the deck is never empty. */

@@ -28,7 +28,7 @@ async function mountAt(path: string) {
 }
 
 async function expandAll(wrapper: VueWrapper) {
-  for (const label of ['Library', 'Estudo', 'Projects', 'Notes']) {
+  for (const label of ['Library', 'Study', 'Projects', 'Notes']) {
     await wrapper.find(`button[aria-label="Expandir ${label}"]`).trigger('click')
   }
 }
@@ -100,7 +100,7 @@ describe('app shell', () => {
     expect(targets['Later']).toMatchObject({ name: 'library', query: { v: 'later' } })
     expect(targets['Books']).toMatchObject({ name: 'library', query: { kind: 'book' } })
     expect(targets['Revisão']).toMatchObject({ name: 'revisao' })
-    expect(targets['Currículos']).toMatchObject({ name: 'estudo' })
+    expect(targets['Curricula']).toMatchObject({ name: 'study' })
     expect(targets['Annotations']).toMatchObject({ name: 'notes', query: { tab: 'annotations' } })
     expect(targets['Highlights']).toMatchObject({ name: 'notes', query: { tab: 'highlights' } })
     expect(targets['Home']).toMatchObject({ name: 'area' })
@@ -108,7 +108,7 @@ describe('app shell', () => {
 
     for (const [label, target] of Object.entries(targets)) {
       expect(
-        ['home', 'library', 'notes', 'notes-question-sets', 'revisao', 'estudo', 'area', 'projects'],
+        ['home', 'library', 'notes', 'notes-question-sets', 'revisao', 'study', 'area', 'projects'],
         `sidebar entry "${label}" points at an unknown route`
       ).toContain(target.name)
     }
@@ -184,8 +184,8 @@ describe('app shell', () => {
     expect(wrapper.find('nav[aria-label="Fixados"]').exists()).toBe(false)
     expect(shortcuts.exists()).toBe(true)
     expect(shortcuts.text()).toContain('Library')
-    expect(shortcuts.text()).toContain('Estudo')
-    for (const label of ['Inbox', 'Articles', 'Currículos']) {
+    expect(shortcuts.text()).toContain('Study')
+    for (const label of ['Inbox', 'Articles', 'Curricula']) {
       expect(shortcuts.text()).toContain(label)
     }
     // The prototype's Shortlist shortcut pointed at the whole library and
@@ -208,7 +208,7 @@ describe('app shell', () => {
 
     expect(targets['Inbox']).toBe('/library?v=inbox')
     expect(targets['Articles']).toBe('/library?v=all&kind=article')
-    expect(targets['Currículos']).toBe('/estudo')
+    expect(targets['Curricula']).toBe('/study')
     expect(targets['Shortlist']).toBeUndefined()
 
     const inbox = shortcuts.findAll('a.app-item').find((link) => link.text().includes('Inbox'))

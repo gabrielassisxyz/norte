@@ -25,7 +25,7 @@ describe('curriculum view model', () => {
   })
 
   it('counts required materials and keeps the progress within them', () => {
-    const view = buildCurriculumView(curricula.find((candidate) => candidate.slug === 'horta-caseira')!, libraryItems)
+    const view = buildCurriculumView(curricula.find((candidate) => candidate.slug === 'backyard-garden')!, libraryItems)
 
     expect(view.requiredTotal).toBe(4)
     expect(view.requiredDone).toBe(2)
@@ -33,7 +33,7 @@ describe('curriculum view model', () => {
   })
 
   it('sends a kind nobody reads in the app to its source', () => {
-    const view = buildCurriculumView(curricula.find((candidate) => candidate.slug === 'casa-conectada')!, libraryItems)
+    const view = buildCurriculumView(curricula.find((candidate) => candidate.slug === 'connected-home')!, libraryItems)
     const [video, podcast] = view.modules[0].materials
 
     expect(video.href).toBe('https://example.com/video-network')
@@ -45,7 +45,7 @@ describe('curriculum view model', () => {
     // These ids come from this module's own slice, and the library resolves ids
     // against the server. Offering the in-app reader here would open a reader
     // with nothing in it.
-    const view = buildCurriculumView(curricula.find((candidate) => candidate.slug === 'tipografia-pratica')!, libraryItems)
+    const view = buildCurriculumView(curricula.find((candidate) => candidate.slug === 'practical-typography')!, libraryItems)
 
     expect(view.modules[0].materials[0].href).toBe('https://example.com/post-typography')
     expect(view.modules[0].materials[0].url).toBeUndefined()
@@ -54,7 +54,7 @@ describe('curriculum view model', () => {
   it('sends a readable kind to the reading screen once both read the same place', () => {
     overrideModuleBacking('library', 'mock')
     setEnabledModules([])
-    const view = buildCurriculumView(curricula.find((candidate) => candidate.slug === 'tipografia-pratica')!, libraryItems)
+    const view = buildCurriculumView(curricula.find((candidate) => candidate.slug === 'practical-typography')!, libraryItems)
 
     expect(view.modules[0].materials[0].href).toBe('/material/article/post-typography')
     expect(view.modules[0].materials[0].url).toBe('https://example.com/post-typography')

@@ -43,12 +43,12 @@ const subjects = computed<Subject[]>(() => subjectPage.value?.items ?? [])
 const studyDays = computed<StudyDay[]>(() => home.value?.studyDays ?? [])
 const focus = computed(() => home.value?.focus ?? '')
 
-type SubjectsView = 'capas' | 'tabela'
+type SubjectsView = 'covers' | 'table'
 
-const SUBJECT_VIEWS: SubjectsView[] = ['capas', 'tabela']
+const SUBJECT_VIEWS: SubjectsView[] = ['covers', 'table']
 const VIEW_OPTIONS = [
-  { value: 'capas', label: 'Capas' },
-  { value: 'tabela', label: 'Tabela' }
+  { value: 'covers', label: 'Covers' },
+  { value: 'table', label: 'Table' }
 ]
 
 function isSubjectsView(value: unknown): value is SubjectsView {
@@ -61,12 +61,12 @@ function formatHours(value: number): string {
 
 function formatSignedHours(value: number): string {
   const sign = value < 0 ? '−' : '+'
-  return `${sign}${formatHours(Math.abs(value))} h vs. anterior`
+  return `${sign}${formatHours(Math.abs(value))} h vs. previous week`
 }
 
 const title = computed(() => formatLongWeekdayDate(todayIsoDate()))
 const addOpen = ref(false)
-const subjectsView = ref<SubjectsView>('capas')
+const subjectsView = ref<SubjectsView>('covers')
 
 const levels = computed(() => studyDays.value.map((day) => levelForMinutes(day.minutes)))
 const streak = computed(() => currentStreak(studyDays.value))
@@ -123,7 +123,7 @@ const searchQuery = ref('')
 /**
  * This box used to be an input bound to nothing at all -- it took what was
  * typed and lost it. It hands the query to the command palette instead, the
- * same way Início's does, because the one search Norte has reaches every
+ * same way the home screen's does, because the one search Norte has reaches every
  * module and the subjects and lives on the server.
  */
 function openPaletteWith(typed: string): void {
@@ -136,27 +136,27 @@ function openPaletteWith(typed: string): void {
   <main class="study-view">
     <div class="study-inner">
       <div class="study-topbar">
-        <label class="study-search-label" for="study-search">Buscar</label>
+        <label class="study-search-label" for="study-search">Search</label>
         <input
           id="study-search"
           v-model="searchQuery"
           class="study-search"
           type="search"
-          placeholder="Buscar cursos, notas, perguntas…"
+          placeholder="Search courses, notes, questions…"
           @input="openPaletteWith(($event.target as HTMLInputElement).value)"
           @keydown.enter.prevent="openPaletteWith(searchQuery)"
         />
         <div class="study-add">
           <Button variant="secondary" icon="plus" aria-haspopup="menu" :aria-expanded="addOpen" @click="toggleAdd">
-            Adicionar
+            Add
           </Button>
           <div v-if="addOpen" class="study-menu" role="menu" @keydown.escape="closeAdd">
-            <RouterLink role="menuitem" to="/curriculos/nova" @click="closeAdd">Novo currículo</RouterLink>
+            <RouterLink role="menuitem" to="/curricula/new" @click="closeAdd">New curriculum</RouterLink>
             <RouterLink role="menuitem" :to="{ name: 'home', query: { save: '1' } }" @click="closeAdd">
-              Salvar link na inbox
+              Save link to the inbox
             </RouterLink>
             <RouterLink v-if="canReachNotes" role="menuitem" :to="{ name: 'notes', query: { tab: 'questions' } }" @click="closeAdd">
-              Nova pergunta
+              New question
             </RouterLink>
           </div>
         </div>
@@ -174,52 +174,52 @@ function openPaletteWith(typed: string): void {
           >
             <path d="M5.5 3.5v9l7-4.5z" />
           </svg>
-          Revisar {{ dueCount }} cartões
+          Review {{ dueCount }} cards
         </RouterLink>
       </div>
 
       <PageTitle class="study-title" :title="title" :objective="focus" />
 
-      <p v-if="firstLoad" class="study-state" role="status">Carregando o estudo…</p>
+      <p v-if="firstLoad" class="study-state" role="status">Loading study…</p>
 
       <div v-else-if="error" class="study-state" role="alert">
-        <p>Não foi possível carregar o estudo: {{ error }}</p>
-        <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+        <p>Study could not be loaded: {{ error }}</p>
+        <Button variant="secondary" @click="refresh()">Try again</Button>
       </div>
 
       <template v-else>
-      <section aria-label="Streak e estatísticas" class="study-band">
+      <section aria-label="Streak and statistics" class="study-band">
         <StreakGrid
           :days="levels"
-          label="Dias de estudo nas últimas 26 semanas"
-          caption="Últimas 26 semanas · hoje ainda em aberto"
+          label="Study days over the last 26 weeks"
+          caption="Last 26 weeks · today still open"
         />
         <div class="study-stats">
-          <Stat :value="streak" unit="dias" label="Streak atual" :delta="`recorde: ${record}`" />
+          <Stat :value="streak" unit="days" label="Current streak" :delta="`record: ${record}`" />
           <Stat
             :value="formatHours(weekHours)"
             unit="h"
-            label="Estudadas esta semana"
+            label="Studied this week"
             :delta="formatSignedHours(weekDelta)"
             :delta-tone="weekDelta < 0 ? 'down' : undefined"
           />
-          <Stat :value="dueCount" unit="cartões" label="Para revisar hoje" />
-          <Stat :value="monthly.total" unit="itens" :label="`Concluídos em ${monthLabel}`" />
+          <Stat :value="dueCount" unit="cards" label="To review today" />
+          <Stat :value="monthly.total" unit="items" :label="`Completed in ${monthLabel}`" />
         </div>
       </section>
 
       <section aria-labelledby="study-curricula" class="study-section">
         <div class="study-section-head">
-          <h2 id="study-curricula">Currículos</h2>
+          <h2 id="study-curricula">Curricula</h2>
         </div>
-        <p v-if="curricula.length === 0" class="study-state">Nenhum currículo ainda. Comece criando um.</p>
-        <Carousel v-else label="Currículos" :item-width="248" :visible="4" :step="2">
+        <p v-if="curricula.length === 0" class="study-state">No curricula yet. Start by creating one.</p>
+        <Carousel v-else label="Curricula" :item-width="248" :visible="4" :step="2">
           <CoverCard
             v-for="curriculum in curricula"
             :key="curriculum.slug"
             :title="curriculum.title"
             :description="curriculum.goal"
-            :href="`/curriculos/${curriculum.slug}`"
+            :href="`/curricula/${curriculum.slug}`"
           />
         </Carousel>
       </section>
@@ -227,38 +227,38 @@ function openPaletteWith(typed: string): void {
       <section aria-labelledby="study-subjects" class="study-section">
         <div class="study-section-head">
           <div class="study-section-titles">
-            <h2 id="study-subjects">Assuntos</h2>
+            <h2 id="study-subjects">Subjects</h2>
             <RouterLink v-if="canReachLibrary" :to="{ name: 'library', query: { v: 'all' } }" class="study-see-all">
-              Ver na biblioteca
+              View in the library
             </RouterLink>
             <NewSubjectButton />
           </div>
           <SegmentedControl
             :model-value="subjectsView"
             :options="VIEW_OPTIONS"
-            label="Visualização dos assuntos"
+            label="Subjects view"
             @change="selectView"
           />
         </div>
 
-        <p v-if="subjects.length === 0" class="study-state">Nenhum assunto ainda.</p>
+        <p v-if="subjects.length === 0" class="study-state">No subjects yet.</p>
 
-        <div v-else-if="subjectsView === 'capas'" class="study-grid">
+        <div v-else-if="subjectsView === 'covers'" class="study-grid">
           <CoverCard
             v-for="subject in subjects"
             :key="subject.id"
             :title="subject.name"
-            :meta="`${subjectTotal(subject)} ${subjectTotal(subject) === 1 ? 'item' : 'itens'}`"
+            :meta="`${subjectTotal(subject)} ${subjectTotal(subject) === 1 ? 'item' : 'items'}`"
             :cover-height="200"
             :href="`/subjects/${subject.slug}`"
           />
         </div>
 
-        <div v-else role="table" aria-label="Assuntos e o que cada um reúne" class="study-table">
+        <div v-else role="table" aria-label="Subjects and what each one gathers" class="study-table">
           <div class="study-row study-head-row" role="row">
-            <span class="study-th study-first" role="columnheader">Assunto</span>
+            <span class="study-th study-first" role="columnheader">Subject</span>
             <span v-for="type in subjectTypes" :key="type" class="study-th" role="columnheader">{{ type }}</span>
-            <span class="study-th" role="columnheader">Itens</span>
+            <span class="study-th" role="columnheader">Items</span>
           </div>
           <div v-for="subject in subjects" :key="subject.id" class="study-row" role="row">
             <div role="cell" class="study-first">
@@ -280,7 +280,7 @@ function openPaletteWith(typed: string): void {
           :disabled="loadingMoreSubjects"
           @click="loadMoreSubjects()"
         >
-          {{ loadingMoreSubjects ? 'Carregando…' : 'Carregar mais assuntos' }}
+          {{ loadingMoreSubjects ? 'Loading…' : 'Load more subjects' }}
         </button>
       </section>
       </template>
