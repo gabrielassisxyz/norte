@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest'
 import TrailPath, { type TrailStep } from './TrailPath.vue'
 
 const steps: TrailStep[] = [
-  { title: 'Fundamentos', meta: '4 materiais', status: 'done' },
-  { title: 'Modelos', status: 'current' },
-  { title: 'Prática', status: 'next' },
-  { title: 'Projeto', status: 'locked' }
+  { title: 'Fundamentals', meta: '4 materials', status: 'done' },
+  { title: 'Models', status: 'current' },
+  { title: 'Practice', status: 'next' },
+  { title: 'Project', status: 'locked' }
 ]
 
 describe('TrailPath', () => {
@@ -22,7 +22,9 @@ describe('TrailPath', () => {
       'is-locked'
     ])
     expect(items[1].attributes('aria-current')).toBe('step')
-    expect(items[1].find('.nt-trail-status').text()).toBe('Agora')
+    expect(items[0].find('.nt-trail-status').text()).toBe('Done')
+    expect(items[1].find('.nt-trail-status').text()).toBe('Now')
+    expect(items[3].find('.nt-trail-status').text()).toBe('Locked')
     expect(items[2].find('.nt-trail-status').exists()).toBe(false)
   })
 

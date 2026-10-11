@@ -11,10 +11,10 @@ export interface TrailStep {
 defineProps<{ steps: TrailStep[] }>()
 
 const STATUS_TEXT: Record<TrailStatus, string> = {
-  done: 'Concluído',
-  current: 'Agora',
+  done: 'Done',
+  current: 'Now',
   next: '',
-  locked: 'Bloqueado'
+  locked: 'Locked'
 }
 </script>
 

@@ -81,7 +81,7 @@ describe('curriculum screen', () => {
     expect(rows[1].classes()).toContain('is-current')
     expect(rows[2].classes()).toContain('is-done')
     expect(rows[0].find('.nt-mat-type').text()).toBe('O · Post')
-    expect(rows[2].find('.nt-mat-type').text()).toBe('P · Paper · opcional')
+    expect(rows[2].find('.nt-mat-type').text()).toBe('P · Paper · optional')
   })
 
   it('collapses and expands a module', async () => {

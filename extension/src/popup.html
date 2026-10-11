@@ -1,22 +1,22 @@
 <!doctype html>
-<html lang="pt-BR">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Salvar no Norte</title><link rel="stylesheet" href="style.css"></head>
+<html lang="en">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Save to Norte</title><link rel="stylesheet" href="style.css"></head>
 <body>
-<header><strong>Norte</strong><a href="settings.html" target="_blank">Configurações</a></header>
+<header><strong>Norte</strong><a href="settings.html" target="_blank">Settings</a></header>
 <main>
-<h1 id="title">Salvar página</h1>
+<h1 id="title">Save the page</h1>
 <form id="save-form">
-<label for="reason">Por que salvei <span>(opcional)</span></label>
-<input id="reason" maxlength="10000" autocomplete="off" placeholder="O que vale lembrar?">
-<label for="search">Vincular a um assunto ou foco <span>(opcional)</span></label>
-<input id="search" type="search" placeholder="Buscar assunto" autocomplete="off">
-<select id="link" aria-label="Assunto ou foco"><option value="">Sem vínculo</option></select>
+<label for="reason">Why am I saving this? <span>(optional)</span></label>
+<input id="reason" maxlength="10000" autocomplete="off" placeholder="Why am I saving this?">
+<label for="search">Link to a subject or focus <span>(optional)</span></label>
+<input id="search" type="search" placeholder="Search for a subject" autocomplete="off">
+<select id="link" aria-label="Subject or focus"><option value="">No link</option></select>
 <p id="targets-status" class="muted" role="status"></p>
-<button id="save" type="submit" autofocus>Salvar</button>
+<button id="save" type="submit" autofocus>Save</button>
 </form>
 <p id="status" role="status" aria-live="polite"></p>
-<a id="configure" href="settings.html" target="_blank" hidden>configure o servidor</a>
-<a id="reader" target="_blank" hidden>Abrir na biblioteca</a>
+<a id="configure" href="settings.html" target="_blank" hidden>configure the server</a>
+<a id="reader" target="_blank" hidden>Open in the library</a>
 </main>
 <script type="module" src="popup.js"></script>
 </body>

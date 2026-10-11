@@ -20,7 +20,7 @@ withDefaults(
       <img v-if="cover" :src="cover" alt="" class="nt-cover-img" />
       <template v-else>
         <Icon name="image" :size="20" />
-        <span>Foto de capa</span>
+        <span>Cover photo</span>
       </template>
     </div>
     <div>

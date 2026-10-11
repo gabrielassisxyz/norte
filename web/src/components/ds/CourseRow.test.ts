@@ -7,25 +7,25 @@ describe('CourseRow', () => {
   it('lays out title, topic, source and the numeric columns', () => {
     const wrapper = mount(CourseRow, {
       props: {
-        title: 'Teoria de filas',
-        topic: 'Sistemas',
-        source: 'Livro',
+        title: 'Queueing theory',
+        topic: 'Systems',
+        source: 'Book',
         progress: 0.5,
         lessons: '6/12',
-        lastStudied: 'há 2d',
+        lastStudied: '2d ago',
         href: '/curriculos/filas'
       }
     })
 
-    expect(wrapper.find('.nt-course-title').text()).toBe('Teoria de filas')
-    expect(wrapper.find('.nt-course-sub').text()).toContain('Sistemas')
+    expect(wrapper.find('.nt-course-title').text()).toBe('Queueing theory')
+    expect(wrapper.find('.nt-course-sub').text()).toContain('Systems')
     expect(wrapper.attributes('href')).toBe('/curriculos/filas')
-    expect(wrapper.findAll('.nt-course-num').map((node) => node.text())).toEqual(['6/12', 'há 2d'])
+    expect(wrapper.findAll('.nt-course-num').map((node) => node.text())).toEqual(['6/12', '2d ago'])
     expect(wrapper.find('.nt-progress-fill').attributes('style')).toContain('width: 50%')
   })
 
   it('falls back to a percentage and an em dash without lessons or a last study', () => {
-    const wrapper = mount(CourseRow, { props: { title: 'Escrita', progress: 0.25 } })
+    const wrapper = mount(CourseRow, { props: { title: 'Writing', progress: 0.25 } })
 
     expect(wrapper.findAll('.nt-course-num').map((node) => node.text())).toEqual(['25%', '—'])
   })

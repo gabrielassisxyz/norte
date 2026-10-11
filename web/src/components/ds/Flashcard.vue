@@ -21,10 +21,10 @@ const props = withDefaults(
 const emit = defineEmits<{ reveal: []; rate: [rating: Rating] }>()
 
 const RATINGS: { value: Rating; label: string }[] = [
-  { value: 'again', label: 'De novo' },
-  { value: 'hard', label: 'Difícil' },
-  { value: 'good', label: 'Bom' },
-  { value: 'easy', label: 'Fácil' }
+  { value: 'again', label: 'Again' },
+  { value: 'hard', label: 'Hard' },
+  { value: 'good', label: 'Good' },
+  { value: 'easy', label: 'Easy' }
 ]
 
 const shown = ref(props.revealed)
@@ -83,9 +83,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     </template>
     <div v-else class="nt-card-reveal">
       <button type="button" class="nt-btn nt-btn-primary nt-btn-md" @click="reveal">
-        Mostrar resposta
+        Show answer
       </button>
-      <span class="nt-kbd">espaço</span>
+      <span class="nt-kbd">space</span>
     </div>
   </section>
 </template>

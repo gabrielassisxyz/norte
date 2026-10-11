@@ -3,7 +3,7 @@ import { computed } from 'vue'
 
 const props = defineProps<{ note?: number; href?: string }>()
 
-const target = computed(() => props.href ?? `#nota-${props.note}`)
+const target = computed(() => props.href ?? `#note-${props.note}`)
 </script>
 
 <template>
@@ -11,7 +11,7 @@ const target = computed(() => props.href ?? `#nota-${props.note}`)
     v-if="note != null"
     class="nt-mark-ref"
     :href="target"
-    :aria-label="`Anotação ${note}`"
+    :aria-label="`Annotation ${note}`"
     >{{ note }}</a
   >
 </template>

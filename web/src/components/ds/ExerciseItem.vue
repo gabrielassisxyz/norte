@@ -23,7 +23,7 @@ const number = computed(() => String(props.n).padStart(2, '0'))
     <span class="nt-ex-n">
       <Icon v-if="done" name="check" :size="14" />
       <template v-else>{{ number }}</template>
-      <span v-if="done" class="nt-vh">Feito</span>
+      <span v-if="done" class="nt-vh">Done</span>
     </span>
     <div class="nt-ex-main">
       <div class="nt-ex-kind">{{ kind }}</div>
@@ -33,7 +33,7 @@ const number = computed(() => String(props.n).padStart(2, '0'))
         <slot />
       </div>
       <div v-if="done" class="nt-ex-meta">
-        <span class="nt-ex-ok">Feito</span>
+        <span class="nt-ex-ok">Done</span>
         <span v-if="time" class="nt-mono">{{ time }}</span>
       </div>
     </div>

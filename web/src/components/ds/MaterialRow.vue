@@ -19,17 +19,17 @@ withDefaults(
 )
 
 const STATE_TEXT: Partial<Record<MaterialStatus, string>> = {
-  current: 'Lendo agora',
-  skipped: 'Pulado'
+  current: 'Reading now',
+  skipped: 'Skipped'
 }
 </script>
 
 <template>
   <div class="nt-mat" :class="`is-${status}`">
-    <span class="nt-mat-node" :title="status === 'done' ? 'Concluído' : undefined">
+    <span class="nt-mat-node" :title="status === 'done' ? 'Done' : undefined">
       <Icon v-if="status === 'done'" name="check" :size="12" />
       <template v-else>{{ n }}</template>
-      <span v-if="status === 'done'" class="nt-vh">Concluído</span>
+      <span v-if="status === 'done'" class="nt-vh">Done</span>
     </span>
     <div class="nt-mat-main">
       <div class="nt-mat-line">
@@ -39,8 +39,8 @@ const STATE_TEXT: Partial<Record<MaterialStatus, string>> = {
       </div>
       <p v-if="description" class="nt-mat-desc">{{ description }}</p>
     </div>
-    <span class="nt-mat-type">{{ optional ? `${type} · opcional` : type }}</span>
-    <a v-if="url" class="nt-mat-ext" :href="url" aria-label="Abrir material original">
+    <span class="nt-mat-type">{{ optional ? `${type} · optional` : type }}</span>
+    <a v-if="url" class="nt-mat-ext" :href="url" aria-label="Open the original material">
       <Icon name="external" />
     </a>
     <span v-else />

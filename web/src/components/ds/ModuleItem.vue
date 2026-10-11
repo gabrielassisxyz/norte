@@ -40,7 +40,7 @@ function toggle(): void {
         <span class="nt-mod-title">{{ title }}</span>
         <span v-if="meta" class="nt-mod-meta">{{ meta }}</span>
       </span>
-      <span class="nt-mod-status">{{ statusText ?? (status === 'done' ? 'Concluído' : '') }}</span>
+      <span class="nt-mod-status">{{ statusText ?? (status === 'done' ? 'Done' : '') }}</span>
       <Icon name="chevronDown" :size="20" class="nt-mod-chev" :class="{ 'is-open': isOpen }" />
     </button>
     <div v-if="isOpen" class="nt-mod-body">
