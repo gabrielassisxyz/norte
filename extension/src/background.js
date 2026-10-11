@@ -12,6 +12,6 @@ browserAPI.runtime.onMessage.addListener((message, sender, respond) => {
   else if (message.type === 'targets') {
     task = configuredOrigin(browserAPI).then((origin) => origin ? loadTargets(origin, message.query ?? '') : []);
   } else return false;
-  task.then(respond, () => respond({ error: 'Não foi possível carregar os vínculos.' }));
+  task.then(respond, () => respond({ error: 'The links could not be loaded.' }));
   return true;
 });

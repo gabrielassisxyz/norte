@@ -15,7 +15,7 @@ function render(stored) {
   if (result?.state === 'saving') staleTimer = setTimeout(() => render(result), Math.max(result.deadline - Date.now(), 0) + 1);
   submitting = result?.state === 'saving';
   element('save').disabled = !available || submitting;
-  element('status').textContent = submitting ? 'Salvando…' : result?.state === 'saved' ? 'salvo' : result?.message ?? '';
+  element('status').textContent = submitting ? 'Saving…' : result?.state === 'saved' ? 'saved' : result?.message ?? '';
   element('configure').hidden = result?.message !== CONFIGURE;
   element('reader').hidden = result?.state !== 'saved';
   if (result?.state === 'saved') element('reader').href = `${result.origin}/library/${result.id}`;
@@ -30,7 +30,7 @@ async function targets() {
   const selected = element('link').selectedOptions[0];
   const options = result.map((target) => new Option(target.title, target.id));
   if (selected?.value && !result.some((target) => target.id === selected.value)) options.unshift(selected.cloneNode(true));
-  element('link').replaceChildren(new Option('Sem vínculo', ''), ...options);
+  element('link').replaceChildren(new Option('No link', ''), ...options);
   element('link').value = selected?.value ?? '';
 }
 
@@ -44,20 +44,20 @@ element('save-form').addEventListener('submit', (event) => {
   render({ state: 'saving' });
   browserAPI.runtime.sendMessage({ type: 'save', tab: { id: tab.id, url: tab.url },
     fields: { reason: element('reason').value, link_to: element('link').value } })
-    .then(render, () => render({ state: 'error', message: 'Não foi possível salvar. Tente novamente.' }));
+    .then(render, () => render({ state: 'error', message: 'Could not save. Try again.' }));
 });
 
 let searchTimer;
 element('search').addEventListener('input', () => {
   clearTimeout(searchTimer);
   searchTimer = setTimeout(() => targets().catch(() => {
-    element('targets-status').textContent = 'Não foi possível carregar os vínculos.';
+    element('targets-status').textContent = 'The links could not be loaded.';
   }), 150);
 });
 
 async function initialize() {
   [tab] = await browserAPI.tabs.query({ active: true, currentWindow: true });
-  element('title').textContent = tab?.title || 'Salvar página';
+  element('title').textContent = tab?.title || 'Save the page';
   if (!tab || !readableURL(tab.url)) return render({ state: 'error', message: CANNOT_READ });
   if (!await configuredOrigin(browserAPI)) return render({ state: 'error', message: CONFIGURE });
   available = true;
@@ -66,4 +66,4 @@ async function initialize() {
   element('save').focus();
   await targets();
 }
-initialize().catch(() => render({ state: 'error', message: 'Não foi possível abrir o Norte. Tente novamente.' }));
+initialize().catch(() => render({ state: 'error', message: 'Norte could not be opened. Try again.' }));
