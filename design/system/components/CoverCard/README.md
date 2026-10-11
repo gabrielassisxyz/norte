@@ -1,7 +1,7 @@
 # CoverCard
 
-Card de uma coleção com capa: currículos e assuntos. A capa é a única caixa; título e descrição ficam soltos embaixo.
+A collection card with a cover: curricula and topics. The cover is the only box; title and description sit loose below.
 
-- Forneça `title`, `description` (objetivo do currículo, cortado em 2 linhas) ou `meta` (assunto: "169 itens · ativo hoje"), `href` e `cover` (URL da foto). Sem `cover`, aparece o espaço "Foto de capa".
-- Proporção ~3:2 (`coverHeight` 168 para 248px de largura; 200 em grades de 3). Sem progresso, contagens ou "próximo" no card: isso fica na página do currículo.
-- Nunca dentro de outro card, nunca com borda colorida ou sombra.
+- Provide `title`, `description` (curriculum goal, clamped to 2 lines) or `meta` (topic: "169 entries - active today"), `href` and `cover` (photo URL). Without `cover`, the "Cover photo" slot appears.
+- Ratio about 3:2 (`coverHeight` 168 for 248px width; 200 in 3-column grids). No progress, counts or "next" on the card: that lives on the curriculum page.
+- Never inside another card, never with a colored border or a shadow.

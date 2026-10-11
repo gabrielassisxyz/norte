@@ -1,7 +1,7 @@
 # QuestionItem
 
-Uma entrada da lista de curiosidade: uma pergunta classificada por 5W1H (O quê, Por quê, Quem, Quando, Onde, Como).
+One entry in the curiosity list: a question classified by 5W1H (What, Why, Who, When, Where, How).
 
-- Forneça `kind`, `question` (termina com "?"), `status` (`open` ou `answered`), `answer` quando respondida, `topic` e `age` ("há 3d").
-- O tipo aparece em `label-sm`/`norte` na coluna da esquerda, sem chip nem ícone. Respondida mostra ✓ e a palavra em `success`.
-- Listas de perguntas são linhas separadas por `line`, como `CourseRow`.
+- Pass `kind`, `question` (ends with "?"), `status` (`open` or `answered`), `answer` once answered, `topic`, and `age` ("3d ago").
+- The kind shows in `label-sm`/`norte` in the left column, with no chip or icon. An answered question shows ✓ and the word in `success`.
+- Question lists are rows separated by `line`, like `CourseRow`.

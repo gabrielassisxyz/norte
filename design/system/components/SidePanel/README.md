@@ -1,6 +1,7 @@
 # SidePanel
 
-Painel lateral do leitor com abas (Nota, Anotações), recolhível para um trilho de 48px com atalhos e contadores.
+Reader side panel with tabs (Note, Annotations), collapsible to a 48px rail with shortcuts and counters.
 
-- Forneça `tabs` (`value`, `label`, `count`, `icon`: `note` ou `comment`) e `panels` com o conteúdo de cada aba. Controlado (`value`, `collapsed`) ou não (`defaultValue`, `defaultCollapsed`).
-- 380px de largura, fundo `surface`, borda esquerda `line`. Some por completo no modo Exercícios.
+- Pass `tabs` (`value`, `label`, `count`, `icon`: `note` or `comment`) and `panels` with the content of each tab. Controlled (`value`, `collapsed`) or uncontrolled (`defaultValue`, `defaultCollapsed`).
+- 380px wide, `surface` background, left `line` border. Hidden entirely in Exercises mode.
+- The collapsed rail exposes "Open the panel"; the open panel exposes "Collapse the panel".

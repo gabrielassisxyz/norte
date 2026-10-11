@@ -1,7 +1,7 @@
 # Flashcard
 
-Revisão espaçada no estilo Anki: frente, resposta revelada, e quatro botões de avaliação com o próximo intervalo.
+Anki-style spaced review: front, revealed answer, and four rating buttons with the next interval.
 
-- Forneça `deck`, `position` ("12/40"), `front`, `back`, `intervals` (os quatro próximos intervalos) e `onRate(rating)`.
-- Antes de revelar: só a frente e "Mostrar resposta" (primary) com a dica de tecla. Depois: a resposta abaixo de um divisor e os botões "De novo / Difícil / Bom / Fácil" — "Bom" é o primary, "De novo" tem rótulo em `danger`.
-- Atalhos: espaço revela; 1–4 avaliam. A troca é um crossfade de 200ms, nunca flip 3D.
+- Provide `deck`, `position` ("12/40"), `front`, `back`, `intervals` (the four coming intervals) and `onRate(rating)`.
+- Before reveal: only the front and "Show answer" (primary) with the key cue. After: the answer below a divider and the "Again" / "Hard" / "Good" / "Easy" buttons - "Good" is primary, "Again" has its label in `danger`.
+- Shortcuts: "space" reveals; 1-4 rate. The swap is a 200ms crossfade, never a 3D flip.

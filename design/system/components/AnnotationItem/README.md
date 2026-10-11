@@ -1,6 +1,6 @@
 # AnnotationItem
 
-Item da lista de anotações do painel. Três formas: ligada a um trecho (trecho + nota + número da margem), só destaque (trecho + "Só destaque" + "+ Anotar este trecho") e solta (selo "Sem trecho"; ou "virou pergunta").
+An entry of the annotation panel list. Three shapes: linked to a passage (passage + note + margin number), highlight only (passage + "Highlight only" + "+ Annotate this passage"), and loose (badge "No passage"; or "No passage · became a question").
 
-- Forneça `quote` e/ou `note`, `n` quando há nota de margem, `location` (seção, capítulo, página) e `time`.
-- O `kind` é inferido; passe `question` para uma anotação que virou pergunta da lista de curiosidade.
+- Provide `quote` and/or `note`, `n` for the margin number, `location` (section, chapter, page) and `time`.
+- `kind` resolves on its own; pass `question` for an annotation that became a curiosity-list question.

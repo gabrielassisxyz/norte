@@ -1,7 +1,7 @@
 # StreakGrid
 
-O histórico de estudo como grade de dias (colunas = semanas), na rampa `streak-0` a `streak-4` do próprio cobalto.
+Study history as a day grid (columns = weeks), on the cobalt ramp from `streak-0` to `streak-4`.
 
-- Forneça `days`: um nível 0–4 por dia em ordem cronológica, começando num domingo. `caption` diz o período ("Últimas 26 semanas").
-- Células de 12px, gap de 3px, `radius-xs`. Uma só rampa de cor; nunca verde-GitHub, nunca multicolor.
-- Combine com `Stat` (streak atual) logo acima; o grid nunca é o único lugar onde o número aparece.
+- Pass `days`: one level 0-4 per day in chronological order, starting on a Sunday. `caption` names the span ("Last 26 weeks").
+- 12px cells, 3px gap, `radius-xs`. One color ramp only; never GitHub green, never multicolor.
+- Pair with `Stat` (current streak) right above; the grid is never the only place the number shows. Falls back to the accessible label "Study history"; the scale reads "less"/"more".

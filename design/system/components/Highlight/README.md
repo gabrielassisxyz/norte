@@ -1,7 +1,7 @@
 # Highlight
 
-Um trecho destacado de uma fonte (livro, artigo, vídeo), com timestamp clicável e a nota pessoal abaixo.
+A passage marked in a source (book, article, video), with a clickable timestamp and a personal note below.
 
-- Forneça `quote`, `source` e, para vídeo ou áudio, `timestamp` ("12:47") com `href` para o ponto exato. `note` é a sua interpretação.
-- O destaque é o fundo `lime` com texto `on-lime`: o único lugar onde lime aparece. Sem aspas decorativas, sem borda lateral colorida.
-- Timestamp em mono, cor `link`.
+- Provide `quote`, `source` and, for video or audio, `timestamp` ("12:47") with `href` to the exact point. `note` holds your own take.
+- Marking uses a `lime` background with `on-lime` text: the only place `lime` appears. No decorative quotes, no colored side border.
+- Timestamp in mono, `link` color.

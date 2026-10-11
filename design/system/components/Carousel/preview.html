@@ -1,6 +1,6 @@
-<!-- @dsCard group="Coleções" height=330 -->
+<!-- @dsCard group="Collections" height=330 -->
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head><meta charset="utf-8"><title>Carousel — preview</title>
 <style>#root { padding: 24px;  } </style>
 </head>
@@ -10,8 +10,8 @@
   var N = window.Norte, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(
   h('div', { style: { maxWidth: 560, margin: '0 24px' } },
-    h(N.Carousel, { itemWidth: 160, visible: 3, step: 1, arrowTop: 40, label: 'Currículos' },
-      ['Compiladores', 'Matemática para ML', 'Harmonia no violão', 'Sistemas distribuídos', 'Tipografia'].map(function (t) { return h(N.CoverCard, { key: t, title: t, coverHeight: 112 }); })))
+    h(N.Carousel, { itemWidth: 160, visible: 3, step: 1, arrowTop: 40, label: 'Trails' },
+      ['Compilers', 'Math for ML', 'Guitar harmony', 'Distributed systems', 'Typography'].map(function (t) { return h(N.CoverCard, { key: t, title: t, coverHeight: 112 }); })))
   );
 </script>
 </body>

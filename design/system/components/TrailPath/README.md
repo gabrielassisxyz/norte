@@ -1,7 +1,7 @@
 # TrailPath
 
-Uma trilha como sequência vertical de passos (cursos, módulos ou marcos), cada um com status.
+A trail as a vertical sequence of steps (courses, modules, or milestones), each with a status.
 
-- Forneça `steps`: `{ title, meta?, status }` com `status` em `done`, `current`, `next` ou `locked`.
-- Concluído: nó cheio em `norte` com ✓; atual: anel `norte` e a palavra "Agora"; bloqueado: nó tracejado e a palavra. Um único `current` por trilha.
-- O fio entre passos fica `norte` só no trecho concluído. Sem cartões por passo.
+- Pass `steps`: `{ title, meta?, status }` with `status` set to `done`, `current`, `next`, or `locked`.
+- Finished: solid `norte` node with a check; current: `norte` ring plus the word "Now"; locked: dashed node plus the word "Locked". A single `current` per trail. Finished steps also read "Done".
+- The thread between steps turns `norte` only along the finished stretch. No cards per step.

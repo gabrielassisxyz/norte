@@ -1,105 +1,105 @@
-Norte é uma plataforma de cursos pessoal: um lugar só para trilhas, cursos, assuntos, planos, revisões espaçadas, notas e perguntas que valem a pena perseguir. Tudo começa por um **objetivo** — cada trilha, curso e plano abre com o que se quer conseguir fazer ao final. A interface é silenciosa e precisa; o título carrega a página.
+Norte is a personal course platform: a single place for trails, courses, topics, plans, spaced reviews, notes, and questions worth pursuing. Everything starts from an **objective** — each trail, course, and plan opens with what you want to be able to do by the end. The interface is quiet and precise; the title carries the page.
 
-## Princípios
+## Principles
 
-1. **Objetivo primeiro.** Toda página de trilha, curso ou plano abre com `PageTitle`: título em `display`, logo abaixo a frase de objetivo em `body-lg` / `ink-2` ("Quero conseguir…"). Progresso, tags e ações vêm depois.
-2. **O título é o herói.** Não existe hero, banner nem ilustração. O título em `display` (64px, Schibsted 750) com `space-16` acima e `space-9` abaixo é o momento focal. Um por página.
-3. **Um acento, usado com parcimônia.** `norte` (cobalto) marca o que é atual, acionável ou concluído. Se tudo é azul, nada é. `lime` existe só como marca-texto.
-4. **Local first, sem cerimônia.** O estado de sincronização aparece pequeno (`SyncStatus`), nunca como modal. O app funciona offline; isso não precisa ser anunciado.
-5. **Densidade honesta.** Listas são listas: linhas separadas por `line`, sem cartões. Números alinham em colunas, em mono tabular. A exceção são coleções com capa (currículos, assuntos), que usam `CoverCard`.
-6. **Pouca informação por vez.** Na home e nos cards, só o que ajuda a escolher (capa, título, objetivo). Progresso, contagens e "próximo" moram na página da coleção.
-7. **Aprender de memória.** Exercícios ficam numa aba própria que esconde o texto e as anotações. Nada de responder com o original ao lado.
+1. **Objective first.** Every trail, course, or plan page opens with `PageTitle`: the title in `display`, right below it the objective sentence in `body-lg` / `ink-2` ("I want to be able to…"). Progress, tags, and actions come after.
+2. **The title is the hero.** No hero, banner, or illustration. The `display` title (64px, Schibsted 750) with `space-16` above and `space-9` below is the focal moment. One per page.
+3. **One accent, used sparingly.** `norte` (cobalt) marks what is current, actionable, or done. If everything is blue, nothing is. `lime` exists only as a highlighter.
+4. **Local first, no ceremony.** The sync state appears small (`SyncStatus`), never as a modal. The app works offline; that needs no announcement.
+5. **Honest density.** Lists are lists: rows separated by `line`, no cards. Numbers align in columns, in tabular mono. The exception is collections with a cover (curricula, topics), which use `CoverCard`.
+6. **Little information at a time.** On the home screen and in cards, only what helps choose (cover, title, objective). Progress, counts, and "next" live on the collection page.
+7. **Learn from memory.** Exercises live in their own tab, which hides the text and the annotations. No answering with the original beside it.
 
-## Conteúdo e voz
+## Content and voice
 
-- Português do Brasil, segunda pessoa implícita, frases curtas. "Revisar 12 cartões", não "Vamos revisar seus cartões!".
-- Sentence case em tudo: títulos, botões, abas. Nunca CAIXA ALTA forçada em rótulos.
-- Botões começam com verbo: "Começar revisão", "Adicionar nota", "Marcar como feito".
-- Objetivos são escritos como capacidade: "Conseguir escrever um parser recursivo", não "Aprender parsers".
-- Perguntas da lista de curiosidade seguem 5W1H — O quê, Por quê, Quem, Quando, Onde, Como — e terminam com "?".
-- Sem emoji na interface, sem exclamações, sem superlativos.
-- Números: "3/12", "68%", "12:47", "42 dias" — sempre em `data` ou `metric`.
+- English, second person implied, short sentences. "Review 12 cards", not "Let's review your cards!".
+- Sentence case everywhere: titles, buttons, tabs. Never forced ALL CAPS in labels.
+- Buttons start with a verb: "Start review", "Add note", "Mark as done".
+- Objectives are written as capability: "Be able to write a recursive parser", not "Learn parsers".
+- Curiosity list questions follow 5W1H — What, Why, Who, When, Where, How — and end with "?".
+- No emoji in the interface, no exclamation marks, no superlatives.
+- Numbers: "3/12", "68%", "12:47", "42 days" — always in `data` or `metric`.
 
-## Tipografia
+## Typography
 
-- **Títulos e UI:** Schibsted Grotesk (variável, `--font-display`). `display` para o título da página, `title` para páginas secundárias, `heading` para seções, `subheading` para títulos de linha e de cartão, `label`/`label-sm` para todo controle.
-- **Texto:** Geist (variável, `--font-sans`). `body` para texto corrido, sempre em coluna de no máximo `65ch`, com entrelinha 26px. `body-lg` para a linha de objetivo e leitura longa.
-- **Mono:** Commit Mono (`--font-mono`; Iosevka e Cascadia Code como fallback local). Só para números, métricas, timestamps, porcentagens e código. Sempre com `font-variant-numeric: tabular-nums`.
-- Nunca serifa em título. Nunca itálico decorativo. Nunca Space Grotesk.
-- Pesos: títulos entre 650 e 750 com tracking negativo; UI em 550; texto em 400.
+- **Titles and UI:** Schibsted Grotesk (variable, `--font-display`). `display` for the page title, `title` for secondary pages, `heading` for sections, `subheading` for row and card titles, `label`/`label-sm` for every control.
+- **Text:** Geist (variable, `--font-sans`). `body` for running text, always in a column of at most `65ch`, with 26px line spacing. `body-lg` for the objective line and long reading.
+- **Mono:** Commit Mono (`--font-mono`; Iosevka and Cascadia Code as local fallback). Only for numbers, metrics, timestamps, percentages, and code. Always with `font-variant-numeric: tabular-nums`.
+- Never serif in titles. Never decorative italic. Never Space Grotesk.
+- Weights: titles between 650 and 750 with negative tracking; UI at 550; text at 400.
 
-## Cor
+## Color
 
-- Fundo da página é `ground` (branco frio). Painéis e linhas selecionáveis em `surface`; sidebar, trilhos e poços em `sunken`. Nunca creme, bege ou off-white quente.
-- Texto: `ink` para títulos e texto principal, `ink-2` para descrições, `muted` para metadados. Todos passam 4.5:1 sobre `ground`, `surface` e `sunken` nos dois temas. Nunca texto cinza sobre fundo colorido.
-- `norte` é o único acento: botão primário, item atual da trilha, links (`link`), barra de progresso, anel de foco (`focus`). Texto sobre preenchimento norte usa `on-norte`, nunca branco literal (no escuro o norte clareia e o texto fica escuro).
-- `norte-soft` é o fundo de seleção; o texto sobre ele é `norte`.
-- `lime` é só marca-texto: fundo de highlights (`Mark`, `AnnotationItem`, `Highlight`, a amostra do `SelectionToolbar`), com texto `on-lime`. Nunca como texto, borda ou botão.
-- `success` (verde-azulado) e `danger` (vermelho) só para estado, sempre acompanhados de palavra ou ícone. Não existe cor de aviso quente: atraso é `danger`, pendente é `muted`.
-- Streak: `streak-0` a `streak-4`, uma rampa do próprio cobalto. Não use a paleta multicolorida padrão em gráficos; uma série é `norte`, a comparação é `muted`.
-- Proibido: laranja, terracota, gradientes (inclusive roxo→azul), texto em gradiente, brilhos, glassmorphism, blur decorativo.
+- The page background is `ground` (cold white). Panels and selectable rows in `surface`; sidebar, rails, and wells in `sunken`. Never warm off-white tints.
+- Text: `ink` for titles and primary text, `ink-2` for descriptions, `muted` for metadata. All pass 4.5:1 over `ground`, `surface`, and `sunken` in both themes. Never gray text over a colored background.
+- `norte` is the single accent: primary button, current trail entry, links (`link`), progress bar, focus ring (`focus`). Text over a norte fill uses `on-norte`, never a literal white (in the dark theme norte lightens and the text turns dark).
+- `norte-soft` is the selection background; the text over it is `norte`.
+- `lime` is only a highlighter: background of highlights (`Mark`, `AnnotationItem`, `Highlight`, the `SelectionToolbar` sample), with `on-lime` text. Never as text, border, or button.
+- `success` (teal) and `danger` (red) only for state, always accompanied by a word or an icon. There is no warm warning color: late is `danger`, pending is `muted`.
+- Streak: `streak-0` to `streak-4`, a ramp of cobalt itself. Do not use the default multicolor palette in charts; one series is `norte`, the comparison is `muted`.
+- Forbidden: orange, terracotta, gradients (including purple→blue), text in gradients, glows, glassmorphism, decorative blur.
 
-## Espaço e layout
+## Spacing and layout
 
-- Base de 4px, ritmo desigual de propósito. Dentro de componentes: `space-1` a `space-4`. Entre seções: `space-9`. Acima do título da página: `space-16`. Gutter lateral: `space-11`.
-- Coluna de leitura: `max-width: 65ch`. Layouts de lista podem ir até 960px; nunca texto corrido além de 65ch.
-- Estrutura padrão de página: sidebar estreita em `sunken` → coluna principal em `ground` com `PageTitle`, depois seções separadas por `heading`, não por cartões.
-- Nada de cartões aninhados. Um painel (`surface` + borda `line` + `radius-md`) contém linhas; linhas não viram cartões.
-- Seções de página abrem com `SectionHeader`: título + "Ver todos" no lugar de contadores. Controles de visualização (`SegmentedControl`) ficam à direita do mesmo cabeçalho.
+- 4px base, deliberately uneven rhythm. Inside components: `space-1` to `space-4`. Between sections: `space-9`. Above the page title: `space-16`. Side gutter: `space-11`.
+- Reading column: `max-width: 65ch`. List layouts may go up to 960px; never running text beyond 65ch.
+- Default page structure: narrow sidebar in `sunken` → main column in `ground` with `PageTitle`, then sections separated by `heading`, not by cards.
+- No nested cards. One panel (`surface` + `line` border + `radius-md`) holds rows; rows never become cards.
+- Page sections open with `SectionHeader`: title + "See all" instead of counters. View controls (`SegmentedControl`) sit at the right of the same header.
 
-## Capas e imagens
+## Covers and images
 
-- Currículos e assuntos têm foto de capa, proporção ~3:2, cantos `radius-md`, borda `line`. A capa é a única caixa do `CoverCard`; título e descrição ficam soltos embaixo.
-- Fotos reais, escolhidas pelo usuário. Sem ilustração genérica, sem gradiente como capa. Sem foto: o espaço "Foto de capa" em `sunken`.
-- Nenhuma outra imagem decorativa na interface.
+- Curricula and topics have a cover photo, ~3:2 ratio, `radius-md` corners, `line` border. The cover is the only box of the `CoverCard`; title and description sit loose below.
+- Real photos, chosen by the user. No generic illustration, no gradient as a cover. No photo: the "Cover photo" placeholder in `sunken`.
+- No other decorative image in the interface.
 
-## Padrões de tela
+## Screen patterns
 
-**Home (dashboard).** Sidebar (`NavItem`) → barra superior com busca, "Adicionar" e uma ação primária ("Revisar 24 cartões") → `PageTitle` com a data e o foco da semana → faixa de streak (`StreakGrid` + 4 `Stat`) entre duas linhas `line` → Currículos em `Carousel` de `CoverCard` (4 visíveis + a ponta do quinto, anda 2 por clique) → Assuntos em grade de 3 `CoverCard`, com `SegmentedControl` "Capas / Tabela"; a tabela mostra contagens por tipo em mono.
+**Home (dashboard).** Sidebar (`NavItem`) → top bar with search, "Add" and one primary action ("Review 24 cards") → `PageTitle` with the date and the focus of the week → streak strip (`StreakGrid` + 4 `Stat`) between two `line` rows → Curricula in a `CoverCard` `Carousel` (4 visible + the edge of the fifth, moves 2 per click) → Topics in a 3-column `CoverCard` grid, with a "Covers / Table" `SegmentedControl`; the table shows counts by type in mono.
 
-**Currículo.** Caminho "Currículos / Nome" e ações no topo → `PageTitle` com objetivo, uma linha de resumo em mono (duração, carga, materiais) e `ProgressBar` dos obrigatórios; capa à direita → a regra central do currículo em 26px + a carga semanal em `Stat` → "Percurso": uma régua de módulos clicável → `ModuleItem` por módulo, só o atual aberto, com `MaterialRow`s, instrumento, exercícios e avaliação.
+**Curriculum.** "Curricula / Name" breadcrumb and actions at the top → `PageTitle` with objective, one summary row in mono (duration, workload, materials) and the required `ProgressBar`; cover on the right → the central rule of the curriculum in 26px + the weekly load in `Stat` → "Path": a clickable module ruler → one `ModuleItem` per module, only the current one open, with `MaterialRow` entries, instrument, exercises, and assessment.
 
-**Leitor de material.** Barra superior: voltar para o módulo, posição ("item 2/7"), `SegmentedControl` "Leitura / Exercícios" no centro, ação de concluir à direita.
-- *Leitura:* texto em coluna de 600–640px com `Mark` e, a 40px, uma margem de 200px com `MarginNote`s alinhadas ao parágrafo. À direita, `SidePanel` com Nota e Anotações, recolhível para um trilho de 48px. Selecionar texto abre o `SelectionToolbar`.
-- *Exercícios:* texto, margem e painel somem; uma coluna de 680px com título "Exercícios", uma linha lembrando de responder de memória e os `ExerciseItem`s.
-- O que muda por tipo é só o leitor: **post** é um artigo (site, tempo de leitura, título em `title`); **livro** tem barra com sumário, busca, tipografia e marcador, texto paginado com recuo de parágrafo, rodapé com `ProgressBar` e "p. 87 de 304"; **paper** mostra a página em `surface` sobre `sunken`, título, autores, resumo e duas colunas a 13.5px, com seções, páginas, zoom, "Copiar citação" e "PDF original".
-- A Nota é um documento livre sobre o material inteiro; Anotações listam três formas de `AnnotationItem`: ligada a um trecho (com número de margem), só destaque, e solta ("Sem trecho", ou "virou pergunta" quando foi para a lista de curiosidade).
+**Material reader.** Top bar: back to the module, position ("entry 2/7"), "Reading / Exercises" `SegmentedControl` in the center, complete action on the right.
+- *Reading:* text in a 600–640px column with `Mark` and, at 40px, a 200px margin with `MarginNote` entries aligned to the paragraph. On the right, a `SidePanel` with Note and Annotations, collapsible to a 48px rail. Selecting text opens the `SelectionToolbar`.
+- *Exercises:* text, margin, and panel disappear; a 680px column titled "Exercises", one row reminding the reader to answer from memory, and the `ExerciseItem` entries.
+- Only the reader changes by type: **post** is an article (site, reading time, title in `title`); **book** has a bar with table of contents, search, typography, and bookmark, paginated text with paragraph indent, footer with `ProgressBar` and "p. 87 of 304"; **paper** shows the page in `surface` over `sunken`, title, authors, abstract, and two columns at 13.5px, with sections, pages, zoom, "Copy citation", and "Original PDF".
+- The Note is a free-form document about the whole material; Annotations list three `AnnotationItem` shapes: linked to a passage (with margin number), highlight only, and loose ("No passage", or "No passage · became a question" once moved to the curiosity list).
 
-## Bordas, sombras, raios
+## Borders, shadows, radii
 
-- Separação vem de superfície (`ground` vs `sunken`) e de divisores `line` de 1px. Bordas de controles usam `line-strong` (3:1).
-- `shadow-pop` só no que flutua (menus, popovers, command palette, `SelectionToolbar`, as setas do `Carousel`). Nunca a combinação borda fina + sombra larga e difusa em cartões em repouso.
-- Raios pequenos: `radius-sm` (5px) em controles e tags, `radius-md` (8px) no máximo para painéis. `radius-full` só para trilhos de progresso e pontos de status.
-- Sem barra lateral colorida em cartões, sem tile de ícone arredondado acima de títulos, sem chip "eyebrow" acima do título.
+- Separation comes from surfaces (`ground` vs `sunken`) and 1px `line` dividers. Control borders use `line-strong` (3:1).
+- `shadow-pop` only on what floats (floating menu, popovers, command palette, `SelectionToolbar`, the `Carousel` arrows). Never the thin-border + wide diffuse shadow combination on resting cards.
+- Small radii: `radius-sm` (5px) on controls and tags, `radius-md` (8px) at most for panels. `radius-full` only for progress tracks and status dots.
+- No colored sidebar on cards, no rounded icon tile above titles, no "eyebrow" chip above the title.
 
-## Movimento
+## Motion
 
-- Easing `cubic-bezier(0.2, 0, 0, 1)`, 120ms para hover/press, 200ms para abrir e fechar. Sem bounce, sem spring elástico.
-- Nunca animar largura, altura ou posição de layout; anime `opacity` e `transform`. O flip do flashcard é um crossfade, não rotação 3D.
-- Respeite `prefers-reduced-motion`: sem transição.
+- Easing `cubic-bezier(0.2, 0, 0, 1)`, 120ms for hover/press, 200ms for open and close. No bounce, no elastic spring.
+- Never animate layout width, height, or position; animate `opacity` and `transform`. The flashcard flip is a crossfade, not a 3D rotation.
+- Respect `prefers-reduced-motion`: no transitions.
 
-## Foco e acessibilidade
+## Focus and accessibility
 
-- Foco de teclado: `focus-ring` (2px da cor do fundo, depois 2px sólidos de `focus`), via `box-shadow` para acompanhar o raio. Sempre visível com `:focus-visible`.
-- Estados nunca só por cor: concluído tem ✓ ou a palavra, atual tem rótulo, erro tem texto.
-- Alvos de toque com no mínimo 32px de altura (botões têm 36px).
+- Keyboard focus: `focus-ring` (2px of the background color, then 2px solid `focus`), via `box-shadow` to follow the radius. Always visible with `:focus-visible`.
+- States never by color alone: done has ✓ or the word, current has a label, error has text.
+- Touch targets at least 32px tall (buttons are 36px).
 
-## Iconografia
+## Iconography
 
-- Traço de 1.5px, cantos e pontas arredondados, 16px na UI, 18–20px no trilho e no acordeão, herdando `currentColor`. `Norte.Icon` traz os ícones usados até aqui (check, play, plus, lock, arrow, arrowLeft, chevronDown, collapse, expand, external, note, comment, image). Para outros, use Lucide no mesmo traço.
-- Ícone acompanha texto, nunca o substitui em ações principais. Sem ícone decorativo acima de títulos.
-- Sem emoji.
+- 1.5px stroke, rounded corners and caps, 16px in the UI, 18–20px in the rail and the accordion, inheriting `currentColor`. `Norte.Icon` carries the icons used so far (check, play, plus, lock, arrow, arrowLeft, chevronDown, collapse, expand, external, note, comment, image). For others, use Lucide in the same stroke.
+- Icons accompany text, never replace it in primary actions. No decorative icon above titles.
+- No emoji.
 
-## Componentes
+## Components
 
 `window.Norte` (React 18).
 
-- **Estrutura:** `PageTitle` abre toda página; `NavItem` monta a sidebar; `SectionHeader` abre cada seção.
-- **Ações e campos:** `Button`, `SegmentedControl` (modos de uma área), `Tabs` (conteúdos de um painel), `TextField` (texto e textarea com label), `Tag`, `SyncStatus`.
-- **Progresso:** `ProgressBar`, `Stat`, `StreakGrid`.
-- **Coleções:** `CoverCard` e `Carousel` para currículos e assuntos.
-- **Trilhas e currículos:** `TrailPath`, `CourseRow`, `ModuleItem`, `MaterialRow`.
-- **Leitor:** `Mark` e `MarginNote` no texto, `SelectionToolbar` sobre a seleção, `SidePanel` com Nota e Anotações, `AnnotationItem` na lista, `ExerciseItem` na aba de exercícios.
-- **Revisão e curiosidade:** `Flashcard` (estilo Anki), `Highlight` (trecho com timestamp e nota), `QuestionItem` (5W1H).
+- **Structure:** `PageTitle` opens every page; `NavItem` builds the sidebar; `SectionHeader` opens each section.
+- **Actions and fields:** `Button`, `SegmentedControl` (modes of one area), `Tabs` (contents of one panel), `TextField` (text and textarea with label), `Tag`, `SyncStatus`.
+- **Progress:** `ProgressBar`, `Stat`, `StreakGrid`.
+- **Collections:** `CoverCard` and `Carousel` for curricula and topics.
+- **Trails and curricula:** `TrailPath`, `CourseRow`, `ModuleItem`, `MaterialRow`.
+- **Reader:** `Mark` and `MarginNote` in the text, `SelectionToolbar` over the selection, `SidePanel` with Note and Annotations, `AnnotationItem` in the list, `ExerciseItem` in the exercise tab.
+- **Review and curiosity:** `Flashcard` (Anki style), `Highlight` (passage with timestamp and note), `QuestionItem` (5W1H).
 
-Ainda não existem: Select, CommandPalette, Dialog, editor rico da Nota, CommunityPost. Construa-os com os mesmos tokens antes de usá-los.
+Not yet built: Select, CommandPalette, Dialog, the Note rich editor, CommunityPost. Build them with the same tokens before using them.

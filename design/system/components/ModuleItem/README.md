@@ -1,7 +1,7 @@
 # ModuleItem
 
-Um módulo de currículo como acordeão: número, título, duração e contagem, status à direita.
+One syllabus module as an accordion: number, title, duration and count, status on the right.
 
-- Forneça `label` ("01", "Final"), `title`, `meta` ("5 semanas · 7 materiais, 5 obrigatórios"), `status` (`done`, `current`, `next`) e `statusText` ("Em andamento · 1/5").
-- O corpo (`children`) segue a ordem: introdução em `body` / `ink-2` (máx. 65ch), `MaterialRow`s, instrumento (tabela curta), exercícios, avaliação.
-- Só o módulo atual abre por padrão.
+- Pass `label` ("01", "Final"), `title`, `meta` ("5 weeks · 7 materials, 5 required"), `status` (`done`, `current`, `next`), and `statusText` ("In progress · 1/5").
+- The body (`children`) follows this order: intro in `body` / `ink-2` (max 65ch), `MaterialRow`s, instrument (short table), exercises, assessment.
+- Only the current module opens by default.

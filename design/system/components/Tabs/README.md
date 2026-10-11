@@ -1,7 +1,7 @@
 # Tabs
 
-Abas sublinhadas para alternar o conteúdo de um painel (Nota / Anotações).
+Underlined tabs for switching the content of one panel (Note / Annotations).
 
-- Forneça `items` (`value`, `label`, `count` opcional) e `value` + `onChange`, ou `defaultValue`.
-- A aba ativa tem texto `ink` e sublinhado de 2px em `norte`; as outras ficam `muted`.
-- Para trocar o modo de uma área inteira, use `SegmentedControl`.
+- Pass `items` (`value`, `label`, optional `count`) and `value` + `onChange`, or `defaultValue`.
+- The active tab renders in `ink` with a 2px `norte` underline; the rest stay `muted`.
+- To switch the mode of a whole area, use `SegmentedControl`.

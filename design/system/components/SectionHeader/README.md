@@ -1,6 +1,6 @@
 # SectionHeader
 
-Cabeçalho de uma seção de página: título em `heading` e, ao lado, o link "Ver todos". À direita, um controle opcional (`SegmentedControl`, setas).
+Heading of a page section: the title in `heading` with the "View all" link beside it. On the right, an optional control (`SegmentedControl`, arrows).
 
-- Forneça `title`; `actionLabel` + `actionHref` para "Ver todos" (substitui contadores tipo "3 ativos"); `trailing` para o controle.
-- Sem eyebrow, sem ícone, sem descrição longa embaixo. Deixe `space-16` entre seções e `space-6` até o conteúdo.
+- Pass `title`; `actionLabel` + `actionHref` for "View all" (replaces counters like "3 active"); `trailing` for the control.
+- No eyebrow, no icon, no long description below. Leave `space-16` between sections and `space-6` to the content.
