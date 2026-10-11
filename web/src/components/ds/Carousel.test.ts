@@ -27,6 +27,14 @@ describe('Carousel', () => {
     expect(wrapper.findAll('.item')).toHaveLength(6)
   })
 
+  it('names the frame and both arrows in English', () => {
+    const wrapper = mountCarousel(6)
+
+    expect(wrapper.find('.nt-carousel').attributes('aria-label')).toBe('Carousel')
+    expect(wrapper.find('.is-prev').attributes('aria-label')).toBe('Previous')
+    expect(wrapper.find('.is-next').attributes('aria-label')).toBe('Next')
+  })
+
   it('starts with the previous arrow disabled and the next one live', () => {
     const wrapper = mountCarousel(6)
 

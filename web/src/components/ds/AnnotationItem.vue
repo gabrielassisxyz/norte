@@ -14,7 +14,7 @@ const props = defineProps<{
 
 defineEmits<{ addNote: [] }>()
 
-// A trecho with a note is linked, a trecho alone is a bare highlight, and neither is a loose note.
+// A passage with a note is linked, a passage alone is a bare highlight, and neither is a loose note.
 const resolvedKind = computed<AnnotationKind>(() => {
   if (props.kind) return props.kind
   if (!props.quote) return 'loose'
@@ -22,8 +22,8 @@ const resolvedKind = computed<AnnotationKind>(() => {
 })
 
 const badge = computed(() => {
-  if (resolvedKind.value === 'loose') return 'Sem trecho'
-  if (resolvedKind.value === 'question') return 'Sem trecho · virou pergunta'
+  if (resolvedKind.value === 'loose') return 'No passage'
+  if (resolvedKind.value === 'question') return 'No passage · became a question'
   return null
 })
 </script>
@@ -35,7 +35,7 @@ const badge = computed(() => {
     <p v-if="note" class="nt-ann-note">{{ note }}</p>
     <div class="nt-ann-meta">
       <span v-if="n != null" class="nt-ann-n">{{ n }}</span>
-      <span v-if="resolvedKind === 'highlight'">Só destaque</span>
+      <span v-if="resolvedKind === 'highlight'">Highlight only</span>
       <span v-if="location">{{ location }}</span>
       <span v-if="time" class="nt-mono">{{ time }}</span>
     </div>
@@ -45,7 +45,7 @@ const badge = computed(() => {
       class="nt-ann-add"
       @click="$emit('addNote')"
     >
-      + Anotar este trecho
+      + Annotate this passage
     </button>
   </div>
 </template>

@@ -4,10 +4,10 @@ import type { SyncStatusProps } from './types'
 const props = withDefaults(defineProps<SyncStatusProps>(), { state: 'saved' })
 
 const labels: Record<NonNullable<SyncStatusProps['state']>, string> = {
-  saved: 'Salvo localmente',
-  syncing: 'Sincronizando',
-  offline: 'Offline · salvo local',
-  conflict: 'Conflito para revisar'
+  saved: 'Saved locally',
+  syncing: 'Syncing',
+  offline: 'Offline · saved locally',
+  conflict: 'Conflict to review'
 }
 </script>
 

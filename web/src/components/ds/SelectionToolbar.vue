@@ -1,13 +1,13 @@
 <script setup lang="ts">
 withDefaults(defineProps<{ actions?: string[] }>(), {
-  actions: () => ['Destacar', 'Anotar', 'Virar pergunta', 'Criar cartão']
+  actions: () => ['Highlight', 'Annotate', 'Turn into a question', 'Create a card']
 })
 
 defineEmits<{ action: [action: string] }>()
 </script>
 
 <template>
-  <div class="nt-seltool" role="toolbar" aria-label="Ações para o trecho selecionado">
+  <div class="nt-seltool" role="toolbar" aria-label="Actions for the selected passage">
     <button
       v-for="(action, i) in actions"
       :key="action"

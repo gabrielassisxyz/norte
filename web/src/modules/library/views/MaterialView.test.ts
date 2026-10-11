@@ -92,7 +92,7 @@ describe('MaterialView', () => {
     expect(wrapper.find('button[aria-label="Tipografia"]').exists()).toBe(true)
     expect(wrapper.find('.nt-rail').exists()).toBe(true)
     expect(wrapper.find('.nt-panel').exists()).toBe(false)
-    expect(wrapper.find('[aria-label="Abrir painel"]').exists()).toBe(true)
+    expect(wrapper.find('[aria-label="Open the panel"]').exists()).toBe(true)
   })
 
   it('renders the paper in exercises mode and reveals its reading extras after switching', async () => {
@@ -113,10 +113,10 @@ describe('MaterialView', () => {
   it('collapses and reopens the reading panel and switches its tabs', async () => {
     const { wrapper } = await mountAt('/material/article/post-um')
 
-    await wrapper.find('button[aria-label="Recolher painel"]').trigger('click')
+    await wrapper.find('button[aria-label="Collapse the panel"]').trigger('click')
     expect(wrapper.find('.nt-rail').exists()).toBe(true)
 
-    await wrapper.find('button[aria-label^="Abrir Anotações"]').trigger('click')
+    await wrapper.find('button[aria-label^="Open Anotações"]').trigger('click')
     expect(wrapper.find('.nt-panel').exists()).toBe(true)
     expect(wrapper.find('.nt-panel .nt-tab.is-active').text()).toContain('Anotações')
   })

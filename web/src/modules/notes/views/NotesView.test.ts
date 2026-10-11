@@ -314,7 +314,7 @@ describe('NotesView', () => {
     expect(rows).toHaveLength(2)
     // A question written on its own has none of the set's six kinds.
     expect(rows[0].find('.nt-q-kind').exists()).toBe(false)
-    expect(rows[1].get('.nt-q-kind').text()).toBe('Por quê')
+    expect(rows[1].get('.nt-q-kind').text()).toBe('Why')
   })
 
   it('shows a dropped question as discarded rather than open', async () => {
@@ -331,10 +331,10 @@ describe('NotesView', () => {
 
     const rows = wrapper.findAll('.notes-question')
     expect(rows).toHaveLength(3)
-    expect(rows[0].text()).toContain('Aberta')
-    expect(rows[1].text()).toContain('Respondida')
-    expect(rows[2].text()).toContain('Descartada')
-    expect(rows[2].text()).not.toContain('Aberta')
+    expect(rows[0].text()).toContain('Open')
+    expect(rows[1].text()).toContain('Answered')
+    expect(rows[2].text()).toContain('Dropped')
+    expect(rows[2].text()).not.toContain('Open')
   })
 
   it('aborts the list in flight when the filter changes again', async () => {

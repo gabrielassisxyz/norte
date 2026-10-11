@@ -9,16 +9,16 @@ describe('Cover', () => {
 
     expect(wrapper.find('.nt-brand-name').text()).toBe('Norte')
     expect(wrapper.find('.nt-brand-tagline').text()).toBe(
-      'Uma plataforma de cursos pessoal, guiada por objetivos.'
+      'A personal course platform, driven by goals.'
     )
     expect(wrapper.find('.nt-brand-art').attributes('aria-hidden')).toBe('true')
     expect(wrapper.findAll('rect').length).toBeGreaterThan(0)
   })
 
   it('accepts another title and tagline', () => {
-    const wrapper = mount(Cover, { props: { title: 'Estudo', tagline: 'Uma linha curta.' } })
+    const wrapper = mount(Cover, { props: { title: 'Study', tagline: 'A short line.' } })
 
-    expect(wrapper.find('.nt-brand-name').text()).toBe('Estudo')
-    expect(wrapper.find('.nt-brand-tagline').text()).toBe('Uma linha curta.')
+    expect(wrapper.find('.nt-brand-name').text()).toBe('Study')
+    expect(wrapper.find('.nt-brand-tagline').text()).toBe('A short line.')
   })
 })
