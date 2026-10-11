@@ -36,6 +36,27 @@ func (c *Clock) NewTimer(d time.Duration) core.Timer {
 	return timer
 }
 
+// PendingTimers reports how many timers are registered that a future Advance
+// would fire: armed and not yet reached, and not stopped. A test waits on it
+// until a worker goroutine has parked on the clock, so the next Advance fires
+// a timer the worker is actually waiting on instead of moving time nobody
+// observes. Stopped timers are skipped: Stop marks them dead but leaves them
+// listed until an Advance passes their deadline.
+func (c *Clock) PendingTimers() int {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	pending := 0
+	for _, timer := range c.timers {
+		timer.mu.Lock()
+		stopped := timer.stopped
+		timer.mu.Unlock()
+		if !stopped {
+			pending++
+		}
+	}
+	return pending
+}
+
 // Advance moves the clock forward and fires every timer that is due, before it
 // returns. Firing synchronously is the reason this type exists: a test asserts
 // on the effect of a deadline on the line after it moves time, with no sleep
