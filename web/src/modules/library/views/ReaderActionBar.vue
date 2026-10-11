@@ -62,7 +62,7 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <nav ref="bar" class="reader-bar" aria-label="Ações da leitura">
+  <nav ref="bar" class="reader-bar" aria-label="Reading actions">
     <div class="reader-bar-row">
       <button
         v-for="action in locations"
@@ -86,7 +86,7 @@ onBeforeUnmount(() => {
         :disabled="busy"
         @click="$emit('toggle-read')"
       >
-        {{ unread ? 'Lido' : 'Não lido' }}
+        {{ unread ? 'Read' : 'Unread' }}
       </button>
     </div>
     <div class="reader-bar-row reader-bar-module">

@@ -35,12 +35,12 @@ const paperSectionsOpen = ref(false)
 const citationCopied = ref(false)
 
 const kindLabel = computed(() => {
-  if (props.kind === 'book') return 'Livro'
+  if (props.kind === 'book') return 'Book'
   if (props.kind === 'paper') return 'Paper'
   return 'Post'
 })
 
-const sourceHost = computed(() => props.material.url.replace(/^https?:\/\//, '').split('/')[0] || 'fonte local')
+const sourceHost = computed(() => props.material.url.replace(/^https?:\/\//, '').split('/')[0] || 'local source')
 
 function handleSelection(): void {
   if (props.kind !== 'article') return
@@ -78,18 +78,18 @@ async function copyCitation(): Promise<void> {
 </script>
 
 <template>
-  <article v-if="kind === 'article'" class="material-reader reader-post" aria-label="Leitor de post">
+  <article v-if="kind === 'article'" class="material-reader reader-post" aria-label="Article reader">
     <div class="content-grid reader-heading">
       <div class="reader-copy">
         <div class="material-meta">
           <span class="material-mono">{{ sourceHost }}</span>
           <span>{{ kindLabel }}</span>
-          <span>~8 min de leitura</span>
+          <span>~8 min read</span>
         </div>
         <h1 class="reader-title">{{ material.title }}</h1>
         <p class="reader-byline">
           {{ material.author ?? material.site }} ·
-          <a :href="material.url" target="_blank" rel="noreferrer">Abrir original</a>
+          <a :href="material.url" target="_blank" rel="noreferrer">Open the original</a>
         </p>
         <div class="reader-rule" />
       </div>
@@ -118,136 +118,136 @@ async function copyCitation(): Promise<void> {
       </div>
       <div class="content-grid prose-row prose-ending">
         <div class="reader-ending">
-          <span>Fim do post</span>
-          <Button variant="primary" @click="emit('goExercises')">Ir para os exercícios</Button>
+          <span>End of the article</span>
+          <Button variant="primary" @click="emit('goExercises')">Go to the exercises</Button>
         </div>
         <div class="margin" />
       </div>
     </div>
   </article>
 
-  <section v-else-if="kind === 'book'" class="material-reader reader-book" aria-label="Leitor de livro">
+  <section v-else-if="kind === 'book'" class="material-reader reader-book" aria-label="Book reader">
     <h1 class="reader-book-title visually-hidden">{{ material.title }}</h1>
     <div class="reader-toolbar">
       <div class="reader-toolbar-start">
         <button type="button" class="reader-tool reader-tool-with-label" @click="bookContentsOpen = !bookContentsOpen">
           <Icon name="note" />
-          Sumário
+          Contents
         </button>
         <span class="reader-cover" aria-hidden="true" />
         <div class="reader-work-title">
           <strong>{{ material.title }}</strong>
-          <span>{{ material.author ?? material.site }} · Livro</span>
+          <span>{{ material.author ?? material.site }} · Book</span>
         </div>
       </div>
       <div class="reader-toolbar-actions">
-        <button type="button" class="reader-tool" aria-label="Tipografia" :aria-pressed="bookTextSize === 'large'" @click="changeBookTextSize">Aa</button>
-        <button type="button" class="reader-tool" aria-label="Marcar esta página" :aria-pressed="bookPageMarked" @click="bookPageMarked = !bookPageMarked">
+        <button type="button" class="reader-tool" aria-label="Typography" :aria-pressed="bookTextSize === 'large'" @click="changeBookTextSize">Aa</button>
+        <button type="button" class="reader-tool" aria-label="Bookmark this page" :aria-pressed="bookPageMarked" @click="bookPageMarked = !bookPageMarked">
           <Icon name="note" :class="{ 'is-marked': bookPageMarked }" />
         </button>
       </div>
     </div>
-    <div v-if="bookContentsOpen" class="book-contents" aria-label="Sumário">
-      <strong>Sumário</strong>
-      <button type="button" class="book-contents-link">1. Atenção e contexto</button>
-      <button type="button" class="book-contents-link is-current">2. Monitorar a própria leitura</button>
-      <button type="button" class="book-contents-link">3. Praticar com intervalos</button>
+    <div v-if="bookContentsOpen" class="book-contents" aria-label="Contents">
+      <strong>Contents</strong>
+      <button type="button" class="book-contents-link">1. Attention and context</button>
+      <button type="button" class="book-contents-link is-current">2. Watching your own reading</button>
+      <button type="button" class="book-contents-link">3. Practicing with intervals</button>
     </div>
 
     <div class="book-page-scroll">
       <div class="content-grid reader-heading">
         <div class="reader-copy">
-          <div class="material-mono chapter-label">Capítulo 2</div>
+          <div class="material-mono chapter-label">Chapter 2</div>
           <div class="reader-rule" />
         </div>
         <div class="margin" />
       </div>
       <div class="content-grid book-row">
         <div class="book-page" :class="{ 'is-large': bookTextSize === 'large' }">
-          <p class="book-lead">Ler com atenção é perceber quando uma ideia começa a se apoiar em outra.</p>
+          <p class="book-lead">Reading closely means noticing when one idea starts leaning on another.</p>
           <p>
-            A compreensão não aparece apenas quando reconhecemos uma frase. Ela se revela quando
-            conseguimos antecipar a próxima pergunta, explicar uma relação e notar onde ainda há
-            incerteza.
+            Understanding does not arrive the moment we recognize a sentence. It shows when
+            we can anticipate the next question, explain a relation, and notice where
+            uncertainty remains.
           </p>
           <p>
-            Por isso, vale separar duas coisas: <Mark :note="1">entender uma passagem e saber que a entendemos</Mark>.
-            A primeira pode acontecer por familiaridade; a segunda precisa de uma tentativa de
-            recuperação que mostre o que permanece disponível sem o texto.
+            So it pays to separate two things: <Mark :note="1">understanding a passage and knowing that we understood it</Mark>.
+            The first can happen through familiarity; the second needs a recall
+            attempt that shows what stays available without the text.
           </p>
           <p>
-            Uma prática simples é fechar a página ao final de uma seção e escrever três frases de
-            memória. O que ficou claro, o que ficou frágil e qual exemplo poderia contrariar a ideia?
+            A simple practice is to close the page at the end of a section and write three sentences
+            from memory. What stayed clear, what stayed fragile, and which example could argue against the idea?
           </p>
           <p>
-            O registro não precisa ser perfeito. Ele só precisa tornar visível a diferença entre uma
-            impressão de fluência e uma lembrança que consegue guiar uma decisão.
+            The record does not need to be perfect. It only needs to make visible the difference between an
+            impression of fluency and a memory that can guide a decision.
           </p>
           <div class="page-number material-mono">87</div>
         </div>
-        <div class="margin"><div class="margin-note"><span>1</span><span>Uma pergunta curta revela mais que reler a página inteira.</span></div></div>
+        <div class="margin"><div class="margin-note"><span>1</span><span>A short question reveals more than rereading the whole page.</span></div></div>
       </div>
     </div>
     <div class="reader-footer">
-      <button type="button" class="reader-tool" aria-label="Página anterior" disabled>‹</button>
+      <button type="button" class="reader-tool" aria-label="Previous page" disabled>‹</button>
       <ProgressBar :value="87" :max="304" />
-      <span class="material-mono page-progress">p. 87 de 304</span>
-      <span class="reader-footer-hint">~14 min até o fim do capítulo</span>
-      <button type="button" class="reader-tool" aria-label="Próxima página">›</button>
+      <span class="material-mono page-progress">p. 87 of 304</span>
+      <span class="reader-footer-hint">~14 min to the end of the chapter</span>
+      <button type="button" class="reader-tool" aria-label="Next page">›</button>
     </div>
   </section>
 
-  <section v-else class="material-reader reader-paper" aria-label="Leitor de paper">
+  <section v-else class="material-reader reader-paper" aria-label="Paper reader">
     <div class="reader-toolbar">
       <div class="reader-toolbar-start">
         <button type="button" class="reader-tool reader-tool-with-label" @click="paperSectionsOpen = !paperSectionsOpen">
           <Icon name="note" />
-          Seções
+          Sections
         </button>
         <span class="reader-divider" aria-hidden="true" />
-        <button type="button" class="reader-tool" aria-label="Página anterior" :disabled="paperPage === 1" @click="changePaperPage(-1)">‹</button>
+        <button type="button" class="reader-tool" aria-label="Previous page" :disabled="paperPage === 1" @click="changePaperPage(-1)">‹</button>
         <span class="material-mono page-count">{{ paperPage }} / 29</span>
-        <button type="button" class="reader-tool" aria-label="Próxima página" :disabled="paperPage === 29" @click="changePaperPage(1)">›</button>
+        <button type="button" class="reader-tool" aria-label="Next page" :disabled="paperPage === 29" @click="changePaperPage(1)">›</button>
         <span class="reader-divider" aria-hidden="true" />
-        <button type="button" class="reader-tool" aria-label="Diminuir zoom" :disabled="paperZoom === 80" @click="changePaperZoom(-10)">−</button>
+        <button type="button" class="reader-tool" aria-label="Zoom out" :disabled="paperZoom === 80" @click="changePaperZoom(-10)">−</button>
         <span class="material-mono page-count">{{ paperZoom }}%</span>
-        <button type="button" class="reader-tool" aria-label="Aumentar zoom" :disabled="paperZoom === 140" @click="changePaperZoom(10)">+</button>
+        <button type="button" class="reader-tool" aria-label="Zoom in" :disabled="paperZoom === 140" @click="changePaperZoom(10)">+</button>
       </div>
       <div class="reader-toolbar-actions">
-        <button type="button" class="reader-tool reader-copy-citation" @click="copyCitation">{{ citationCopied ? 'Citação copiada' : 'Copiar citação' }}</button>
-        <a class="reader-tool reader-link" :href="material.url" target="_blank" rel="noreferrer">PDF original <Icon name="external" :size="14" /></a>
+        <button type="button" class="reader-tool reader-copy-citation" @click="copyCitation">{{ citationCopied ? 'Quotation copied' : 'Copy the quotation' }}</button>
+        <a class="reader-tool reader-link" :href="material.url" target="_blank" rel="noreferrer">Original PDF <Icon name="external" :size="14" /></a>
       </div>
     </div>
-    <div v-if="paperSectionsOpen" class="paper-sections" aria-label="Seções do paper">
-      <button type="button" class="book-contents-link is-current">Resumo</button>
-      <button type="button" class="book-contents-link">Método</button>
-      <button type="button" class="book-contents-link">Discussão</button>
+    <div v-if="paperSectionsOpen" class="paper-sections" aria-label="Paper sections">
+      <button type="button" class="book-contents-link is-current">Abstract</button>
+      <button type="button" class="book-contents-link">Method</button>
+      <button type="button" class="book-contents-link">Discussion</button>
     </div>
     <div class="paper-page-scroll">
       <div class="paper-pages">
-        <article class="paper-page" aria-label="Página 1">
-          <div class="paper-kicker material-mono">Caderno de pesquisa · 2025 · Vol. 12</div>
+        <article class="paper-page" aria-label="Page 1">
+          <div class="paper-kicker material-mono">Research notebook · 2025 · Vol. 12</div>
           <h1>{{ material.title }}</h1>
           <p class="paper-authors">{{ material.author ?? material.site }}</p>
           <div class="paper-abstract">
-            <strong>Resumo</strong>
-            <p>Um estudo sobre como registros curtos, previsões e revisões sucessivas ajudam a transformar uma leitura em conhecimento utilizável.</p>
+            <strong>Abstract</strong>
+            <p>A study of how short records, predictions, and repeated reviews help turn a reading into usable knowledge.</p>
           </div>
           <div class="paper-columns">
             <div>
-              <h2>Introdução</h2>
-              <p>Explicações rápidas costumam misturar observação, memória e expectativa. Separar essas camadas permite testar uma interpretação antes de tratá-la como fato.</p>
-              <p><Mark :note="1">Registros que preveem um resultado podem ser comparados depois</Mark> e refinados com pouca infraestrutura.</p>
+              <h2>Introduction</h2>
+              <p>Quick explanations tend to mix observation, memory, and expectation. Separating those layers lets you test an interpretation before treating it as fact.</p>
+              <p><Mark :note="1">Records that predict an outcome can be compared later</Mark> and refined with little infrastructure.</p>
             </div>
             <div>
-              <p>O método proposto combina uma pergunta clara, uma tentativa de lembrança e uma revisão do que aconteceu. A sequência deixa um rastro que outras sessões conseguem retomar.</p>
-              <p>O resultado mais importante não é uma resposta final, mas uma hipótese mais precisa sobre o próximo passo.</p>
+              <p>The proposed method combines a clear question, a recall attempt, and a review of what happened. The sequence leaves a trail that other sessions can pick up.</p>
+              <p>The most important result is not a final answer, but a sharper hypothesis about the next step.</p>
             </div>
           </div>
           <div class="page-number material-mono">1</div>
         </article>
-        <div class="margin paper-margin" aria-label="Anotações na margem">
-          <div class="margin-note"><span>1</span><span>Uma previsão explícita ajuda a separar memória de expectativa.</span></div>
+        <div class="margin paper-margin" aria-label="Margin notes">
+          <div class="margin-note"><span>1</span><span>An explicit prediction helps separate memory from expectation.</span></div>
         </div>
       </div>
     </div>

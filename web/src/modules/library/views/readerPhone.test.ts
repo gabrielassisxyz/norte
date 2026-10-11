@@ -17,7 +17,7 @@ import ReaderView from './ReaderView.vue'
 // bar is only the bar once something is in it.
 import '@/modules/notes/index'
 
-const ARTICLE_HTML = '<p>Antes do trecho. O trecho marcado. Depois do trecho.</p>'
+const ARTICLE_HTML = '<p>Before the passage. The marked passage. After the passage.</p>'
 
 /**
  * The reader in its phone shape.
@@ -29,7 +29,7 @@ const ARTICLE_HTML = '<p>Antes do trecho. O trecho marcado. Depois do trecho.</p
  * what it says. Where the bar sits is the Playwright walk's claim.
  */
 function record(overrides: Partial<LibraryItemRecord> = {}): LibraryItemRecord {
-  return libraryRecord({ id: 'item-1', title: 'Um texto guardado', content_html: ARTICLE_HTML, ...overrides })
+  return libraryRecord({ id: 'item-1', title: 'A saved text', content_html: ARTICLE_HTML, ...overrides })
 }
 
 let restoreViewport: () => void
@@ -98,7 +98,7 @@ describe('the reader on a phone', () => {
     const { wrapper } = await mountReader()
 
     expect(wrapper.find('.reader-top-actions').exists()).toBe(false)
-    const bar = wrapper.get('nav[aria-label="Ações da leitura"]')
+    const bar = wrapper.get('nav[aria-label="Reading actions"]')
     for (const action of ['location-inbox', 'location-up_next', 'location-later', 'location-archive', 'location-stash', 'read']) {
       expect(bar.find(`[data-action="${action}"]`).exists()).toBe(true)
     }
@@ -111,7 +111,7 @@ describe('the reader on a phone', () => {
   it('marks the item read from the bar', async () => {
     const { wrapper, library } = await mountReader()
 
-    await wrapper.get('nav[aria-label="Ações da leitura"] [data-action="read"]').trigger('click')
+    await wrapper.get('nav[aria-label="Reading actions"] [data-action="read"]').trigger('click')
     await flushReads()
 
     expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { unread: false } }])
@@ -133,7 +133,7 @@ describe('the reader on a phone', () => {
     // a keyup, which is all the reader used to listen to. This is that case.
     expect(wrapper.get('[data-action="destacar"]').attributes('disabled')).toBeDefined()
 
-    selectInArticle('O trecho marcado.')
+    selectInArticle('The marked passage.')
     document.dispatchEvent(new Event('selectionchange'))
     await settleSelection()
 
@@ -142,14 +142,14 @@ describe('the reader on a phone', () => {
     await flushReads()
 
     expect(notes.calls.addedHighlights).toHaveLength(1)
-    expect(notes.calls.addedHighlights[0].exact).toBe('O trecho marcado.')
-    expect(notes.calls.addedHighlights[0].prefix).toContain('Antes do trecho.')
+    expect(notes.calls.addedHighlights[0].exact).toBe('The marked passage.')
+    expect(notes.calls.addedHighlights[0].prefix).toContain('Before the passage.')
   })
 
   it('reads the selection once per burst of selectionchange, not once per event', async () => {
     const { wrapper } = await mountReader()
 
-    selectInArticle('O trecho marcado.')
+    selectInArticle('The marked passage.')
     for (let i = 0; i < 5; i += 1) document.dispatchEvent(new Event('selectionchange'))
     // Nothing yet: the debounce is what keeps the control from flickering
     // through every passage a dragged handle passes over.
@@ -170,7 +170,7 @@ describe('the reader on a phone', () => {
     expect(sheet().attributes('style')).not.toContain('display: none')
     expect(sheet().find('#notes-reader-annotation').exists()).toBe(true)
 
-    await wrapper.get('[data-action="fechar-notas"]').trigger('click')
+    await wrapper.get('[data-action="close-notes"]').trigger('click')
     expect(sheet().attributes('style')).toContain('display: none')
   })
 
@@ -191,24 +191,24 @@ describe('the reader on a phone', () => {
     await flushReads()
 
     const field = wrapper.get('[data-reader-sheet] #notes-reader-question')
-    await field.setValue('O que isso muda?')
+    await field.setValue('What does this change?')
     await wrapper.get('[data-reader-sheet] [data-action="virar-pergunta"]').trigger('click')
     await flushReads()
 
     expect(notes.calls.addedQuestions).toHaveLength(1)
-    expect(notes.calls.addedQuestions[0].text).toBe('O que isso muda?')
+    expect(notes.calls.addedQuestions[0].text).toBe('What does this change?')
   })
 
   it('keeps the sheet mounted while it is shut, so the marking in the text survives', async () => {
     const { wrapper } = await mountReader({
-      notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'O trecho marcado.' })] }
+      notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'The marked passage.' })] }
     })
 
     // The panel is behind the sheet and it is also what wraps the passage in the
     // article. A `v-if` would undo the marking every time the sheet was closed.
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(1)
     await wrapper.get('[data-action="anotar-abrir"]').trigger('click')
-    await wrapper.get('[data-action="fechar-notas"]').trigger('click')
+    await wrapper.get('[data-action="close-notes"]').trigger('click')
 
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(1)
   })

@@ -1,13 +1,13 @@
 import type { LibraryItemSummary, LibraryKind } from '../data/source'
 
 export const LIBRARY_KIND_LABELS: Record<LibraryKind, string> = {
-  article: 'Artigo',
-  book: 'Livro',
+  article: 'Article',
+  book: 'Book',
   paper: 'PDF',
-  video: 'Vídeo',
+  video: 'Video',
   podcast: 'Podcast',
   newsletter: 'Newsletter',
-  course: 'Curso'
+  course: 'Course'
 }
 
 /** Where a row leads: the API-backed reader, keyed by the item's own id. */
@@ -31,7 +31,7 @@ export function siteOf(item: LibraryItemSummary): string {
   try {
     return new URL(item.canonical_url).hostname.replace(/^www\./, '')
   } catch {
-    return 'fonte desconhecida'
+    return 'unknown source'
   }
 }
 

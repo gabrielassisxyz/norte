@@ -40,11 +40,11 @@ import type {
 const VIEWS: LibraryLocationName[] = ['inbox', 'up_next', 'later', 'archive', 'stash', 'all']
 const VIEW_LABELS: Record<LibraryLocationName, string> = {
   inbox: 'Inbox',
-  up_next: 'Próximos',
-  later: 'Depois',
-  archive: 'Arquivo',
-  stash: 'Reserva',
-  all: 'Tudo'
+  up_next: 'Up Next',
+  later: 'Later',
+  archive: 'Archive',
+  stash: 'Stash',
+  all: 'All'
 }
 
 /**
@@ -91,44 +91,44 @@ const KIND_BY_TYPE: Record<string, LibraryKind> = {
 }
 
 const TYPE_TITLES: Record<LibraryKind, string> = {
-  article: 'Artigos',
-  book: 'Livros',
+  article: 'Articles',
+  book: 'Books',
   paper: 'PDFs',
-  video: 'Vídeos',
+  video: 'Videos',
   podcast: 'Podcasts',
   newsletter: 'Newsletters',
-  course: 'Cursos'
+  course: 'Courses'
 }
 
 /**
- * The kinds as the sidebar's Tipos group names them, for the filter menu.
+ * The kinds as the sidebar's Kinds group names them, for the filter menu.
  *
  * Plural, because the menu picks a set and not an item -- which is also why
  * these are not the singular `KIND_LABELS` a row is tagged with. They are
  * spelled out here rather than imported from the module's `index.ts`: that
  * file pulls in the home blocks and is loaded with the shell, while this view
- * is loaded only when someone opens the Biblioteca.
+ * is loaded only when someone opens the Library.
  */
 const KIND_FILTER_ORDER: LibraryKind[] = ['article', 'book', 'paper', 'video', 'podcast', 'newsletter', 'course']
 
 const KIND_FILTER_LABELS: Record<LibraryKind, string> = {
   article: 'Posts',
-  book: 'Livros',
+  book: 'Books',
   paper: 'Papers',
-  video: 'Vídeos',
+  video: 'Videos',
   podcast: 'Podcasts',
   newsletter: 'Newsletters',
-  course: 'Cursos'
+  course: 'Courses'
 }
 
 const KIND_LABELS: Record<LibraryKind, string> = {
-  article: 'Artigo',
-  book: 'Livro',
+  article: 'Article',
+  book: 'Book',
   paper: 'PDF',
-  video: 'Vídeo',
+  video: 'Video',
   podcast: 'Podcast',
   newsletter: 'Newsletter',
-  course: 'Curso'
+  course: 'Course'
 }
 
 const route = useRoute()
@@ -142,17 +142,17 @@ const phone = usePhoneViewport()
  * `suggestions` is the focus ranking, which the contract spells as
  * `view=suggestions` rather than as a sort because it answers over every
  * location at once. It is one of these choices anyway: to the person reading,
- * "o que ler agora" is one more answer to "in what order", and keeping it as a
+ * "Suggestions" is one more answer to "in what order", and keeping it as a
  * control of its own is what made the header need a second row.
  */
 type SortChoice = LibrarySort | 'suggestions'
 
 const SORT_OPTIONS: Array<{ value: SortChoice; label: string }> = [
-  { value: 'saved_desc', label: 'Mais recentes' },
-  { value: 'saved_asc', label: 'Mais antigos' },
-  { value: 'title', label: 'Título' },
-  { value: 'last_opened_desc', label: 'Abertos recentemente' },
-  { value: 'suggestions', label: 'O que ler agora' }
+  { value: 'saved_desc', label: 'Newest' },
+  { value: 'saved_asc', label: 'Oldest' },
+  { value: 'title', label: 'Title' },
+  { value: 'last_opened_desc', label: 'Recently opened' },
+  { value: 'suggestions', label: 'Suggestions' }
 ]
 
 const DEFAULT_SORT: SortChoice = 'saved_desc'
@@ -231,7 +231,7 @@ const activeKind = computed<LibraryKind | null>(() => {
   return KIND_BY_TYPE[value.toLowerCase()] ?? null
 })
 
-const title = computed(() => (activeKind.value === null ? 'Biblioteca' : TYPE_TITLES[activeKind.value]))
+const title = computed(() => (activeKind.value === null ? 'Library' : TYPE_TITLES[activeKind.value]))
 
 /**
  * A text search is active, which the server answers ranked by relevance.
@@ -304,38 +304,38 @@ const failedLibraryThumbnailSources = ref<Record<string, string>>({})
  */
 const segOptions = computed(() => [
   ...VIEWS.map((view) => ({ value: view, label: VIEW_LABELS[view], count: counts.value?.views[view] ?? 0 })),
-  { value: PENDING_CONNECTIONS_TAB, label: 'Sugestões' }
+  { value: PENDING_CONNECTIONS_TAB, label: 'Pending connections' }
 ])
 
 /** Nothing has arrived yet, as opposed to nothing matching what was asked. */
 const firstLoad = computed(() => loading.value && page.value === null)
 
 const emptyText = computed(() => {
-  if (focusRanked.value) return 'Nada por ler ligado ao que está em foco agora.'
-  if (search.value.trim()) return `Nada encontrado para “${search.value.trim()}”.`
-  if (unreadOnly.value) return 'Tudo lido por aqui.'
-  if (activeView.value === 'inbox') return 'Inbox vazia. O que entrar pela extensão, upload ou feed aparece aqui.'
-  if (activeView.value === 'up_next') return 'Nada escolhido para ler em seguida.'
-  if (activeView.value === 'later') return 'Nada guardado para depois.'
-  if (activeView.value === 'archive') return 'Nada arquivado ainda.'
-  if (activeView.value === 'stash') return 'Nada na reserva.'
-  return 'Nenhum item deste tipo.'
+  if (focusRanked.value) return 'Nothing to read linked to what is in focus right now.'
+  if (search.value.trim()) return `Nothing found for “${search.value.trim()}”.`
+  if (unreadOnly.value) return 'Everything here is read.'
+  if (activeView.value === 'inbox') return 'The inbox is empty. Whatever arrives through the extension, an upload or a feed shows up here.'
+  if (activeView.value === 'up_next') return 'Nothing chosen to read next.'
+  if (activeView.value === 'later') return 'Nothing kept for later.'
+  if (activeView.value === 'archive') return 'Nothing archived yet.'
+  if (activeView.value === 'stash') return 'Nothing stashed yet.'
+  return 'No item of this kind.'
 })
 
 /**
  * How many rows are on screen, which is not how many the location holds.
  *
  * The total is the counts endpoint's answer; this line counts what has been
- * loaded, because that is the number "carregar mais" changes.
+ * loaded, because that is the number "load more" changes.
  */
-const countText = computed(() => `${items.value.length} ${items.value.length === 1 ? 'item' : 'itens'}`)
+const countText = computed(() => `${items.value.length} ${items.value.length === 1 ? 'item' : 'items'}`)
 
 const sortLabel = computed(
   () => SORT_OPTIONS.find((option) => option.value === sortChoice.value)?.label ?? ''
 )
 
 /** The icon has no text, so the order it is set to is said in its name. */
-const sortButtonLabel = computed(() => `Ordenar: ${sortLabel.value}`)
+const sortButtonLabel = computed(() => `Sort: ${sortLabel.value}`)
 
 /** Any filter is set, which is what the filter icon's colour reports. */
 const filtered = computed(() => unreadOnly.value || activeKind.value !== null)
@@ -357,7 +357,7 @@ function setSort(value: SortChoice): void {
 /**
  * Narrow to one kind, or to none.
  *
- * The kind is an address and not local state: the sidebar's Tipos rows link to
+ * The kind is an address and not local state: the sidebar's Kinds rows link to
  * it, the title names it, and a bookmark of "my papers" has to survive a
  * reload. So the menu writes the same `kind` parameter those links carry.
  */
@@ -409,7 +409,7 @@ function sourceOf(item: LibraryItemSummary): string {
   try {
     return new URL(item.canonical_url).hostname.replace(/^www\./, '')
   } catch {
-    return 'fonte desconhecida'
+    return 'unknown source'
   }
 }
 
@@ -427,15 +427,15 @@ function markLibraryThumbnailFailed(item: LibraryItemSummary): void {
 }
 
 function laterTitle(item: LibraryItemSummary): string {
-  return item.location === 'later' ? 'Voltar para a inbox' : 'Depois'
+  return item.location === 'later' ? 'Back to the inbox' : 'Later'
 }
 
 function archiveTitle(item: LibraryItemSummary): string {
-  return item.location === 'archive' ? 'Desarquivar' : 'Arquivar'
+  return item.location === 'archive' ? 'Unarchive' : 'Archive'
 }
 
 function readTitle(item: LibraryItemSummary): string {
-  return item.unread ? 'Marcar como lido' : 'Marcar como não lido'
+  return item.unread ? 'Mark as read' : 'Mark as unread'
 }
 
 /**
@@ -487,7 +487,7 @@ async function makeTask(item: LibraryItemSummary, projectId: string): Promise<vo
   await writing.run(() =>
     projectsSource.addTask({
       projectId,
-      title: `Ler "${item.title}"`,
+      title: `Read "${item.title}"`,
       description: item.url,
       priority: 'P2',
       bucket: 'next'
@@ -554,7 +554,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
   <main class="library">
     <div class="library-head">
       <div class="library-title-row">
-        <Menu class="library-add" label="Adicionar" menu-label="Adicionar" align="left">
+        <Menu class="library-add" label="Add" menu-label="Add" align="left">
           <template #trigger>
             <Icon name="plus" :size="16" />
           </template>
@@ -568,7 +568,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
           class="library-tabs"
           :options="segOptions"
           :model-value="activeTab"
-          label="Estado"
+          label="Status"
           @change="setView"
         />
         <button
@@ -576,26 +576,26 @@ function toggleRowMenu(item: LibraryItemSummary): void {
           type="button"
           class="ghost library-surprise"
           :disabled="drawing.pending.value"
-          title="Abrir um item não lido ao acaso, de preferência longe do foco"
+          title="Open a random unread item, preferably away from the focus"
           @click="openSurprise()"
         >
-          {{ drawing.pending.value ? 'Sorteando…' : 'Surpresa' }}
+          {{ drawing.pending.value ? 'Drawing…' : 'Surprise' }}
         </button>
       </div>
       <div v-if="!showPendingConnections" class="library-tools">
-        <label class="library-search-label" for="library-search">Buscar na biblioteca</label>
+        <label class="library-search-label" for="library-search">Search the library</label>
         <input
           id="library-search"
           v-model="search"
           class="library-search"
           type="search"
           :disabled="focusRanked"
-          placeholder="Buscar por título ou autor…"
+          placeholder="Search by title or author…"
         />
         <Menu
           class="library-sort"
           :label="sortButtonLabel"
-          menu-label="Ordenar"
+          menu-label="Sort"
           :disabled="hasSearchText"
         >
           <template #trigger>
@@ -629,7 +629,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
             {{ option.label }}
           </button>
         </Menu>
-        <Menu class="library-filter" label="Filtrar" menu-label="Filtros" :active="filtered">
+        <Menu class="library-filter" label="Filter" menu-label="Filters" :active="filtered">
           <template #trigger>
             <svg
               width="16"
@@ -656,9 +656,9 @@ function toggleRowMenu(item: LibraryItemSummary): void {
             <span class="library-menu-mark" aria-hidden="true">
               <Icon v-if="unreadOnly" name="check" :size="14" />
             </span>
-            Só não lidos
+            Unread only
           </button>
-          <span class="library-menu-head">Tipo</span>
+          <span class="library-menu-head">Kind</span>
           <button
             type="button"
             role="menuitemradio"
@@ -670,7 +670,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
             <span class="library-menu-mark" aria-hidden="true">
               <Icon v-if="activeKind === null" name="check" :size="14" />
             </span>
-            Todos os tipos
+            Every kind
           </button>
           <button
             v-for="kind in KIND_FILTER_ORDER"
@@ -692,35 +692,35 @@ function toggleRowMenu(item: LibraryItemSummary): void {
     </div>
 
     <div v-if="unreadOnly && !showPendingConnections" class="library-unread">
-      Mostrando só não lidos
-      <button type="button" class="ghost ghost-clear" @click="unreadOnly = false">Limpar</button>
+      Showing unread only
+      <button type="button" class="ghost ghost-clear" @click="unreadOnly = false">Clear</button>
     </div>
 
     <div v-if="focusRanked" class="library-unread">
-      Primeiro o que está ligado ao foco de agora, e os não lidos antes dos lidos
+      First what is linked to the current focus, with unread before read
     </div>
 
     <p v-if="nothingToDraw" class="library-unread library-nothing" role="status">
-      Nada para ler
+      Nothing to read
     </p>
 
     <p v-if="drawing.error.value" class="library-write-error" role="alert">
-      Não foi possível sortear: {{ drawing.error.value }}
-      <button type="button" class="ghost ghost-clear" @click="drawing.clear()">Fechar</button>
+      Could not draw: {{ drawing.error.value }}
+      <button type="button" class="ghost ghost-clear" @click="drawing.clear()">Close</button>
     </p>
 
     <p v-if="writing.error.value" class="library-write-error" role="alert">
-      Não foi possível salvar: {{ writing.error.value }}
-      <button type="button" class="ghost ghost-clear" @click="writing.clear()">Fechar</button>
+      Could not save: {{ writing.error.value }}
+      <button type="button" class="ghost ghost-clear" @click="writing.clear()">Close</button>
     </p>
 
     <LibrarySuggestions v-if="showPendingConnections" />
 
-    <div v-else-if="firstLoad" class="library-loading" role="status">Carregando a biblioteca…</div>
+    <div v-else-if="firstLoad" class="library-loading" role="status">Loading the library…</div>
 
     <div v-else-if="error" class="library-error" role="alert">
-      <p>Não foi possível carregar a biblioteca: {{ error }}</p>
-      <button type="button" class="ghost" @click="refresh()">Tentar de novo</button>
+      <p>The library could not be loaded: {{ error }}</p>
+      <button type="button" class="ghost" @click="refresh()">Try again</button>
     </div>
 
     <div v-else class="library-list">
@@ -742,7 +742,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
             @error="markLibraryThumbnailFailed(item)"
           />
           <Icon v-else name="note" :size="18" />
-          <span v-if="item.unread" class="item-dot" role="img" aria-label="Não lido" />
+          <span v-if="item.unread" class="item-dot" role="img" aria-label="Unread" />
         </div>
         <div class="item-main">
           <RouterLink class="item-title" :to="readerTarget(item)">{{ item.title }}</RouterLink>
@@ -758,9 +758,9 @@ function toggleRowMenu(item: LibraryItemSummary): void {
           v-if="phone"
           type="button"
           class="act item-more"
-          data-action="mais"
-          :title="`Ações de ${item.title}`"
-          :aria-label="`Ações de ${item.title}`"
+          data-action="more"
+          :title="`Actions for ${item.title}`"
+          :aria-label="`Actions for ${item.title}`"
           :aria-expanded="openRowMenu === item.id"
           @click="toggleRowMenu(item)"
         >
@@ -776,7 +776,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
             <circle cx="8" cy="12.5" r="1.3" />
           </svg>
         </button>
-        <div v-if="rowActionsShown(item)" class="actions" role="group" aria-label="Ações">
+        <div v-if="rowActionsShown(item)" class="actions" role="group" aria-label="Actions">
           <button type="button" class="act" :title="laterTitle(item)" :aria-label="laterTitle(item)" @click="toggleLater(item)">
             <svg
               width="16"
@@ -834,29 +834,29 @@ function toggleRowMenu(item: LibraryItemSummary): void {
             <button
               type="button"
               class="act"
-              title="Ligar a um assunto"
-              aria-label="Ligar a um assunto"
+              title="Link to a subject"
+              aria-label="Link to a subject"
               :aria-expanded="openSubjectPicker === item.id"
               @click="toggleSubjectPicker(item)"
             >
               <Icon name="plus" :size="16" />
             </button>
-            <div v-if="openSubjectPicker === item.id" class="act-menu act-menu-wide" aria-label="Assuntos">
-              <SubjectPicker label="Assunto" @select="linkToSubject(item, $event)" />
+            <div v-if="openSubjectPicker === item.id" class="act-menu act-menu-wide" aria-label="Subjects">
+              <SubjectPicker label="Subject" @select="linkToSubject(item, $event)" />
             </div>
           </div>
           <div v-if="canMakeTask" class="act-wrap">
             <button
               type="button"
               class="act"
-              title="Criar tarefa"
-              aria-label="Criar tarefa"
+              title="Create a task"
+              aria-label="Create a task"
               :aria-expanded="openAction === item.id"
               @click="toggleAction(item)"
             >
               <Icon name="check" :size="16" />
             </button>
-            <div v-if="openAction === item.id" class="act-menu" role="menu" aria-label="Projetos">
+            <div v-if="openAction === item.id" class="act-menu" role="menu" aria-label="Projects">
               <button
                 v-for="project in projectOptions"
                 :key="project.id"
@@ -882,10 +882,10 @@ function toggleRowMenu(item: LibraryItemSummary): void {
         :disabled="loadingMore"
         @click="loadMore()"
       >
-        {{ loadingMore ? 'Carregando…' : 'Carregar mais' }}
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
       </button>
       <span v-if="loadMoreError" class="library-more-error" role="alert">
-        Não foi possível carregar mais: {{ loadMoreError }}
+        Could not load more: {{ loadMoreError }}
       </span>
       <span class="mono library-count">{{ countText }}</span>
     </div>
@@ -906,7 +906,7 @@ function toggleRowMenu(item: LibraryItemSummary): void {
 }
 
 /*
-  The header is one row: the title, the tabs and Surpresa on the left, the
+  The header is one row: the title, the tabs and Surprise on the left, the
   search box and the two menus on the right.
 
   It fits because the search box is the only elastic thing in it -- it is laid

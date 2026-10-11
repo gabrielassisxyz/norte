@@ -31,7 +31,7 @@ function matchesFilters(item: LibraryItemSummary, filters: LibraryListQuery): bo
 export interface LibraryItemsResource extends AsyncResource<LibraryItemList> {
   /** True while a further page is on its way, which is not the first load. */
   loadingMore: Ref<boolean>
-  /** Why the last "carregar mais" failed, or null; the loaded rows stay. */
+  /** Why the last "load more" failed, or null; the loaded rows stay. */
   loadMoreError: Ref<string | null>
   /** Whether the server said there is another page. */
   hasMore: ComputedRef<boolean>
@@ -52,7 +52,7 @@ export interface LibraryItemsResource extends AsyncResource<LibraryItemList> {
  * already moved past. `enabled` is for a caller in another module, which may
  * only read the library while the mount rule allows that crossing.
  *
- * `data.items` is every page loaded so far, not the last one: "carregar mais"
+ * `data.items` is every page loaded so far, not the last one: "load more"
  * is how the screen grows a list, so the value it renders has to be the whole
  * list and `next_cursor` the frontier of it.
  */

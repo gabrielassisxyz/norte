@@ -75,9 +75,9 @@ describe('the library API source: list', () => {
   })
 
   it('throws the sentence the server wrote when the call fails', async () => {
-    fetchStub.mockResolvedValue(json({ error: { code: 'bad_cursor', message: 'cursor inválido' } }, 400))
+    fetchStub.mockResolvedValue(json({ error: { code: 'bad_cursor', message: 'invalid cursor' } }, 400))
 
-    await expect(createApiLibrarySource().listItems({ cursor: 'x' }, signal)).rejects.toThrow('cursor inválido')
+    await expect(createApiLibrarySource().listItems({ cursor: 'x' }, signal)).rejects.toThrow('invalid cursor')
   })
 
   it('falls back to the code, then to the status, when no sentence came', async () => {
@@ -91,7 +91,7 @@ describe('the library API source: list', () => {
 
 describe('the library API source: one item', () => {
   it('reads the item by its id', async () => {
-    fetchStub.mockResolvedValue(json({ id: 'item-1', title: 'Um texto' }))
+    fetchStub.mockResolvedValue(json({ id: 'item-1', title: 'A text' }))
     const record = await createApiLibrarySource().getItem('item-1', signal)
 
     expect(lastUrl().pathname).toBe('/api/library/items/item-1')
@@ -99,17 +99,17 @@ describe('the library API source: one item', () => {
   })
 
   it('answers null for not_found and throws for any other failure', async () => {
-    fetchStub.mockResolvedValueOnce(json({ error: { code: 'not_found', message: 'sem item' } }, 404))
+    fetchStub.mockResolvedValueOnce(json({ error: { code: 'not_found', message: 'no such item' } }, 404))
     expect(await createApiLibrarySource().getItem('nope', signal)).toBeNull()
 
-    fetchStub.mockResolvedValueOnce(json({ error: { code: 'internal', message: 'quebrou' } }, 500))
-    await expect(createApiLibrarySource().getItem('item-1', signal)).rejects.toThrow('quebrou')
+    fetchStub.mockResolvedValueOnce(json({ error: { code: 'internal', message: 'it broke' } }, 500))
+    await expect(createApiLibrarySource().getItem('item-1', signal)).rejects.toThrow('it broke')
   })
 })
 
 describe('the library API source: counts and writes', () => {
   it('reads the counts endpoint', async () => {
-    const counts = { views: { inbox: 3, depois: 1, arquivo: 0, tudo: 4 }, kinds: {} }
+    const counts = { views: { inbox: 3, later: 1, archive: 0, all: 4 }, kinds: {} }
     fetchStub.mockResolvedValue(json(counts))
 
     expect(await createApiLibrarySource().counts(signal)).toEqual(counts)
@@ -120,17 +120,17 @@ describe('the library API source: counts and writes', () => {
     fetchStub.mockImplementation(async (request) => {
       const url = new URL(request.url, 'http://norte.test')
       if (request.method === 'POST') return json({ id: 'item-9' }, 201)
-      return json({ id: url.pathname.split('/').at(-1), title: 'lido do servidor' })
+      return json({ id: url.pathname.split('/').at(-1), title: 'read from the server' })
     })
 
-    const saved = await createApiLibrarySource().saveLink({ url: 'https://example.test/a', reason: '  porque ' })
+    const saved = await createApiLibrarySource().saveLink({ url: 'https://example.test/a', reason: '  because ' })
 
     const [post, get] = fetchStub.mock.calls.map(([request]) => request)
     expect(post.method).toBe('POST')
-    expect(await post.clone().json()).toEqual({ url: 'https://example.test/a', reason: 'porque' })
+    expect(await post.clone().json()).toEqual({ url: 'https://example.test/a', reason: 'because' })
     expect(get.method).toBe('GET')
     expect(new URL(get.url, 'http://norte.test').pathname).toBe('/api/library/items/item-9')
-    expect(saved.record).toMatchObject({ id: 'item-9', title: 'lido do servidor' })
+    expect(saved.record).toMatchObject({ id: 'item-9', title: 'read from the server' })
     expect(saved.duplicate).toBe(false)
   })
 
@@ -138,10 +138,10 @@ describe('the library API source: counts and writes', () => {
     fetchStub.mockImplementation(async (request) => {
       const url = new URL(request.url, 'http://norte.test')
       if (request.method === 'POST') return json({ id: 'item-4' }, 200)
-      return json({ id: 'item-4', title: 'já estava lá', location: 'archive' })
+      return json({ id: 'item-4', title: 'already there', location: 'archive' })
     })
 
-    const saved = await createApiLibrarySource().saveLink({ url: 'https://example.test/duplicada' })
+    const saved = await createApiLibrarySource().saveLink({ url: 'https://example.test/duplicate' })
 
     expect(saved.record).toMatchObject({ id: 'item-4', location: 'archive' })
     expect(saved.duplicate).toBe(true)
@@ -200,14 +200,14 @@ describe('the library API source: the serendipity draw', () => {
   })
 
   it('reads nothing unread as an empty draw rather than a failure', async () => {
-    fetchStub.mockResolvedValue(json({ error: { code: 'not_found', message: 'nada não lido' } }, 404))
+    fetchStub.mockResolvedValue(json({ error: { code: 'not_found', message: 'nothing unread' } }, 404))
 
     expect(await createApiLibrarySource().drawItems({}, signal)).toEqual([])
   })
 
   it('throws the sentence the server wrote for any other failure', async () => {
-    fetchStub.mockResolvedValue(json({ error: { code: 'invalid_request', message: 'n fora da faixa' } }, 400))
+    fetchStub.mockResolvedValue(json({ error: { code: 'invalid_request', message: 'n out of range' } }, 400))
 
-    await expect(createApiLibrarySource().drawItems({ n: 101 }, signal)).rejects.toThrow('n fora da faixa')
+    await expect(createApiLibrarySource().drawItems({ n: 101 }, signal)).rejects.toThrow('n out of range')
   })
 })

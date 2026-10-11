@@ -72,10 +72,10 @@ const SELECTION_SETTLE_MS = 200
  */
 const LOCATION_ACTIONS: Array<{ location: LibraryLocation; label: string }> = [
   { location: 'inbox', label: 'Inbox' },
-  { location: 'up_next', label: 'Próximos' },
-  { location: 'later', label: 'Depois' },
-  { location: 'archive', label: 'Arquivo' },
-  { location: 'stash', label: 'Reserva' }
+  { location: 'up_next', label: 'Up Next' },
+  { location: 'later', label: 'Later' },
+  { location: 'archive', label: 'Archive' },
+  { location: 'stash', label: 'Stash' }
 ]
 
 const route = useRoute()
@@ -107,7 +107,7 @@ const selection = computed(() => {
   const exact = item.value?.selection?.exact?.trim()
   return exact ? exact : null
 })
-const readLabel = computed(() => (item.value?.unread ? 'Marcar como lido' : 'Marcar como não lido'))
+const readLabel = computed(() => (item.value?.unread ? 'Mark as read' : 'Mark as unread'))
 
 /* ---------------------------------------------------------------- opening */
 
@@ -569,24 +569,24 @@ async function retryExtraction(): Promise<void> {
 
 <template>
   <main v-if="firstLoad" class="reader reader-state" role="status">
-    <p>Carregando o material…</p>
+    <p>Loading the material…</p>
   </main>
 
   <main v-else-if="error" class="reader reader-state" role="alert">
-    <p>Não foi possível carregar o material: {{ error }}</p>
-    <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+    <p>The material could not be loaded: {{ error }}</p>
+    <Button variant="secondary" @click="refresh()">Try again</Button>
   </main>
 
   <main v-else-if="!item" class="reader reader-state">
-    <p>Este item não está na biblioteca.</p>
-    <RouterLink :to="{ name: 'library', query: { v: 'all' } }">Voltar para a Biblioteca</RouterLink>
+    <p>This item is not in the library.</p>
+    <RouterLink :to="{ name: 'library', query: { v: 'all' } }">Back to the Library</RouterLink>
   </main>
 
   <main v-else class="reader">
     <header class="reader-top">
       <RouterLink class="reader-back" :to="{ name: 'library', query: { v: 'all' } }">
         <Icon name="arrowLeft" />
-        <span>Biblioteca</span>
+        <span>Library</span>
       </RouterLink>
       <div v-if="!phone" class="reader-top-actions">
         <button
@@ -612,8 +612,8 @@ async function retryExtraction(): Promise<void> {
     </header>
 
     <p v-if="writing.error.value" class="reader-write-error" role="alert">
-      Não foi possível salvar: {{ writing.error.value }}
-      <button type="button" class="reader-clear" @click="writing.clear()">Fechar</button>
+      Could not save: {{ writing.error.value }}
+      <button type="button" class="reader-clear" @click="writing.clear()">Close</button>
     </p>
 
     <div ref="scroller" class="reader-scroll" @scroll="handleScroll" @mouseup="readSelection" @keyup="readSelection">
@@ -621,16 +621,16 @@ async function retryExtraction(): Promise<void> {
         <div class="reader-meta">
           <span class="reader-mono">{{ item.site ?? item.canonical_url }}</span>
           <span class="reader-mono">{{ formatShortDate(item.saved_at) }}</span>
-          <span v-if="item.minutes">{{ item.minutes }} min de leitura</span>
+          <span v-if="item.minutes">{{ item.minutes }} min read</span>
         </div>
         <h1 class="reader-title">{{ item.title }}</h1>
         <p class="reader-byline">
           <span v-if="item.author">{{ item.author }} · </span>
-          <a :href="item.url" target="_blank" rel="noopener noreferrer">Abrir original</a>
+          <a :href="item.url" target="_blank" rel="noopener noreferrer">Open the original</a>
         </p>
 
         <section v-if="selection" class="reader-selection" aria-labelledby="reader-selection-label">
-          <h2 id="reader-selection-label">Trecho selecionado ao salvar</h2>
+          <h2 id="reader-selection-label">Passage selected when it was saved</h2>
           <blockquote>{{ selection }}</blockquote>
           <component
             :is="entry.component"
@@ -645,20 +645,20 @@ async function retryExtraction(): Promise<void> {
         <div class="reader-rule" />
 
         <p v-if="extracting" class="reader-pending" role="status">
-          Extraindo o texto deste material…
+          Extracting this material's text…
           <span v-if="item.extract_error" class="reader-retrying">
-            A última tentativa falhou ({{ item.extract_error }}) e o servidor está tentando de novo.
+            The last attempt failed ({{ item.extract_error }}) and the server is trying again.
           </span>
         </p>
 
         <div v-else-if="failed" class="reader-failed" role="alert">
-          <p>A extração falhou: {{ item.extract_error ?? 'motivo não informado' }}</p>
+          <p>Extraction failed: {{ item.extract_error ?? 'no reason given' }}</p>
           <Button data-action="retry-extraction" variant="secondary" @click="retryExtraction">
-            Tentar extrair de novo
+            Try extracting again
           </Button>
         </div>
 
-        <p v-else-if="!articleHtml" class="reader-pending">Este material não tem texto extraído.</p>
+        <p v-else-if="!articleHtml" class="reader-pending">This material has no extracted text.</p>
 
         <ArticleContent v-else :html="articleHtml" @rendered="handleArticleRendered" />
 

@@ -38,7 +38,7 @@ const deciding = useAsyncAction()
  *
  * This narrows the page rather than the query, which the server cannot do: the
  * set of enabled modules is this process's configuration and not a column. It
- * is the same reason the "Salvos sobre isso" panel narrows its own page.
+ * is the same reason the "Saved about this" panel narrows its own page.
  */
 function listable(module: string): boolean {
   if (module === 'core') return true
@@ -74,25 +74,25 @@ async function decide(link: CoreLink, decision: 'accept' | 'reject'): Promise<vo
 
 <template>
   <section class="suggestions" aria-labelledby="library-suggestions-title">
-    <h2 id="library-suggestions-title">Sugestões</h2>
+    <h2 id="library-suggestions-title">Pending connections</h2>
     <p class="suggestions-intro">
-      Destinos propostos automaticamente para o que você salvou. Nada é ligado sem o seu aceite.
+      Connections proposed automatically for what you saved. Nothing is linked without your approval.
     </p>
 
     <p v-if="deciding.error.value" class="suggestions-error" role="alert">
-      Não foi possível decidir: {{ deciding.error.value }}
-      <button type="button" class="suggestions-clear" @click="deciding.clear()">Fechar</button>
+      Could not decide: {{ deciding.error.value }}
+      <button type="button" class="suggestions-clear" @click="deciding.clear()">Close</button>
     </p>
 
-    <p v-if="firstLoad" class="suggestions-state" role="status">Carregando as sugestões…</p>
+    <p v-if="firstLoad" class="suggestions-state" role="status">Loading the pending connections…</p>
 
     <div v-else-if="error" class="suggestions-state" role="alert">
-      <p>Não foi possível carregar as sugestões: {{ error }}</p>
-      <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+      <p>The pending connections could not be loaded: {{ error }}</p>
+      <Button variant="secondary" @click="refresh()">Try again</Button>
     </div>
 
     <p v-else-if="suggestions.length === 0 && !hasMore" class="suggestions-state">
-      Nenhuma sugestão pendente.
+      No pending connection.
     </p>
 
     <ul v-if="!firstLoad && !error && suggestions.length > 0" class="suggestions-list">
@@ -103,7 +103,7 @@ async function decide(link: CoreLink, decision: 'accept' | 'reject'): Promise<vo
           </RouterLink>
           <span v-else class="suggestion-item is-plain">{{ link.src.title }}</span>
           <p class="suggestion-target">
-            <span class="suggestion-target-label">sobre</span>
+            <span class="suggestion-target-label">about</span>
             <RouterLink v-if="registryHref(link.dst)" :to="registryHref(link.dst)!" class="suggestion-dst">
               {{ link.dst.title }}
             </RouterLink>
@@ -111,22 +111,22 @@ async function decide(link: CoreLink, decision: 'accept' | 'reject'): Promise<vo
             <span v-if="confidenceText(link)" class="suggestion-confidence">{{ confidenceText(link) }}</span>
           </p>
         </div>
-        <div class="suggestion-actions" role="group" :aria-label="`Decidir ${link.dst.title}`">
+        <div class="suggestion-actions" role="group" :aria-label="`Decide ${link.dst.title}`">
           <Button
             variant="primary"
             :disabled="deciding.pending.value"
-            :aria-label="`Aceitar ${link.dst.title}`"
+            :aria-label="`Accept ${link.dst.title}`"
             @click="decide(link, 'accept')"
           >
-            Aceitar
+            Accept
           </Button>
           <Button
             variant="secondary"
             :disabled="deciding.pending.value"
-            :aria-label="`Rejeitar ${link.dst.title}`"
+            :aria-label="`Reject ${link.dst.title}`"
             @click="decide(link, 'reject')"
           >
-            Rejeitar
+            Reject
           </Button>
         </div>
       </li>
@@ -134,10 +134,10 @@ async function decide(link: CoreLink, decision: 'accept' | 'reject'): Promise<vo
 
     <div v-if="!firstLoad && !error && hasMore" class="suggestions-more">
       <Button variant="secondary" :disabled="loadingMore" @click="loadMore()">
-        {{ loadingMore ? 'Carregando…' : 'Carregar mais' }}
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
       </Button>
       <p v-if="loadMoreError" class="suggestions-state" role="alert">
-        Não foi possível carregar mais: {{ loadMoreError }}
+        Could not load more: {{ loadMoreError }}
       </p>
     </div>
   </section>

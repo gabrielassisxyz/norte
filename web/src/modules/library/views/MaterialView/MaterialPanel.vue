@@ -40,7 +40,7 @@ function submitAnnotation(): void {
 }
 
 function prepareHighlightNote(quote?: string): void {
-  if (quote) draft.value = `Revisar: ${quote}`
+  if (quote) draft.value = `Review: ${quote}`
 }
 </script>
 
@@ -49,42 +49,42 @@ function prepareHighlightNote(quote?: string): void {
     :tabs="tabs"
     :model-value="modelValue"
     :collapsed="collapsed"
-    label="Nota e anotações"
+    label="Note and annotations"
     @update:model-value="emit('update:modelValue', $event)"
     @update:collapsed="emit('update:collapsed', $event)"
   >
     <template #panel-note>
-      <div class="panel-note-tools" role="toolbar" aria-label="Formatação da nota">
-        <button type="button" aria-label="Título">H</button>
-        <button type="button" aria-label="Negrito">B</button>
-        <button type="button" aria-label="Lista">•</button>
-        <span class="material-mono">salvo agora</span>
+      <div class="panel-note-tools" role="toolbar" aria-label="Note formatting">
+        <button type="button" aria-label="Title">H</button>
+        <button type="button" aria-label="Bold">B</button>
+        <button type="button" aria-label="List">•</button>
+        <span class="material-mono">saved just now</span>
       </div>
       <div class="panel-note-document">
-        <h3>Ideia central</h3>
-        <p>Uma leitura fica mais útil quando deixa uma pergunta e um próximo experimento.</p>
-        <h3>O que quero lembrar</h3>
+        <h3>Main idea</h3>
+        <p>A reading becomes more useful when it leaves behind a question and a next experiment.</p>
+        <h3>What I want to remember</h3>
         <ul>
-          <li>Descrever antes de interpretar.</li>
-          <li>Separar familiaridade de recuperação.</li>
-          <li>Escrever previsões que possam falhar.</li>
+          <li>Describe before interpreting.</li>
+          <li>Separate familiarity from recall.</li>
+          <li>Write predictions that can fail.</li>
         </ul>
-        <h3>Próximo passo</h3>
-        <p>Retomar uma anotação durante a próxima sessão e comparar o que mudou.</p>
+        <h3>Next step</h3>
+        <p>Revisit an annotation during the next session and compare what changed.</p>
       </div>
     </template>
 
     <template #panel-annotations>
       <div class="panel-annotation-compose">
-        <label for="new-material-annotation">Nova anotação</label>
+        <label for="new-material-annotation">New annotation</label>
         <textarea
           id="new-material-annotation"
           v-model="draft"
-          placeholder="Uma ideia sobre o material, ou selecione um trecho para anotar…"
+          placeholder="An idea about the material, or select a passage to annotate…"
         />
         <div class="panel-compose-actions">
-          <span v-if="kind === 'paper'" class="panel-compose-hint">Registre a evidência que quer rever.</span>
-          <Button size="sm" :disabled="!draft.trim()" @click="submitAnnotation">Anotar</Button>
+          <span v-if="kind === 'paper'" class="panel-compose-hint">Record the evidence you want to revisit.</span>
+          <Button size="sm" :disabled="!draft.trim()" @click="submitAnnotation">Annotate</Button>
         </div>
       </div>
 
@@ -100,7 +100,7 @@ function prepareHighlightNote(quote?: string): void {
           :time="annotation.time"
           @add-note="prepareHighlightNote(annotation.quote)"
         />
-        <p v-if="annotations.length === 0" class="panel-empty">Ainda não há anotações neste material.</p>
+        <p v-if="annotations.length === 0" class="panel-empty">There are no annotations on this material yet.</p>
       </div>
     </template>
   </SidePanel>

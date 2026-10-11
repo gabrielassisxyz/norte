@@ -64,7 +64,7 @@ function replaceWithAltText(image: HTMLImageElement): void {
   const described = image.getAttribute('alt')?.trim()
   const replacement = document.createElement('span')
   replacement.className = 'article-image-failed'
-  replacement.textContent = described && described.length > 0 ? described : 'Imagem indisponível'
+  replacement.textContent = described && described.length > 0 ? described : 'Image unavailable'
   installed = installed.filter((entry) => entry.image !== image)
   image.replaceWith(replacement)
 }

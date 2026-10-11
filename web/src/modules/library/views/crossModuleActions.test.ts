@@ -38,7 +38,7 @@ async function mountLibrary() {
           appSourcesWithLibrary({
             store,
             core,
-            records: [libraryRecord({ id: 'post-um', title: 'Um texto guardado', location: 'inbox' })]
+            records: [libraryRecord({ id: 'post-um', title: 'A saved text', location: 'inbox' })]
           })
         )
       ]
@@ -55,7 +55,7 @@ describe('the actions an item offers into another module', () => {
 
     // The library itself is mounted: its rows are there to carry the actions.
     expect(wrapper.findAll('.item').length).toBeGreaterThan(0)
-    expect(wrapper.find('button[aria-label="Criar tarefa"]').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="Create a task"]').exists()).toBe(false)
   })
 
   it('offers them once the other module reads from the same place', async () => {
@@ -63,7 +63,7 @@ describe('the actions an item offers into another module', () => {
     setEnabledModules(['library', 'projects'])
     const wrapper = await mountLibrary()
 
-    expect(wrapper.find('button[aria-label="Criar tarefa"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="Create a task"]').exists()).toBe(true)
   })
 
   it('withholds them again when the other module is served from nowhere', async () => {
@@ -73,7 +73,7 @@ describe('the actions an item offers into another module', () => {
     setEnabledModules(['library'])
     const wrapper = await mountLibrary()
 
-    expect(wrapper.find('button[aria-label="Criar tarefa"]').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="Create a task"]').exists()).toBe(false)
   })
 
   it('makes a task on the project chosen from the menu', async () => {
@@ -85,13 +85,13 @@ describe('the actions an item offers into another module', () => {
     const project = store.projects[0]
     const before = store.tasks.length
 
-    await item.get('button[aria-label="Criar tarefa"]').trigger('click')
+    await item.get('button[aria-label="Create a task"]').trigger('click')
     const row = item.findAll('.act-menu-row').find((candidate) => candidate.text() === project.title)!
     await row.trigger('click')
     await flushReads()
 
     expect(store.tasks).toHaveLength(before + 1)
-    expect(store.tasks[0]).toMatchObject({ projectId: project.id, title: `Ler "${title}"`, bucket: 'next' })
+    expect(store.tasks[0]).toMatchObject({ projectId: project.id, title: `Read "${title}"`, bucket: 'next' })
     expect(item.find('.act-menu').exists()).toBe(false)
   })
 })
@@ -103,15 +103,15 @@ describe('the subject link picker on an item', () => {
     // crossing, and the gate must not take it with it.
     const wrapper = await mountLibrary()
 
-    expect(wrapper.find('button[aria-label="Criar tarefa"]').exists()).toBe(false)
-    expect(wrapper.find('button[aria-label="Ligar a um assunto"]').exists()).toBe(true)
+    expect(wrapper.find('button[aria-label="Create a task"]').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="Link to a subject"]').exists()).toBe(true)
   })
 
   it('links the item to the subject chosen from the picker', async () => {
     const wrapper = await mountLibrary()
     const item = wrapper.get('.item')
 
-    await item.get('button[aria-label="Ligar a um assunto"]').trigger('click')
+    await item.get('button[aria-label="Link to a subject"]').trigger('click')
     await flushReads()
     await item.get('[role="option"]').trigger('click')
     await flushReads()
@@ -128,14 +128,14 @@ describe('the subject link picker on an item', () => {
       { subjects: [subjectRecord({ id: 'subject-k8s', name: 'Kubernetes', focus: true })] },
       {
         createLink: async () => {
-          throw new Error('rede indisponível')
+          throw new Error('network unavailable')
         }
       }
     )
     const wrapper = await mountLibrary()
     const item = wrapper.get('.item')
 
-    await item.get('button[aria-label="Ligar a um assunto"]').trigger('click')
+    await item.get('button[aria-label="Link to a subject"]').trigger('click')
     await flushReads()
     await item.get('[role="option"]').trigger('click')
     await flushReads()

@@ -58,38 +58,38 @@ const ALLOWLISTED_TAGS = [
 ]
 
 const FIXTURE_HTML = `
-  <h1 id="o-titulo">O título</h1>
-  <p>Um parágrafo com <em>ênfase</em>, <strong>peso</strong>, <i>itálico</i>, <b>negrito</b>,
-    <u>sublinhado</u>, <s>riscado</s>, <small>miúdo</small>, <mark>marcado</mark>,
-    <span>um trecho</span>, H<sub>2</sub>O e x<sup>2</sup>.<br />Segunda linha.</p>
-  <h2 id="uma-secao">Uma seção</h2>
-  <ul><li>Primeiro</li><li>Segundo</li></ul>
-  <ol start="3"><li>Terceiro</li></ol>
-  <dl><dt>Termo</dt><dd>Definição</dd></dl>
-  <blockquote cite="https://exemplo.test/fonte">Uma citação.</blockquote>
-  <pre class="language-go"><code class="language-go">fmt.Println("oi")</code></pre>
-  <p>Aperte <kbd>Ctrl</kbd>, veja <samp>saída</samp> e substitua <var>n</var>.</p>
-  <h3 id="mais-fundo">Mais fundo</h3>
-  <h4 id="e-mais">E mais</h4>
-  <h5 id="ainda-mais">Ainda mais</h5>
-  <h6 id="o-fundo">O fundo</h6>
+  <h1 id="the-title">The title</h1>
+  <p>A paragraph with <em>emphasis</em>, <strong>weight</strong>, <i>italic</i>, <b>bold</b>,
+    <u>underlined</u>, <s>struck</s>, <small>small</small>, <mark>marked</mark>,
+    <span>a passage</span>, H<sub>2</sub>O and x<sup>2</sup>.<br />Second line.</p>
+  <h2 id="a-section">A section</h2>
+  <ul><li>First</li><li>Second</li></ul>
+  <ol start="3"><li>Third</li></ol>
+  <dl><dt>Term</dt><dd>Definition</dd></dl>
+  <blockquote cite="https://example.test/source">A quotation.</blockquote>
+  <pre class="language-go"><code class="language-go">fmt.Println("hi")</code></pre>
+  <p>Press <kbd>Ctrl</kbd>, see <samp>output</samp> and replace <var>n</var>.</p>
+  <h3 id="deeper">Deeper</h3>
+  <h4 id="and-more">And more</h4>
+  <h5 id="even-more">Even more</h5>
+  <h6 id="the-bottom">The bottom</h6>
   <figure>
-    <img src="https://imagens.test/grafico.png" alt="Um gráfico do crescimento" width="640" height="480" />
-    <figcaption>Legenda da figura.</figcaption>
+    <img src="https://images.test/chart.png" alt="A chart of the growth" width="640" height="480" />
+    <figcaption>Figure caption.</figcaption>
   </figure>
   <table>
-    <caption>Uma tabela</caption>
-    <thead><tr><th>Chave</th><th>Valor</th></tr></thead>
-    <tbody><tr><td colspan="2">Uma célula larga</td></tr></tbody>
-    <tfoot><tr><td>Fim</td><td>da tabela</td></tr></tfoot>
+    <caption>A table</caption>
+    <thead><tr><th>Key</th><th>Value</th></tr></thead>
+    <tbody><tr><td colspan="2">A wide cell</td></tr></tbody>
+    <tfoot><tr><td>End</td><td>of the table</td></tr></tfoot>
   </table>
   <hr />
   <p>
-    <a href="https://outro-site.test/artigo">Um link externo</a>
-    <a href="#uma-secao">Um link interno</a>
-    <a href="mailto:alguem@exemplo.test">Um e-mail</a>
+    <a href="https://other-site.test/article">An external link</a>
+    <a href="#a-section">An internal link</a>
+    <a href="mailto:someone@example.test">An email</a>
   </p>
-  <p><img src="https://imagens.test/segunda.png" alt="A segunda imagem" /></p>
+  <p><img src="https://images.test/second.png" alt="The second image" /></p>
 `
 
 /**
@@ -119,13 +119,13 @@ describe('ArticleContent over a fixture carrying every allowlisted element', () 
 
   it('opens a link that leaves the app in a new tab, and leaves the others alone', async () => {
     const wrapper = await mountArticle(FIXTURE_HTML)
-    const external = wrapper.get('a[href="https://outro-site.test/artigo"]')
+    const external = wrapper.get('a[href="https://other-site.test/article"]')
 
     expect(external.attributes('target')).toBe('_blank')
     // Without noreferrer the opened page can reach back through window.opener.
     expect(external.attributes('rel')).toBe('noopener noreferrer')
 
-    const internal = wrapper.get('a[href="#uma-secao"]')
+    const internal = wrapper.get('a[href="#a-section"]')
     expect(internal.attributes('target')).toBeUndefined()
     expect(internal.attributes('rel')).toBeUndefined()
 
@@ -144,23 +144,23 @@ describe('ArticleContent over a fixture carrying every allowlisted element', () 
 
   it('puts an image that fails to load behind its own alt text', async () => {
     const wrapper = await mountArticle(FIXTURE_HTML)
-    const image = wrapper.get('img[src="https://imagens.test/grafico.png"]')
+    const image = wrapper.get('img[src="https://images.test/chart.png"]')
 
-    expect(wrapper.text()).not.toContain('Um gráfico do crescimento')
+    expect(wrapper.text()).not.toContain('A chart of the growth')
     image.element.dispatchEvent(new Event('error'))
 
-    expect(wrapper.text()).toContain('Um gráfico do crescimento')
-    expect(wrapper.find('img[src="https://imagens.test/grafico.png"]').exists()).toBe(false)
+    expect(wrapper.text()).toContain('A chart of the growth')
+    expect(wrapper.find('img[src="https://images.test/chart.png"]').exists()).toBe(false)
     // The other image is untouched: one failure is not the article's failure.
-    expect(wrapper.find('img[src="https://imagens.test/segunda.png"]').exists()).toBe(true)
+    expect(wrapper.find('img[src="https://images.test/second.png"]').exists()).toBe(true)
   })
 
   it('says an image is unavailable when it was described as nothing', async () => {
-    const wrapper = await mountArticle('<p><img src="https://imagens.test/sem-alt.png" alt="" /></p>')
+    const wrapper = await mountArticle('<p><img src="https://images.test/no-alt.png" alt="" /></p>')
 
     wrapper.get('img').element.dispatchEvent(new Event('error'))
 
-    expect(wrapper.text()).toContain('Imagem indisponível')
+    expect(wrapper.text()).toContain('Image unavailable')
   })
 })
 
@@ -199,11 +199,11 @@ describe('ArticleContent when the article it holds is replaced', () => {
     vi.restoreAllMocks()
   })
 
-  const PENDING = '<p>Extraindo…</p>'
+  const PENDING = '<p>Extracting…</p>'
   const FINAL =
-    '<p><a href="https://outro-site.test/a">Externo</a><img src="https://imagens.test/um.png" alt="Um" /></p>'
+    '<p><a href="https://other-site.test/a">External</a><img src="https://images.test/one.png" alt="One" /></p>'
   const AGAIN =
-    '<p><a href="https://outro-site.test/b">Outro externo</a><img src="https://imagens.test/dois.png" alt="Dois" /></p>'
+    '<p><a href="https://other-site.test/b">Another external</a><img src="https://images.test/two.png" alt="Two" /></p>'
 
   it('decorates the final article, not the placeholder it replaced', async () => {
     const wrapper = await mountArticle(PENDING)
@@ -232,12 +232,12 @@ describe('ArticleContent when the article it holds is replaced', () => {
 
     const current = wrapper.get('img').element
     expect(current).not.toBe(dropped)
-    expect(current.getAttribute('src')).toBe('https://imagens.test/dois.png')
+    expect(current.getAttribute('src')).toBe('https://images.test/two.png')
 
     // The node that left still fires its event; nothing is listening, so the
     // article is not rewritten behind the reader's back.
     dropped.dispatchEvent(new Event('error'))
-    expect(wrapper.text()).not.toContain('Um')
+    expect(wrapper.text()).not.toContain('One')
     expect(wrapper.get('a').attributes('rel')).toBe('noopener noreferrer')
   })
 

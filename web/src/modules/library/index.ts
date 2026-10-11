@@ -14,12 +14,12 @@ export { manifest }
 
 const KIND_LABELS: Record<LibraryKind, string> = {
   article: 'Posts',
-  book: 'Livros',
+  book: 'Books',
   paper: 'Papers',
-  video: 'Vídeos',
+  video: 'Videos',
   podcast: 'Podcasts',
   newsletter: 'Newsletters',
-  course: 'Cursos'
+  course: 'Courses'
 }
 
 const KIND_ORDER: LibraryKind[] = ['article', 'book', 'paper', 'video', 'podcast', 'newsletter', 'course']
@@ -50,12 +50,12 @@ export function useSidebar(): ModuleSidebar {
     // what made the same place move depending on where it was read.
     const rows: SidebarRow[] = [
       { id: 'inbox', label: 'Inbox', to: { name: 'library', query: { v: 'inbox' } }, count: viewCount('inbox') },
-      { id: 'up_next', label: 'Próximos', to: { name: 'library', query: { v: 'up_next' } }, count: viewCount('up_next') },
-      { id: 'later', label: 'Depois', to: { name: 'library', query: { v: 'later' } }, count: viewCount('later') },
-      { id: 'archive', label: 'Arquivo', to: { name: 'library', query: { v: 'archive' } }, count: viewCount('archive') },
-      { id: 'stash', label: 'Reserva', to: { name: 'library', query: { v: 'stash' } }, count: viewCount('stash') },
-      { id: 'all', label: 'Tudo', to: { name: 'library', query: { v: 'all' } }, count: viewCount('all') },
-      { head: true, label: 'Tipos' }
+      { id: 'up_next', label: 'Up Next', to: { name: 'library', query: { v: 'up_next' } }, count: viewCount('up_next') },
+      { id: 'later', label: 'Later', to: { name: 'library', query: { v: 'later' } }, count: viewCount('later') },
+      { id: 'archive', label: 'Archive', to: { name: 'library', query: { v: 'archive' } }, count: viewCount('archive') },
+      { id: 'stash', label: 'Stash', to: { name: 'library', query: { v: 'stash' } }, count: viewCount('stash') },
+      { id: 'all', label: 'All', to: { name: 'library', query: { v: 'all' } }, count: viewCount('all') },
+      { head: true, label: 'Kinds' }
     ]
     for (const kind of KIND_ORDER) {
       rows.push({
@@ -70,12 +70,12 @@ export function useSidebar(): ModuleSidebar {
 
   function shortcutEntries(): SidebarLink[] {
     return [
-      { id: 'atalho-inbox', label: 'Inbox', to: { name: 'library', query: { v: 'inbox' } }, count: viewCount('inbox') },
-      // The prototype links Artigos at the library root; the label names a
+      { id: 'shortcut-inbox', label: 'Inbox', to: { name: 'library', query: { v: 'inbox' } }, count: viewCount('inbox') },
+      // The prototype links Articles at the library root; the label names a
       // kind, so it opens the whole library filtered to articles.
       {
-        id: 'atalho-artigos',
-        label: 'Artigos',
+        id: 'shortcut-articles',
+        label: 'Articles',
         to: { name: 'library', query: { v: 'all', kind: 'article' } },
         count: kindCount('article')
       }
@@ -90,14 +90,14 @@ export function useSidebar(): ModuleSidebar {
     sections: [
       {
         id: 'library',
-        label: 'Biblioteca',
+        label: 'Library',
         to: { name: 'library', query: { v: 'all' } },
         order: 10,
         activeRouteNames: ['library'],
         rows: libraryRows
       }
     ],
-    shortcuts: [{ label: 'Biblioteca', order: 10, entries: shortcutEntries }]
+    shortcuts: [{ label: 'Library', order: 10, entries: shortcutEntries }]
   }
 }
 
@@ -106,13 +106,13 @@ export const routes = [
     path: '/library',
     name: 'library',
     component: () => import('./views/LibraryView.vue'),
-    meta: { title: 'Biblioteca' }
+    meta: { title: 'Library' }
   },
   {
     path: '/library/:id',
     name: 'reader',
     component: () => import('./views/ReaderView.vue'),
-    meta: { title: 'Leitor', layout: 'bare' as const }
+    meta: { title: 'Reader', layout: 'bare' as const }
   },
   {
     path: '/material/:kind/:id',
@@ -129,11 +129,11 @@ export const homeBlocks = [
 ]
 
 const SCREEN_ENTRY: SearchEntry = {
-  group: 'Biblioteca',
-  title: 'Biblioteca',
-  subtitle: 'Inbox, depois e arquivo',
+  group: 'Library',
+  title: 'Library',
+  subtitle: 'Inbox, Up Next, Later, Archive and Stash',
   kind: 'tela',
-  keywords: 'artigos materiais leituras',
+  keywords: 'articles materials reading',
   to: { name: 'library' }
 }
 

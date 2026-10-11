@@ -41,11 +41,11 @@ const isOpen = computed({
  * the inbox.
  */
 const LOCATION_PHRASE: Record<LibraryLocation, string> = {
-  inbox: 'na inbox',
-  up_next: 'em Próximos',
-  later: 'em Depois',
-  archive: 'no arquivo',
-  stash: 'na reserva'
+  inbox: 'in the inbox',
+  up_next: 'in Up Next',
+  later: 'in Later',
+  archive: 'in the Archive',
+  stash: 'in the Stash'
 }
 
 const savedShelfPhrase = computed(() =>
@@ -97,7 +97,7 @@ function dropSubject(id: string): void {
 async function saveLink(): Promise<void> {
   const value = saveUrl.value.trim()
   if (!value) {
-    saveError.value = 'Informe uma URL para salvar.'
+    saveError.value = 'Enter a URL to save.'
     return
   }
 
@@ -105,7 +105,7 @@ async function saveLink(): Promise<void> {
   try {
     url = new URL(value)
   } catch {
-    saveError.value = 'Informe uma URL válida.'
+    saveError.value = 'Enter a valid URL.'
     return
   }
 
@@ -121,7 +121,7 @@ async function saveLink(): Promise<void> {
 
   // A failed save keeps the dialog, the typed URL and the reason it failed.
   if (!saved) {
-    saveError.value = `Não foi possível salvar: ${saving.error.value ?? 'erro desconhecido'}`
+    saveError.value = `Could not save: ${saving.error.value ?? 'unknown error'}`
     return
   }
 
@@ -152,42 +152,42 @@ watch(
   <div v-if="isOpen" class="save-backdrop" @mousedown.self="closeSave">
     <form ref="dialog" class="save-dialog" role="dialog" aria-labelledby="save-title" @submit.prevent="saveLink">
       <div>
-        <h2 id="save-title">Salvar link</h2>
-        <p>Vai para a inbox para você retomar quando fizer sentido.</p>
+        <h2 id="save-title">Save a link</h2>
+        <p>It goes to the inbox, to pick up when it makes sense.</p>
       </div>
       <template v-if="savedItem">
         <p v-if="savedDuplicate" class="save-done" role="status">
-          Já estava salvo {{ savedShelfPhrase }}:
+          Already saved {{ savedShelfPhrase }}:
           <RouterLink :to="readerHref(savedItem)">{{ savedItem.title }}</RouterLink>
         </p>
         <p v-else class="save-done" role="status">
-          Salvo na inbox:
+          Saved to the inbox:
           <RouterLink :to="readerHref(savedItem)">{{ savedItem.title }}</RouterLink>
         </p>
         <div class="save-buttons">
-          <Button variant="secondary" @click="closeSave">Fechar</Button>
-          <Button variant="primary" @click="startAnotherSave">Salvar outro</Button>
+          <Button variant="secondary" @click="closeSave">Close</Button>
+          <Button variant="primary" @click="startAnotherSave">Save another</Button>
         </div>
       </template>
       <template v-else>
         <TextField id="save-url" v-model="saveUrl" label="URL" placeholder="https://…" type="url" />
-        <TextField id="save-reason" v-model="saveReason" label="Por que salvar (opcional)" placeholder="Uma linha para o eu de daqui a um mês" :multiline="true" :rows="2" />
+        <TextField id="save-reason" v-model="saveReason" label="Why am I saving this?" placeholder="One line for the me of a month from now" :multiline="true" :rows="2" />
         <div class="save-subjects">
-          <ul v-if="chosen.length > 0" class="save-chosen" aria-label="Assuntos escolhidos">
+          <ul v-if="chosen.length > 0" class="save-chosen" aria-label="Chosen subjects">
             <li v-for="subject in chosen" :key="subject.id">
               <button type="button" class="save-chip" @click="dropSubject(subject.id)">
                 {{ subject.name }}
                 <span aria-hidden="true">×</span>
-                <span class="save-chip-hint">remover</span>
+                <span class="save-chip-hint">remove</span>
               </button>
             </li>
           </ul>
-          <SubjectPicker label="Sobre qual assunto (opcional)" :chosen="chosenIds" @select="chooseSubject" />
+          <SubjectPicker label="About which subject (optional)" :chosen="chosenIds" @select="chooseSubject" />
         </div>
         <p v-if="saveError" class="save-error" role="alert">{{ saveError }}</p>
         <div class="save-buttons">
-          <Button variant="secondary" @click="closeSave">Cancelar</Button>
-          <Button variant="primary" type="submit" :disabled="!saveUrl.trim()">Salvar na inbox</Button>
+          <Button variant="secondary" @click="closeSave">Cancel</Button>
+          <Button variant="primary" type="submit" :disabled="!saveUrl.trim()">Save to the inbox</Button>
         </div>
       </template>
     </form>

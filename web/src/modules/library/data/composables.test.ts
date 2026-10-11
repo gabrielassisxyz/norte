@@ -31,7 +31,7 @@ function manyRecords(count: number): LibraryItemRecord[] {
   return Array.from({ length: count }, (_, position) =>
     libraryRecord({
       id: `item-${String(position).padStart(3, '0')}`,
-      title: `Leitura ${position}`,
+      title: `Reading ${position}`,
       // Descending saved_at, so the fake's default order is the ids in order.
       saved_at: `2026-10-03T${String(23 - Math.floor(position / 60)).padStart(2, '0')}:${String(
         59 - (position % 60)

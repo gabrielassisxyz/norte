@@ -19,6 +19,6 @@ watch(
 </script>
 
 <template>
-  <Button variant="secondary" icon="plus" @click="saveOpen = true">Salvar link</Button>
+  <Button variant="secondary" icon="plus" @click="saveOpen = true">Save a link</Button>
   <SaveLinkDialog v-model:open="saveOpen" />
 </template>

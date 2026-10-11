@@ -18,7 +18,7 @@ defineEmits<{ close: [] }>()
     v-show="open"
     class="reader-sheet"
     role="dialog"
-    aria-label="Notas desta leitura"
+    aria-label="Notes for this reading"
     data-reader-sheet
   >
     <header class="reader-sheet-top">
@@ -26,11 +26,11 @@ defineEmits<{ close: [] }>()
       <button
         type="button"
         class="reader-sheet-close"
-        data-action="fechar-notas"
-        aria-label="Fechar notas"
+        data-action="close-notes"
+        aria-label="Close the notes"
         @click="$emit('close')"
       >
-        Fechar
+        Close
       </button>
     </header>
     <div class="reader-sheet-body">
