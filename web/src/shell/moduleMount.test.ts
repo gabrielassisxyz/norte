@@ -46,9 +46,9 @@ describe('a module the server does not serve', () => {
 
     expect(sidebar.text()).not.toContain('Biblioteca')
     expect(sidebar.find('button[aria-label="Expandir Biblioteca"]').exists()).toBe(false)
-    // Estudo and Projetos are mock-backed, so they are still there.
+    // Estudo and Projects are mock-backed, so they are still there.
     expect(sidebar.text()).toContain('Estudo')
-    expect(sidebar.text()).toContain('Projetos')
+    expect(sidebar.text()).toContain('Projects')
   })
 
   it('leaves no library block on the home screen', async () => {
@@ -74,8 +74,8 @@ describe('a module the server does not serve', () => {
     libraryOff()
     for (const [path, title] of [
       ['/revisao', 'Revisão'],
-      ['/projetos', 'Projetos'],
-      ['/areas/a-casa', 'Casa']
+      ['/projects', 'Projects'],
+      ['/areas/a-casa', 'Home']
     ] as const) {
       const { wrapper } = await mountAt(path)
       expect(wrapper.find('.app-content h1').text()).toBe(title)

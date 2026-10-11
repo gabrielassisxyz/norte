@@ -24,11 +24,11 @@ const APP_PATHS: Array<[string, string]> = [
   ['/material/article/post-compilation', 'material'],
   ['/material/book/book-interpreters', 'material'],
   ['/material/paper/paper-parsing', 'material'],
-  ['/projetos', 'projetos'],
+  ['/projects', 'projects'],
   ['/areas/a-casa', 'area'],
-  ['/projetos/project-horta', 'projeto'],
-  ['/decisoes/decision-backup-media', 'decisao'],
-  ['/tarefas/task-backup', 'tarefa']
+  ['/projects/project-horta', 'project'],
+  ['/decisions/decision-backup-media', 'decision'],
+  ['/tasks/task-backup', 'task']
 ]
 
 const TITLES: Record<string, string> = {
@@ -40,11 +40,11 @@ const TITLES: Record<string, string> = {
   estudo: 'Estudo',
   curriculo: 'Currículo',
   material: 'Material',
-  projetos: 'Projetos',
-  area: 'Área',
-  projeto: 'Projeto',
-  decisao: 'Decisão',
-  tarefa: 'Tarefa'
+  projects: 'Projects',
+  area: 'Area',
+  project: 'Project',
+  decision: 'Decision',
+  task: 'Task'
 }
 
 describe('router table', () => {

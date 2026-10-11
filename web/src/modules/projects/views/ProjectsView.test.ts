@@ -24,7 +24,7 @@ beforeEach(() => {
 
 async function mountProjects(
   sources: Partial<AppSources>,
-  path = '/projetos'
+  path = '/projects'
 ): Promise<{ wrapper: VueWrapper; router: Router }> {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
@@ -50,7 +50,7 @@ function overviewOf(items: ProjectRow[]): ProjectsOverviewPage {
       openTasks: 0,
       pendingDecisions: 0
     },
-    areas: [{ id: 'a-casa', title: 'Casa', intention: 'Manter o espaço funcional.', archived: false }]
+    areas: [{ id: 'a-casa', title: 'Home', intention: 'Keep the space working.', archived: false }]
   }
 }
 
@@ -58,14 +58,14 @@ function projectRow(overrides: Partial<ProjectRow> = {}): ProjectRow {
   return {
     id: 'project-horta',
     areaId: 'a-casa',
-    title: 'Horta da varanda',
-    purpose: 'Ter temperos frescos à mão.',
+    title: 'Balcony garden',
+    purpose: 'Fresh herbs within reach.',
     status: 'active',
     priority: 'P2',
     features: [],
     bugs: [],
-    areaTitle: 'Casa',
-    nextStep: 'Separar sementes',
+    areaTitle: 'Home',
+    nextStep: 'Sort seeds',
     openTasks: 1,
     pendingDecisions: 0,
     ...overrides
@@ -84,16 +84,16 @@ function projectsWith(page: ProjectsOverviewPage, overrides: Partial<AppSources[
   }
 }
 
-/** Fills the new-project dialog with a complete, valid project under Casa. */
+/** Fills the new-project dialog with a complete, valid project under Home. */
 async function fillDialog(wrapper: VueWrapper, title: string): Promise<VueWrapper> {
-  await wrapper.findAll('button').find((button) => button.text() === 'Novo projeto')!.trigger('click')
+  await wrapper.findAll('button').find((button) => button.text() === 'New project')!.trigger('click')
   const dialog = wrapper.find('[role="dialog"]')
-  await dialog.find('input[placeholder="Curto, como um título"]').setValue(title)
+  await dialog.find('input[placeholder="Short, like a title"]').setValue(title)
   await dialog
-    .find('textarea[placeholder="O que torna este projeto importante"]')
-    .setValue('Reunir o que já existe antes de comprar algo novo.')
-  await dialog.find('input[placeholder="A primeira coisa concreta a fazer"]').setValue('Separar caixas vazias')
-  await dialog.findAll('.projects-area-option').find((button) => button.text() === 'Casa')!.trigger('click')
+    .find('textarea[placeholder="What makes this project matter"]')
+    .setValue('Gather what already exists before buying anything new.')
+  await dialog.find('input[placeholder="The first concrete thing to do"]').setValue('Sort empty boxes')
+  await dialog.findAll('.projects-area-option').find((button) => button.text() === 'Home')!.trigger('click')
   return wrapper.find('[role="dialog"]') as unknown as VueWrapper
 }
 
@@ -101,8 +101,8 @@ describe('projects view over the mock source', () => {
   it('renders the title, stat row and area groups once the overview answers', async () => {
     const { wrapper } = await mountProjects(createMockSources(store))
 
-    expect(wrapper.find('h1').text()).toBe('Projetos')
-    expect(wrapper.find('[aria-label="Resumo dos projetos"]').exists()).toBe(true)
+    expect(wrapper.find('h1').text()).toBe('Projects')
+    expect(wrapper.find('[aria-label="Projects summary"]').exists()).toBe(true)
     expect(wrapper.find('[data-grouping="area"]').exists()).toBe(true)
     expect(wrapper.findAll('.project-row')).toHaveLength(store.projects.length)
     expect(wrapper.findAll('.nt-stat-value').map((stat) => stat.text())).toEqual([
@@ -116,12 +116,12 @@ describe('projects view over the mock source', () => {
   it('groups every project by status when requested', async () => {
     const { wrapper } = await mountProjects(createMockSources(store))
 
-    await wrapper.findAll('.nt-seg-btn').find((button) => button.text().includes('Por estado'))!.trigger('click')
+    await wrapper.findAll('.nt-seg-btn').find((button) => button.text().includes('By status'))!.trigger('click')
 
     expect(wrapper.find('[data-grouping="status"]').exists()).toBe(true)
     expect(wrapper.findAll('.project-row')).toHaveLength(store.projects.length)
-    expect(wrapper.text()).toContain('Ativos')
-    expect(wrapper.text()).toContain('Planejando')
+    expect(wrapper.text()).toContain('Active')
+    expect(wrapper.text()).toContain('Planning')
   })
 
   it('resolves project rows and area headings to their routes', async () => {
@@ -129,24 +129,24 @@ describe('projects view over the mock source', () => {
 
     const projectLinks = wrapper.findAll('.project-row')
     expect(projectLinks).not.toHaveLength(0)
-    expect(routeName(router, projectLinks[0].attributes('href'))).toBe('projeto')
+    expect(routeName(router, projectLinks[0].attributes('href'))).toBe('project')
     expect(routeName(router, wrapper.find('.project-group-title a').attributes('href'))).toBe('area')
   })
 
   it('creates a project beneath its selected area', async () => {
     const { wrapper } = await mountProjects(createMockSources(store))
-    const projectTitle = 'Organizar materiais de oficina'
+    const projectTitle = 'Organize workshop materials'
     const before = store.projects.length
 
     const dialog = await fillDialog(wrapper, projectTitle)
-    expect(dialog.findAll('button').find((button) => button.text() === 'Criar projeto')!.attributes('disabled')).toBeUndefined()
+    expect(dialog.findAll('button').find((button) => button.text() === 'Create project')!.attributes('disabled')).toBeUndefined()
     await dialog.trigger('submit')
     await flushReads()
 
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     expect(store.projects).toHaveLength(before + 1)
-    const casa = wrapper.findAll('.project-group').find((group) => group.text().includes('Casa'))!
-    expect(casa.text()).toContain(projectTitle)
+    const home = wrapper.findAll('.project-group').find((group) => group.text().includes('Home'))!
+    expect(home.text()).toContain(projectTitle)
   })
 })
 
@@ -154,14 +154,14 @@ describe('projects view while it waits, finds nothing, or fails', () => {
   it('says it is loading before the overview answers', async () => {
     const { wrapper } = await mountProjects(projectsWith(overviewOf([]), { overview: () => new Promise(() => {}) }))
 
-    expect(wrapper.get('[role="status"]').text()).toBe('Carregando os projetos…')
+    expect(wrapper.get('[role="status"]').text()).toBe('Loading the projects…')
     expect(wrapper.findAll('.project-row')).toHaveLength(0)
   })
 
   it('says there is no project yet once the overview answers with none', async () => {
     const { wrapper } = await mountProjects(projectsWith(overviewOf([])))
 
-    expect(wrapper.find('.projects-state').text()).toContain('Nenhum projeto ainda')
+    expect(wrapper.find('.projects-state').text()).toContain('No projects yet')
     expect(wrapper.find('[role="status"]').exists()).toBe(false)
   })
 
@@ -172,15 +172,15 @@ describe('projects view while it waits, finds nothing, or fails', () => {
       projectsWith(page, {
         overview: async () => {
           attempts += 1
-          if (attempts === 1) throw new Error('rede fora do ar')
+          if (attempts === 1) throw new Error('network offline')
           return page
         }
       })
     )
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar os projetos: rede fora do ar')
+    expect(wrapper.get('[role="alert"]').text()).toContain('The projects could not be loaded: network offline')
 
-    await wrapper.findAll('button').find((button) => button.text() === 'Tentar de novo')!.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Try again')!.trigger('click')
     await flushReads()
 
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
@@ -193,35 +193,35 @@ describe('projects view writing to its source', () => {
     const { wrapper } = await mountProjects(
       projectsWith(overviewOf([projectRow()]), {
         addProject: async () => {
-          throw new Error('área removida')
+          throw new Error('area removed')
         }
       })
     )
 
-    const dialog = await fillDialog(wrapper, 'Organizar materiais de oficina')
+    const dialog = await fillDialog(wrapper, 'Organize workshop materials')
     await dialog.trigger('submit')
     await flushReads()
 
-    expect(wrapper.get('.projects-write-error').text()).toContain('Não foi possível salvar: área removida')
+    expect(wrapper.get('.projects-write-error').text()).toContain('Could not save: area removed')
     expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
-    expect(wrapper.find('input[placeholder="Curto, como um título"]').attributes('value')).toBe(
-      'Organizar materiais de oficina'
+    expect(wrapper.find('input[placeholder="Short, like a title"]').attributes('value')).toBe(
+      'Organize workshop materials'
     )
     expect(wrapper.findAll('.project-row')).toHaveLength(1)
   })
 
   it('shows the row the source answered with, not the one it was sent', async () => {
-    const answered = projectRow({ id: 'project-oficina', title: 'Oficina, como a fonte a nomeou', nextStep: 'Passo da fonte' })
+    const answered = projectRow({ id: 'project-oficina', title: 'Workshop, as the source named it', nextStep: 'Source step' })
     const { wrapper } = await mountProjects(
       projectsWith(overviewOf([projectRow()]), { addProject: async () => answered })
     )
 
-    const dialog = await fillDialog(wrapper, 'O título que eu digitei')
+    const dialog = await fillDialog(wrapper, 'The title I typed')
     await dialog.trigger('submit')
     await flushReads()
 
     const rows = wrapper.findAll('.project-row-title').map((row) => row.text())
-    expect(rows).toContain('Oficina, como a fonte a nomeou')
-    expect(rows).not.toContain('O título que eu digitei')
+    expect(rows).toContain('Workshop, as the source named it')
+    expect(rows).not.toContain('The title I typed')
   })
 })

@@ -28,7 +28,7 @@ async function mountAt(path: string) {
 }
 
 async function expandAll(wrapper: VueWrapper) {
-  for (const label of ['Library', 'Estudo', 'Projetos', 'Notes']) {
+  for (const label of ['Library', 'Estudo', 'Projects', 'Notes']) {
     await wrapper.find(`button[aria-label="Expandir ${label}"]`).trigger('click')
   }
 }
@@ -66,11 +66,11 @@ describe('app shell', () => {
     const cases: Array<[string, string]> = [
       ['/library', 'Library'],
       ['/revisao', 'Revisão'],
-      ['/projetos', 'Projetos'],
-      ['/areas/a-casa', 'Casa'],
-      ['/projetos/project-horta', 'Horta da varanda'],
-      ['/decisoes/decision-backup-media', 'Escolher mídia para a cópia externa'],
-      ['/tarefas/task-backup', 'Definir destinos de cópia']
+      ['/projects', 'Projects'],
+      ['/areas/a-casa', 'Home'],
+      ['/projects/project-horta', 'Balcony garden'],
+      ['/decisions/decision-backup-media', 'Choose media for the off-site copy'],
+      ['/tasks/task-backup', 'Decide backup destinations']
     ]
     for (const [path, title] of cases) {
       const { wrapper } = await mountAt(path)
@@ -103,12 +103,12 @@ describe('app shell', () => {
     expect(targets['Currículos']).toMatchObject({ name: 'estudo' })
     expect(targets['Annotations']).toMatchObject({ name: 'notes', query: { tab: 'annotations' } })
     expect(targets['Highlights']).toMatchObject({ name: 'notes', query: { tab: 'highlights' } })
-    expect(targets['Casa']).toMatchObject({ name: 'area' })
-    expect(targets['Projetos'].name).toBe('projetos')
+    expect(targets['Home']).toMatchObject({ name: 'area' })
+    expect(targets['Projects'].name).toBe('projects')
 
     for (const [label, target] of Object.entries(targets)) {
       expect(
-        ['home', 'library', 'notes', 'notes-question-sets', 'revisao', 'estudo', 'area', 'projetos'],
+        ['home', 'library', 'notes', 'notes-question-sets', 'revisao', 'estudo', 'area', 'projects'],
         `sidebar entry "${label}" points at an unknown route`
       ).toContain(target.name)
     }
@@ -266,7 +266,7 @@ describe('app shell', () => {
     ['Ctrl+K', { ctrlKey: true }],
     ['⌘+K', { metaKey: true }]
   ])('opens the search overlay from %s on every route', async (_shortcut, modifier) => {
-    const { wrapper } = await mountAt('/projetos')
+    const { wrapper } = await mountAt('/projects')
 
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ...modifier }))
     await wrapper.vm.$nextTick()
