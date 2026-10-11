@@ -11,7 +11,7 @@ import (
 // answer carries the route rather than the slug, so a client follows a hit
 // without knowing which module -- or which of the core's own tables -- it
 // came from.
-func subjectSearchPath(slug string) string { return "/assuntos/" + slug }
+func subjectSearchPath(slug string) string { return "/subjects/" + slug }
 
 // SubjectSearchEntries reports the subjects matching query, best first, as
 // search entries the merge can order against a module's.

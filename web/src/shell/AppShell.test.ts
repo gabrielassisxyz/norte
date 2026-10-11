@@ -108,7 +108,7 @@ describe('app shell', () => {
 
     for (const [label, target] of Object.entries(targets)) {
       expect(
-        ['inicio', 'library', 'notas', 'notas-conjuntos', 'revisao', 'estudo', 'area', 'projetos'],
+        ['home', 'library', 'notas', 'notas-conjuntos', 'revisao', 'estudo', 'area', 'projetos'],
         `sidebar entry "${label}" points at an unknown route`
       ).toContain(target.name)
     }

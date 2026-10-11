@@ -53,7 +53,7 @@ async function create(): Promise<void> {
   }
   open.value = false
   subjectsChanged()
-  await router.push({ name: 'assunto', params: { slug: created.slug } })
+  await router.push({ name: 'subject', params: { slug: created.slug } })
 }
 </script>
 

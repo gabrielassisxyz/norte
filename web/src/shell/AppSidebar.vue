@@ -84,13 +84,13 @@ function isSectionActive(tree: SidebarTree): boolean {
   return tree.section.activeRouteNames.includes(String(route.name))
 }
 
-const isInicio = computed(() => route.name === 'inicio')
+const isHome = computed(() => route.name === 'home')
 </script>
 
 <template>
   <aside class="app-sidebar" :class="{ 'is-collapsed': collapsed }" aria-label="Navegação principal">
     <div class="app-brand">
-      <RouterLink v-if="!collapsed" :to="{ name: 'inicio' }" class="app-brand-link">Norte</RouterLink>
+      <RouterLink v-if="!collapsed" :to="{ name: 'home' }" class="app-brand-link">Norte</RouterLink>
       <button
         v-if="!drawer"
         type="button"
@@ -118,7 +118,7 @@ const isInicio = computed(() => route.name === 'inicio')
     </div>
 
     <nav v-if="!collapsed" aria-label="Principal" class="app-nav">
-      <RouterLink :to="{ name: 'inicio' }" class="app-item" :class="{ 'is-active': isInicio }">Início</RouterLink>
+      <RouterLink :to="{ name: 'home' }" class="app-item" :class="{ 'is-active': isHome }">Início</RouterLink>
 
       <template v-for="section in shellSections" :key="section.id">
         <div class="app-line">

@@ -182,7 +182,7 @@ describe('review view', () => {
     expect(wrapper.find('.nt-card').exists()).toBe(false)
     const home = wrapper.find('.review-home')
     expect(home.attributes('href')).toBe('/')
-    expect(resolveName(router, home.attributes('href'))).toBe('inicio')
+    expect(resolveName(router, home.attributes('href'))).toBe('home')
 
     await wrapper.find('.review-panel .nt-btn-primary').trigger('click')
     expect(wrapper.text()).toContain('Escolha um baralho')

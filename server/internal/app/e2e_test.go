@@ -163,8 +163,8 @@ func TestTheFirstDeliveryWalksFromASavedLinkToANoteUnderASubject(t *testing.T) {
 	if top.ID != subject.ID || top.Type != "subject" {
 		t.Fatalf("the subject's name answered %+v first, want the subject", top)
 	}
-	if top.Path != "/assuntos/"+subject.Slug {
-		t.Fatalf("the subject's path is %q, want /assuntos/%s", top.Path, subject.Slug)
+	if top.Path != "/subjects/"+subject.Slug {
+		t.Fatalf("the subject's path is %q, want /subjects/%s", top.Path, subject.Slug)
 	}
 
 	// 11. The notes written along the way are findable too, which is the only

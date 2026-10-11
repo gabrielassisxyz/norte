@@ -27,7 +27,7 @@ func TestRenameUpdatesTheRegistryAddressAndTitle(t *testing.T) {
 		`SELECT title, url FROM core_items WHERE id = ?`, subject.ID).Scan(&title, &url); err != nil {
 		t.Fatalf("reading the registry row: %v", err)
 	}
-	if url != "/assuntos/orquestracao-de-conteineres" {
+	if url != "/subjects/orquestracao-de-conteineres" {
 		t.Errorf("registry url = %q, want the new slug's address", url)
 	}
 	if title != "Orquestração de Contêineres" {

@@ -46,7 +46,7 @@ const GROUP_LABELS: Record<string, string> = {
  * typed themselves.
  */
 const KIND_LABELS: Record<string, string> = {
-  subject: 'assunto',
+  subject: 'subject',
   annotation: 'anotação',
   note: 'nota',
   question: 'pergunta'

@@ -52,7 +52,7 @@ const SHELL_ENTRY: SearchEntry = {
   subtitle: 'Hoje, leituras e estudo',
   kind: 'tela',
   keywords: 'home começo',
-  to: { name: 'inicio' }
+  to: { name: 'home' }
 }
 
 /**

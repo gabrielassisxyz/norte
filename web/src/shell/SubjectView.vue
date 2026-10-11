@@ -94,7 +94,7 @@ async function confirmDelete(): Promise<void> {
   }
   deleteOpen.value = false
   subjectsChanged()
-  await router.push({ name: 'inicio' })
+  await router.push({ name: 'home' })
 }
 </script>
 

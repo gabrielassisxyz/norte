@@ -47,7 +47,7 @@ async function mountSubject(slug = 'kubernetes', core?: FakeCoreSource) {
       ]
     })
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
-  await router.push(`/assuntos/${slug}`)
+  await router.push(`/subjects/${slug}`)
   await router.isReady()
   const wrapper = mount(SubjectView, {
     global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary({ core: source }))] }

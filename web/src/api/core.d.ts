@@ -127,7 +127,7 @@ export interface paths {
         /**
          * Read one subject by its slug
          * @description The same answer as reading by id, for the address bar: the subject
-         *     screen is reached at /assuntos/<slug> and has no id to open with.
+         *     screen is reached at /subjects/<slug> and has no id to open with.
          */
         get: operations["getCoreSubjectBySlug"];
         put?: never;
@@ -334,7 +334,7 @@ export interface components {
             title: string;
             /** @description One line of context, absent when the module has none. */
             subtitle?: string;
-            /** @description The frontend route that opens it, for example /library/<id>. */
+            /** @description The frontend route that opens it, for example /subjects/<slug>. */
             path: string;
             /**
              * @description How well this hit matches, from 0 to 1, comparable across modules.

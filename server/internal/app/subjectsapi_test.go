@@ -243,8 +243,8 @@ func TestCreateSubjectDerivesSlugAndRegistersTheItem(t *testing.T) {
 	if module != "core" || itemType != "subject" {
 		t.Errorf("registry row = (%q, %q), want (core, subject)", module, itemType)
 	}
-	if url != "/assuntos/machine-learning" {
-		t.Errorf("registry url = %q, want /assuntos/machine-learning", url)
+	if url != "/subjects/machine-learning" {
+		t.Errorf("registry url = %q, want /subjects/machine-learning", url)
 	}
 }
 

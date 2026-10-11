@@ -38,7 +38,7 @@ defineEmits<{ menu: [] }>()
         <path d="M3 5.5h14M3 10h14M3 14.5h14" />
       </svg>
     </button>
-    <RouterLink :to="{ name: 'inicio' }" class="app-topbar-brand">Norte</RouterLink>
+    <RouterLink :to="{ name: 'home' }" class="app-topbar-brand">Norte</RouterLink>
   </header>
 </template>
 

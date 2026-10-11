@@ -140,8 +140,8 @@ describe('Assuntos in the sidebar', () => {
     // It starts expanded: it is a grouping with no index page behind it, so
     // collapsed it says nothing at all.
     const rows = wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub')
-    const subjects = rows.filter((row) => row.attributes('href')?.startsWith('/assuntos/'))
-    expect(subjects.map((row) => row.attributes('href'))).toEqual(['/assuntos/escrita', '/assuntos/kubernetes'])
+    const subjects = rows.filter((row) => row.attributes('href')?.startsWith('/subjects/'))
+    expect(subjects.map((row) => row.attributes('href'))).toEqual(['/subjects/escrita', '/subjects/kubernetes'])
     expect(subjects[0]!.text()).toContain('Escrita')
     // The count is what the subject has linked to it, straight from the read.
     expect(subjects[0]!.text()).toContain('2')
@@ -153,7 +153,7 @@ describe('Assuntos in the sidebar', () => {
 
     expect(topLevelLabels(wrapper)).toContain('Assuntos')
     expect(wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub')
-      .some((row) => row.attributes('href') === '/assuntos/escrita')).toBe(true)
+      .some((row) => row.attributes('href') === '/subjects/escrita')).toBe(true)
   })
 
   it('says the vocabulary is empty rather than showing an empty block', async () => {
@@ -185,7 +185,7 @@ describe('Assuntos in the sidebar: more than one page', () => {
   function subjectRows(wrapper: Awaited<ReturnType<typeof mountSidebar>>) {
     return wrapper
       .findAll('nav[aria-label="Principal"] .app-children .app-sub')
-      .filter((row) => row.attributes('href')?.startsWith('/assuntos/'))
+      .filter((row) => row.attributes('href')?.startsWith('/subjects/'))
   }
 
   function assuntosCount(wrapper: Awaited<ReturnType<typeof mountSidebar>>): string {
