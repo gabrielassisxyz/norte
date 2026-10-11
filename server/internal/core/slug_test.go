@@ -36,7 +36,7 @@ func TestSlugifyDerivesTheTypeableForm(t *testing.T) {
 // A subject screen is reached at the slug, and the registry url is what a
 // rendered link follows, so the two have to be the same address.
 func TestSubjectURLIsTheScreenAddress(t *testing.T) {
-	if got := subjectURL("machine-learning"); got != "/assuntos/machine-learning" {
-		t.Errorf("subjectURL = %q, want /assuntos/machine-learning", got)
+	if got := subjectURL("machine-learning"); got != "/subjects/machine-learning" {
+		t.Errorf("subjectURL = %q, want /subjects/machine-learning", got)
 	}
 }

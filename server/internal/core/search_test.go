@@ -273,8 +273,8 @@ func TestASubjectIsFoundByNameAndRankedAboveAPartialMatch(t *testing.T) {
 			t.Fatalf("%q came back as %s/%s, want core/subject", entry.Title, entry.Module, entry.Type)
 		}
 	}
-	if entries[0].Path != "/assuntos/memoria" {
-		t.Fatalf("the subject path is %q, want /assuntos/memoria", entries[0].Path)
+	if entries[0].Path != "/subjects/memoria" {
+		t.Fatalf("the subject path is %q, want /subjects/memoria", entries[0].Path)
 	}
 	// Accent and case folding behave as before: the accented, capitalised
 	// query finds the same three in the same order.
@@ -307,8 +307,8 @@ func TestASubjectIsFoundByEveryWordInAnyOrder(t *testing.T) {
 		if entries[0].Score != 1 {
 			t.Fatalf("searching for %q scored %v, want 1", query, entries[0].Score)
 		}
-		if entries[0].Path != "/assuntos/filosofia-da-mente" {
-			t.Fatalf("searching for %q gave path %q, want /assuntos/filosofia-da-mente",
+		if entries[0].Path != "/subjects/filosofia-da-mente" {
+			t.Fatalf("searching for %q gave path %q, want /subjects/filosofia-da-mente",
 				query, entries[0].Path)
 		}
 	}

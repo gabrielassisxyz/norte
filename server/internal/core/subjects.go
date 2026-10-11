@@ -586,7 +586,7 @@ func (s *Subjects) inWriteTx(ctx context.Context, fn func(*sql.Tx) error) error 
 // subjectURL is the address the subject's screen answers at, stored in the
 // registry so a rendered link needs nothing from this package to follow.
 func subjectURL(slug string) string {
-	return "/assuntos/" + slug
+	return "/subjects/" + slug
 }
 
 func boolToInt(value bool) int64 {
