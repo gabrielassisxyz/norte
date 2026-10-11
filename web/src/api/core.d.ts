@@ -334,7 +334,7 @@ export interface components {
             title: string;
             /** @description One line of context, absent when the module has none. */
             subtitle?: string;
-            /** @description The frontend route that opens it, for example /biblioteca/<id>. */
+            /** @description The frontend route that opens it, for example /library/<id>. */
             path: string;
             /**
              * @description How well this hit matches, from 0 to 1, comparable across modules.

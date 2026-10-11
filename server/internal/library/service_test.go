@@ -2,15 +2,16 @@ package library
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 )
 
-func librarySaveOne(t *testing.T, service *LibraryService, url, why string) SaveOutcome {
+func librarySaveOne(t *testing.T, service *LibraryService, url, reason string) SaveOutcome {
 	t.Helper()
 	outcome, err := service.Save(context.Background(), SaveInput{
 		URL:    url,
-		Why:    why,
+		Reason: reason,
 		Source: LibrarySourceCLI,
 	})
 	if err != nil {
@@ -61,20 +62,41 @@ func TestLibraryPatchUnreadTransitions(t *testing.T) {
 	}
 }
 
-func TestLibraryPatchStatusTransitions(t *testing.T) {
+func TestLibraryPatchLocationTransitions(t *testing.T) {
 	clock := libraryTestClock()
 	database, dataDir := newLibraryTestDB(t, clock)
 	service := newLibraryTestService(t, database, dataDir, clock)
-	outcome := librarySaveOne(t, service, "https://example.org/status", "")
+	outcome := librarySaveOne(t, service, "https://example.org/location", "")
 
-	for _, status := range []string{"depois", "arquivo", "inbox"} {
-		patched, err := service.Patch(context.Background(), outcome.ID, PatchInput{Status: &status})
+	for _, location := range []string{"up_next", "later", "archive", "stash", "inbox"} {
+		patched, err := service.Patch(context.Background(), outcome.ID, PatchInput{Location: &location})
 		if err != nil {
-			t.Fatalf("patching status=%s: %v", status, err)
+			t.Fatalf("patching location=%s: %v", location, err)
 		}
-		if patched.Status != status {
-			t.Errorf("status = %q, want %q", patched.Status, status)
+		if patched.Location != location {
+			t.Errorf("location = %q, want %q", patched.Location, location)
 		}
+	}
+}
+
+// TestLibraryPatchRefusesAPortugueseLocation is the other half of the rename:
+// the five English values are accepted above, and the value a pre-rename
+// client would send is refused on the field it was sent on rather than stored.
+func TestLibraryPatchRefusesAPortugueseLocation(t *testing.T) {
+	clock := libraryTestClock()
+	database, dataDir := newLibraryTestDB(t, clock)
+	service := newLibraryTestService(t, database, dataDir, clock)
+	outcome := librarySaveOne(t, service, "https://example.org/refused", "")
+
+	old := "depois"
+	_, err := service.Patch(context.Background(), outcome.ID, PatchInput{Location: &old})
+	var domain *LibraryError
+	if !errors.As(err, &domain) {
+		t.Fatalf("patching an unknown location gave %v, want a domain error", err)
+	}
+	if domain.Message != `unknown location "depois"` || domain.Field != "location" {
+		t.Errorf("the refusal is %q on %q, want the unknown-location message on location",
+			domain.Message, domain.Field)
 	}
 }
 
@@ -91,7 +113,7 @@ func TestLibrarySaveRollsBackWhenTheJobEnqueueFails(t *testing.T) {
 	_, err := service.Save(context.Background(), SaveInput{
 		URL:    "https://example.org/rollback",
 		HTML:   []byte("<html>doomed</html>"),
-		Why:    "doomed",
+		Reason: "doomed",
 		Source: LibrarySourceCLI,
 	})
 	if err == nil {
@@ -121,7 +143,7 @@ func TestLibraryFTSTriggersTrackInsertUpdateDelete(t *testing.T) {
 
 	var indexed string
 	if err := database.Reader().QueryRow(
-		`SELECT why FROM library_fts WHERE id = ?`, outcome.ID).Scan(&indexed); err != nil {
+		`SELECT reason FROM library_fts WHERE id = ?`, outcome.ID).Scan(&indexed); err != nil {
 		t.Fatalf("reading the inserted full-text row: %v", err)
 	}
 	if indexed != "zebra" {
@@ -129,11 +151,11 @@ func TestLibraryFTSTriggersTrackInsertUpdateDelete(t *testing.T) {
 	}
 
 	other := "other"
-	if _, err := service.Patch(context.Background(), outcome.ID, PatchInput{Why: &other}); err != nil {
-		t.Fatalf("patching why: %v", err)
+	if _, err := service.Patch(context.Background(), outcome.ID, PatchInput{Reason: &other}); err != nil {
+		t.Fatalf("patching the reason: %v", err)
 	}
 	if err := database.Reader().QueryRow(
-		`SELECT why FROM library_fts WHERE id = ?`, outcome.ID).Scan(&indexed); err != nil {
+		`SELECT reason FROM library_fts WHERE id = ?`, outcome.ID).Scan(&indexed); err != nil {
 		t.Fatalf("reading the updated full-text row: %v", err)
 	}
 	if indexed != "other" {

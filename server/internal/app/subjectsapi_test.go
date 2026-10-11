@@ -209,7 +209,7 @@ func (env *subjectsTestEnv) saveLink(t *testing.T, url, title string, linkTo ...
 }
 
 // retypeItem sets a saved item's kind, which is what makes its registry type
-// something other than "post" -- the per-kind counts are grouped by that type.
+// something other than "article" -- the per-kind counts are grouped by that type.
 func (env *subjectsTestEnv) retypeItem(t *testing.T, id, kind string) {
 	t.Helper()
 	recorder := env.do(t, http.MethodPatch, "/api/library/items/"+id, map[string]any{"kind": kind})
@@ -276,7 +276,7 @@ func TestSubjectCountsWhatIsLinkedToIt(t *testing.T) {
 	// One linked on save, one linked afterwards through the links endpoint.
 	onSave := env.saveLink(t, "https://example.com/pods", "Pods explicados", subject.ID)
 	later := env.saveLink(t, "https://example.com/aula", "Uma aula longa")
-	env.retypeItem(t, later, "curso")
+	env.retypeItem(t, later, "course")
 	decodeSubjectsAnswer[linkBody](t, env.do(t, http.MethodPost, "/api/core/links", map[string]any{
 		"src_id": later, "dst_id": subject.ID, "kind": "about",
 	}), http.StatusCreated)
@@ -299,7 +299,7 @@ func TestSubjectCountsWhatIsLinkedToIt(t *testing.T) {
 		}
 		counts[entry.Type] = entry.Count
 	}
-	if counts["post"] != 1 || counts["curso"] != 1 {
+	if counts["article"] != 1 || counts["course"] != 1 {
 		t.Errorf("by_type = %v, want one post and one curso", counts)
 	}
 	if bySlug.LinkCount != 2 {

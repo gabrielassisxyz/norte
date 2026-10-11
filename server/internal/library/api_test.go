@@ -75,11 +75,11 @@ func libraryFreshCLIDir(t *testing.T) string {
 }
 
 // TestLibraryCLISaveAppearsInViewsWithCounts is the done-when path through
-// the command line: one save, visible in inbox, tudo, tipo=post and
+// the command line: one save, visible in inbox, all, kind=article and
 // unread=true, with counts to match.
 func TestLibraryCLISaveAppearsInViewsWithCounts(t *testing.T) {
 	dataDir := libraryFreshCLIDir(t)
-	out, err := runLibraryCLI(t, dataDir, "save", "https://example.org/a?utm_source=x#top", "--why", "w1")
+	out, err := runLibraryCLI(t, dataDir, "save", "https://example.org/a?utm_source=x#top", "--reason", "w1")
 	if err != nil {
 		t.Fatalf("norte save: %v\n%s", err, out)
 	}
@@ -92,7 +92,7 @@ func TestLibraryCLISaveAppearsInViewsWithCounts(t *testing.T) {
 	database := openLibraryDBAt(t, dataDir, clock)
 	handler := newLibraryTestRouter(t, database, dataDir, clock)
 
-	for _, query := range []string{"?view=inbox", "?view=tudo", "?tipo=post", "?unread=true"} {
+	for _, query := range []string{"?view=inbox", "?view=all", "?kind=article", "?unread=true"} {
 		ids := libraryListIDs(t, handler, query)
 		if len(ids) != 1 || ids[0] != id {
 			t.Errorf("GET %s = %v, want [%s]", query, ids, id)
@@ -107,7 +107,7 @@ func TestLibraryCLISaveAppearsInViewsWithCounts(t *testing.T) {
 		t.Fatalf("the counts answer is not JSON: %v", err)
 	}
 	views := counts["views"].(map[string]any)
-	for _, view := range []string{"inbox", "tudo"} {
+	for _, view := range []string{"inbox", "all"} {
 		if views[view] != 1.0 {
 			t.Errorf("counts.views.%s = %v, want 1 (%v)", view, views[view], counts)
 		}
@@ -122,7 +122,7 @@ func TestLibraryCLISaveAppearsInViewsWithCounts(t *testing.T) {
 // both answers carry the first id with the newest note.
 func TestLibraryDuplicateSaveReturnsSameID(t *testing.T) {
 	dataDir := libraryFreshCLIDir(t)
-	first, err := runLibraryCLI(t, dataDir, "save", "https://example.org/a?utm_source=x#top", "--why", "w1")
+	first, err := runLibraryCLI(t, dataDir, "save", "https://example.org/a?utm_source=x#top", "--reason", "w1")
 	if err != nil {
 		t.Fatalf("norte save: %v\n%s", err, first)
 	}
@@ -133,8 +133,8 @@ func TestLibraryDuplicateSaveReturnsSameID(t *testing.T) {
 	handler := newLibraryTestRouter(t, database, dataDir, clock)
 
 	status, body := libraryPostSave(t, handler, map[string]any{
-		"url": "https://EXAMPLE.org/a",
-		"why": "w2",
+		"url":    "https://EXAMPLE.org/a",
+		"reason": "w2",
 	})
 	if status != http.StatusOK {
 		t.Fatalf("the duplicate POST = %d, want 200 (%v)", status, body)
@@ -143,7 +143,7 @@ func TestLibraryDuplicateSaveReturnsSameID(t *testing.T) {
 		t.Errorf("the duplicate POST id = %v, want %s", body["id"], firstID)
 	}
 
-	second, err := runLibraryCLI(t, dataDir, "save", "https://example.org/a", "--why", "w2")
+	second, err := runLibraryCLI(t, dataDir, "save", "https://example.org/a", "--reason", "w2")
 	if err != nil {
 		t.Fatalf("the duplicate norte save: %v\n%s", err, second)
 	}
@@ -159,8 +159,8 @@ func TestLibraryDuplicateSaveReturnsSameID(t *testing.T) {
 	if err := json.Unmarshal(detail.Body.Bytes(), &item); err != nil {
 		t.Fatalf("the detail answer is not JSON: %v", err)
 	}
-	if item["why"] != "w2" {
-		t.Errorf("why = %v, want w2", item["why"])
+	if item["reason"] != "w2" {
+		t.Errorf("reason = %v, want w2", item["reason"])
 	}
 }
 
@@ -219,7 +219,7 @@ func TestLibrarySourcesRecorded(t *testing.T) {
 			`SELECT kind, source FROM library_items WHERE id = ?`, id).Scan(&kind, &source); err != nil {
 			t.Fatalf("reading %s: %v", id, err)
 		}
-		if kind != "post" {
+		if kind != "article" {
 			t.Errorf("a new item has kind %q, want post", kind)
 		}
 		if source != want {
@@ -390,7 +390,7 @@ func TestLibraryExtensionSnapshotWins(t *testing.T) {
 	}
 
 	status, _ = libraryPostSave(t, handler, map[string]any{
-		"url": "https://example.org/snap", "why": "later note",
+		"url": "https://example.org/snap", "reason": "later note",
 	})
 	if status != http.StatusOK {
 		t.Fatalf("the later duplicate did not answer 200")
@@ -571,12 +571,12 @@ func TestLibraryWhyUpdateIsSearchable(t *testing.T) {
 	service := newLibraryTestService(t, database, dataDir, clock)
 	outcome := librarySaveOne(t, service, "https://example.org/why", "initial")
 
-	patch := func(why string) {
+	patch := func(reason string) {
 		t.Helper()
 		response := doLibraryRequest(t, handler, http.MethodPatch, "/api/library/items/"+outcome.ID,
-			map[string]any{"why": why})
+			map[string]any{"reason": reason})
 		if response.Code != http.StatusOK {
-			t.Fatalf("PATCH why = %d (%q)", response.Code, response.Body.String())
+			t.Fatalf("PATCH reason = %d (%q)", response.Code, response.Body.String())
 		}
 	}
 	patch("zebra")
@@ -715,7 +715,7 @@ func TestLibraryPatchTitleAndKindFollowRegistry(t *testing.T) {
 	outcome := librarySaveOne(t, service, "https://example.org/rename", "")
 
 	response := doLibraryRequest(t, handler, http.MethodPatch, "/api/library/items/"+outcome.ID,
-		map[string]any{"title": "My own title", "kind": "livro"})
+		map[string]any{"title": "My own title", "kind": "book"})
 	if response.Code != http.StatusOK {
 		t.Fatalf("PATCH = %d (%q)", response.Code, response.Body.String())
 	}
@@ -731,7 +731,7 @@ func TestLibraryPatchTitleAndKindFollowRegistry(t *testing.T) {
 		`SELECT title, type FROM core_items WHERE id = ?`, outcome.ID).Scan(&title, &itemType); err != nil {
 		t.Fatalf("reading the registry row: %v", err)
 	}
-	if title != "My own title" || itemType != "livro" {
+	if title != "My own title" || itemType != "book" {
 		t.Errorf("the registry row is %q/%q, want My own title/livro", title, itemType)
 	}
 }
@@ -808,7 +808,7 @@ func TestLibraryCursorPagination120(t *testing.T) {
 	pages := [][]string{}
 	cursor := ""
 	for {
-		path := "?view=tudo&limit=50"
+		path := "?view=all&limit=50"
 		if cursor != "" {
 			path += "&cursor=" + cursor
 		}
@@ -865,7 +865,7 @@ func TestLibraryCursorPagination120(t *testing.T) {
 		t.Fatal("the inbox page carries no cursor to reuse")
 	}
 	reused := doLibraryRequest(t, handler, http.MethodGet,
-		"/api/library/items?view=tudo&limit=50&cursor="+inboxCursor, nil)
+		"/api/library/items?view=all&limit=50&cursor="+inboxCursor, nil)
 	if reused.Code != http.StatusBadRequest {
 		t.Errorf("a cursor reused with another view = %d, want 400 (%q)", reused.Code, reused.Body.String())
 	}
@@ -894,7 +894,7 @@ func TestLibraryLastOpenedSortListsOnlyOpened(t *testing.T) {
 	open(older.ID)
 	open(newer.ID)
 
-	ids := libraryListIDs(t, handler, "?view=tudo&sort=last_opened_desc")
+	ids := libraryListIDs(t, handler, "?view=all&sort=last_opened_desc")
 	if len(ids) != 2 || ids[0] != newer.ID || ids[1] != older.ID {
 		t.Errorf("last_opened_desc = %v, want [%s %s]", ids, newer.ID, older.ID)
 	}
@@ -920,7 +920,7 @@ func TestLibraryListOmitsContent(t *testing.T) {
 		`UPDATE library_items SET content_html = '<p>hi</p>', content_text = 'hi' WHERE id = ?`, id); err != nil {
 		t.Fatalf("filling the extracted content: %v", err)
 	}
-	response := doLibraryRequest(t, handler, http.MethodGet, "/api/library/items?view=tudo", nil)
+	response := doLibraryRequest(t, handler, http.MethodGet, "/api/library/items?view=all", nil)
 	var decoded map[string]any
 	if err := json.Unmarshal(response.Body.Bytes(), &decoded); err != nil {
 		t.Fatalf("the list is not JSON: %v", err)
@@ -996,7 +996,7 @@ func TestLibraryDetailIsARead(t *testing.T) {
 		return decoded
 	}
 	first, second := read(), read()
-	if first["id"] != outcome.ID || first["why"] != "keep me" || first["canonical_url"] == nil {
+	if first["id"] != outcome.ID || first["reason"] != "keep me" || first["canonical_url"] == nil {
 		t.Errorf("the detail = %v, want the full record", first)
 	}
 	if first["updated_at"] != second["updated_at"] {
@@ -1015,7 +1015,7 @@ func TestLibraryUnknownPatchAndOpenAre404(t *testing.T) {
 	handler := newLibraryTestRouter(t, database, dataDir, clock)
 
 	patch := doLibraryRequest(t, handler, http.MethodPatch, "/api/library/items/no-such-id",
-		map[string]any{"why": "x"})
+		map[string]any{"reason": "x"})
 	if patch.Code != http.StatusNotFound {
 		t.Errorf("PATCH an unknown id = %d, want 404", patch.Code)
 	}

@@ -20,7 +20,7 @@ type librarySearchFixture struct {
 	id     string
 	title  string
 	author string
-	why    string
+	reason string
 	text   string
 	// headings is the JSON the extraction job writes into
 	// library_items.content_headings, verbatim: the index must hold the
@@ -37,6 +37,33 @@ func seedLibrarySearchFixtures(t *testing.T, database *core.Database, fixtures [
 	for _, fixture := range fixtures {
 		if _, err := database.Writer().Exec(
 			`INSERT INTO library_items
+			   (id, kind, url, canonical_url, title, title_edited, author, site, reason, location,
+			    unread, saved_at, source, content_text, content_headings, extract_status,
+			    extract_generation, extracted_at, meta, created_at, updated_at)
+			 VALUES (?, 'article', ?, ?, ?, 0, ?, 'example.test', ?, 'inbox', 1, ?, 'cli', ?, ?,
+			         'done', 1, ?, '{}', ?, ?)`,
+			fixture.id, "https://example.test/"+fixture.id, "https://example.test/"+fixture.id,
+			fixture.title, sql.NullString{String: fixture.author, Valid: fixture.author != ""},
+			sql.NullString{String: fixture.reason, Valid: fixture.reason != ""}, stamp,
+			sql.NullString{String: fixture.text, Valid: fixture.text != ""},
+			sql.NullString{String: fixture.headings, Valid: fixture.headings != ""},
+			stamp, stamp, stamp); err != nil {
+			t.Fatalf("seeding %q: %v", fixture.id, err)
+		}
+	}
+}
+
+// seedLibraryPreLocationFixtures is seedLibrarySearchFixtures against the
+// schema as it stood before the location rename: the note in `why` and the
+// shelf in `status`. The heading-migration test seeds a database stopped at an
+// earlier version, which is the one place the old column names are still the
+// only ones that exist.
+func seedLibraryPreLocationFixtures(t *testing.T, database *core.Database, fixtures []librarySearchFixture) {
+	t.Helper()
+	stamp := core.FormatTime(libraryFixedInstant)
+	for _, fixture := range fixtures {
+		if _, err := database.Writer().Exec(
+			`INSERT INTO library_items
 			   (id, kind, url, canonical_url, title, title_edited, author, site, why, status,
 			    unread, saved_at, source, content_text, content_headings, extract_status,
 			    extract_generation, extracted_at, meta, created_at, updated_at)
@@ -44,11 +71,11 @@ func seedLibrarySearchFixtures(t *testing.T, database *core.Database, fixtures [
 			         'done', 1, ?, '{}', ?, ?)`,
 			fixture.id, "https://example.test/"+fixture.id, "https://example.test/"+fixture.id,
 			fixture.title, sql.NullString{String: fixture.author, Valid: fixture.author != ""},
-			sql.NullString{String: fixture.why, Valid: fixture.why != ""}, stamp,
+			sql.NullString{String: fixture.reason, Valid: fixture.reason != ""}, stamp,
 			sql.NullString{String: fixture.text, Valid: fixture.text != ""},
 			sql.NullString{String: fixture.headings, Valid: fixture.headings != ""},
 			stamp, stamp, stamp); err != nil {
-			t.Fatalf("seeding %q: %v", fixture.id, err)
+			t.Fatalf("seeding %q at the pre-location schema: %v", fixture.id, err)
 		}
 	}
 }
@@ -86,10 +113,10 @@ func TestAWordFromAnArticlesTextFindsTheItem(t *testing.T) {
 		t.Fatalf("the word matched %v, want only item-a", got)
 	}
 	entry := entries[0]
-	if entry.Path != "/biblioteca/item-a" {
-		t.Fatalf("the path is %q, want /biblioteca/item-a", entry.Path)
+	if entry.Path != "/library/item-a" {
+		t.Fatalf("the path is %q, want /library/item-a", entry.Path)
 	}
-	if entry.Module != ModuleName || entry.Type != "post" {
+	if entry.Module != ModuleName || entry.Type != "article" {
 		t.Fatalf("the hit came back as %s/%s, want %s/post", entry.Module, entry.Type, ModuleName)
 	}
 	if entry.Title != "Sobre hábitos" || entry.Subtitle != "Uma autora" {
@@ -121,7 +148,7 @@ func TestTheSiteStandsInForAMissingAuthor(t *testing.T) {
 func TestTheBestRankedHitScoresOneAndTheWorstZero(t *testing.T) {
 	database := newLibrarySearchDatabase(t, []librarySearchFixture{
 		{id: "item-title", title: "Zarabatana", text: "nada de especial aqui"},
-		{id: "item-why", title: "Sem relação", why: "zarabatana",
+		{id: "item-why", title: "Sem relação", reason: "zarabatana",
 			text: "nada de especial aqui"},
 		{id: "item-body", title: "Sem relação", text: "menciona zarabatana uma vez"},
 	})
@@ -298,7 +325,7 @@ func libraryHeadingSearchFixture() librarySearchFixture {
 	return librarySearchFixture{
 		id:       "item-headings",
 		title:    "Sobre memória",
-		why:      "para reler em janeiro",
+		reason:   "para reler em janeiro",
 		text:     "Um parágrafo qualquer sobre memória e sobre hábitos.",
 		headings: libraryHeadingFixtureJSON + `]`,
 	}
@@ -456,7 +483,7 @@ func TestTheMigrationCorrectsItemsSavedBeforeIt(t *testing.T) {
 	if _, err := provider.UpTo(ctx, 2); err != nil {
 		t.Fatalf("migrating the library to version 2: %v", err)
 	}
-	seedLibrarySearchFixtures(t, database, []librarySearchFixture{libraryHeadingSearchFixture()})
+	seedLibraryPreLocationFixtures(t, database, []librarySearchFixture{libraryHeadingSearchFixture()})
 
 	// The defect, asserted rather than assumed: at version 2 the JSON is
 	// what got indexed, so this test fails loudly if the previous version
@@ -465,12 +492,14 @@ func TestTheMigrationCorrectsItemsSavedBeforeIt(t *testing.T) {
 		t.Fatalf("at version 2 the indexed headings are %q, want the raw JSON containing \"anchor\"", before)
 	}
 
-	ran, err := provider.Up(ctx)
+	// Up to 3 and no further: this test is about what migration 3 repairs,
+	// and the migrations after it rewrite the same table for other reasons.
+	ran, err := provider.UpTo(ctx, 3)
 	if err != nil {
 		t.Fatalf("migrating the library up: %v", err)
 	}
 	if len(ran) != 1 {
-		t.Fatalf("%d migrations ran from version 2, want 1", len(ran))
+		t.Fatalf("%d migrations ran from version 2 to 3, want 1", len(ran))
 	}
 
 	const want = "Repetição espaçada Curva do esquecimento"
@@ -486,10 +515,10 @@ func TestTheMigrationCorrectsItemsSavedBeforeIt(t *testing.T) {
 		t.Errorf("anchor still matches %d rows after the migration, want 0", matches)
 	}
 
-	// `norte migrate` on a database already at the new version reports
-	// nothing to do, which here is the provider running no migration at all
-	// -- and incidentally proves the rebuild is not re-run on every start.
-	again, err := provider.Up(ctx)
+	// `norte migrate` on a database already at this version reports nothing
+	// to do, which here is the provider running no migration at all -- and
+	// incidentally proves the rebuild is not re-run on every start.
+	again, err := provider.UpTo(ctx, 3)
 	if err != nil {
 		t.Fatalf("migrating an already-current database: %v", err)
 	}
@@ -506,9 +535,12 @@ func TestTheMigrationsDownStepRestoresTheOldIndex(t *testing.T) {
 	database, _ := newLibraryTestDB(t, clocktest.New(libraryFixedInstant))
 	seedLibrarySearchFixtures(t, database, []librarySearchFixture{libraryHeadingSearchFixture()})
 
+	// Two steps back, because the version this test is about is no longer the
+	// last one: the location rename sits above it and rebuilds the same table,
+	// so rolling back one version would assert nothing about migration 3.
 	provider := libraryHeadingMigrationProvider(t, database.Writer())
-	if _, err := provider.Down(ctx); err != nil {
-		t.Fatalf("rolling the library back one version: %v", err)
+	if _, err := provider.DownTo(ctx, 2); err != nil {
+		t.Fatalf("rolling the library back to version 2: %v", err)
 	}
 
 	indexed := libraryHeadingIndexedValue(t, database, "item-headings")

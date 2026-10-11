@@ -130,7 +130,7 @@ func TestAnItemNoteHitOpensTheItemsReaderOnItsNote(t *testing.T) {
 	}
 	// The want is written out rather than built by the path helper: a test
 	// whose expectation the code under test computes proves nothing.
-	if want := "/biblioteca/" + item + "?notas=nota"; entry.Path != want {
+	if want := "/library/" + item + "?notes=note"; entry.Path != want {
 		t.Fatalf("an item note points at %q, want %q", entry.Path, want)
 	}
 }

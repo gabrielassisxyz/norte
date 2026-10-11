@@ -14,7 +14,7 @@ import (
 // failedExtractionReply is what a message gets when the article was saved and
 // its text could not be read. It does not say "saved": the link under it is
 // the proof, and a phone would rather read two lines than four.
-const failedExtractionReply = "salvo, mas não consegui extrair o texto"
+const failedExtractionReply = "saved, but I could not extract the text"
 
 // Target addresses one reply: the message that asked for it and the item it is
 // about.

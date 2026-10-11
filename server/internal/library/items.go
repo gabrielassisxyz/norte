@@ -26,9 +26,9 @@ func (s *LibraryService) Get(ctx context.Context, id string) (db.LibraryItem, er
 
 // PatchInput carries the fields a PATCH may change; a nil field is left alone.
 type PatchInput struct {
-	Status       *string
+	Location     *string
 	Unread       *bool
-	Why          *string
+	Reason       *string
 	Kind         *string
 	Title        *string
 	ReadPosition *string
@@ -36,10 +36,12 @@ type PatchInput struct {
 
 // valid patch values, checked here as well as by the contract.
 var (
-	libraryValidStatuses = map[string]bool{"inbox": true, "depois": true, "arquivo": true}
-	libraryValidKinds    = map[string]bool{
-		"post": true, "livro": true, "paper": true, "video": true,
-		"podcast": true, "newsletter": true, "curso": true,
+	libraryValidLocations = map[string]bool{
+		"inbox": true, "up_next": true, "later": true, "archive": true, "stash": true,
+	}
+	libraryValidKinds = map[string]bool{
+		"article": true, "book": true, "paper": true, "video": true,
+		"podcast": true, "newsletter": true, "course": true,
 	}
 )
 
@@ -48,8 +50,8 @@ var (
 // title as the person's own and follows the registry row; retyping follows
 // the registry type.
 func (s *LibraryService) Patch(ctx context.Context, id string, in PatchInput) (db.LibraryItem, error) {
-	if in.Status != nil && !libraryValidStatuses[*in.Status] {
-		return db.LibraryItem{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown status %q", *in.Status), "status")
+	if in.Location != nil && !libraryValidLocations[*in.Location] {
+		return db.LibraryItem{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown location %q", *in.Location), "location")
 	}
 	if in.Kind != nil && !libraryValidKinds[*in.Kind] {
 		return db.LibraryItem{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown kind %q", *in.Kind), "kind")
@@ -75,9 +77,9 @@ func (s *LibraryService) Patch(ctx context.Context, id string, in PatchInput) (d
 	set := []string{"updated_at = ?"}
 	args := []any{stamp}
 	newTitle, newKind := existing.Title, existing.Kind
-	if in.Status != nil {
-		set = append(set, "status = ?")
-		args = append(args, *in.Status)
+	if in.Location != nil {
+		set = append(set, "location = ?")
+		args = append(args, *in.Location)
 	}
 	if in.Unread != nil {
 		if *in.Unread {
@@ -87,9 +89,9 @@ func (s *LibraryService) Patch(ctx context.Context, id string, in PatchInput) (d
 			args = append(args, stamp)
 		}
 	}
-	if in.Why != nil {
-		set = append(set, "why = ?")
-		args = append(args, sql.NullString{String: *in.Why, Valid: *in.Why != ""})
+	if in.Reason != nil {
+		set = append(set, "reason = ?")
+		args = append(args, sql.NullString{String: *in.Reason, Valid: *in.Reason != ""})
 	}
 	if in.Kind != nil {
 		set = append(set, "kind = ?")
@@ -156,16 +158,18 @@ func (s *LibraryService) Counts(ctx context.Context) (libraryapi.LibraryCounts, 
 	}
 	var counts libraryapi.LibraryCounts
 	counts.Views.Inbox = int(row.Inbox)
-	counts.Views.Depois = int(row.Depois)
-	counts.Views.Arquivo = int(row.Arquivo)
-	counts.Views.Tudo = int(row.Tudo)
-	counts.Kinds.Post = int(row.KindPost)
-	counts.Kinds.Livro = int(row.KindLivro)
+	counts.Views.UpNext = int(row.UpNext)
+	counts.Views.Later = int(row.Later)
+	counts.Views.Archive = int(row.Archive)
+	counts.Views.Stash = int(row.Stash)
+	counts.Views.All = int(row.AllItems)
+	counts.Kinds.Article = int(row.KindArticle)
+	counts.Kinds.Book = int(row.KindBook)
 	counts.Kinds.Paper = int(row.KindPaper)
 	counts.Kinds.Video = int(row.KindVideo)
 	counts.Kinds.Podcast = int(row.KindPodcast)
 	counts.Kinds.Newsletter = int(row.KindNewsletter)
-	counts.Kinds.Curso = int(row.KindCurso)
+	counts.Kinds.Course = int(row.KindCourse)
 	counts.Unread = int(row.Unread)
 	return counts, nil
 }
@@ -246,9 +250,9 @@ func libraryMapItem(row db.LibraryItem) libraryapi.LibraryItem {
 		Site:              libraryNullString(row.Site),
 		PublishedAt:       libraryNullString(row.PublishedAt),
 		LeadImage:         libraryNullString(row.LeadImage),
-		Why:               libraryNullString(row.Why),
+		Reason:            libraryNullString(row.Reason),
 		Selection:         libraryMapSelection(row.Selection),
-		Status:            libraryapi.ItemStatus(row.Status),
+		Location:          libraryapi.ItemLocation(row.Location),
 		Unread:            row.Unread == 1,
 		SavedAt:           row.SavedAt,
 		ReadAt:            libraryNullString(row.ReadAt),
@@ -283,9 +287,9 @@ func libraryMapSummary(row db.LibraryItem) libraryapi.LibraryItemSummary {
 		Site:              libraryNullString(row.Site),
 		PublishedAt:       libraryNullString(row.PublishedAt),
 		LeadImage:         libraryNullString(row.LeadImage),
-		Why:               libraryNullString(row.Why),
+		Reason:            libraryNullString(row.Reason),
 		Selection:         libraryMapSelection(row.Selection),
-		Status:            libraryapi.ItemStatus(row.Status),
+		Location:          libraryapi.ItemLocation(row.Location),
 		Unread:            row.Unread == 1,
 		SavedAt:           row.SavedAt,
 		ReadAt:            libraryNullString(row.ReadAt),

@@ -12,32 +12,38 @@ import (
 
 const countLibraryItems = `-- name: CountLibraryItems :one
 SELECT
-    (SELECT COUNT(*) FROM library_items WHERE status = 'inbox') AS inbox,
-    (SELECT COUNT(*) FROM library_items WHERE status = 'depois') AS depois,
-    (SELECT COUNT(*) FROM library_items WHERE status = 'arquivo') AS arquivo,
-    (SELECT COUNT(*) FROM library_items) AS tudo,
-    (SELECT COUNT(*) FROM library_items WHERE kind = 'post') AS kind_post,
-    (SELECT COUNT(*) FROM library_items WHERE kind = 'livro') AS kind_livro,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'inbox') AS inbox,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'up_next') AS up_next,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'later') AS later,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'archive') AS archive,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'stash') AS stash,
+    -- Aliased all_items rather than all, which SQLite reserves; the count the
+    -- contract calls all is this one.
+    (SELECT COUNT(*) FROM library_items) AS all_items,
+    (SELECT COUNT(*) FROM library_items WHERE kind = 'article') AS kind_article,
+    (SELECT COUNT(*) FROM library_items WHERE kind = 'book') AS kind_book,
     (SELECT COUNT(*) FROM library_items WHERE kind = 'paper') AS kind_paper,
     (SELECT COUNT(*) FROM library_items WHERE kind = 'video') AS kind_video,
     (SELECT COUNT(*) FROM library_items WHERE kind = 'podcast') AS kind_podcast,
     (SELECT COUNT(*) FROM library_items WHERE kind = 'newsletter') AS kind_newsletter,
-    (SELECT COUNT(*) FROM library_items WHERE kind = 'curso') AS kind_curso,
+    (SELECT COUNT(*) FROM library_items WHERE kind = 'course') AS kind_course,
     (SELECT COUNT(*) FROM library_items WHERE unread = 1) AS unread
 `
 
 type CountLibraryItemsRow struct {
 	Inbox          int64
-	Depois         int64
-	Arquivo        int64
-	Tudo           int64
-	KindPost       int64
-	KindLivro      int64
+	UpNext         int64
+	Later          int64
+	Archive        int64
+	Stash          int64
+	AllItems       int64
+	KindArticle    int64
+	KindBook       int64
 	KindPaper      int64
 	KindVideo      int64
 	KindPodcast    int64
 	KindNewsletter int64
-	KindCurso      int64
+	KindCourse     int64
 	Unread         int64
 }
 
@@ -48,16 +54,18 @@ func (q *Queries) CountLibraryItems(ctx context.Context) (CountLibraryItemsRow, 
 	var i CountLibraryItemsRow
 	err := row.Scan(
 		&i.Inbox,
-		&i.Depois,
-		&i.Arquivo,
-		&i.Tudo,
-		&i.KindPost,
-		&i.KindLivro,
+		&i.UpNext,
+		&i.Later,
+		&i.Archive,
+		&i.Stash,
+		&i.AllItems,
+		&i.KindArticle,
+		&i.KindBook,
 		&i.KindPaper,
 		&i.KindVideo,
 		&i.KindPodcast,
 		&i.KindNewsletter,
-		&i.KindCurso,
+		&i.KindCourse,
 		&i.Unread,
 	)
 	return i, err
@@ -79,7 +87,7 @@ func (q *Queries) GetLibraryExtractGeneration(ctx context.Context, id string) (i
 const getLibraryItemByCanonical = `-- name: GetLibraryItemByCanonical :one
 SELECT
     id, kind, url, canonical_url, title, title_edited, author, site,
-    published_at, lead_image, why, selection, status, unread, saved_at,
+    published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
     extracted_at, extract_error, minutes, meta, created_at, updated_at
@@ -100,9 +108,9 @@ func (q *Queries) GetLibraryItemByCanonical(ctx context.Context, canonicalUrl st
 		&i.Site,
 		&i.PublishedAt,
 		&i.LeadImage,
-		&i.Why,
+		&i.Reason,
 		&i.Selection,
-		&i.Status,
+		&i.Location,
 		&i.Unread,
 		&i.SavedAt,
 		&i.ReadAt,
@@ -128,7 +136,7 @@ func (q *Queries) GetLibraryItemByCanonical(ctx context.Context, canonicalUrl st
 const getLibraryItemByID = `-- name: GetLibraryItemByID :one
 SELECT
     id, kind, url, canonical_url, title, title_edited, author, site,
-    published_at, lead_image, why, selection, status, unread, saved_at,
+    published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
     extracted_at, extract_error, minutes, meta, created_at, updated_at
@@ -149,9 +157,9 @@ func (q *Queries) GetLibraryItemByID(ctx context.Context, id string) (LibraryIte
 		&i.Site,
 		&i.PublishedAt,
 		&i.LeadImage,
-		&i.Why,
+		&i.Reason,
 		&i.Selection,
-		&i.Status,
+		&i.Location,
 		&i.Unread,
 		&i.SavedAt,
 		&i.ReadAt,
@@ -178,7 +186,7 @@ const insertLibraryItem = `-- name: InsertLibraryItem :exec
 
 INSERT INTO library_items (
     id, kind, url, canonical_url, title, title_edited, author, site,
-    published_at, lead_image, why, selection, status, unread, saved_at,
+    published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
     extracted_at, extract_error, minutes, meta, created_at, updated_at
@@ -202,9 +210,9 @@ type InsertLibraryItemParams struct {
 	Site              sql.NullString
 	PublishedAt       sql.NullString
 	LeadImage         sql.NullString
-	Why               sql.NullString
+	Reason            sql.NullString
 	Selection         sql.NullString
-	Status            string
+	Location          string
 	Unread            int64
 	SavedAt           string
 	ReadAt            sql.NullString
@@ -245,9 +253,9 @@ func (q *Queries) InsertLibraryItem(ctx context.Context, arg InsertLibraryItemPa
 		arg.Site,
 		arg.PublishedAt,
 		arg.LeadImage,
-		arg.Why,
+		arg.Reason,
 		arg.Selection,
-		arg.Status,
+		arg.Location,
 		arg.Unread,
 		arg.SavedAt,
 		arg.ReadAt,
@@ -406,11 +414,11 @@ func (q *Queries) TouchLibraryItem(ctx context.Context, arg TouchLibraryItemPara
 }
 
 const updateLibraryItemNote = `-- name: UpdateLibraryItemNote :exec
-UPDATE library_items SET why = ?, selection = ?, updated_at = ? WHERE id = ?
+UPDATE library_items SET reason = ?, selection = ?, updated_at = ? WHERE id = ?
 `
 
 type UpdateLibraryItemNoteParams struct {
-	Why       sql.NullString
+	Reason    sql.NullString
 	Selection sql.NullString
 	UpdatedAt string
 	ID        string
@@ -420,7 +428,7 @@ type UpdateLibraryItemNoteParams struct {
 // leaves what was there when nothing came.
 func (q *Queries) UpdateLibraryItemNote(ctx context.Context, arg UpdateLibraryItemNoteParams) error {
 	_, err := q.db.ExecContext(ctx, updateLibraryItemNote,
-		arg.Why,
+		arg.Reason,
 		arg.Selection,
 		arg.UpdatedAt,
 		arg.ID,

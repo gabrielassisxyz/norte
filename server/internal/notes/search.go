@@ -24,7 +24,7 @@ const (
 // notesItemNotePath is the reader route that shows an item's note: the item,
 // with the reader's note section asked for.
 func notesItemNotePath(itemID string) string {
-	return "/biblioteca/" + itemID + "?notas=nota"
+	return "/library/" + itemID + "?notes=note"
 }
 
 // notesSearchTitleRunes is how much of a note's text becomes the hit's title.

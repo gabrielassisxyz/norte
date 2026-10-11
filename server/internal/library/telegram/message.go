@@ -16,12 +16,12 @@ var linkPattern = regexp.MustCompile(`(?i)https?://[^\s]+`)
 const linkTrailers = `.,;:!?)]}'"»`
 
 // FirstLink reports the first URL of a message and what is left once that URL
-// is taken out -- the "why I saved this" note.
+// is taken out -- the note saying why the link was kept.
 //
 // Only the first URL is removed. A message carrying two links saves the first
 // and keeps the second in the note, where it stays readable, instead of the
 // adapter guessing which of the two the person meant.
-func FirstLink(text string) (link, why string, ok bool) {
+func FirstLink(text string) (link, reason string, ok bool) {
 	span := linkPattern.FindStringIndex(text)
 	if span == nil {
 		return "", "", false
@@ -34,11 +34,11 @@ func FirstLink(text string) (link, why string, ok bool) {
 	after := strings.TrimSpace(text[span[1]:])
 	switch {
 	case before == "":
-		why = after
+		reason = after
 	case after == "":
-		why = before
+		reason = before
 	default:
-		why = before + " " + after
+		reason = before + " " + after
 	}
-	return link, why, true
+	return link, reason, true
 }

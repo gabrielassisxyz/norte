@@ -93,19 +93,19 @@ func TestFrontendServesFilesAndFallsBackToIndexForDeepLinks(t *testing.T) {
 		t.Fatalf("/assets/app.js = %d %q, want the asset itself", asset.Code, asset.Body.String())
 	}
 
-	deep := get(t, handler, "/biblioteca")
+	deep := get(t, handler, "/library")
 	if deep.Code != http.StatusOK {
-		t.Fatalf("/biblioteca = %d, want 200 from the history fallback", deep.Code)
+		t.Fatalf("/library = %d, want 200 from the history fallback", deep.Code)
 	}
 	if !strings.Contains(deep.Body.String(), "<title>Norte</title>") {
-		t.Errorf("/biblioteca body = %q, want the frontend index", deep.Body.String())
+		t.Errorf("/library body = %q, want the frontend index", deep.Body.String())
 	}
 }
 
 func TestEveryResponseCarriesTheContentSecurityPolicy(t *testing.T) {
 	handler := testRouter(t)
 
-	for _, path := range []string{"/", "/biblioteca", "/api/health", "/api/nope"} {
+	for _, path := range []string{"/", "/library", "/api/health", "/api/nope"} {
 		if got := get(t, handler, path).Header().Get("Content-Security-Policy"); got != core.ContentSecurityPolicy {
 			t.Errorf("%s: Content-Security-Policy = %q, want %q", path, got, core.ContentSecurityPolicy)
 		}

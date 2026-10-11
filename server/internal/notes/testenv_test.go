@@ -222,14 +222,14 @@ func (h *notesHarness) registerItem(module, itemType, title string) string {
 // the event to the re-anchoring has a test of its own.
 func (h *notesHarness) saveArticle(title, text string) string {
 	h.t.Helper()
-	id := h.registerItem("library", "post", title)
+	id := h.registerItem("library", "article", title)
 	stamp := core.FormatTime(notesFixedInstant)
 	_, err := h.database.Writer().Exec(
 		`INSERT INTO library_items (
-			id, kind, url, canonical_url, title, title_edited, status, unread,
+			id, kind, url, canonical_url, title, title_edited, location, unread,
 			saved_at, source, content_text, extract_status, extract_generation,
 			extracted_at, meta, created_at, updated_at
-		) VALUES (?, 'post', ?, ?, ?, 0, 'inbox', 1, ?, 'app', ?, 'done', 1, ?, '{}', ?, ?)`,
+		) VALUES (?, 'article', ?, ?, ?, 0, 'inbox', 1, ?, 'app', ?, 'done', 1, ?, '{}', ?, ?)`,
 		id, "https://example.invalid/"+id, "https://example.invalid/"+id, title,
 		stamp, text, stamp, stamp, stamp)
 	if err != nil {

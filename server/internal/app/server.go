@@ -147,7 +147,7 @@ func (d *norteDiscardedResponse) Write(b []byte) (int, error) {
 
 // newFrontendHandler serves the embedded frontend, falling back to index.html
 // for any path that is not a file, because Vue Router uses HTML5 history and a
-// deep link such as /biblioteca exists only in the browser.
+// deep link such as /library exists only in the browser.
 func newFrontendHandler(assets fs.FS) http.Handler {
 	files := http.FileServerFS(assets)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

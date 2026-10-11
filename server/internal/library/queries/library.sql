@@ -10,7 +10,7 @@
 -- name: InsertLibraryItem :exec
 INSERT INTO library_items (
     id, kind, url, canonical_url, title, title_edited, author, site,
-    published_at, lead_image, why, selection, status, unread, saved_at,
+    published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
     extracted_at, extract_error, minutes, meta, created_at, updated_at
@@ -25,7 +25,7 @@ INSERT INTO library_items (
 -- name: GetLibraryItemByID :one
 SELECT
     id, kind, url, canonical_url, title, title_edited, author, site,
-    published_at, lead_image, why, selection, status, unread, saved_at,
+    published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
     extracted_at, extract_error, minutes, meta, created_at, updated_at
@@ -34,7 +34,7 @@ FROM library_items WHERE id = ?;
 -- name: GetLibraryItemByCanonical :one
 SELECT
     id, kind, url, canonical_url, title, title_edited, author, site,
-    published_at, lead_image, why, selection, status, unread, saved_at,
+    published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
     extracted_at, extract_error, minutes, meta, created_at, updated_at
@@ -43,7 +43,7 @@ FROM library_items WHERE canonical_url = ?;
 -- A duplicate save applies the note and the selection that came with it, or
 -- leaves what was there when nothing came.
 -- name: UpdateLibraryItemNote :exec
-UPDATE library_items SET why = ?, selection = ?, updated_at = ? WHERE id = ?;
+UPDATE library_items SET reason = ?, selection = ?, updated_at = ? WHERE id = ?;
 
 -- A duplicate save that re-extracts replaces the snapshot: the new hash, who
 -- captured it, a clean extraction state and the next generation, so the worker
@@ -67,17 +67,21 @@ UPDATE library_items SET last_opened_at = ?, updated_at = ? WHERE id = ?;
 -- answers with, so a list call never recomputes them.
 -- name: CountLibraryItems :one
 SELECT
-    (SELECT COUNT(*) FROM library_items WHERE status = 'inbox') AS inbox,
-    (SELECT COUNT(*) FROM library_items WHERE status = 'depois') AS depois,
-    (SELECT COUNT(*) FROM library_items WHERE status = 'arquivo') AS arquivo,
-    (SELECT COUNT(*) FROM library_items) AS tudo,
-    (SELECT COUNT(*) FROM library_items WHERE kind = 'post') AS kind_post,
-    (SELECT COUNT(*) FROM library_items WHERE kind = 'livro') AS kind_livro,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'inbox') AS inbox,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'up_next') AS up_next,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'later') AS later,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'archive') AS archive,
+    (SELECT COUNT(*) FROM library_items WHERE location = 'stash') AS stash,
+    -- Aliased all_items rather than all, which SQLite reserves; the count the
+    -- contract calls all is this one.
+    (SELECT COUNT(*) FROM library_items) AS all_items,
+    (SELECT COUNT(*) FROM library_items WHERE kind = 'article') AS kind_article,
+    (SELECT COUNT(*) FROM library_items WHERE kind = 'book') AS kind_book,
     (SELECT COUNT(*) FROM library_items WHERE kind = 'paper') AS kind_paper,
     (SELECT COUNT(*) FROM library_items WHERE kind = 'video') AS kind_video,
     (SELECT COUNT(*) FROM library_items WHERE kind = 'podcast') AS kind_podcast,
     (SELECT COUNT(*) FROM library_items WHERE kind = 'newsletter') AS kind_newsletter,
-    (SELECT COUNT(*) FROM library_items WHERE kind = 'curso') AS kind_curso,
+    (SELECT COUNT(*) FROM library_items WHERE kind = 'course') AS kind_course,
     (SELECT COUNT(*) FROM library_items WHERE unread = 1) AS unread;
 
 -- The extraction writes everything one pass produced in one statement, so no

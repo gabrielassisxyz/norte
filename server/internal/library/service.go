@@ -101,7 +101,7 @@ type SaveInput struct {
 	Title     string
 	HTML      []byte
 	Selection *string
-	Why       string
+	Reason    string
 	LinkTo    []string
 	Source    string
 }
@@ -256,23 +256,23 @@ func (s *LibraryService) insertLibraryItem(ctx context.Context, tx *sql.Tx, quer
 		meta = librarySetSnapshotSource("{}", librarySnapshotSourceFor(in.Source))
 		htmlHash = sql.NullString{String: prepared.blobHash, Valid: true}
 	}
-	var why, selection sql.NullString
-	if in.Why != "" {
-		why = sql.NullString{String: in.Why, Valid: true}
+	var reason, selection sql.NullString
+	if in.Reason != "" {
+		reason = sql.NullString{String: in.Reason, Valid: true}
 	}
 	if in.Selection != nil {
 		selection = sql.NullString{String: *in.Selection, Valid: true}
 	}
 	if err := queries.InsertLibraryItem(ctx, db.InsertLibraryItemParams{
 		ID:                id,
-		Kind:              "post",
+		Kind:              "article",
 		Url:               in.URL,
 		CanonicalUrl:      prepared.canonical,
 		Title:             title,
 		TitleEdited:       0,
-		Why:               why,
+		Reason:            reason,
 		Selection:         selection,
-		Status:            "inbox",
+		Location:          "inbox",
 		Unread:            1,
 		SavedAt:           stamp,
 		Source:            in.Source,
@@ -288,7 +288,7 @@ func (s *LibraryService) insertLibraryItem(ctx context.Context, tx *sql.Tx, quer
 	if err := core.RegisterItem(ctx, tx, core.ItemRegistration{
 		ID:        id,
 		Module:    ModuleName,
-		Type:      "post",
+		Type:      "article",
 		Title:     title,
 		URL:       in.URL,
 		CreatedAt: now,
@@ -324,16 +324,16 @@ func (s *LibraryService) applyLibraryDuplicate(ctx context.Context, tx *sql.Tx, 
 			return SaveOutcome{}, err
 		}
 	}
-	why := existing.Why
-	if in.Why != "" {
-		why = sql.NullString{String: in.Why, Valid: true}
+	reason := existing.Reason
+	if in.Reason != "" {
+		reason = sql.NullString{String: in.Reason, Valid: true}
 	}
 	selection := existing.Selection
 	if in.Selection != nil {
 		selection = sql.NullString{String: *in.Selection, Valid: true}
 	}
 	if err := queries.UpdateLibraryItemNote(ctx, db.UpdateLibraryItemNoteParams{
-		Why:       why,
+		Reason:    reason,
 		Selection: selection,
 		UpdatedAt: stamp,
 		ID:        existing.ID,
