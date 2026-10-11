@@ -3,6 +3,12 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { JSDOM } from 'jsdom';
 
+test('manifest describes the extension and its action in English', async () => {
+  const manifest = JSON.parse(await readFile(new URL('../manifest.json', import.meta.url), 'utf8'));
+  assert.equal(manifest.description, 'Save the current page to your Norte library.');
+  assert.equal(manifest.action.default_title, 'Save to Norte');
+});
+
 test('popup.html is English, with lang and the reason-labelled note input', async () => {
   const dom = new JSDOM(await readFile(new URL('../src/popup.html', import.meta.url), 'utf8'));
   const document = dom.window.document;
