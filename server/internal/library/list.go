@@ -40,7 +40,8 @@ const (
 
 // ListInput is what GET /api/library/items filters by. SortExplicit tells a
 // text query from a defaulted sort: an explicit sort together with q is
-// refused, while the default simply gives way to the rank.
+// refused, while the default simply gives way to the rank. Tag is the
+// normalized name the filter keeps, empty meaning none.
 type ListInput struct {
 	View         string
 	Kind         string
@@ -48,6 +49,7 @@ type ListInput struct {
 	Sort         string
 	SortExplicit bool
 	Query        string
+	Tag          string
 	Cursor       string
 	Limit        int
 }
@@ -108,7 +110,7 @@ func libraryDecodeCursor(raw string) (libraryCursor, error) {
 }
 
 // libraryFilterHash binds a cursor to the query that produced it.
-func libraryFilterHash(view, kind string, unread *bool, query string) string {
+func libraryFilterHash(view, kind string, unread *bool, query, tag string) string {
 	unreadKey := "nil"
 	if unread != nil {
 		if *unread {
@@ -117,7 +119,7 @@ func libraryFilterHash(view, kind string, unread *bool, query string) string {
 			unreadKey = "false"
 		}
 	}
-	sum := sha256.Sum256([]byte(view + "\x00" + kind + "\x00" + unreadKey + "\x00" + query))
+	sum := sha256.Sum256([]byte(view + "\x00" + kind + "\x00" + unreadKey + "\x00" + query + "\x00" + tag))
 	return fmt.Sprintf("%x", sum)
 }
 
@@ -163,6 +165,16 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 	if in.Kind != "" && !libraryValidKinds[in.Kind] {
 		return ListResult{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown kind %q", in.Kind), "kind")
 	}
+	// The tag filter reads a normalized name, the same one the vocabulary
+	// holds, so a query in whatever casing still finds the tag's items -- and
+	// a name that normalizes to nothing is not a tag the library can keep.
+	if in.Tag != "" {
+		name, err := libraryNormalizedTagInput(in.Tag, "tag")
+		if err != nil {
+			return ListResult{}, err
+		}
+		in.Tag = name
+	}
 	if in.Query != "" && in.SortExplicit {
 		return ListResult{}, libraryBadRequest("invalid_request", "sort and q cannot be combined: a text query orders by rank", "sort")
 	}
@@ -201,7 +213,7 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 			return ListResult{}, err
 		}
 	}
-	filterHash := libraryFilterHash(view, in.Kind, in.Unread, in.Query)
+	filterHash := libraryFilterHash(view, in.Kind, in.Unread, in.Query, in.Tag)
 	var cursor libraryCursor
 	if in.Cursor != "" {
 		decoded, err := libraryDecodeCursor(in.Cursor)
@@ -250,6 +262,11 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		} else {
 			args = append(args, 0)
 		}
+	}
+	if in.Tag != "" {
+		where = append(where,
+			"EXISTS (SELECT 1 FROM library_item_tags WHERE library_item_tags.item_id = library_items.id AND library_item_tags.tag_name = ?)")
+		args = append(args, in.Tag)
 	}
 	if effectiveSort == LibrarySortLastOpenedDesc {
 		where = append(where, "library_items.last_opened_at IS NOT NULL")

@@ -10,6 +10,17 @@ import (
 	"database/sql"
 )
 
+const countLibraryItemTagUses = `-- name: CountLibraryItemTagUses :one
+SELECT COUNT(*) AS item_count FROM library_item_tags WHERE tag_name = ?
+`
+
+func (q *Queries) CountLibraryItemTagUses(ctx context.Context, tagName string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countLibraryItemTagUses, tagName)
+	var item_count int64
+	err := row.Scan(&item_count)
+	return item_count, err
+}
+
 const countLibraryItems = `-- name: CountLibraryItems :one
 SELECT
     (SELECT COUNT(*) FROM library_items WHERE location = 'inbox') AS inbox,
@@ -69,6 +80,119 @@ func (q *Queries) CountLibraryItems(ctx context.Context) (CountLibraryItemsRow, 
 		&i.Unread,
 	)
 	return i, err
+}
+
+const countLibraryItemsByTag = `-- name: CountLibraryItemsByTag :one
+WITH tagged AS (
+    SELECT id, kind, location, unread
+      FROM library_items
+     WHERE id IN (SELECT item_id FROM library_item_tags WHERE tag_name = ?)
+)
+SELECT
+    (SELECT COUNT(*) FROM tagged WHERE location = 'inbox') AS inbox,
+    (SELECT COUNT(*) FROM tagged WHERE location = 'up_next') AS up_next,
+    (SELECT COUNT(*) FROM tagged WHERE location = 'later') AS later,
+    (SELECT COUNT(*) FROM tagged WHERE location = 'archive') AS archive,
+    (SELECT COUNT(*) FROM tagged WHERE location = 'stash') AS stash,
+    (SELECT COUNT(*) FROM tagged) AS all_items,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'article') AS kind_article,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'book') AS kind_book,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'paper') AS kind_paper,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'video') AS kind_video,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'podcast') AS kind_podcast,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'newsletter') AS kind_newsletter,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'course') AS kind_course,
+    (SELECT COUNT(*) FROM tagged WHERE unread = 1) AS unread
+`
+
+type CountLibraryItemsByTagRow struct {
+	Inbox          int64
+	UpNext         int64
+	Later          int64
+	Archive        int64
+	Stash          int64
+	AllItems       int64
+	KindArticle    int64
+	KindBook       int64
+	KindPaper      int64
+	KindVideo      int64
+	KindPodcast    int64
+	KindNewsletter int64
+	KindCourse     int64
+	Unread         int64
+}
+
+// Every count the library screen shows, over only the items carrying one tag,
+// which is what the counts endpoint answers while a tag is selected.
+func (q *Queries) CountLibraryItemsByTag(ctx context.Context, tagName string) (CountLibraryItemsByTagRow, error) {
+	row := q.db.QueryRowContext(ctx, countLibraryItemsByTag, tagName)
+	var i CountLibraryItemsByTagRow
+	err := row.Scan(
+		&i.Inbox,
+		&i.UpNext,
+		&i.Later,
+		&i.Archive,
+		&i.Stash,
+		&i.AllItems,
+		&i.KindArticle,
+		&i.KindBook,
+		&i.KindPaper,
+		&i.KindVideo,
+		&i.KindPodcast,
+		&i.KindNewsletter,
+		&i.KindCourse,
+		&i.Unread,
+	)
+	return i, err
+}
+
+const deleteLibraryItemTag = `-- name: DeleteLibraryItemTag :exec
+DELETE FROM library_item_tags WHERE item_id = ? AND tag_name = ?
+`
+
+type DeleteLibraryItemTagParams struct {
+	ItemID  string
+	TagName string
+}
+
+func (q *Queries) DeleteLibraryItemTag(ctx context.Context, arg DeleteLibraryItemTagParams) error {
+	_, err := q.db.ExecContext(ctx, deleteLibraryItemTag, arg.ItemID, arg.TagName)
+	return err
+}
+
+const deleteLibraryRemovedItemTagRows = `-- name: DeleteLibraryRemovedItemTagRows :exec
+DELETE FROM library_item_removed_tags WHERE tag_name = ?
+`
+
+func (q *Queries) DeleteLibraryRemovedItemTagRows(ctx context.Context, tagName string) error {
+	_, err := q.db.ExecContext(ctx, deleteLibraryRemovedItemTagRows, tagName)
+	return err
+}
+
+const deleteLibraryTagItemRows = `-- name: DeleteLibraryTagItemRows :exec
+DELETE FROM library_item_tags WHERE tag_name = ?
+`
+
+// The source's rows are gone once they are absorbed, under either spelling.
+func (q *Queries) DeleteLibraryTagItemRows(ctx context.Context, tagName string) error {
+	_, err := q.db.ExecContext(ctx, deleteLibraryTagItemRows, tagName)
+	return err
+}
+
+const dropLibraryRemovedItemTag = `-- name: DropLibraryRemovedItemTag :exec
+DELETE FROM library_item_removed_tags WHERE item_id = ? AND tag_name = ?
+`
+
+type DropLibraryRemovedItemTagParams struct {
+	ItemID  string
+	TagName string
+}
+
+// Handing the tag back: the person re-added what they once removed, and the
+// record that keeps the tagger from re-adding it must not outlive that.
+func (q *Queries) DropLibraryRemovedItemTag(ctx context.Context, arg DropLibraryRemovedItemTagParams) error {
+	_, err := q.db.ExecContext(ctx, dropLibraryRemovedItemTag, arg.ItemID, arg.TagName)
+	return err
 }
 
 const getLibraryExtractGeneration = `-- name: GetLibraryExtractGeneration :one
@@ -182,6 +306,18 @@ func (q *Queries) GetLibraryItemByID(ctx context.Context, id string) (LibraryIte
 	return i, err
 }
 
+const getLibraryTag = `-- name: GetLibraryTag :one
+SELECT name FROM library_tags WHERE name = ?
+`
+
+// One tag row, or nothing: what the rename checks against.
+func (q *Queries) GetLibraryTag(ctx context.Context, name string) (string, error) {
+	row := q.db.QueryRowContext(ctx, getLibraryTag, name)
+	var name_2 string
+	err := row.Scan(&name_2)
+	return name_2, err
+}
+
 const insertLibraryItem = `-- name: InsertLibraryItem :exec
 
 INSERT INTO library_items (
@@ -278,6 +414,213 @@ func (q *Queries) InsertLibraryItem(ctx context.Context, arg InsertLibraryItemPa
 	return err
 }
 
+const insertLibraryItemTag = `-- name: InsertLibraryItemTag :exec
+INSERT OR IGNORE INTO library_item_tags (item_id, tag_name, origin, created_at)
+VALUES (?, ?, ?, ?)
+`
+
+type InsertLibraryItemTagParams struct {
+	ItemID    string
+	TagName   string
+	Origin    string
+	CreatedAt string
+}
+
+// The tagger's insert, which keeps whatever row is already there: an existing
+// manual row staying manual is the rule that a hand-add is never taken down
+// by a later automatic answer.
+func (q *Queries) InsertLibraryItemTag(ctx context.Context, arg InsertLibraryItemTagParams) error {
+	_, err := q.db.ExecContext(ctx, insertLibraryItemTag,
+		arg.ItemID,
+		arg.TagName,
+		arg.Origin,
+		arg.CreatedAt,
+	)
+	return err
+}
+
+const insertLibraryTag = `-- name: InsertLibraryTag :exec
+INSERT OR IGNORE INTO library_tags (name, created_at) VALUES (?, ?)
+`
+
+type InsertLibraryTagParams struct {
+	Name      string
+	CreatedAt string
+}
+
+func (q *Queries) InsertLibraryTag(ctx context.Context, arg InsertLibraryTagParams) error {
+	_, err := q.db.ExecContext(ctx, insertLibraryTag, arg.Name, arg.CreatedAt)
+	return err
+}
+
+const listLibraryItemTagNames = `-- name: ListLibraryItemTagNames :many
+
+SELECT tag_name FROM library_item_tags WHERE item_id = ? ORDER BY tag_name ASC
+`
+
+// One item's tags.
+func (q *Queries) ListLibraryItemTagNames(ctx context.Context, itemID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryItemTagNames, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var tag_name string
+		if err := rows.Scan(&tag_name); err != nil {
+			return nil, err
+		}
+		items = append(items, tag_name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraryItemTagRows = `-- name: ListLibraryItemTagRows :many
+SELECT tag_name, origin FROM library_item_tags WHERE item_id = ?
+`
+
+type ListLibraryItemTagRowsRow struct {
+	TagName string
+	Origin  string
+}
+
+// The same rows with who put them there, which is what the tag job's diff
+// needs: it rewrites the rows it owns and never touches a manual one.
+func (q *Queries) ListLibraryItemTagRows(ctx context.Context, itemID string) ([]ListLibraryItemTagRowsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryItemTagRows, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibraryItemTagRowsRow{}
+	for rows.Next() {
+		var i ListLibraryItemTagRowsRow
+		if err := rows.Scan(&i.TagName, &i.Origin); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraryRemovedItemTagNames = `-- name: ListLibraryRemovedItemTagNames :many
+
+SELECT tag_name FROM library_item_removed_tags WHERE item_id = ?
+`
+
+// What the person removed from one item by hand.
+func (q *Queries) ListLibraryRemovedItemTagNames(ctx context.Context, itemID string) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryRemovedItemTagNames, itemID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var tag_name string
+		if err := rows.Scan(&tag_name); err != nil {
+			return nil, err
+		}
+		items = append(items, tag_name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraryTags = `-- name: ListLibraryTags :many
+
+SELECT t.name AS name, COUNT(it.item_id) AS item_count
+  FROM library_tags t
+  LEFT JOIN library_item_tags it ON it.tag_name = t.name
+ GROUP BY t.name
+ ORDER BY item_count DESC, t.name ASC
+`
+
+type ListLibraryTagsRow struct {
+	Name      string
+	ItemCount int64
+}
+
+// The vocabulary, and what serves it.
+// Every tag in use with its item count, most used first and equal counts in
+// alphabetical order. The LEFT JOIN is deliberate: a tag row without a single
+// item is a broken invariant, and the endpoint reporting it at zero is the
+// symptom a person can see, rather than a silently hidden row.
+func (q *Queries) ListLibraryTags(ctx context.Context) ([]ListLibraryTagsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryTags)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibraryTagsRow{}
+	for rows.Next() {
+		var i ListLibraryTagsRow
+		if err := rows.Scan(&i.Name, &i.ItemCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraryVocabulary = `-- name: ListLibraryVocabulary :many
+SELECT t.name
+  FROM library_tags t
+  JOIN library_item_tags it ON it.tag_name = t.name
+ GROUP BY t.name
+ ORDER BY COUNT(it.item_id) DESC, t.name ASC
+ LIMIT ?
+`
+
+// The automatic tagger's "prefer existing tags" list: every tag in use, most
+// used first, capped by the caller's limit.
+func (q *Queries) ListLibraryVocabulary(ctx context.Context, limit int64) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryVocabulary, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markLibraryExtractionFailed = `-- name: MarkLibraryExtractionFailed :execrows
 UPDATE library_items
 SET extract_status = 'failed', extract_error = ?, updated_at = ?
@@ -321,6 +664,66 @@ func (q *Queries) MarkLibraryItemOpened(ctx context.Context, arg MarkLibraryItem
 	return q.db.ExecContext(ctx, markLibraryItemOpened, arg.LastOpenedAt, arg.UpdatedAt, arg.ID)
 }
 
+const moveLibraryItemTags = `-- name: MoveLibraryItemTags :exec
+INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+SELECT item_id, ?, origin, created_at
+  FROM library_item_tags
+ WHERE library_item_tags.tag_name = ?
+   AND item_id NOT IN (SELECT item_id FROM library_item_removed_tags
+                        WHERE library_item_removed_tags.tag_name = ?)
+ON CONFLICT (item_id, tag_name) DO UPDATE SET origin =
+    CASE WHEN library_item_tags.origin = 'manual' OR excluded.origin = 'manual'
+         THEN 'manual' ELSE 'auto' END
+`
+
+type MoveLibraryItemTagsParams struct {
+	TagName   string
+	TagName_2 string
+	TagName_3 string
+}
+
+// The rename and the merge, one shape for both: the target row of the item
+// tags absorbs the source's rows, manual origin beating automatic, and the
+// tag's row moves when nothing held the target name already. Items whose
+// person removed the target tag by hand are never re-tagged: a merge follows
+// the removals rather than overriding them.
+func (q *Queries) MoveLibraryItemTags(ctx context.Context, arg MoveLibraryItemTagsParams) error {
+	_, err := q.db.ExecContext(ctx, moveLibraryItemTags, arg.TagName, arg.TagName_2, arg.TagName_3)
+	return err
+}
+
+const moveLibraryRemovedItemTags = `-- name: MoveLibraryRemovedItemTags :exec
+INSERT OR IGNORE INTO library_item_removed_tags (item_id, tag_name, created_at)
+SELECT item_id, ?, created_at
+  FROM library_item_removed_tags
+ WHERE library_item_removed_tags.tag_name = ?
+`
+
+type MoveLibraryRemovedItemTagsParams struct {
+	TagName   string
+	TagName_2 string
+}
+
+// The rename carries the removed-by-hand records with the tag, so a refusal
+// the person made keeps refusing under the new name.
+func (q *Queries) MoveLibraryRemovedItemTags(ctx context.Context, arg MoveLibraryRemovedItemTagsParams) error {
+	_, err := q.db.ExecContext(ctx, moveLibraryRemovedItemTags, arg.TagName, arg.TagName_2)
+	return err
+}
+
+const pruneUnusedLibraryTags = `-- name: PruneUnusedLibraryTags :exec
+DELETE FROM library_tags
+ WHERE name NOT IN (SELECT DISTINCT tag_name FROM library_item_tags)
+`
+
+// Retires every tag nothing carries any more. Every path that deletes rows
+// from library_item_tags runs this in its transaction, so the vocabulary and
+// the item tags can never disagree about which tags exist.
+func (q *Queries) PruneUnusedLibraryTags(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, pruneUnusedLibraryTags)
+	return err
+}
+
 const recordLibraryExtractionError = `-- name: RecordLibraryExtractionError :execrows
 UPDATE library_items SET extract_error = ?, updated_at = ?
 WHERE id = ? AND extract_generation = ?
@@ -346,6 +749,36 @@ func (q *Queries) RecordLibraryExtractionError(ctx context.Context, arg RecordLi
 		return 0, err
 	}
 	return result.RowsAffected()
+}
+
+const recordLibraryRemovedItemTag = `-- name: RecordLibraryRemovedItemTag :exec
+INSERT OR IGNORE INTO library_item_removed_tags (item_id, tag_name, created_at)
+VALUES (?, ?, ?)
+`
+
+type RecordLibraryRemovedItemTagParams struct {
+	ItemID    string
+	TagName   string
+	CreatedAt string
+}
+
+func (q *Queries) RecordLibraryRemovedItemTag(ctx context.Context, arg RecordLibraryRemovedItemTagParams) error {
+	_, err := q.db.ExecContext(ctx, recordLibraryRemovedItemTag, arg.ItemID, arg.TagName, arg.CreatedAt)
+	return err
+}
+
+const renameLibraryTag = `-- name: RenameLibraryTag :exec
+UPDATE OR IGNORE library_tags SET name = ? WHERE name = ?
+`
+
+type RenameLibraryTagParams struct {
+	Name   string
+	Name_2 string
+}
+
+func (q *Queries) RenameLibraryTag(ctx context.Context, arg RenameLibraryTagParams) error {
+	_, err := q.db.ExecContext(ctx, renameLibraryTag, arg.Name, arg.Name_2)
+	return err
 }
 
 const replaceLibrarySnapshot = `-- name: ReplaceLibrarySnapshot :exec
@@ -433,6 +866,25 @@ func (q *Queries) UpdateLibraryItemNote(ctx context.Context, arg UpdateLibraryIt
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	return err
+}
+
+const upsertLibraryItemTagManual = `-- name: UpsertLibraryItemTagManual :exec
+INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+VALUES (?, ?, 'manual', ?)
+  ON CONFLICT (item_id, tag_name) DO UPDATE SET origin = 'manual'
+`
+
+type UpsertLibraryItemTagManualParams struct {
+	ItemID    string
+	TagName   string
+	CreatedAt string
+}
+
+// The person's own add, which makes the tag theirs even when the tagger had
+// it first: from here on the job must not remove it either.
+func (q *Queries) UpsertLibraryItemTagManual(ctx context.Context, arg UpsertLibraryItemTagManualParams) error {
+	_, err := q.db.ExecContext(ctx, upsertLibraryItemTagManual, arg.ItemID, arg.TagName, arg.CreatedAt)
 	return err
 }
 

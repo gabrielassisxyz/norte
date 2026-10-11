@@ -50,14 +50,15 @@ func (*LibraryModule) Commands() []*cobra.Command {
 }
 
 // JobHandlers returns the kinds this module owns: the background extraction
-// every save enqueues, the classification that follows it, and -- while a
-// Telegram bot is configured -- the reply a terminal extraction asks for.
+// every save enqueues, the classification that follows it, the tagging that
+// follows them both, and -- while a Telegram bot is configured -- the reply a
+// terminal extraction asks for.
 //
-// The classify handler is registered whether or not an LLM is configured. It
-// is the handler, not the registry, that knows what an absent endpoint means:
-// a job queued while one was configured can be claimed after it is gone, and
-// leaving that job unhandled would park it in the queue for ever instead of
-// failing it with a reason.
+// The classify and tag handlers are registered whether or not an LLM is
+// configured. It is the handler, not the registry, that knows what an absent
+// endpoint means: a job queued while one was configured can be claimed after
+// it is gone, and leaving that job unhandled would park it in the queue for
+// ever instead of failing it with a reason.
 //
 // A configuration error is swallowed here and reported by Start, which is the
 // one of the two that can fail the process. With no handler registered the
@@ -68,6 +69,7 @@ func (*LibraryModule) JobHandlers(deps app.Deps) map[string]core.JobHandler {
 	handlers := map[string]core.JobHandler{
 		LibraryExtractJobKind:  newLibraryExtractionFromDeps(deps).Handle,
 		LibraryClassifyJobKind: newLibraryClassifyFromDeps(deps).Handle,
+		LibraryTagJobKind:      newLibraryTaggerFromDeps(deps).Handle,
 	}
 	if notifier, err := newLibraryTelegramNotifier(deps); err == nil && notifier != nil {
 		handlers[LibraryNotifyTelegramJobKind] = notifier.Handle
@@ -162,5 +164,16 @@ func newLibraryClassifyFromDeps(deps app.Deps) *LibraryClassify {
 		Logger:     deps.Logger,
 		LLM:        deps.LLM,
 		Candidates: deps.LinkCandidates,
+	})
+}
+
+// newLibraryTaggerFromDeps wires the tagger over the LLM client the registry
+// built, the same one the classifier asks.
+func newLibraryTaggerFromDeps(deps app.Deps) *LibraryTagger {
+	return NewLibraryTagger(LibraryTagOptions{
+		Database: deps.Database,
+		Clock:    deps.Clock,
+		Logger:   deps.Logger,
+		LLM:      deps.LLM,
 	})
 }

@@ -373,7 +373,7 @@ func TestTheLibraryCountsAnswerEveryLocation(t *testing.T) {
 	}
 	librarySaveOne(t, service, "https://example.org/count-inbox", "")
 
-	counts, err := service.Counts(context.Background())
+	counts, err := service.Counts(context.Background(), "")
 	if err != nil {
 		t.Fatalf("counting the library: %v", err)
 	}

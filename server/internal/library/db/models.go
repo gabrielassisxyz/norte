@@ -50,3 +50,21 @@ type LibraryItem struct {
 	CreatedAt         string
 	UpdatedAt         string
 }
+
+type LibraryItemRemovedTag struct {
+	ItemID    string
+	TagName   string
+	CreatedAt string
+}
+
+type LibraryItemTag struct {
+	ItemID    string
+	TagName   string
+	Origin    string
+	CreatedAt string
+}
+
+type LibraryTag struct {
+	Name      string
+	CreatedAt string
+}

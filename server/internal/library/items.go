@@ -149,30 +149,9 @@ func (s *LibraryService) Open(ctx context.Context, id string) (db.LibraryItem, e
 	return s.Get(ctx, id)
 }
 
-// Counts answers every count the library screen shows, from the one query
-// that computes them all, so a list call never recomputes them.
-func (s *LibraryService) Counts(ctx context.Context) (libraryapi.LibraryCounts, error) {
-	row, err := db.New(s.database.Reader()).CountLibraryItems(ctx)
-	if err != nil {
-		return libraryapi.LibraryCounts{}, fmt.Errorf("counting the library: %w", err)
-	}
-	var counts libraryapi.LibraryCounts
-	counts.Views.Inbox = int(row.Inbox)
-	counts.Views.UpNext = int(row.UpNext)
-	counts.Views.Later = int(row.Later)
-	counts.Views.Archive = int(row.Archive)
-	counts.Views.Stash = int(row.Stash)
-	counts.Views.All = int(row.AllItems)
-	counts.Kinds.Article = int(row.KindArticle)
-	counts.Kinds.Book = int(row.KindBook)
-	counts.Kinds.Paper = int(row.KindPaper)
-	counts.Kinds.Video = int(row.KindVideo)
-	counts.Kinds.Podcast = int(row.KindPodcast)
-	counts.Kinds.Newsletter = int(row.KindNewsletter)
-	counts.Kinds.Course = int(row.KindCourse)
-	counts.Unread = int(row.Unread)
-	return counts, nil
-}
+// Counts is in tags.go, beside the tag-filtered variant the same endpoint
+// answers: both count the library, and separating them would make the
+// untagged read look like a different thing.
 
 func joinLibrarySet(set []string) string {
 	out := ""
@@ -237,8 +216,10 @@ func libraryMapReadPosition(value sql.NullString) *libraryapi.ReadPosition {
 }
 
 // libraryMapItem renders the whole record for the detail, patch and open
-// answers.
-func libraryMapItem(row db.LibraryItem) libraryapi.LibraryItem {
+// answers. The item's tags arrive from the caller, which reads them beside
+// the row so a detail read costs one query and not one embedded in the scan;
+// absence is an empty list, which is what the contract names.
+func libraryMapItem(row db.LibraryItem, tags []string) libraryapi.LibraryItem {
 	return libraryapi.LibraryItem{
 		Id:                row.ID,
 		Kind:              libraryapi.ItemKind(row.Kind),
@@ -268,14 +249,27 @@ func libraryMapItem(row db.LibraryItem) libraryapi.LibraryItem {
 		ExtractedAt:       libraryNullString(row.ExtractedAt),
 		ExtractError:      libraryNullString(row.ExtractError),
 		Minutes:           libraryNullInt(row.Minutes),
+		Tags:              librarySortedTags(tags),
 		CreatedAt:         row.CreatedAt,
 		UpdatedAt:         row.UpdatedAt,
 	}
 }
 
+// librarySortedTags is the list the contract names: the schema's tags is
+// optional only so older clients can ignore it and the mappers set it always
+// -- a non-nil pointer, empty when the item carries none, in the order its
+// query produced, which is alphabetical.
+func librarySortedTags(tags []string) *[]string {
+	if tags == nil {
+		empty := []string{}
+		return &empty
+	}
+	return &tags
+}
+
 // libraryMapSummary renders a list row: everything but the extracted HTML and
 // text, which never leave the server inside a list answer.
-func libraryMapSummary(row db.LibraryItem) libraryapi.LibraryItemSummary {
+func libraryMapSummary(row db.LibraryItem, tags []string) libraryapi.LibraryItemSummary {
 	return libraryapi.LibraryItemSummary{
 		Id:                row.ID,
 		Kind:              libraryapi.ItemKind(row.Kind),
@@ -303,6 +297,7 @@ func libraryMapSummary(row db.LibraryItem) libraryapi.LibraryItemSummary {
 		ExtractedAt:       libraryNullString(row.ExtractedAt),
 		ExtractError:      libraryNullString(row.ExtractError),
 		Minutes:           libraryNullInt(row.Minutes),
+		Tags:              librarySortedTags(tags),
 		CreatedAt:         row.CreatedAt,
 		UpdatedAt:         row.UpdatedAt,
 	}

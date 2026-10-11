@@ -55,7 +55,9 @@ export interface paths {
         /**
          * Count the library by view, kind and unread state
          * @description Every count the library screen shows, in one query, so a list call
-         *     never recomputes them.
+         *     never recomputes them. With tag the counts cover only the items
+         *     carrying that tag, which is what the library screen shows in its
+         *     header while one tag is selected.
          */
         get: operations["getLibraryCounts"];
         put?: never;
@@ -170,6 +172,110 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/library/items/{id}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tag a saved link by hand
+         * @description Adds one tag to the item as the person's own choice. The name is
+         *     normalized the way every tag is -- lower-case, trimmed, single spaces
+         *     and no punctuation at the ends -- so a hand-add cannot fork the
+         *     vocabulary the automatic tagger works in and the filter filters by.
+         *     Adding a tag the item already carries marks it as added by hand, in
+         *     either spelling that reaches here, and answers the item's tags with
+         *     no third copy of the row.
+         */
+        post: operations["addLibraryItemTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/items/{id}/tags/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a tag from a saved link by hand
+         * @description Takes the tag off the item and records the removal, so the automatic
+         *     tagger never offers the same tag to this item again -- the same rule
+         *     an edited title and a rejected suggestion already follow. Removing
+         *     the last item a tag sat on retires the tag from the vocabulary. A tag
+         *     the item does not carry answers 404, and so does an item that does
+         *     not exist.
+         */
+        delete: operations["removeLibraryItemTag"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the library's tags
+         * @description Every tag in use, with its item count, most used first and equal
+         *     counts in alphabetical order. A tag enters the list when its first
+         *     item carries it and leaves it when its last one loses it, so the list
+         *     is the vocabulary the automatic tagger builds on and the screens
+         *     offer to filter by.
+         */
+        get: operations["listLibraryTags"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/tags/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Rename one tag across the library
+         * @description Renames the tag everywhere it is carried, the name being the only
+         *     thing there is to a tag. When the new name is already a tag, the two
+         *     merge into the one already there: the item rows are unioned with no
+         *     duplicate rows, a tag added by hand staying on top, the item counts
+         *     add up, and the tag the person removed by hand from an item stays
+         *     removed -- a merge follows the person's removals rather than
+         *     overriding them. The removed-by-hand records move with the rename
+         *     too, so the automatic tagger keeps refusing the tag for the items it
+         *     was refused on. Renaming a tag to the spelling it already has
+         *     answers the tag as it stands, and a name that is no tag answers 404.
+         */
+        patch: operations["patchLibraryTag"];
         trace?: never;
     };
 }
@@ -298,6 +404,12 @@ export interface components {
             extracted_at?: string;
             extract_error?: string;
             minutes?: number;
+            /**
+             * @description The item's tags, sorted alphabetically, and empty when it carries
+             *     none. Automatic tags come from the tagger job after extraction,
+             *     and whatever was set by hand stays until a hand removes it.
+             */
+            tags?: string[];
             created_at: string;
             updated_at: string;
         };
@@ -336,6 +448,8 @@ export interface components {
             extracted_at?: string;
             extract_error?: string;
             minutes?: number;
+            /** @description The item's tags, sorted alphabetically, and empty when it carries none. */
+            tags?: string[];
             created_at: string;
             updated_at: string;
         };
@@ -379,6 +493,31 @@ export interface components {
             kind?: components["schemas"]["ItemKind"];
             title?: string;
             read_position?: components["schemas"]["ReadPosition"];
+        };
+        AddItemTagRequest: {
+            /**
+             * @description The tag in whatever spelling the caller typed; the server
+             *     normalizes it, and a name that normalizes to nothing is refused.
+             */
+            name: string;
+        };
+        PatchTagRequest: {
+            /** @description The tag's new name, normalized by the server the same way. */
+            name: string;
+        };
+        ItemTags: {
+            /** @description The item's tags after the change, sorted alphabetically. */
+            tags: string[];
+        };
+        LibraryTag: {
+            /** @description The tag's normalized name. */
+            name: string;
+            /** @description How many items carry the tag. */
+            count: number;
+        };
+        LibraryTagList: {
+            /** @description Every tag in use, most used first. */
+            tags: components["schemas"]["LibraryTag"][];
         };
         Error: {
             error: components["schemas"]["ErrorDetail"];
@@ -437,6 +576,13 @@ export interface operations {
                 view?: components["schemas"]["LibraryView"];
                 /** @description Keep only this kind. */
                 kind?: components["schemas"]["ItemKind"];
+                /**
+                 * @description Keep only the items carrying this tag. The filter reads the tag's
+                 *     normalized name, which is what GET /api/library/tags lists, and
+                 *     the cursor binds it like every other filter, so paging through a
+                 *     tag never mixes pages from another one.
+                 */
+                tag?: string;
                 /** @description Keep only unread items, or only read ones. */
                 unread?: boolean;
                 /**
@@ -506,7 +652,10 @@ export interface operations {
     };
     getLibraryCounts: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description Count only the items carrying this tag. */
+                tag?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -655,6 +804,107 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LibraryItem"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    addLibraryItemTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddItemTagRequest"];
+            };
+        };
+        responses: {
+            /** @description The item's tags after the add. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemTags"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    removeLibraryItemTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+                /** @description The tag's normalized name. */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item's tags after the removal. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ItemTags"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listLibraryTags: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tags. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryTagList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    patchLibraryTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The tag's normalized name. */
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PatchTagRequest"];
+            };
+        };
+        responses: {
+            /** @description The tag after the rename or the merge. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LibraryTag"];
                 };
             };
             default: components["responses"]["Error"];

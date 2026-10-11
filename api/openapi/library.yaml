@@ -85,6 +85,15 @@ paths:
           description: Keep only this kind.
           schema:
             $ref: "#/components/schemas/ItemKind"
+        - name: tag
+          in: query
+          description: |
+            Keep only the items carrying this tag. The filter reads the tag's
+            normalized name, which is what GET /api/library/tags lists, and
+            the cursor binds it like every other filter, so paging through a
+            tag never mixes pages from another one.
+          schema:
+            type: string
         - name: unread
           in: query
           description: Keep only unread items, or only read ones.
@@ -132,7 +141,15 @@ paths:
       summary: Count the library by view, kind and unread state
       description: |
         Every count the library screen shows, in one query, so a list call
-        never recomputes them.
+        never recomputes them. With tag the counts cover only the items
+        carrying that tag, which is what the library screen shows in its
+        header while one tag is selected.
+      parameters:
+        - name: tag
+          in: query
+          description: Count only the items carrying this tag.
+          schema:
+            type: string
       responses:
         "200":
           description: The counts.
@@ -295,6 +312,127 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/LibraryItem"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/items/{id}/tags:
+    post:
+      operationId: addLibraryItemTag
+      summary: Tag a saved link by hand
+      description: |
+        Adds one tag to the item as the person's own choice. The name is
+        normalized the way every tag is -- lower-case, trimmed, single spaces
+        and no punctuation at the ends -- so a hand-add cannot fork the
+        vocabulary the automatic tagger works in and the filter filters by.
+        Adding a tag the item already carries marks it as added by hand, in
+        either spelling that reaches here, and answers the item's tags with
+        no third copy of the row.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AddItemTagRequest"
+      responses:
+        "200":
+          description: The item's tags after the add.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemTags"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/items/{id}/tags/{name}:
+    delete:
+      operationId: removeLibraryItemTag
+      summary: Remove a tag from a saved link by hand
+      description: |
+        Takes the tag off the item and records the removal, so the automatic
+        tagger never offers the same tag to this item again -- the same rule
+        an edited title and a rejected suggestion already follow. Removing
+        the last item a tag sat on retires the tag from the vocabulary. A tag
+        the item does not carry answers 404, and so does an item that does
+        not exist.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: name
+          in: path
+          required: true
+          description: The tag's normalized name.
+          schema:
+            type: string
+      responses:
+        "200":
+          description: The item's tags after the removal.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ItemTags"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/tags:
+    get:
+      operationId: listLibraryTags
+      summary: List the library's tags
+      description: |
+        Every tag in use, with its item count, most used first and equal
+        counts in alphabetical order. A tag enters the list when its first
+        item carries it and leaves it when its last one loses it, so the list
+        is the vocabulary the automatic tagger builds on and the screens
+        offer to filter by.
+      responses:
+        "200":
+          description: The tags.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryTagList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/tags/{name}:
+    patch:
+      operationId: patchLibraryTag
+      summary: Rename one tag across the library
+      description: |
+        Renames the tag everywhere it is carried, the name being the only
+        thing there is to a tag. When the new name is already a tag, the two
+        merge into the one already there: the item rows are unioned with no
+        duplicate rows, a tag added by hand staying on top, the item counts
+        add up, and the tag the person removed by hand from an item stays
+        removed -- a merge follows the person's removals rather than
+        overriding them. The removed-by-hand records move with the rename
+        too, so the automatic tagger keeps refusing the tag for the items it
+        was refused on. Renaming a tag to the spelling it already has
+        answers the tag as it stands, and a name that is no tag answers 404.
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: The tag's normalized name.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PatchTagRequest"
+      responses:
+        "200":
+          description: The tag after the rename or the merge.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LibraryTag"
         default:
           $ref: "#/components/responses/Error"
 components:
@@ -538,6 +676,14 @@ components:
           type: string
         minutes:
           type: integer
+        tags:
+          type: array
+          description: |
+            The item's tags, sorted alphabetically, and empty when it carries
+            none. Automatic tags come from the tagger job after extraction,
+            and whatever was set by hand stays until a hand removes it.
+          items:
+            type: string
         created_at:
           type: string
         updated_at:
@@ -622,6 +768,11 @@ components:
           type: string
         minutes:
           type: integer
+        tags:
+          type: array
+          description: The item's tags, sorted alphabetically, and empty when it carries none.
+          items:
+            type: string
         created_at:
           type: string
         updated_at:
@@ -729,6 +880,63 @@ components:
           minLength: 1
         read_position:
           $ref: "#/components/schemas/ReadPosition"
+    AddItemTagRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: |
+            The tag in whatever spelling the caller typed; the server
+            normalizes it, and a name that normalizes to nothing is refused.
+    PatchTagRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: The tag's new name, normalized by the server the same way.
+    ItemTags:
+      type: object
+      additionalProperties: false
+      required:
+        - tags
+      properties:
+        tags:
+          type: array
+          description: The item's tags after the change, sorted alphabetically.
+          items:
+            type: string
+    LibraryTag:
+      type: object
+      additionalProperties: false
+      required:
+        - name
+        - count
+      properties:
+        name:
+          type: string
+          description: The tag's normalized name.
+        count:
+          type: integer
+          description: How many items carry the tag.
+    LibraryTagList:
+      type: object
+      additionalProperties: false
+      required:
+        - tags
+      properties:
+        tags:
+          type: array
+          description: Every tag in use, most used first.
+          items:
+            $ref: "#/components/schemas/LibraryTag"
     Error:
       type: object
       additionalProperties: false
