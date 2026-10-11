@@ -1,6 +1,6 @@
-<!-- @dsCard group="Ações" height=120 -->
+<!-- @dsCard group="Actions" height=120 -->
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head><meta charset="utf-8"><title>Button — preview</title>
 <style>#root { padding: 24px;  }</style>
 </head>
@@ -10,8 +10,8 @@
   var N = window.Norte, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(
   h('div', { className: 'nt-stack' },
-    h('div', { className: 'nt-row' }, h(N.Button, { variant: 'primary', icon: 'play' }, 'Começar revisão'), h(N.Button, null, 'Adicionar nota'), h(N.Button, { variant: 'ghost', icon: 'plus' }, 'Nova pergunta'), h(N.Button, { disabled: true }, 'Arquivar')),
-    h('div', { className: 'nt-row' }, h(N.Button, { variant: 'primary', size: 'sm' }, 'Marcar como feito'), h(N.Button, { size: 'sm' }, 'Pular'), h(N.Button, { variant: 'ghost', size: 'sm' }, 'Desfazer')))
+    h('div', { className: 'nt-row' }, h(N.Button, { variant: 'primary', icon: 'play' }, 'Start review'), h(N.Button, null, 'Add note'), h(N.Button, { variant: 'ghost', icon: 'plus' }, 'New question'), h(N.Button, { disabled: true }, 'Archive')),
+    h('div', { className: 'nt-row' }, h(N.Button, { variant: 'primary', size: 'sm' }, 'Mark as done'), h(N.Button, { size: 'sm' }, 'Skip'), h(N.Button, { variant: 'ghost', size: 'sm' }, 'Undo')))
   );
 </script>
 </body>

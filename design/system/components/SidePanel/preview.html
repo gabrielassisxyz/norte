@@ -1,6 +1,6 @@
-<!-- @dsCard group="Leitor" height=420 -->
+<!-- @dsCard group="Reader" height=420 -->
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head><meta charset="utf-8"><title>SidePanel — preview</title>
 <style>#root { padding: 24px;  } .nt-panel { width: 380px; }</style>
 </head>
@@ -10,10 +10,10 @@
   var N = window.Norte, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(
   h('div', { style: { display: 'flex', gap: 40, height: 360 } },
-    h(N.SidePanel, { label: 'Nota e anotações', defaultValue: 'anot', tabs: [{ value: 'nota', label: 'Nota', icon: 'note' }, { value: 'anot', label: 'Anotações', count: 3, icon: 'comment' }],
-      panels: { nota: h('p', { style: { margin: 0, color: 'var(--ink-2)' } }, 'Tratar comportamentos estranhos como bugs.'),
-        anot: h(N.AnnotationItem, { quote: 'transforme a hipótese em algo que possa falhar', location: 'Seção 2', time: '13:40' }) } }),
-    h(N.SidePanel, { label: 'Nota e anotações', defaultCollapsed: true, tabs: [{ value: 'nota', label: 'Nota', icon: 'note' }, { value: 'anot', label: 'Anotações', count: 3, icon: 'comment' }] }))
+    h(N.SidePanel, { label: 'Note and annotations', defaultValue: 'annots', tabs: [{ value: 'note', label: 'Note', icon: 'note' }, { value: 'annots', label: 'Annotations', count: 3, icon: 'comment' }],
+      panels: { note: h('p', { style: { margin: 0, color: 'var(--ink-2)' } }, 'Treat odd behavior as a bug.'),
+        annots: h(N.AnnotationItem, { quote: 'Turn the hypothesis into something that can fail', location: 'Section 2', time: '13:40' }) } }),
+    h(N.SidePanel, { label: 'Note and annotations', defaultCollapsed: true, tabs: [{ value: 'note', label: 'Note', icon: 'note' }, { value: 'annots', label: 'Annotations', count: 3, icon: 'comment' }] }))
   );
 </script>
 </body>

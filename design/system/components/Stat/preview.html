@@ -1,6 +1,6 @@
-<!-- @dsCard group="Progresso" height=120 -->
+<!-- @dsCard group="Progress" height=120 -->
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head><meta charset="utf-8"><title>Stat — preview</title>
 <style>#root { padding: 24px;  }</style>
 </head>
@@ -9,7 +9,7 @@
 <script>
   var N = window.Norte, h = React.createElement;
   ReactDOM.createRoot(document.getElementById('root')).render(
-  h('div', { className: 'nt-row', style: { gap: 48, alignItems: 'start' } }, h(N.Stat, { value: 42, unit: 'dias', label: 'Streak atual' }), h(N.Stat, { value: '12,5', unit: 'h', label: 'Estudadas na semana', delta: '+3,0 h' }), h(N.Stat, { value: 128, label: 'Cartões em dia', delta: '−6 atrasados', deltaTone: 'down' }))
+  h('div', { className: 'nt-row', style: { gap: 48, alignItems: 'start' } }, h(N.Stat, { value: 42, unit: 'days', label: 'Current streak' }), h(N.Stat, { value: '12.5', unit: 'h', label: 'Studied this week', delta: '+3.0 h' }), h(N.Stat, { value: 128, label: 'Cards on track', delta: '-6 overdue', deltaTone: 'down' }))
   );
 </script>
 </body>
