@@ -49,7 +49,7 @@
       p.count != null ? h('span', { className: 'nt-tag-count' }, p.count) : null);
   }
 
-  var SYNC = { saved: 'Salvo localmente', syncing: 'Sincronizando', offline: 'Offline · salvo local', conflict: 'Conflito para revisar' };
+  var SYNC = { saved: 'Saved locally', syncing: 'Syncing', offline: 'Offline · saved locally', conflict: 'Conflict to review' };
   function SyncStatus(p) {
     var state = p.state || 'saved';
     return h('span', { className: cx('nt-sync', 'nt-sync-' + state), role: 'status' },
@@ -76,15 +76,15 @@
   function StreakGrid(p) {
     var days = p.days || [];
     return h('figure', { className: 'nt-streak' },
-      h('div', { className: 'nt-streak-grid', role: 'img', 'aria-label': p.label || 'Histórico de estudo' },
+      h('div', { className: 'nt-streak-grid', role: 'img', 'aria-label': p.label || 'Study history' },
         days.map(function (lv, i) { return h('span', { key: i, className: 'nt-streak-cell', 'data-level': Math.max(0, Math.min(4, lv | 0)) }); })),
       h('figcaption', { className: 'nt-streak-legend' },
         h('span', null, p.caption || ''),
-        h('span', { className: 'nt-streak-scale', 'aria-hidden': 'true' }, 'menos',
-          [0, 1, 2, 3, 4].map(function (l) { return h('span', { key: l, className: 'nt-streak-cell', 'data-level': l }); }), 'mais')));
+        h('span', { className: 'nt-streak-scale', 'aria-hidden': 'true' }, 'less',
+          [0, 1, 2, 3, 4].map(function (l) { return h('span', { key: l, className: 'nt-streak-cell', 'data-level': l }); }), 'more')));
   }
 
-  var STEP = { done: 'Concluído', current: 'Agora', next: '', locked: 'Bloqueado' };
+  var STEP = { done: 'Done', current: 'Now', next: '', locked: 'Locked' };
   function TrailPath(p) {
     return h('ol', { className: 'nt-trail' }, (p.steps || []).map(function (s, i) {
       var st = s.status || 'next';
@@ -112,7 +112,7 @@
       h('span', { className: 'nt-course-num nt-course-last' }, p.lastStudied || '—'));
   }
 
-  var RATE = [['again', 'De novo'], ['hard', 'Difícil'], ['good', 'Bom'], ['easy', 'Fácil']];
+  var RATE = [['again', 'Again'], ['hard', 'Hard'], ['good', 'Good'], ['easy', 'Easy']];
   function Flashcard(p) {
     var st = React.useState(!!p.revealed), shown = st[0], setShown = st[1];
     var iv = p.intervals || ['1m', '6m', '1d', '4d'];
@@ -129,8 +129,8 @@
                 h('span', { className: 'nt-rate-label' }, r[1]), h('span', { className: 'nt-rate-iv' }, iv[i]));
             })))
         : h('div', { className: 'nt-card-reveal' },
-            h(Button, { variant: 'primary', onClick: function () { setShown(true); p.onReveal && p.onReveal(); } }, 'Mostrar resposta'),
-            h('span', { className: 'nt-kbd' }, 'espaço')));
+            h(Button, { variant: 'primary', onClick: function () { setShown(true); p.onReveal && p.onReveal(); } }, 'Show answer'),
+            h('span', { className: 'nt-kbd' }, 'space')));
   }
 
   function Highlight(p) {
@@ -142,7 +142,7 @@
       p.note ? h('p', { className: 'nt-hl-note' }, p.note) : null);
   }
 
-  var W = { what: 'O quê', why: 'Por quê', who: 'Quem', when: 'Quando', where: 'Onde', how: 'Como' };
+  var W = { what: 'What', why: 'Why', who: 'Who', when: 'When', where: 'Where', how: 'How' };
   function QuestionItem(p) {
     var answered = p.status === 'answered';
     return h('article', { className: cx('nt-q', answered && 'is-answered') },
@@ -151,7 +151,7 @@
         h('div', { className: 'nt-q-text' }, p.question),
         answered && p.answer ? h('p', { className: 'nt-q-answer' }, p.answer) : null,
         h('div', { className: 'nt-q-meta' },
-          answered ? h('span', { className: 'nt-q-state' }, h(Icon, { name: 'check', size: 12 }), 'Respondida') : h('span', null, 'Aberta'),
+          answered ? h('span', { className: 'nt-q-state' }, h(Icon, { name: 'check', size: 12 }), 'Answered') : h('span', null, 'Open'),
           p.topic ? h('span', null, p.topic) : null,
           p.age ? h('span', { className: 'nt-q-age' }, p.age) : null)));
   }
@@ -162,7 +162,7 @@
     return [value !== undefined ? value : inner, setInner];
   }
 
-  /* ---------- Navegação e estrutura ---------- */
+  /* ---------- Navigation and structure ---------- */
 
   function NavItem(p) {
     return h('a', { href: p.href || '#', className: cx('nt-nav', p.active && 'is-active'), 'aria-current': p.active ? 'page' : undefined },
@@ -214,13 +214,13 @@
       p.hint ? h('p', { id: id + '-hint', className: 'nt-field-hint' }, p.hint) : null);
   }
 
-  /* ---------- Coleções ---------- */
+  /* ---------- Collections ---------- */
 
   function CoverCard(p) {
     return h('a', { href: p.href || '#', className: cx('nt-cover-card', p.className) },
       h('div', { className: 'nt-cover', style: { height: p.coverHeight || 168 } },
         p.cover ? h('img', { src: p.cover, alt: '', className: 'nt-cover-img' })
-          : h(React.Fragment, null, h(Icon, { name: 'image', size: 20 }), h('span', null, 'Foto de capa'))),
+          : h(React.Fragment, null, h(Icon, { name: 'image', size: 20 }), h('span', null, 'Cover photo'))),
       h('div', null,
         h('div', { className: 'nt-cover-title' }, p.title),
         p.description ? h('p', { className: 'nt-cover-desc' }, p.description) : null,
@@ -232,13 +232,13 @@
     var w = p.itemWidth || 248, gap = p.gap == null ? 24 : p.gap, visible = p.visible || 4, step = p.step || 2;
     var max = Math.max(0, kids.length - visible);
     var st = React.useState(0), idx = Math.min(st[0], max), setIdx = st[1];
-    return h('div', { className: 'nt-carousel', role: 'region', 'aria-label': p.label || 'Carrossel' },
+    return h('div', { className: 'nt-carousel', role: 'region', 'aria-label': p.label || 'Carousel' },
       h('div', { className: 'nt-carousel-viewport' },
         h('div', { className: 'nt-carousel-track', style: { gap: gap, transform: 'translateX(-' + idx * (w + gap) + 'px)' } },
-          kids.map(function (k, i) { return h('div', { key: i, className: 'nt-carousel-item', style: { flex: '0 0 ' + w + 'px' } }, k); }))),
-      idx > 0 ? h('button', { type: 'button', className: 'nt-carousel-btn is-prev', style: { top: p.arrowTop || 64 }, 'aria-label': 'Anteriores',
+          kids.map(function (k, i) { return h('div', { key: i, className: 'nt-carousel-entry', style: { flex: '0 0 ' + w + 'px' } }, k); }))),
+      idx > 0 ? h('button', { type: 'button', className: 'nt-carousel-btn is-prev', style: { top: p.arrowTop || 64 }, 'aria-label': 'Previous',
         onClick: function () { setIdx(Math.max(0, idx - step)); } }, h(Icon, { name: 'arrowLeft' })) : null,
-      idx < max ? h('button', { type: 'button', className: 'nt-carousel-btn is-next', style: { top: p.arrowTop || 64 }, 'aria-label': 'Próximos',
+      idx < max ? h('button', { type: 'button', className: 'nt-carousel-btn is-next', style: { top: p.arrowTop || 64 }, 'aria-label': 'Next',
         onClick: function () { setIdx(Math.min(max, idx + step)); } }, h(Icon, { name: 'arrow' })) : null);
   }
 
@@ -252,45 +252,45 @@
         h('span', { style: { minWidth: 0 } },
           h('span', { className: 'nt-mod-title' }, p.title),
           p.meta ? h('span', { className: 'nt-mod-meta' }, p.meta) : null),
-        h('span', { className: 'nt-mod-status' }, p.statusText || (st === 'done' ? 'Concluído' : '')),
+        h('span', { className: 'nt-mod-status' }, p.statusText || (st === 'done' ? 'Done' : '')),
         h(Icon, { name: 'chevronDown', size: 20, className: cx('nt-mod-chev', open && 'is-open') })),
       open ? h('div', { className: 'nt-mod-body' }, p.children) : null);
   }
 
-  var MAT_STATUS = { current: 'Lendo agora', skipped: 'Pulado' };
+  var MAT_STATUS = { current: 'Reading now', skipped: 'Skipped' };
   function MaterialRow(p) {
     var st = p.status || 'next';
     var node = st === 'done' ? h(Icon, { name: 'check', size: 12 }) : p.n;
     return h('div', { className: cx('nt-mat', 'is-' + st) },
-      h('span', { className: 'nt-mat-node', title: st === 'done' ? 'Concluído' : undefined }, node,
-        st === 'done' ? h('span', { className: 'nt-vh' }, 'Concluído') : null),
+      h('span', { className: 'nt-mat-node', title: st === 'done' ? 'Done' : undefined }, node,
+        st === 'done' ? h('span', { className: 'nt-vh' }, 'Done') : null),
       h('div', { style: { minWidth: 0 } },
         h('div', { className: 'nt-mat-line' },
           h('a', { className: 'nt-mat-title', href: p.href || '#' }, p.title),
           p.by ? h('span', { className: 'nt-mat-by' }, p.by) : null,
           MAT_STATUS[st] ? h('span', { className: 'nt-mat-state' }, MAT_STATUS[st]) : null),
         p.description ? h('p', { className: 'nt-mat-desc' }, p.description) : null),
-      h('span', { className: 'nt-mat-type' }, p.type, p.optional ? ' · opcional' : ''),
-      p.url ? h('a', { className: 'nt-mat-ext', href: p.url, 'aria-label': 'Abrir material original' }, h(Icon, { name: 'external' })) : h('span'));
+      h('span', { className: 'nt-mat-type' }, p.type, p.optional ? ' · optional' : ''),
+      p.url ? h('a', { className: 'nt-mat-ext', href: p.url, 'aria-label': 'Open the original material' }, h(Icon, { name: 'external' })) : h('span'));
   }
 
-  /* ---------- Leitor ---------- */
+  /* ---------- Reader ---------- */
 
   function Mark(p) {
     return h(React.Fragment, null,
       h('mark', { className: 'nt-mark' }, p.children),
-      p.note != null ? h('a', { className: 'nt-mark-ref', href: p.href || '#nota-' + p.note, 'aria-label': 'Anotação ' + p.note }, p.note) : null);
+      p.note != null ? h('a', { className: 'nt-mark-ref', href: p.href || '#note-' + p.note, 'aria-label': 'Annotation ' + p.note }, p.note) : null);
   }
 
   function MarginNote(p) {
-    return h('div', { className: 'nt-mnote', id: p.id || (p.n != null ? 'nota-' + p.n : undefined) },
+    return h('div', { className: 'nt-mnote', id: p.id || (p.n != null ? 'note-' + p.n : undefined) },
       h('span', { className: 'nt-mnote-n' }, p.n), h('span', null, p.children));
   }
 
-  var SEL_ACTIONS = ['Destacar', 'Anotar', 'Virar pergunta', 'Criar cartão'];
+  var SEL_ACTIONS = ['Highlight', 'Annotate', 'Turn into a question', 'Create a card'];
   function SelectionToolbar(p) {
     var actions = p.actions || SEL_ACTIONS;
-    return h('div', { className: 'nt-seltool', role: 'toolbar', 'aria-label': 'Ações para o trecho selecionado' },
+    return h('div', { className: 'nt-seltool', role: 'toolbar', 'aria-label': 'Actions for the selected passage' },
       actions.map(function (a, i) {
         return h('button', { key: a, type: 'button', className: 'nt-seltool-btn', onClick: function () { p.onAction && p.onAction(a); } },
           i === 0 ? h('span', { className: 'nt-swatch', 'aria-hidden': 'true' }) : null, a);
@@ -299,29 +299,29 @@
 
   function AnnotationItem(p) {
     var kind = p.kind || (p.quote ? (p.note ? 'linked' : 'highlight') : 'loose');
-    var badge = kind === 'loose' ? 'Sem trecho' : kind === 'question' ? 'Sem trecho · virou pergunta' : null;
+    var badge = kind === 'loose' ? 'No passage' : kind === 'question' ? 'No passage · became a question' : null;
     return h('div', { className: 'nt-ann' },
       badge ? h('span', { className: 'nt-ann-badge' }, badge) : null,
       p.quote ? h('p', { className: 'nt-ann-quote' }, h('mark', { className: 'nt-mark' }, p.quote)) : null,
       p.note ? h('p', { className: 'nt-ann-note' }, p.note) : null,
       h('div', { className: 'nt-ann-meta' },
         p.n != null ? h('span', { className: 'nt-ann-n' }, p.n) : null,
-        kind === 'highlight' ? h('span', null, 'Só destaque') : null,
+        kind === 'highlight' ? h('span', null, 'Highlight only') : null,
         p.location ? h('span', null, p.location) : null,
         p.time ? h('span', { className: 'nt-mono' }, p.time) : null),
-      kind === 'highlight' ? h('button', { type: 'button', className: 'nt-ann-add', onClick: p.onAddNote }, '+ Anotar este trecho') : null);
+      kind === 'highlight' ? h('button', { type: 'button', className: 'nt-ann-add', onClick: p.onAddNote }, '+ Annotate this passage') : null);
   }
 
   function ExerciseItem(p) {
     return h('div', { className: cx('nt-ex', p.done && 'is-done') },
       h('span', { className: 'nt-ex-n' }, p.done ? h(Icon, { name: 'check', size: 14 }) : pad2(p.n || 1),
-        p.done ? h('span', { className: 'nt-vh' }, 'Feito') : null),
+        p.done ? h('span', { className: 'nt-vh' }, 'Done') : null),
       h('div', { style: { minWidth: 0 } },
         h('div', { className: 'nt-ex-kind' }, p.kind),
         h('p', { className: 'nt-ex-prompt' }, p.prompt),
         p.done && p.answer ? h('p', { className: 'nt-ex-answer' }, p.answer) : null,
         !p.done && p.children ? h('div', { className: 'nt-ex-work' }, p.children) : null,
-        p.done ? h('div', { className: 'nt-ex-meta' }, h('span', { className: 'nt-ex-ok' }, 'Feito'), p.time ? h('span', { className: 'nt-mono' }, p.time) : null) : null));
+        p.done ? h('div', { className: 'nt-ex-meta' }, h('span', { className: 'nt-ex-ok' }, 'Done'), p.time ? h('span', { className: 'nt-mono' }, p.time) : null) : null));
   }
 
   function SidePanel(p) {
@@ -332,19 +332,19 @@
     function setTab(v) { t[1](v); p.onChange && p.onChange(v); }
     var panels = p.panels || {};
     if (c[0]) {
-      return h('aside', { className: 'nt-rail', 'aria-label': (p.label || 'Painel') + ' recolhido' },
-        h('button', { type: 'button', className: 'nt-rail-btn', 'aria-label': 'Abrir painel', onClick: function () { setCollapsed(false); } }, h(Icon, { name: 'expand' })),
+      return h('aside', { className: 'nt-rail', 'aria-label': (p.label || 'Panel') + ' collapsed' },
+        h('button', { type: 'button', className: 'nt-rail-btn', 'aria-label': 'Open the panel', onClick: function () { setCollapsed(false); } }, h(Icon, { name: 'expand' })),
         h('span', { className: 'nt-rail-sep', 'aria-hidden': 'true' }),
         tabs.map(function (tb) {
-          return h('button', { key: tb.value, type: 'button', className: 'nt-rail-btn', 'aria-label': 'Abrir ' + tb.label + (tb.count != null ? ', ' + tb.count : ''),
+          return h('button', { key: tb.value, type: 'button', className: 'nt-rail-btn', 'aria-label': 'Open ' + tb.label + (tb.count != null ? ', ' + tb.count : ''),
             onClick: function () { setTab(tb.value); setCollapsed(false); } },
             h(Icon, { name: tb.icon || 'note', size: 18 }), tb.count != null ? h('span', { className: 'nt-rail-count' }, tb.count) : null);
         }));
     }
-    return h('aside', { className: 'nt-panel', 'aria-label': p.label || 'Painel' },
+    return h('aside', { className: 'nt-panel', 'aria-label': p.label || 'Panel' },
       h('div', { className: 'nt-panel-head' },
         h(Tabs, { items: tabs, value: t[0], onChange: setTab, label: p.label }),
-        h('button', { type: 'button', className: 'nt-icon-btn', 'aria-label': 'Recolher painel', onClick: function () { setCollapsed(true); } }, h(Icon, { name: 'collapse' }))),
+        h('button', { type: 'button', className: 'nt-icon-btn', 'aria-label': 'Collapse the panel', onClick: function () { setCollapsed(true); } }, h(Icon, { name: 'collapse' }))),
       h('div', { className: 'nt-panel-body', role: 'tabpanel' }, panels[t[0]] || p.children));
   }
 

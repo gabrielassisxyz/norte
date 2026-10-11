@@ -1,6 +1,6 @@
 import type * as React from 'react';
 
-/** Abre toda página de trilha, curso ou plano: título grande + objetivo. */
+/** Opens every trail, course, or plan page: large title + objective. */
 export interface PageTitleProps { title: React.ReactNode; objective?: React.ReactNode; meta?: React.ReactNode; actions?: React.ReactNode; className?: string }
 export declare function PageTitle(props: PageTitleProps): React.ReactElement;
 
@@ -19,7 +19,7 @@ export declare function ProgressBar(props: ProgressBarProps): React.ReactElement
 export interface StatProps { value: React.ReactNode; unit?: string; label: string; delta?: string; deltaTone?: 'up' | 'down' }
 export declare function Stat(props: StatProps): React.ReactElement;
 
-/** days: um nível 0–4 por dia, em ordem cronológica; colunas de 7 dias (semanas). */
+/** days: one 0–4 level per day, in chronological order; 7-day columns (weeks). */
 export interface StreakGridProps { days: number[]; label?: string; caption?: string }
 export declare function StreakGrid(props: StreakGridProps): React.ReactElement;
 
@@ -27,7 +27,7 @@ export interface TrailStep { title: string; meta?: string; status?: 'done' | 'cu
 export interface TrailPathProps { steps: TrailStep[] }
 export declare function TrailPath(props: TrailPathProps): React.ReactElement;
 
-/** progress de 0 a 1; lessons como texto ("3/12"); lastStudied como texto curto ("há 2d"). */
+/** progress from 0 to 1; lessons as text ("3/12"); lastStudied as short text ("2d ago"). */
 export interface CourseRowProps { title: string; topic?: string; source?: string; progress?: number; lessons?: string; lastStudied?: string; href?: string }
 export declare function CourseRow(props: CourseRowProps): React.ReactElement;
 
@@ -44,64 +44,64 @@ export type IconName = 'check' | 'play' | 'plus' | 'lock' | 'arrow' | 'arrowLeft
 export interface IconProps { name: IconName; size?: number; className?: string }
 export declare function Icon(props: IconProps): React.ReactElement;
 
-/** Item da sidebar do app. */
+/** App sidebar entry. */
 export interface NavItemProps { label: React.ReactNode; href?: string; count?: number | string; active?: boolean }
 export declare function NavItem(props: NavItemProps): React.ReactElement;
 
-/** Cabeçalho de seção: título em heading + link "Ver todos" opcional + controle à direita. */
+/** Section header: heading-level title + optional "See all" link + control on the right. */
 export interface SectionHeaderProps { title: React.ReactNode; id?: string; level?: 2 | 3; actionLabel?: string; actionHref?: string; trailing?: React.ReactNode }
 export declare function SectionHeader(props: SectionHeaderProps): React.ReactElement;
 
 export interface SegmentOption { value: string; label: React.ReactNode; count?: React.ReactNode }
-/** Alterna modos de uma mesma área (Capas/Tabela, Leitura/Exercícios). Controlado (value) ou não (defaultValue). */
+/** Switches modes of the same area ("Covers / Table", "Reading / Exercises"). Controlled (value) or not (defaultValue). */
 export interface SegmentedControlProps { options: SegmentOption[]; value?: string; defaultValue?: string; onChange?: (value: string) => void; label?: string }
 export declare function SegmentedControl(props: SegmentedControlProps): React.ReactElement;
 
 export interface TabItem { value: string; label: React.ReactNode; count?: React.ReactNode; icon?: IconName }
-/** Abas sublinhadas para alternar conteúdos de um painel. */
+/** Underlined tabs for switching the contents of a panel. */
 export interface TabsProps { items: TabItem[]; value?: string; defaultValue?: string; onChange?: (value: string) => void; label?: string }
 export declare function Tabs(props: TabsProps): React.ReactElement;
 
-/** Campo de texto com label real. multiline vira textarea. */
+/** Text field with a real label. multiline becomes a textarea. */
 export interface TextFieldProps { label: string; hideLabel?: boolean; id?: string; multiline?: boolean; rows?: number; placeholder?: string; defaultValue?: string; value?: string; onChange?: React.ChangeEventHandler<HTMLInputElement | HTMLTextAreaElement>; hint?: string; mono?: boolean; inline?: boolean; width?: number | string; type?: string; className?: string }
 export declare function TextField(props: TextFieldProps): React.ReactElement;
 
-/** Card de coleção com capa (currículo, assunto). Sem cover: espaço "Foto de capa". */
+/** Collection card with a cover (curriculum, topic). Without cover: "Cover photo" placeholder. */
 export interface CoverCardProps { title: React.ReactNode; description?: React.ReactNode; meta?: React.ReactNode; href?: string; cover?: string; coverHeight?: number; className?: string }
 export declare function CoverCard(props: CoverCardProps): React.ReactElement;
 
-/** Linha horizontal de itens com setas que andam `step` itens por clique. */
+/** Horizontal row of entries with arrows that move `step` entries per click. */
 export interface CarouselProps { children: React.ReactNode; itemWidth?: number; gap?: number; visible?: number; step?: number; arrowTop?: number; label?: string }
 export declare function Carousel(props: CarouselProps): React.ReactElement;
 
-/** Módulo recolhível de um currículo. children = corpo (intro, MaterialRow, exercícios, avaliação). */
+/** Collapsible module of a curriculum. children = body (intro, MaterialRow, exercises, assessment). */
 export interface ModuleItemProps { label: React.ReactNode; title: React.ReactNode; meta?: React.ReactNode; status?: 'done' | 'current' | 'next'; statusText?: string; open?: boolean; defaultOpen?: boolean; onToggle?: (open: boolean) => void; children?: React.ReactNode }
 export declare function ModuleItem(props: ModuleItemProps): React.ReactElement;
 
-/** Material dentro de um módulo, na ordem de consumo. */
+/** Material inside a module, in consumption order. */
 export interface MaterialRowProps { n: number; title: React.ReactNode; by?: React.ReactNode; type: string; optional?: boolean; status?: 'done' | 'current' | 'next' | 'skipped'; description?: React.ReactNode; href?: string; url?: string }
 export declare function MaterialRow(props: MaterialRowProps): React.ReactElement;
 
-/** Trecho destacado no leitor. note = número da nota de margem ligada. */
+/** Highlighted passage in the reader. note = number of the linked margin note. */
 export interface MarkProps { children: React.ReactNode; note?: number; href?: string }
 export declare function Mark(props: MarkProps): React.ReactElement;
 
 export interface MarginNoteProps { n: number; id?: string; children: React.ReactNode }
 export declare function MarginNote(props: MarginNoteProps): React.ReactElement;
 
-/** Menu que aparece sobre uma seleção de texto. O consumidor posiciona. */
+/** Menu that appears over a text selection. The consumer positions it. */
 export interface SelectionToolbarProps { actions?: string[]; onAction?: (action: string) => void }
 export declare function SelectionToolbar(props: SelectionToolbarProps): React.ReactElement;
 
-/** Item da lista de anotações. kind é inferido: quote+note = linked, só quote = highlight, só note = loose. */
+/** Annotation list entry. kind is inferred: quote+note = linked, quote only = highlight, note only = loose. */
 export interface AnnotationItemProps { kind?: 'linked' | 'highlight' | 'loose' | 'question'; quote?: React.ReactNode; note?: React.ReactNode; n?: number; location?: React.ReactNode; time?: string; onAddNote?: () => void }
 export declare function AnnotationItem(props: AnnotationItemProps): React.ReactElement;
 
-/** Um exercício. children = área de trabalho (TextField, Button) enquanto não estiver feito. */
+/** An exercise. children = work area (TextField, Button) while not done. */
 export interface ExerciseItemProps { n: number; kind: string; prompt: React.ReactNode; done?: boolean; answer?: React.ReactNode; time?: string; children?: React.ReactNode }
 export declare function ExerciseItem(props: ExerciseItemProps): React.ReactElement;
 
-/** Painel lateral com abas, recolhível para um trilho de 48px. panels: conteúdo por aba. */
+/** Side panel with tabs, collapsible to a 48px rail. panels: content per tab. */
 export interface SidePanelProps { tabs: TabItem[]; panels?: Record<string, React.ReactNode>; children?: React.ReactNode; value?: string; defaultValue?: string; onChange?: (value: string) => void; collapsed?: boolean; defaultCollapsed?: boolean; onCollapsedChange?: (collapsed: boolean) => void; label?: string }
 export declare function SidePanel(props: SidePanelProps): React.ReactElement;
 

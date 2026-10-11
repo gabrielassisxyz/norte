@@ -136,7 +136,7 @@ button.nt-tag { cursor: pointer; }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
 
-/* ===== Adicionados com as telas de Home, Currículo e Leitor ===== */
+/* ===== Added with the Home, Curriculum, and Reader screens ===== */
 .nt-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .nt-mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 :where(.nt-nav, .nt-sechead-link, .nt-seg-btn, .nt-tab, .nt-input, .nt-cover-card, .nt-carousel-btn, .nt-mod-head, .nt-mat-title, .nt-mat-ext, .nt-mark-ref, .nt-seltool-btn, .nt-ann-add, .nt-rail-btn, .nt-icon-btn):focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
