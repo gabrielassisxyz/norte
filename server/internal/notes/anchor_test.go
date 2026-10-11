@@ -9,7 +9,7 @@ import "testing"
 // Each case names the text, so a failure says which shape of article broke
 // rather than which row of a table did.
 func TestAnchoringAPassageAgainstAText(t *testing.T) {
-	const article = "Antes do trecho. O trecho marcado. Depois do trecho."
+	const article = "Before the passage. The marked passage. After the passage."
 
 	for _, testCase := range []struct {
 		name      string
@@ -25,152 +25,152 @@ func TestAnchoringAPassageAgainstAText(t *testing.T) {
 		{
 			name:     "a passage that appears once anchors at its offset",
 			text:     article,
-			exact:    "O trecho marcado.",
-			prefix:   "Antes do trecho. ",
-			suffix:   " Depois do trecho.",
+			exact:    "The marked passage.",
+			prefix:   "Before the passage. ",
+			suffix:   " After the passage.",
 			want:     NotesAnchored,
-			wantHint: 17,
+			wantHint: 20,
 		},
 		{
 			name:   "a passage the text no longer holds is orphaned",
-			text:   "Um texto reescrito sem aquela frase.",
-			exact:  "O trecho marcado.",
-			prefix: "Antes do trecho. ",
+			text:   "A rewritten text without that sentence.",
+			exact:  "The marked passage.",
+			prefix: "Before the passage. ",
 			want:   NotesOrphaned,
 		},
 		{
 			name:     "two occurrences with different context anchor on the matching one",
-			text:     "Primeiro: a mesma frase. Segundo: a mesma frase.",
-			exact:    "a mesma frase.",
-			prefix:   "Segundo: ",
+			text:     "First: the same sentence. Second: the same sentence.",
+			exact:    "the same sentence.",
+			prefix:   "Second: ",
 			want:     NotesAnchored,
 			wantHint: 34,
 		},
 		{
 			name:      "two occurrences with identical context are orphaned, not guessed",
-			text:      "Igual: a mesma frase. fim. Igual: a mesma frase. fim.",
-			exact:     "a mesma frase.",
-			prefix:    "Igual: ",
-			suffix:    " fim.",
+			text:      "Same: the same sentence. end. Same: the same sentence. end.",
+			exact:     "the same sentence.",
+			prefix:    "Same: ",
+			suffix:    " end.",
 			want:      NotesOrphaned,
 			ambiguous: true,
 		},
 		{
 			name:     "two occurrences with identical prefix anchor on the matching suffix",
-			text:     "Igual: a mesma frase. primeiro fim. Igual: a mesma frase. segundo fim.",
-			exact:    "a mesma frase.",
-			prefix:   "Igual: ",
-			suffix:   " segundo fim.",
+			text:     "Same: the same sentence. first end. Same: the same sentence. second end.",
+			exact:    "the same sentence.",
+			prefix:   "Same: ",
+			suffix:   " second end.",
 			want:     NotesAnchored,
-			wantHint: 43,
+			wantHint: 42,
 		},
 		{
 			name:      "the hint does not break a tie between identical occurrences",
-			text:      "Igual: a mesma frase. fim. Igual: a mesma frase. fim.",
-			exact:     "a mesma frase.",
-			prefix:    "Igual: ",
-			suffix:    " fim.",
+			text:      "Same: the same sentence. end. Same: the same sentence. end.",
+			exact:     "the same sentence.",
+			prefix:    "Same: ",
+			suffix:    " end.",
 			hint:      7,
 			want:      NotesOrphaned,
 			ambiguous: true,
 		},
 		{
 			name:     "whitespace that differs on both sides still anchors",
-			text:     "Antes do trecho.\n\n   O trecho\tmarcado.\nDepois do trecho.",
-			exact:    "O  trecho   marcado.",
-			prefix:   "Antes do trecho.\n",
-			suffix:   "\nDepois do trecho.",
+			text:     "Before the passage.\n\n   The passage\tmarked.\nAfter the passage.",
+			exact:    "The  passage   marked.",
+			prefix:   "Before the passage.\n",
+			suffix:   "\nAfter the passage.",
 			want:     NotesAnchored,
-			wantHint: 17,
+			wantHint: 20,
 		},
 		{
 			// The text the server searches separates two paragraphs with a
 			// newline; the browser hands the client the same place with
 			// nothing in it, so the stored prefix is glued across it.
 			name:     "a prefix glued across a paragraph boundary still anchors",
-			text:     "Fim do primeiro.\n\nComeço do segundo com o trecho marcado aqui.",
-			exact:    "o trecho marcado",
-			prefix:   "Fim do primeiro.Começo do segundo com ",
-			suffix:   " aqui.",
+			text:     "End of the first.\n\nStart of the second with the marked passage here.",
+			exact:    "the marked passage",
+			prefix:   "End of the first.Start of the second with ",
+			suffix:   " here.",
 			want:     NotesAnchored,
-			wantHint: 39,
+			wantHint: 43,
 		},
 		{
 			name:     "a suffix glued across a paragraph boundary still anchors",
-			text:     "O trecho marcado fecha o primeiro.\n\nComeço do segundo.",
-			exact:    "O trecho marcado",
+			text:     "The marked passage closes the first.\n\nStart of the second.",
+			exact:    "The marked passage",
 			prefix:   "",
-			suffix:   " fecha o primeiro.Começo do segundo.",
+			suffix:   " closes the first.Start of the second.",
 			want:     NotesAnchored,
 			wantHint: 0,
 		},
 		{
 			name:     "a context spanning a heading still anchors",
-			text:     "Fim da introdução.\n\nUma seção\n\nO trecho marcado abre a seção.",
-			exact:    "O trecho marcado",
-			prefix:   "Fim da introdução.Uma seção",
-			suffix:   " abre a seção.",
+			text:     "End of the introduction.\n\nA section\n\nThe marked passage opens the section.",
+			exact:    "The marked passage",
+			prefix:   "End of the introduction.A section",
+			suffix:   " opens the section.",
 			want:     NotesAnchored,
-			wantHint: 29,
+			wantHint: 35,
 		},
 		{
 			// Dropping the whitespace must not drop the words with it: a
 			// passage wrapped in the same context twice stays ambiguous.
 			name:      "two occurrences with identical glued context are still orphaned",
-			text:      "Igual: a mesma frase.\n\nfim.\n\nIgual: a mesma frase.\n\nfim.",
-			exact:     "a mesma frase.",
-			prefix:    "Igual:",
-			suffix:    "fim.",
+			text:      "Same: the same sentence.\n\nend.\n\nSame: the same sentence.\n\nend.",
+			exact:     "the same sentence.",
+			prefix:    "Same:",
+			suffix:    "end.",
 			want:      NotesOrphaned,
 			ambiguous: true,
 		},
 		{
 			name:   "a passage absent from the text is orphaned without being ambiguous",
-			text:   "Fim do primeiro.\n\nComeço do segundo.",
-			exact:  "o trecho marcado",
-			prefix: "Fim do primeiro.Começo",
-			suffix: " do segundo.",
+			text:   "End of the first.\n\nStart of the second.",
+			exact:  "the marked passage",
+			prefix: "End of the first.Start",
+			suffix: " of the second.",
 			want:   NotesOrphaned,
 		},
 		{
 			// The glued spelling must not become the only one that works: a
 			// context captured with the boundary spelled out anchors too.
 			name:     "a prefix spelling the boundary with a space still anchors",
-			text:     "Fim do primeiro.\n\nComeço do segundo com o trecho marcado aqui.",
-			exact:    "o trecho marcado",
-			prefix:   "Fim do primeiro. Começo do segundo com ",
-			suffix:   " aqui.",
+			text:     "End of the first.\n\nStart of the second with the marked passage here.",
+			exact:    "the marked passage",
+			prefix:   "End of the first. Start of the second with ",
+			suffix:   " here.",
 			want:     NotesAnchored,
-			wantHint: 39,
+			wantHint: 43,
 		},
 		{
 			name:     "non-BMP characters in the context are counted as one code point each",
-			text:     "Começo 𝄞𝄢 o trecho marcado 𝄞𝄢 fim.",
-			exact:    "o trecho marcado",
-			prefix:   "Começo 𝄞𝄢 ",
-			suffix:   " 𝄞𝄢 fim.",
+			text:     "Start 𝄞𝄢 the marked passage 𝄞𝄢 end.",
+			exact:    "the marked passage",
+			prefix:   "Start 𝄞𝄢 ",
+			suffix:   " 𝄞𝄢 end.",
 			want:     NotesAnchored,
-			wantHint: 10,
+			wantHint: 9,
 		},
 		{
 			name:   "an empty passage anchors nothing",
 			text:   article,
 			exact:  "   ",
-			prefix: "Antes do trecho. ",
+			prefix: "Before the passage. ",
 			want:   NotesOrphaned,
 		},
 		{
 			name:  "a passage in an item with no text at all is orphaned",
 			text:  "",
-			exact: "O trecho marcado.",
+			exact: "The marked passage.",
 			want:  NotesOrphaned,
 		},
 		{
 			name:     "a passage at the very start anchors on the context it does have",
-			text:     "O trecho marcado. Depois do trecho.",
-			exact:    "O trecho marcado.",
-			prefix:   "nada disso estava antes",
-			suffix:   " Depois do trecho.",
+			text:     "The marked passage. After the passage.",
+			exact:    "The marked passage.",
+			prefix:   "none of that was before",
+			suffix:   " After the passage.",
 			want:     NotesAnchored,
 			wantHint: 0,
 		},
@@ -194,11 +194,11 @@ func TestAnchoringAPassageAgainstAText(t *testing.T) {
 // for: with two occurrences the context can tell apart, the answer is the same
 // whichever occurrence the hint is sitting on.
 func TestTheHintOrdersTheSearchWithoutDecidingIt(t *testing.T) {
-	const text = "Primeiro: a mesma frase. Segundo: a mesma frase."
-	for _, hint := range []int{0, 10, 33, 999} {
-		result := notesAnchor(text, "a mesma frase.", "Primeiro: ", "", hint)
-		if result.Status != NotesAnchored || result.Hint != 10 {
-			t.Fatalf("hint %d gave %q at %d, want anchored at 10", hint, result.Status, result.Hint)
+	const text = "First: the same sentence. Second: the same sentence."
+	for _, hint := range []int{0, 7, 40, 999} {
+		result := notesAnchor(text, "the same sentence.", "First: ", "", hint)
+		if result.Status != NotesAnchored || result.Hint != 7 {
+			t.Fatalf("hint %d gave %q at %d, want anchored at 7", hint, result.Status, result.Hint)
 		}
 	}
 }
@@ -207,9 +207,9 @@ func TestTheHintOrdersTheSearchWithoutDecidingIt(t *testing.T) {
 // crash harmless: the second search of the same text reaches the same answer
 // from the hint the first one wrote.
 func TestAnchoringIsIdempotent(t *testing.T) {
-	const text = "Antes. O trecho marcado. Depois."
-	first := notesAnchor(text, "O trecho marcado.", "Antes. ", " Depois.", 0)
-	second := notesAnchor(text, "O trecho marcado.", "Antes. ", " Depois.", first.Hint)
+	const text = "Before. The marked passage. After."
+	first := notesAnchor(text, "The marked passage.", "Before. ", " After.", 0)
+	second := notesAnchor(text, "The marked passage.", "Before. ", " After.", first.Hint)
 	if first != second {
 		t.Fatalf("the second pass answered %+v, the first %+v", second, first)
 	}

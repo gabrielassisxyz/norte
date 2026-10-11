@@ -64,15 +64,15 @@ type notesAnnotationBody struct {
 // note on the same text as the question.
 func TestAQuestionCannotCiteAnAnnotationOfAnotherItem(t *testing.T) {
 	harness := newNotesHarness(t)
-	first := harness.saveArticle("Primeiro", "Antes. O trecho marcado. Depois.")
-	second := harness.saveArticle("Segundo", "Outro texto inteiro.")
+	first := harness.saveArticle("First", "Before. The marked passage. After.")
+	second := harness.saveArticle("Second", "Another whole text.")
 	annotation := notesDecode[notesAnnotationBody](t, harness.request(http.MethodPost, "/api/notes/annotations",
-		map[string]any{"item_id": first, "text": "uma nota"}), http.StatusCreated)
+		map[string]any{"item_id": first, "text": "a note"}), http.StatusCreated)
 
 	recorder := harness.request(http.MethodPost, "/api/notes/questions", map[string]any{
 		"item_id":       second,
 		"annotation_id": annotation.ID,
-		"text":          "Isto pertence a outro texto?",
+		"text":          "Does this belong to another text?",
 	})
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("status %d, want 400: %s", recorder.Code, recorder.Body.String())
@@ -112,20 +112,20 @@ type notesItemNoteBody struct {
 // reader asks for again when the page is loaded from nothing.
 func TestAHighlightMadeInTheReaderIsThereAfterAReload(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Como ler devagar", "Antes do trecho. O trecho marcado. Depois do trecho.")
+	itemID := harness.saveArticle("How to read slowly", "Before the passage. The marked passage. After the passage.")
 
 	created := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
 		map[string]any{
 			"item_id": itemID,
-			"exact":   "O trecho marcado.",
-			"prefix":  "Antes do trecho. ",
-			"suffix":  " Depois do trecho.",
+			"exact":   "The marked passage.",
+			"prefix":  "Before the passage. ",
+			"suffix":  " After the passage.",
 		}), http.StatusCreated)
 	if created.Status != NotesAnchored {
 		t.Fatalf("the highlight came back %q, want anchored", created.Status)
 	}
-	if created.Hint != 17 {
-		t.Fatalf("the highlight was anchored at %d, want 17", created.Hint)
+	if created.Hint != 20 {
+		t.Fatalf("the highlight was anchored at %d, want 20", created.Hint)
 	}
 
 	// A reload is a fresh read of the list, over a router that holds no state
@@ -135,7 +135,7 @@ func TestAHighlightMadeInTheReaderIsThereAfterAReload(t *testing.T) {
 	if len(listed.Items) != 1 || listed.Items[0].ID != created.ID {
 		t.Fatalf("the reload listed %d highlights: %+v", len(listed.Items), listed.Items)
 	}
-	if listed.Items[0].Source == nil || listed.Items[0].Source.Title != "Como ler devagar" {
+	if listed.Items[0].Source == nil || listed.Items[0].Source.Title != "How to read slowly" {
 		t.Fatalf("the highlight came back without its source title: %+v", listed.Items[0].Source)
 	}
 }
@@ -146,15 +146,15 @@ func TestAHighlightMadeInTheReaderIsThereAfterAReload(t *testing.T) {
 // were not reading.
 func TestSelectingTheSecondOfTwoIdenticalOccurrences(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Repetido",
-		"Igual: a mesma frase. fim. Igual: a mesma frase. fim.")
+	itemID := harness.saveArticle("Repeated",
+		"Same: the same sentence. end. Same: the same sentence. end.")
 
 	created := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
 		map[string]any{
 			"item_id": itemID,
-			"exact":   "a mesma frase.",
-			"prefix":  "Igual: ",
-			"suffix":  " fim.",
+			"exact":   "the same sentence.",
+			"prefix":  "Same: ",
+			"suffix":  " end.",
 		}), http.StatusCreated)
 	if created.Status != NotesOrphaned {
 		t.Fatalf("the highlight came back %q, want orphaned", created.Status)
@@ -165,7 +165,7 @@ func TestSelectingTheSecondOfTwoIdenticalOccurrences(t *testing.T) {
 	if created.Hint != 0 {
 		t.Fatalf("an orphaned highlight was given the offset %d", created.Hint)
 	}
-	if created.Exact != "a mesma frase." {
+	if created.Exact != "the same sentence." {
 		t.Fatalf("the passage was not kept: %q", created.Exact)
 	}
 }
@@ -175,32 +175,32 @@ func TestSelectingTheSecondOfTwoIdenticalOccurrences(t *testing.T) {
 // browser hands back is not spaced the way the extracted text is.
 func TestWhitespaceAndNonBMPContextStillAnchorThroughTheAPI(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Espaços", "Começo 𝄞𝄢 o trecho marcado 𝄞𝄢 fim.")
+	itemID := harness.saveArticle("Spaces", "Start 𝄞𝄢 the marked passage 𝄞𝄢 end.")
 
 	created := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
 		map[string]any{
 			"item_id": itemID,
-			"exact":   "o   trecho\n\nmarcado",
-			"prefix":  "Começo 𝄞𝄢\t",
-			"suffix":  "\n𝄞𝄢 fim.",
+			"exact":   "the   marked\n\npassage",
+			"prefix":  "Start 𝄞𝄢\t",
+			"suffix":  "\n𝄞𝄢 end.",
 		}), http.StatusCreated)
 	if created.Status != NotesAnchored {
 		t.Fatalf("the highlight came back %q, want anchored", created.Status)
 	}
-	if created.Hint != 10 {
-		t.Fatalf("the highlight was anchored at %d code points, want 10", created.Hint)
+	if created.Hint != 9 {
+		t.Fatalf("the highlight was anchored at %d code points, want 9", created.Hint)
 	}
 }
 
-// TestVirarHighlightOnASavedSelection is the reader's action on the box that
+// TestTurnAHighlightIntoAQuestionOnASavedSelection is the reader's action on the box that
 // shows what was selected when the link was saved: the same create call, with
 // the stored selection's three fields.
-func TestVirarHighlightOnASavedSelection(t *testing.T) {
+func TestTurnAHighlightIntoAQuestionOnASavedSelection(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Com seleção", "Antes do trecho. O trecho marcado. Depois do trecho.")
+	itemID := harness.saveArticle("With selection", "Before the passage. The marked passage. After the passage.")
 	if _, err := harness.database.Writer().Exec(
 		`UPDATE library_items SET selection = ? WHERE id = ?`,
-		`{"exact":"O trecho marcado.","prefix":"Antes do trecho. ","suffix":" Depois do trecho."}`,
+		`{"exact":"The marked passage.","prefix":"Before the passage. ","suffix":" After the passage."}`,
 		itemID); err != nil {
 		t.Fatalf("storing the saved selection: %v", err)
 	}
@@ -208,12 +208,12 @@ func TestVirarHighlightOnASavedSelection(t *testing.T) {
 	created := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
 		map[string]any{
 			"item_id": itemID,
-			"exact":   "O trecho marcado.",
-			"prefix":  "Antes do trecho. ",
-			"suffix":  " Depois do trecho.",
+			"exact":   "The marked passage.",
+			"prefix":  "Before the passage. ",
+			"suffix":  " After the passage.",
 		}), http.StatusCreated)
-	if created.Exact != "O trecho marcado." || created.Status != NotesAnchored {
-		t.Fatalf("virar highlight stored %q as %q", created.Exact, created.Status)
+	if created.Exact != "The marked passage." || created.Status != NotesAnchored {
+		t.Fatalf("turning the saved selection into a highlight stored %q as %q", created.Exact, created.Status)
 	}
 }
 
@@ -227,8 +227,8 @@ func TestAQuestionSetStoresOnlyThePromptsThePersonWroteInto(t *testing.T) {
 		map[string]any{
 			"topic": "Kubernetes",
 			"questions": []map[string]string{
-				{"kind": "why", "text": "Por que um pod é a unidade de agendamento?"},
-				{"kind": "how", "text": "Como um serviço encontra seus pods?"},
+				{"kind": "why", "text": "Why is a pod the scheduling unit?"},
+				{"kind": "how", "text": "How does a service find its pods?"},
 				{"kind": "what", "text": "   "},
 			},
 		}), http.StatusCreated)
@@ -260,19 +260,19 @@ func TestAQuestionSetStoresOnlyThePromptsThePersonWroteInto(t *testing.T) {
 	}
 }
 
-// TestVirarPerguntaFromAnAnnotation is the reader's action at the end of a
+// TestTurnAnAnnotationIntoAQuestion is the reader's action at the end of a
 // reading: a question that remembers the margin note it came out of.
-func TestVirarPerguntaFromAnAnnotation(t *testing.T) {
+func TestTurnAnAnnotationIntoAQuestion(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Um artigo", "Antes. O trecho marcado. Depois.")
+	itemID := harness.saveArticle("An article", "Before. The marked passage. After.")
 	annotation := notesDecode[notesAnnotationBody](t, harness.request(http.MethodPost, "/api/notes/annotations",
-		map[string]any{"item_id": itemID, "text": "isto merece uma pergunta"}), http.StatusCreated)
+		map[string]any{"item_id": itemID, "text": "this deserves a question"}), http.StatusCreated)
 
 	question := notesDecode[notesQuestionBody](t, harness.request(http.MethodPost, "/api/notes/questions",
 		map[string]any{
 			"item_id":       itemID,
 			"annotation_id": annotation.ID,
-			"text":          "Por que isto merece uma pergunta?",
+			"text":          "Why does this deserve a question?",
 		}), http.StatusCreated)
 
 	if question.AnnotationID != annotation.ID {
@@ -290,7 +290,7 @@ func TestASingleQuestionHasNoKindAndASetsPromptDoes(t *testing.T) {
 	harness := newNotesHarness(t)
 
 	single := notesDecode[notesQuestionBody](t, harness.request(http.MethodPost, "/api/notes/questions",
-		map[string]any{"text": "O que eu ainda não entendi aqui?"}), http.StatusCreated)
+		map[string]any{"text": "What do I still not understand here?"}), http.StatusCreated)
 	if single.Kind != nil {
 		t.Fatalf("a single question was stored with kind %q", *single.Kind)
 	}
@@ -302,7 +302,7 @@ func TestASingleQuestionHasNoKindAndASetsPromptDoes(t *testing.T) {
 	set := notesDecode[notesQuestionSetBody](t, harness.request(http.MethodPost, "/api/notes/question-sets",
 		map[string]any{
 			"topic":     "Kubernetes",
-			"questions": []map[string]string{{"kind": "why", "text": "Por que isto existe?"}},
+			"questions": []map[string]string{{"kind": "why", "text": "Why does this exist?"}},
 		}), http.StatusCreated)
 	if notesCount(t, harness, `SELECT COUNT(*) FROM notes_questions WHERE set_id = ? AND kind = 'why'`,
 		set.ID) != 1 {
@@ -316,18 +316,18 @@ func TestASingleQuestionHasNoKindAndASetsPromptDoes(t *testing.T) {
 func TestAKindTheContractDoesNotNameIsRefusedBeforeTheHandler(t *testing.T) {
 	harness := newNotesHarness(t)
 	recorder := harness.request(http.MethodPost, "/api/notes/questions",
-		map[string]any{"text": "Uma pergunta?", "kind": "other"})
+		map[string]any{"text": "A question?", "kind": "other"})
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("kind 'other' answered %d: %s", recorder.Code, recorder.Body.String())
 	}
 }
 
-// TestTheItemNoteIsOneBoxPerItem is the reader's "Nota" tab: an item with no
+// TestTheItemNoteIsOneBoxPerItem is the reader's "Note" tab: an item with no
 // note reads as an empty one, a write replaces whatever was there, and emptying
 // it leaves no row behind.
 func TestTheItemNoteIsOneBoxPerItem(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Um artigo", "Antes. O trecho marcado. Depois.")
+	itemID := harness.saveArticle("An article", "Before. The marked passage. After.")
 	path := "/api/notes/items/" + itemID + "/note"
 
 	empty := notesDecode[notesItemNoteBody](t, harness.request(http.MethodGet, path, nil), http.StatusOK)
@@ -336,14 +336,14 @@ func TestTheItemNoteIsOneBoxPerItem(t *testing.T) {
 	}
 
 	written := notesDecode[notesItemNoteBody](t, harness.request(http.MethodPut, path,
-		map[string]any{"text": "a primeira versão"}), http.StatusOK)
-	if written.Text != "a primeira versão" || written.ID == nil {
+		map[string]any{"text": "the first version"}), http.StatusOK)
+	if written.Text != "the first version" || written.ID == nil {
 		t.Fatalf("the written note came back as %+v", written)
 	}
 
 	rewritten := notesDecode[notesItemNoteBody](t, harness.request(http.MethodPut, path,
-		map[string]any{"text": "a segunda versão"}), http.StatusOK)
-	if rewritten.Text != "a segunda versão" {
+		map[string]any{"text": "the second version"}), http.StatusOK)
+	if rewritten.Text != "the second version" {
 		t.Fatalf("the rewrite came back as %+v", rewritten)
 	}
 	if count := notesCount(t, harness, `SELECT COUNT(*) FROM notes_notes WHERE item_id = ?`, itemID); count != 1 {
@@ -365,7 +365,7 @@ func TestTheItemNoteIsOneBoxPerItem(t *testing.T) {
 func TestANoteOnAnItemTheRegistryDoesNotKnow(t *testing.T) {
 	harness := newNotesHarness(t)
 	recorder := harness.request(http.MethodPost, "/api/notes/highlights",
-		map[string]any{"item_id": "nao-existe", "exact": "um trecho"})
+		map[string]any{"item_id": "does-not-exist", "exact": "a passage"})
 	if recorder.Code != http.StatusNotFound {
 		t.Fatalf("a highlight on an unknown item answered %d: %s", recorder.Code, recorder.Body.String())
 	}
@@ -376,7 +376,7 @@ func TestANoteOnAnItemTheRegistryDoesNotKnow(t *testing.T) {
 // 120 ids are 120 distinct ids.
 func TestEveryNotesListPagesWithoutRepeatingOrSkippingARow(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Um artigo longo", "Antes. O trecho marcado. Depois.")
+	itemID := harness.saveArticle("A long article", "Before. The marked passage. After.")
 	const fixtures = 120
 
 	for index := range fixtures {
@@ -385,22 +385,22 @@ func TestEveryNotesListPagesWithoutRepeatingOrSkippingARow(t *testing.T) {
 		// row is what makes the primary sort key do its half of the work.
 		harness.clock.Advance(notesWorkerStep)
 		if _, err := harness.service.CreateHighlight(t.Context(), NewHighlightInput{
-			ItemID: itemID, Exact: fmt.Sprintf("trecho %d", index),
+			ItemID: itemID, Exact: fmt.Sprintf("passage %d", index),
 		}); err != nil {
 			t.Fatalf("creating the highlight %d: %v", index, err)
 		}
 		if _, err := harness.service.CreateAnnotation(t.Context(), NewAnnotationInput{
-			ItemID: itemID, Text: fmt.Sprintf("anotação %d", index),
+			ItemID: itemID, Text: fmt.Sprintf("annotation %d", index),
 		}); err != nil {
 			t.Fatalf("creating the annotation %d: %v", index, err)
 		}
 		if _, err := harness.service.CreateQuestion(t.Context(), NewQuestionInput{
-			ItemID: itemID, Text: fmt.Sprintf("pergunta %d?", index),
+			ItemID: itemID, Text: fmt.Sprintf("question %d?", index),
 		}); err != nil {
 			t.Fatalf("creating the question %d: %v", index, err)
 		}
 		if _, err := harness.service.CreateQuestionSet(t.Context(), NewQuestionSetInput{
-			Topic: fmt.Sprintf("tópico %d", index),
+			Topic: fmt.Sprintf("topic %d", index),
 		}); err != nil {
 			t.Fatalf("creating the question set %d: %v", index, err)
 		}
@@ -493,11 +493,11 @@ func TestEveryNotesListPagesWithoutRepeatingOrSkippingARow(t *testing.T) {
 // meaningless in another's, and answering anyway would silently skip rows.
 func TestACursorPresentedWithOtherFiltersIsRefused(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Um artigo", "Antes. O trecho marcado. Depois.")
+	itemID := harness.saveArticle("An article", "Before. The marked passage. After.")
 	for index := range 60 {
 		harness.clock.Advance(notesWorkerStep)
 		if _, err := harness.service.CreateHighlight(t.Context(), NewHighlightInput{
-			ItemID: itemID, Exact: fmt.Sprintf("trecho %d", index),
+			ItemID: itemID, Exact: fmt.Sprintf("passage %d", index),
 		}); err != nil {
 			t.Fatalf("creating the highlight %d: %v", index, err)
 		}
@@ -509,25 +509,25 @@ func TestACursorPresentedWithOtherFiltersIsRefused(t *testing.T) {
 	}
 
 	recorder := harness.request(http.MethodGet,
-		"/api/notes/highlights?q=trecho&cursor="+url.QueryEscape(first.NextCursor), nil)
+		"/api/notes/highlights?q=passage&cursor="+url.QueryEscape(first.NextCursor), nil)
 	if recorder.Code != http.StatusBadRequest {
 		t.Fatalf("the reused cursor answered %d: %s", recorder.Code, recorder.Body.String())
 	}
 }
 
-// TestTheTextFilterNarrowsByTheNotesOwnTextAndBySource is the Notas filter box,
+// TestTheTextFilterNarrowsByTheNotesOwnTextAndBySource is the Notes filter box,
 // which has to find a note by what it says and by where it came from.
 func TestTheTextFilterNarrowsByTheNotesOwnTextAndBySource(t *testing.T) {
 	harness := newNotesHarness(t)
-	compilation := harness.saveArticle("Como compiladores leem código", "Antes. Uma frase sobre parsing. Depois.")
-	garden := harness.saveArticle("O jardim digital", "Antes. Uma frase sobre jardins. Depois.")
+	compilation := harness.saveArticle("How compilers read code", "Before. A sentence about parsing. After.")
+	garden := harness.saveArticle("The digital garden", "Before. A sentence about gardens. After.")
 
 	for _, seed := range []struct {
 		item string
 		text string
 	}{
-		{compilation, "registrar exemplos ajuda"},
-		{garden, "plantar ideias devagar"},
+		{compilation, "logging examples helps"},
+		{garden, "planting ideas slowly"},
 	} {
 		harness.clock.Advance(notesWorkerStep)
 		if _, err := harness.service.CreateAnnotation(t.Context(), NewAnnotationInput{
@@ -538,14 +538,14 @@ func TestTheTextFilterNarrowsByTheNotesOwnTextAndBySource(t *testing.T) {
 	}
 
 	byText := notesDecode[notesAnnotationListBody](t, harness.request(http.MethodGet,
-		"/api/notes/annotations?q="+url.QueryEscape("registrar exemplos"), nil), http.StatusOK)
-	if len(byText.Items) != 1 || byText.Items[0].Text != "registrar exemplos ajuda" {
+		"/api/notes/annotations?q="+url.QueryEscape("logging examples"), nil), http.StatusOK)
+	if len(byText.Items) != 1 || byText.Items[0].Text != "logging examples helps" {
 		t.Fatalf("the text filter found %+v", byText.Items)
 	}
 
 	bySource := notesDecode[notesAnnotationListBody](t, harness.request(http.MethodGet,
-		"/api/notes/annotations?q="+url.QueryEscape("jardim"), nil), http.StatusOK)
-	if len(bySource.Items) != 1 || bySource.Items[0].Text != "plantar ideias devagar" {
+		"/api/notes/annotations?q="+url.QueryEscape("garden"), nil), http.StatusOK)
+	if len(bySource.Items) != 1 || bySource.Items[0].Text != "planting ideas slowly" {
 		t.Fatalf("the source filter found %+v", bySource.Items)
 	}
 }
@@ -554,18 +554,18 @@ func TestTheTextFilterNarrowsByTheNotesOwnTextAndBySource(t *testing.T) {
 // read.
 func TestTheCountsAreOneCallRatherThanThreeLists(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Um artigo", "Antes. O trecho marcado. Depois.")
+	itemID := harness.saveArticle("An article", "Before. The marked passage. After.")
 	harness.request(http.MethodPost, "/api/notes/highlights",
-		map[string]any{"item_id": itemID, "exact": "O trecho marcado."})
+		map[string]any{"item_id": itemID, "exact": "The marked passage."})
 	harness.request(http.MethodPost, "/api/notes/annotations",
-		map[string]any{"item_id": itemID, "text": "uma anotação"})
-	harness.request(http.MethodPost, "/api/notes/questions", map[string]any{"text": "uma pergunta?"})
+		map[string]any{"item_id": itemID, "text": "an annotation"})
+	harness.request(http.MethodPost, "/api/notes/questions", map[string]any{"text": "a question?"})
 	harness.request(http.MethodPost, "/api/notes/question-sets", map[string]any{"topic": "Kubernetes"})
 
 	counts := notesDecode[map[string]int](t,
 		harness.request(http.MethodGet, "/api/notes/counts", nil), http.StatusOK)
 	for name, want := range map[string]int{
-		"highlights": 1, "anotacoes": 1, "perguntas": 1, "conjuntos": 1,
+		"highlights": 1, "annotations": 1, "questions": 1, "question_sets": 1,
 	} {
 		if counts[name] != want {
 			t.Fatalf("%s counted %d, want %d (all: %v)", name, counts[name], want, counts)
@@ -600,37 +600,42 @@ func notesRefusal(t *testing.T, recorder *httptest.ResponseRecorder, want int) s
 
 // TestTheTextFilterIgnoresCaseOnAnAccentedLetter is the criterion about the
 // filter box: a person typing a word in capitals, or without its accents, is
-// asking the same question as one typing it the way the note spells it. SQLite's
-// LIKE folds ASCII only, so MEMÓRIA found nothing while memória found the rows.
+// asking the same question as one typing it the way the note spells it.
+// SQLite's LIKE folds ASCII only, so the accented uppercase spelling found
+// nothing while the folded one found the rows.
+//
+// The accented spellings below use escapes so this file stays ASCII: the
+// runtime strings still carry the accent, which is the whole point of this
+// test.
 func TestTheTextFilterIgnoresCaseOnAnAccentedLetter(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Retenção e memória", "Antes. O trecho marcado. Depois.")
+	itemID := harness.saveArticle("Retention and memory", "Before. The marked passage. After.")
 	harness.clock.Advance(notesWorkerStep)
 	if _, err := harness.service.CreateHighlight(t.Context(), NewHighlightInput{
-		ItemID: itemID, Exact: "a MEMÓRIA de trabalho",
+		ItemID: itemID, Exact: "a NA\u00cfVE working memory",
 	}); err != nil {
 		t.Fatalf("creating the highlight: %v", err)
 	}
 	harness.clock.Advance(notesWorkerStep)
 	if _, err := harness.service.CreateAnnotation(t.Context(), NewAnnotationInput{
-		ItemID: itemID, Text: "sobre Memória e repetição",
+		ItemID: itemID, Text: "about na\u00efve repetition",
 	}); err != nil {
 		t.Fatalf("creating the annotation: %v", err)
 	}
 	harness.clock.Advance(notesWorkerStep)
 	if _, err := harness.service.CreateQuestion(t.Context(), NewQuestionInput{
-		ItemID: itemID, Text: "O que é memória de trabalho?",
+		ItemID: itemID, Text: "What is na\u00efve working memory?",
 	}); err != nil {
 		t.Fatalf("creating the question: %v", err)
 	}
 	harness.clock.Advance(notesWorkerStep)
 	if _, err := harness.service.CreateQuestionSet(t.Context(), NewQuestionSetInput{
-		Topic: "Memória",
+		Topic: "Na\u00efve",
 	}); err != nil {
 		t.Fatalf("creating the question set: %v", err)
 	}
 
-	for _, spelling := range []string{"MEMÓRIA", "memoria", "Memória", "MEMORIA"} {
+	for _, spelling := range []string{"NA\u00cfVE", "naive", "Na\u00efve", "NAIVE"} {
 		query := "?q=" + url.QueryEscape(spelling)
 		highlights := notesDecode[notesHighlightListBody](t, harness.request(http.MethodGet,
 			"/api/notes/highlights"+query, nil), http.StatusOK)
@@ -661,12 +666,12 @@ func TestTheTextFilterIgnoresCaseOnAnAccentedLetter(t *testing.T) {
 // repeated or skipped row cannot hide inside a page.
 func TestAFoldedTextFilterStillPagesWithoutRepeatingARow(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Um artigo", "Antes. O trecho marcado. Depois.")
+	itemID := harness.saveArticle("An article", "Before. The marked passage. After.")
 	const matches = 5
 	for index := range matches {
 		harness.clock.Advance(notesWorkerStep)
 		if _, err := harness.service.CreateAnnotation(t.Context(), NewAnnotationInput{
-			ItemID: itemID, Text: fmt.Sprintf("MEMÓRIA %d", index),
+			ItemID: itemID, Text: fmt.Sprintf("NA\u00cfVE %d", index),
 		}); err != nil {
 			t.Fatalf("creating the annotation %d: %v", index, err)
 		}
@@ -674,7 +679,7 @@ func TestAFoldedTextFilterStillPagesWithoutRepeatingARow(t *testing.T) {
 		// lands between two matches rather than at the end of the table.
 		harness.clock.Advance(notesWorkerStep)
 		if _, err := harness.service.CreateAnnotation(t.Context(), NewAnnotationInput{
-			ItemID: itemID, Text: fmt.Sprintf("outra coisa %d", index),
+			ItemID: itemID, Text: fmt.Sprintf("something else %d", index),
 		}); err != nil {
 			t.Fatalf("creating the unmatched annotation %d: %v", index, err)
 		}
@@ -683,7 +688,7 @@ func TestAFoldedTextFilterStillPagesWithoutRepeatingARow(t *testing.T) {
 	seen := map[string]bool{}
 	cursor := ""
 	for page := 0; page <= matches; page++ {
-		path := "/api/notes/annotations?limit=1&q=" + url.QueryEscape("memoria")
+		path := "/api/notes/annotations?limit=1&q=" + url.QueryEscape("naive")
 		if cursor != "" {
 			path += "&cursor=" + url.QueryEscape(cursor)
 		}
@@ -714,7 +719,7 @@ func TestAFoldedTextFilterStillPagesWithoutRepeatingARow(t *testing.T) {
 func TestAKindWithoutASetIsRefused(t *testing.T) {
 	harness := newNotesHarness(t)
 	field := notesRefusal(t, harness.request(http.MethodPost, "/api/notes/questions",
-		map[string]any{"text": "solta", "kind": "why"}), http.StatusBadRequest)
+		map[string]any{"text": "loose", "kind": "why"}), http.StatusBadRequest)
 	if field != "kind" {
 		t.Fatalf("the refusal named the field %q, want kind", field)
 	}
@@ -731,12 +736,12 @@ func TestASecondQuestionOfTheSameKindInASetIsRefused(t *testing.T) {
 	harness := newNotesHarness(t)
 	set := notesDecode[notesQuestionSetBody](t, harness.request(http.MethodPost, "/api/notes/question-sets",
 		map[string]any{
-			"topic":     "Memória",
-			"questions": []map[string]string{{"kind": "what", "text": "O que é?"}},
+			"topic":     "Memory",
+			"questions": []map[string]string{{"kind": "what", "text": "What is it?"}},
 		}), http.StatusCreated)
 
 	field := notesRefusal(t, harness.request(http.MethodPost, "/api/notes/questions",
-		map[string]any{"text": "de novo", "set_id": set.ID, "kind": "what"}), http.StatusConflict)
+		map[string]any{"text": "again", "set_id": set.ID, "kind": "what"}), http.StatusConflict)
 	if field != "kind" {
 		t.Fatalf("the refusal named the field %q, want kind", field)
 	}
@@ -748,7 +753,7 @@ func TestASecondQuestionOfTheSameKindInASetIsRefused(t *testing.T) {
 	// A kind the set has no question of is still accepted, so the rule refuses
 	// the duplicate rather than every question written into an existing set.
 	free := notesDecode[notesQuestionBody](t, harness.request(http.MethodPost, "/api/notes/questions",
-		map[string]any{"text": "Por que importa?", "set_id": set.ID, "kind": "why"}), http.StatusCreated)
+		map[string]any{"text": "Why does it matter?", "set_id": set.ID, "kind": "why"}), http.StatusCreated)
 	if free.Kind == nil || *free.Kind != "why" {
 		t.Fatalf("the second prompt came back as %+v", free)
 	}
@@ -760,17 +765,17 @@ func TestASecondQuestionOfTheSameKindInASetIsRefused(t *testing.T) {
 // that does not exist.
 func TestAHighlightNeedsATargetThatCanHaveText(t *testing.T) {
 	harness := newNotesHarness(t)
-	subjectID := harness.registerItem(core.SubjectItemModule, core.SubjectItemType, "Teste")
+	subjectID := harness.registerItem(core.SubjectItemModule, core.SubjectItemType, "Test")
 	field := notesRefusal(t, harness.request(http.MethodPost, "/api/notes/highlights",
-		map[string]any{"item_id": subjectID, "exact": "palavras"}), http.StatusBadRequest)
+		map[string]any{"item_id": subjectID, "exact": "words"}), http.StatusBadRequest)
 	if field != "item_id" {
 		t.Fatalf("the refusal named the field %q, want item_id", field)
 	}
 
 	set := notesDecode[notesQuestionSetBody](t, harness.request(http.MethodPost, "/api/notes/question-sets",
-		map[string]any{"topic": "Memória"}), http.StatusCreated)
+		map[string]any{"topic": "Memory"}), http.StatusCreated)
 	field = notesRefusal(t, harness.request(http.MethodPost, "/api/notes/highlights",
-		map[string]any{"item_id": set.ID, "exact": "palavras"}), http.StatusBadRequest)
+		map[string]any{"item_id": set.ID, "exact": "words"}), http.StatusBadRequest)
 	if field != "item_id" {
 		t.Fatalf("the refusal on a question set named the field %q, want item_id", field)
 	}
@@ -784,9 +789,9 @@ func TestAHighlightNeedsATargetThatCanHaveText(t *testing.T) {
 // the passage is gone, so the highlight is stored as the person marked it.
 func TestAHighlightOnASwitchedOffModuleIsStillAnchored(t *testing.T) {
 	harness := newNotesHarness(t, "notes")
-	itemID := harness.registerItem("library", "post", "Um artigo que a biblioteca guardou")
+	itemID := harness.registerItem("library", "post", "An article the library kept")
 	highlight := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
-		map[string]any{"item_id": itemID, "exact": "palavras"}), http.StatusCreated)
+		map[string]any{"item_id": itemID, "exact": "words"}), http.StatusCreated)
 	if highlight.Status != NotesAnchored {
 		t.Fatalf("the highlight came back %q, want anchored", highlight.Status)
 	}
@@ -800,17 +805,17 @@ func TestAHighlightOnASwitchedOffModuleIsStillAnchored(t *testing.T) {
 func TestAHighlightSpanningAParagraphBreakOnMinifiedMarkup(t *testing.T) {
 	harness := newNotesHarness(t)
 	itemID := harness.saveAndExtract("https://example.invalid/glued",
-		`<html><body><article><h1>Título</h1>`+
-			`<p>Primeiro parágrafo fala do mar inteiro sem parar.</p>`+
-			`<p>Segundo parágrafo descreve montanhas geladas onde lobos cinzentos caçam renas.</p>`+
+		`<html><body><article><h1>Title</h1>`+
+			`<p>First paragraph speaks of the whole sea without stopping.</p>`+
+			`<p>Second paragraph describes icy mountains where grey wolves hunt reindeer.</p>`+
 			`</article></body></html>`)
 
 	created := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
 		map[string]any{
 			"item_id": itemID,
-			"exact":   "parar. Segundo",
-			"prefix":  "do mar inteiro sem ",
-			"suffix":  " parágrafo descreve",
+			"exact":   "stopping. Second",
+			"prefix":  "the whole sea without ",
+			"suffix":  " paragraph describes",
 		}), http.StatusCreated)
 	if created.Status != NotesAnchored {
 		t.Fatalf("a highlight across the paragraph break came back %q, over the text %q",

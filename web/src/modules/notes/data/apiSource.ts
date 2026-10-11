@@ -41,13 +41,13 @@ interface ApiFailure {
  *
  * The contract's envelope carries a sentence written for a person, so that is
  * what the screen shows; a failure that arrived without one (a proxy, a dropped
- * connection) falls back to the status, which is still more than "erro".
+ * connection) falls back to the status, which is still more than "error".
  */
 function failureMessage(failure: unknown, status: number): string {
   const detail = (failure as ApiFailure | undefined)?.error
   if (detail?.message) return detail.message
   if (detail?.code) return detail.code
-  return `a resposta do servidor foi ${status || 'vazia'}`
+  return `the server answered ${status || 'empty'}`
 }
 
 function failureCode(failure: unknown): string | undefined {

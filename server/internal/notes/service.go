@@ -19,8 +19,8 @@ var NotesQuestionKinds = []string{"what", "why", "who", "when", "where", "how"}
 //
 // It is read from core_items rather than from the owning module, which is what
 // lets a highlight render its origin with the library switched off. Found is
-// false when the registry has no such row, so the screen can say "fonte
-// desconhecida" instead of printing an empty title.
+// false when the registry has no such row, so the screen can say "unknown
+// source" instead of printing an empty title.
 type NotesSourceRef struct {
 	ID     string
 	Module string
@@ -60,7 +60,7 @@ type NotesQuestionSetRecord struct {
 	Count     int
 }
 
-// NotesCounts is what the sidebar and the Notas tabs print.
+// NotesCounts is what the sidebar and the Notes tabs print.
 type NotesCounts struct {
 	Highlights  int
 	Annotations int
@@ -605,7 +605,7 @@ func (s *NotesService) QuestionSet(ctx context.Context, id string) (NotesQuestio
 
 /* --------------------------------------------------------------- counts */
 
-// Counts reads every count the sidebar and the Notas tabs print, in one call
+// Counts reads every count the sidebar and the Notes tabs print, in one call
 // rather than by paging three lists nobody renders.
 func (s *NotesService) Counts(ctx context.Context) (NotesCounts, error) {
 	queries := db.New(s.database.Reader())

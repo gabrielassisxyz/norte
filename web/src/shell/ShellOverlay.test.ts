@@ -31,7 +31,7 @@ const SAVED_NOTE = coreSearchHit({
   module: 'notes',
   type: 'annotation',
   title: 'uma anotação sobre o livro guardado',
-  path: '/notas?tab=anotacoes',
+  path: '/notes?tab=annotations',
   score: 0.5
 })
 

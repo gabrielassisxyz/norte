@@ -20,17 +20,17 @@ import { notesGainedNote } from '../data/revision'
  * It renders through the reader's slot, so the library never names this module
  * and a reader with notes switched off renders none of it. On a phone that slot
  * is the bottom sheet, and the reader hands over the section whoever opened the
- * sheet asked for — `anotacoes`, `nota` or `pergunta`, names this module chose
+ * sheet asked for — `annotations`, `note` or `question`, names this module chose
  * and the reader passes along without reading.
  */
 const props = defineProps<ReaderSlotProps>()
 
-type PanelTab = 'margem' | 'nota'
+type PanelTab = 'margin' | 'note'
 
 const { notes } = useSources()
 const allowed = computed(() => crossModuleActionAllowed('library', 'notes'))
 
-const tab = ref<PanelTab>('margem')
+const tab = ref<PanelTab>('margin')
 const annotationDraft = ref('')
 const annotationTarget = ref('')
 const noteDraft = ref('')
@@ -86,8 +86,8 @@ const marginRows = computed(() => {
 })
 
 const tabs = computed(() => [
-  { value: 'margem', label: 'Anotações', count: marginRows.value.length },
-  { value: 'nota', label: 'Nota' }
+  { value: 'margin', label: 'Annotations', count: marginRows.value.length },
+  { value: 'note', label: 'Note' }
 ])
 
 // The note's text is the server's answer, not the box's: a draft typed and then
@@ -101,7 +101,7 @@ watch(
 )
 
 function selectTab(value: string): void {
-  if (value === 'margem' || value === 'nota') tab.value = value
+  if (value === 'margin' || value === 'note') tab.value = value
 }
 
 /**
@@ -116,12 +116,12 @@ watch(
   () => props.notesSection,
   async (request) => {
     if (!request) return
-    if (request.section === 'anotacoes') tab.value = 'margem'
+    if (request.section === 'annotations') tab.value = 'margin'
     // `note` is the section the reader's own `?notes=note` deep link carries,
     // and the note search entry on the server builds that address. The other
     // section names are still this module's and are translated with it.
-    if (request.section === 'note') tab.value = 'nota'
-    if (request.section !== 'pergunta') return
+    if (request.section === 'note') tab.value = 'note'
+    if (request.section !== 'question') return
     await nextTick()
     questionField.value?.scrollIntoView({ block: 'nearest' })
     questionField.value?.focus()
@@ -131,7 +131,7 @@ watch(
 /** Open the margin box against one passage, which is a note on that highlight. */
 function annotate(highlightId: string): void {
   annotationTarget.value = highlightId
-  tab.value = 'margem'
+  tab.value = 'margin'
 }
 
 async function saveAnnotation(): Promise<void> {
@@ -159,15 +159,15 @@ async function saveNote(): Promise<void> {
 }
 
 /**
- * "Virar pergunta" at the end of a reading.
+ * "Turn into a question" at the end of a reading.
  *
- * The trailing "?" is the same rule the Notas screen applies, because it is the
+ * The trailing "?" is the same rule the Notes screen applies, because it is the
  * same thing being written: a question is a question wherever it is typed.
  */
 async function turnIntoQuestion(): Promise<void> {
   const text = questionDraft.value.trim()
   if (!text.endsWith('?')) {
-    questionError.value = 'A pergunta precisa terminar com “?”.'
+    questionError.value = 'A question has to end with “?”.'
     return
   }
   const created = await writing.run(() =>
@@ -178,7 +178,7 @@ async function turnIntoQuestion(): Promise<void> {
     })
   )
   if (!created) {
-    questionError.value = `Não foi possível salvar: ${writing.error.value ?? 'erro desconhecido'}`
+    questionError.value = `Could not save: ${writing.error.value ?? 'unknown error'}`
     return
   }
   notesGainedNote()
@@ -195,35 +195,35 @@ async function retry(): Promise<void> {
 
 <template>
   <section v-if="allowed" class="notes-reader" aria-labelledby="notes-reader-title">
-    <h2 id="notes-reader-title" class="notes-reader-title">O que esta leitura deixou</h2>
-    <SegmentedControl :model-value="tab" :options="tabs" label="Notas desta leitura" @change="selectTab" />
+    <h2 id="notes-reader-title" class="notes-reader-title">What this reading left behind</h2>
+    <SegmentedControl :model-value="tab" :options="tabs" label="Notes for this reading" @change="selectTab" />
 
-    <div v-if="tab === 'margem'" class="notes-reader-margin">
+    <div v-if="tab === 'margin'" class="notes-reader-margin">
       <form class="notes-reader-form" @submit.prevent="saveAnnotation">
         <label for="notes-reader-annotation">
-          {{ annotationTarget ? 'Anotar o trecho escolhido' : 'Anotação livre' }}
+          {{ annotationTarget ? 'Annotate the chosen passage' : 'Free annotation' }}
         </label>
         <textarea
           id="notes-reader-annotation"
           v-model="annotationDraft"
           rows="2"
-          placeholder="O que este trecho muda?"
+          placeholder="What does this passage change?"
         />
         <div class="notes-reader-submit">
           <Button
-            data-action="anotar"
+            data-action="annotate"
             variant="primary"
             size="sm"
             type="submit"
             :disabled="!annotationDraft.trim() || writing.pending.value"
           >
-            Anotar
+            Annotate
           </Button>
         </div>
       </form>
 
       <p v-if="marginRows.length === 0" class="notes-reader-empty">
-        Nada na margem ainda. O que você destacar nesta leitura aparece aqui.
+        Nothing in the margin yet. Whatever you highlight while reading shows up here.
       </p>
       <AnnotationItem
         v-for="row in marginRows"
@@ -235,29 +235,29 @@ async function retry(): Promise<void> {
     </div>
 
     <form v-else class="notes-reader-form" @submit.prevent="saveNote">
-      <label for="notes-reader-note">Nota deste material</label>
+      <label for="notes-reader-note">Note on this material</label>
       <textarea
         id="notes-reader-note"
         v-model="noteDraft"
         rows="5"
-        placeholder="Uma nota sobre o texto inteiro."
+        placeholder="A note about the whole text."
       />
       <div class="notes-reader-submit">
-        <Button data-action="salvar-nota" variant="primary" size="sm" type="submit" :disabled="writing.pending.value">
-          Salvar nota
+        <Button data-action="save-note" variant="primary" size="sm" type="submit" :disabled="writing.pending.value">
+          Save note
         </Button>
       </div>
     </form>
 
     <section v-if="orphaned.length > 0" class="notes-reader-orphans" aria-labelledby="notes-orphans-title">
-      <h3 id="notes-orphans-title">Trechos que não foram encontrados neste texto</h3>
+      <h3 id="notes-orphans-title">Passages not found in this text</h3>
       <!--
         The reason is not claimed, because the reader cannot know it: `ambiguous`
         travels on the create response and is never stored, so a passage listed
         here may be one the text no longer holds or one it holds twice over.
       -->
       <p class="notes-reader-empty">
-        Podem estar repetidos no texto ou não estar mais nele. Eles continuam guardados.
+        They may be repeated in the text or no longer in it. They are still kept.
       </p>
       <blockquote v-for="highlight in orphaned" :key="highlight.id" class="notes-reader-orphan">
         {{ highlight.exact }}
@@ -265,9 +265,9 @@ async function retry(): Promise<void> {
     </section>
 
     <form class="notes-reader-form" @submit.prevent="turnIntoQuestion">
-      <label for="notes-reader-question">Virar pergunta</label>
-      <select v-if="annotations.length > 0" v-model="questionAnnotation" aria-label="Anotação de origem">
-        <option value="">Sem anotação de origem</option>
+      <label for="notes-reader-question">Turn into a question</label>
+      <select v-if="annotations.length > 0" v-model="questionAnnotation" aria-label="Source annotation">
+        <option value="">No source annotation</option>
         <option v-for="annotation in annotations" :key="annotation.id" :value="annotation.id">
           {{ annotation.text }}
         </option>
@@ -277,7 +277,7 @@ async function retry(): Promise<void> {
         ref="questionField"
         v-model="questionDraft"
         rows="2"
-        placeholder="Termina com “?”."
+        placeholder="Ends with “?”."
         aria-describedby="notes-reader-question-error"
         @input="questionError = ''"
       />
@@ -286,20 +286,20 @@ async function retry(): Promise<void> {
       </p>
       <div class="notes-reader-submit">
         <Button
-          data-action="virar-pergunta"
+          data-action="turn-into-question"
           variant="secondary"
           size="sm"
           type="submit"
           :disabled="writing.pending.value"
         >
-          Virar pergunta
+          Turn into a question
         </Button>
       </div>
     </form>
 
     <p v-if="writing.error.value && !questionError" class="notes-reader-error" role="alert">
-      Não foi possível salvar: {{ writing.error.value }}
-      <button type="button" class="notes-reader-retry" @click="retry">Tentar de novo</button>
+      Could not save: {{ writing.error.value }}
+      <button type="button" class="notes-reader-retry" @click="retry">Try again</button>
     </p>
   </section>
 </template>

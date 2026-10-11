@@ -14,11 +14,11 @@ import (
 // The routes that open each kind of writing. An annotation and a question are
 // read on the tab that lists their kind, which is where a hit sends the
 // person. An item's note has no tab listing it: it is read on the reader's
-// "Nota" tab of its item, so its hit opens that item's reader with the note
+// "Note" tab of its item, so its hit opens that item's reader with the note
 // asked for.
 const (
-	notesAnnotationsPath = "/notas?tab=anotacoes"
-	notesQuestionsPath   = "/notas?tab=perguntas"
+	notesAnnotationsPath = "/notes?tab=annotations"
+	notesQuestionsPath   = "/notes?tab=questions"
 )
 
 // notesItemNotePath is the reader route that shows an item's note: the item,

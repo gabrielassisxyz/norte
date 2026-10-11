@@ -126,7 +126,7 @@ describe('Revisão in the sidebar', () => {
     // The sidebar is still a sidebar: the other products are untouched.
     expect(labels).toContain('Library')
     expect(labels).toContain('Projetos')
-    expect(labels).toContain('Notas')
+    expect(labels).toContain('Notes')
     // And the Estudo shortcut group goes with its module.
     expect(wrapper.get('nav[aria-label="Atalhos"]').text()).not.toContain('Currículos')
   })

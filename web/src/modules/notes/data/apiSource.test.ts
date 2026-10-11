@@ -90,9 +90,9 @@ describe('the notes API source: the four lists', () => {
   })
 
   it('throws the sentence the server wrote when the call fails', async () => {
-    fetchStub.mockResolvedValue(json({ error: { code: 'invalid_cursor', message: 'cursor inválido' } }, 400))
+    fetchStub.mockResolvedValue(json({ error: { code: 'invalid_cursor', message: 'invalid cursor' } }, 400))
 
-    await expect(createApiNotesSource().listHighlights({ cursor: 'x' }, signal)).rejects.toThrow('cursor inválido')
+    await expect(createApiNotesSource().listHighlights({ cursor: 'x' }, signal)).rejects.toThrow('invalid cursor')
   })
 
   it('falls back to the code, then to the status, when no sentence came', async () => {
@@ -150,14 +150,14 @@ describe('the notes API source: the one note an item carries', () => {
   })
 
   it('writes it with PUT and the text in the body', async () => {
-    fetchStub.mockResolvedValue(json({ id: 'note-1', item_id: 'item-1', text: 'uma nota' }))
+    fetchStub.mockResolvedValue(json({ id: 'note-1', item_id: 'item-1', text: 'a note' }))
 
-    const note = await createApiNotesSource().putItemNote('item-1', 'uma nota')
+    const note = await createApiNotesSource().putItemNote('item-1', 'a note')
 
     expect(lastRequest().method).toBe('PUT')
     expect(lastUrl().pathname).toBe('/api/notes/items/item-1/note')
-    expect(await lastRequest().clone().json()).toEqual({ text: 'uma nota' })
-    expect(note).toMatchObject({ text: 'uma nota' })
+    expect(await lastRequest().clone().json()).toEqual({ text: 'a note' })
+    expect(note).toMatchObject({ text: 'a note' })
   })
 })
 
@@ -167,18 +167,18 @@ describe('the notes API source: the writes', () => {
 
     const created = await createApiNotesSource().addHighlight({
       item_id: 'item-1',
-      exact: 'O trecho marcado.',
-      prefix: 'Antes. ',
-      suffix: ' Depois.'
+      exact: 'The marked passage.',
+      prefix: 'Before. ',
+      suffix: ' After.'
     })
 
     expect(lastRequest().method).toBe('POST')
     expect(lastUrl().pathname).toBe('/api/notes/highlights')
     expect(await lastRequest().clone().json()).toEqual({
       item_id: 'item-1',
-      exact: 'O trecho marcado.',
-      prefix: 'Antes. ',
-      suffix: ' Depois.'
+      exact: 'The marked passage.',
+      prefix: 'Before. ',
+      suffix: ' After.'
     })
     // The record the server answered with, which is how a screen learns the
     // passage came back orphaned rather than anchored.
@@ -192,19 +192,19 @@ describe('the notes API source: the writes', () => {
     expect(lastRequest().method).toBe('DELETE')
     expect(lastUrl().pathname).toBe('/api/notes/highlights/h-1')
 
-    fetchStub.mockResolvedValueOnce(json({ error: { code: 'not_found', message: 'sem highlight' } }, 404))
-    await expect(createApiNotesSource().deleteHighlight('h-2')).rejects.toThrow('sem highlight')
+    fetchStub.mockResolvedValueOnce(json({ error: { code: 'not_found', message: 'no highlight' } }, 404))
+    await expect(createApiNotesSource().deleteHighlight('h-2')).rejects.toThrow('no highlight')
   })
 
   it('posts an annotation, with the highlight it hangs on when it hangs on one', async () => {
     fetchStub.mockResolvedValue(json({ id: 'a-1' }, 201))
 
-    await createApiNotesSource().addAnnotation({ item_id: 'item-1', text: 'anotar', highlight_id: 'h-1' })
+    await createApiNotesSource().addAnnotation({ item_id: 'item-1', text: 'annotate', highlight_id: 'h-1' })
 
     expect(lastUrl().pathname).toBe('/api/notes/annotations')
     expect(await lastRequest().clone().json()).toEqual({
       item_id: 'item-1',
-      text: 'anotar',
+      text: 'annotate',
       highlight_id: 'h-1'
     })
   })
@@ -212,10 +212,10 @@ describe('the notes API source: the writes', () => {
   it('posts a question with only the fields it was given', async () => {
     fetchStub.mockResolvedValue(json({ id: 'q-1' }, 201))
 
-    await createApiNotesSource().addQuestion({ text: 'Por que isto?' })
+    await createApiNotesSource().addQuestion({ text: 'Why this?' })
 
     expect(lastUrl().pathname).toBe('/api/notes/questions')
-    expect(await lastRequest().clone().json()).toEqual({ text: 'Por que isto?' })
+    expect(await lastRequest().clone().json()).toEqual({ text: 'Why this?' })
   })
 
   it('posts a question set with the prompts that were filled in', async () => {
@@ -223,13 +223,13 @@ describe('the notes API source: the writes', () => {
 
     const created = await createApiNotesSource().addQuestionSet({
       topic: 'Kubernetes',
-      questions: [{ kind: 'why', text: 'Por que um pod?' }]
+      questions: [{ kind: 'why', text: 'Why a pod?' }]
     })
 
     expect(lastUrl().pathname).toBe('/api/notes/question-sets')
     expect(await lastRequest().clone().json()).toEqual({
       topic: 'Kubernetes',
-      questions: [{ kind: 'why', text: 'Por que um pod?' }]
+      questions: [{ kind: 'why', text: 'Why a pod?' }]
     })
     expect(created).toMatchObject({ id: 'set-1' })
   })
@@ -246,17 +246,17 @@ describe('the notes API source: one question set', () => {
   })
 
   it('answers null for not_found and throws for any other failure', async () => {
-    fetchStub.mockResolvedValueOnce(json({ error: { code: 'not_found', message: 'sem conjunto' } }, 404))
+    fetchStub.mockResolvedValueOnce(json({ error: { code: 'not_found', message: 'no set' } }, 404))
     expect(await createApiNotesSource().questionSet('nope', signal)).toBeNull()
 
-    fetchStub.mockResolvedValueOnce(json({ error: { code: 'internal', message: 'quebrou' } }, 500))
-    await expect(createApiNotesSource().questionSet('set-1', signal)).rejects.toThrow('quebrou')
+    fetchStub.mockResolvedValueOnce(json({ error: { code: 'internal', message: 'broke' } }, 500))
+    await expect(createApiNotesSource().questionSet('set-1', signal)).rejects.toThrow('broke')
   })
 })
 
 describe('the notes API source: the counts', () => {
   it('reads the counts endpoint', async () => {
-    const counts = { highlights: 3, anotacoes: 2, perguntas: 1, conjuntos: 0 }
+    const counts = { highlights: 3, annotations: 2, questions: 1, question_sets: 0 }
     fetchStub.mockResolvedValue(json(counts))
 
     expect(await createApiNotesSource().counts(signal)).toEqual(counts)

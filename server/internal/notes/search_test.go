@@ -77,12 +77,12 @@ func (h *notesHarness) search(query string, limit int) []core.SearchEntry {
 // item's note at its item's reader, which is the only place it is shown.
 func TestEachKindOfWritingIsFoundAndCarriesItsDestination(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto do artigo")
-	harness.seedAnnotation("ann-1", item, "a zarabatana aparece aqui")
-	harness.seedItemNote("note-1", item, "uma nota sobre a zarabatana")
-	harness.seedQuestion("q-1", item, "o que é uma zarabatana?", "")
+	item := harness.saveArticle("About habits", "the article text")
+	harness.seedAnnotation("ann-1", item, "the blowgun appears here")
+	harness.seedItemNote("note-1", item, "a note about the blowgun")
+	harness.seedQuestion("q-1", item, "what is a blowgun?", "")
 
-	entries := harness.search("zarabatana", 10)
+	entries := harness.search("blowgun", 10)
 	byID := map[string]core.SearchEntry{}
 	for _, entry := range entries {
 		byID[entry.ID] = entry
@@ -100,7 +100,7 @@ func TestEachKindOfWritingIsFoundAndCarriesItsDestination(t *testing.T) {
 		if entry.Module != ModuleName {
 			t.Fatalf("%s came back from module %q, want %q", id, entry.Module, ModuleName)
 		}
-		if entry.Subtitle != "Sobre hábitos" {
+		if entry.Subtitle != "About habits" {
 			t.Fatalf("%s renders its origin as %q, want the item's title", id, entry.Subtitle)
 		}
 	}
@@ -110,6 +110,14 @@ func TestEachKindOfWritingIsFoundAndCarriesItsDestination(t *testing.T) {
 	if byID["ann-1"].Path != notesAnnotationsPath {
 		t.Fatalf("an annotation points at %q, want %q", byID["ann-1"].Path, notesAnnotationsPath)
 	}
+	// The wants are written out rather than built from the constants above: a
+	// test whose expectations the code under test computes proves nothing.
+	if byID["q-1"].Path != "/notes?tab=questions" {
+		t.Fatalf("a question points at %q, want the questions tab", byID["q-1"].Path)
+	}
+	if byID["ann-1"].Path != "/notes?tab=annotations" {
+		t.Fatalf("an annotation points at %q, want the annotations tab", byID["ann-1"].Path)
+	}
 }
 
 // TestAnItemNoteHitOpensTheItemsReaderOnItsNote is the one hit with no tab:
@@ -117,10 +125,10 @@ func TestEachKindOfWritingIsFoundAndCarriesItsDestination(t *testing.T) {
 // reader with the note asked for.
 func TestAnItemNoteHitOpensTheItemsReaderOnItsNote(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
-	harness.seedItemNote("note-1", item, "uma nota sobre a zarabatana")
+	item := harness.saveArticle("About habits", "the text")
+	harness.seedItemNote("note-1", item, "a note about the blowgun")
 
-	entries := harness.search("zarabatana", 10)
+	entries := harness.search("blowgun", 10)
 	if len(entries) != 1 {
 		t.Fatalf("the query matched %v, want only note-1", notesSearchIDs(entries))
 	}
@@ -141,10 +149,10 @@ func TestAnItemNoteHitOpensTheItemsReaderOnItsNote(t *testing.T) {
 // marked in it.
 func TestAHighlightIsNeverASearchHit(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "um texto com zarabatana nele")
-	harness.seedHighlight("hl-1", item, "zarabatana")
+	item := harness.saveArticle("About habits", "a text with blowgun in it")
+	harness.seedHighlight("hl-1", item, "blowgun")
 
-	if entries := harness.search("zarabatana", 10); len(entries) != 0 {
+	if entries := harness.search("blowgun", 10); len(entries) != 0 {
 		t.Fatalf("a highlight was returned as %v, want no notes hit", notesSearchIDs(entries))
 	}
 }
@@ -153,10 +161,10 @@ func TestAHighlightIsNeverASearchHit(t *testing.T) {
 // text: the pair is one thought, and the conclusion is the half worth finding.
 func TestAQuestionIsFoundByItsAnswer(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
-	harness.seedQuestion("q-1", item, "o que ficou claro?", "que a zarabatana é um tubo")
+	item := harness.saveArticle("About habits", "the text")
+	harness.seedQuestion("q-1", item, "what became clear?", "that the blowgun is a tube")
 
-	entries := harness.search("zarabatana", 10)
+	entries := harness.search("blowgun", 10)
 	if got := notesSearchIDs(entries); len(got) != 1 || got[0] != "q-1" {
 		t.Fatalf("the answer matched %v, want only q-1", got)
 	}
@@ -167,13 +175,13 @@ func TestAQuestionIsFoundByItsAnswer(t *testing.T) {
 // and the mapping puts the most insistent note at 1 and the least at 0.
 func TestANoteRepeatingTheWordOutranksOneMentioningItOnce(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
-	harness.seedAnnotation("ann-once", item, "menciona zarabatana uma vez")
-	harness.seedAnnotation("ann-twice", item, "zarabatana aqui e zarabatana ali")
+	item := harness.saveArticle("About habits", "the text")
+	harness.seedAnnotation("ann-once", item, "mentions blowgun once")
+	harness.seedAnnotation("ann-twice", item, "blowgun here and blowgun there")
 	harness.seedAnnotation("ann-thrice", item,
-		"zarabatana, zarabatana e outra vez zarabatana")
+		"blowgun, blowgun and blowgun again")
 
-	entries := harness.search("zarabatana", 10)
+	entries := harness.search("blowgun", 10)
 	want := []string{"ann-thrice", "ann-twice", "ann-once"}
 	if got := notesSearchIDs(entries); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("the hits came back as %v, want %v", got, want)
@@ -194,11 +202,11 @@ func TestANoteRepeatingTheWordOutranksOneMentioningItOnce(t *testing.T) {
 // under every other module's.
 func TestASingleNotesHitScoresOne(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
-	harness.seedAnnotation("ann-1", item, "menciona zarabatana uma vez")
-	harness.seedAnnotation("ann-2", item, "fala de outra coisa")
+	item := harness.saveArticle("About habits", "the text")
+	harness.seedAnnotation("ann-1", item, "mentions blowgun once")
+	harness.seedAnnotation("ann-2", item, "talks about something else")
 
-	entries := harness.search("zarabatana", 10)
+	entries := harness.search("blowgun", 10)
 	if len(entries) != 1 {
 		t.Fatalf("the query matched %v, want one hit", notesSearchIDs(entries))
 	}
@@ -211,12 +219,12 @@ func TestASingleNotesHitScoresOne(t *testing.T) {
 // repeating the word the same number of times are all the best of the query.
 func TestNotesHitsThatRankEquallyAllScoreOne(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
+	item := harness.saveArticle("About habits", "the text")
 	for i := 0; i < 3; i++ {
-		harness.seedAnnotation(fmt.Sprintf("ann-%d", i), item, "zarabatana duas vezes: zarabatana")
+		harness.seedAnnotation(fmt.Sprintf("ann-%d", i), item, "blowgun twice: blowgun")
 	}
 
-	entries := harness.search("zarabatana", 10)
+	entries := harness.search("blowgun", 10)
 	if len(entries) != 3 {
 		t.Fatalf("the query matched %v, want three hits", notesSearchIDs(entries))
 	}
@@ -232,11 +240,11 @@ func TestNotesHitsThatRankEquallyAllScoreOne(t *testing.T) {
 // box, and a note written properly must still be found.
 func TestAnAccentlessQueryFindsAnAccentedNote(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
-	harness.seedAnnotation("ann-1", item, "a memória de trabalho é limitada")
-	harness.seedAnnotation("ann-2", item, "nada sobre isso")
+	item := harness.saveArticle("About habits", "the text")
+	harness.seedAnnotation("ann-1", item, "the na\u00efve working memory is limited")
+	harness.seedAnnotation("ann-2", item, "nothing about that")
 
-	entries := harness.search("memoria", 10)
+	entries := harness.search("naive", 10)
 	if got := notesSearchIDs(entries); len(got) != 1 || got[0] != "ann-1" {
 		t.Fatalf("the accentless query matched %v, want only ann-1", got)
 	}
@@ -247,15 +255,15 @@ func TestAnAccentlessQueryFindsAnAccentedNote(t *testing.T) {
 // the scan reached last.
 func TestTheNotesProviderNeverAnswersMoreThanItsLimit(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
+	item := harness.saveArticle("About habits", "the text")
 	for i := 0; i < 15; i++ {
 		// The repeated word count rises with i, so the three the limit keeps
 		// out are knowably the three weakest.
 		harness.seedAnnotation(fmt.Sprintf("ann-%02d", i), item,
-			strings.TrimSpace(strings.Repeat("zarabatana ", i+1)))
+			strings.TrimSpace(strings.Repeat("blowgun ", i+1)))
 	}
 
-	entries := harness.search("zarabatana", 3)
+	entries := harness.search("blowgun", 3)
 	want := []string{"ann-14", "ann-13", "ann-12"}
 	if got := notesSearchIDs(entries); strings.Join(got, "|") != strings.Join(want, "|") {
 		t.Fatalf("a limit of 3 kept %v, want the three strongest %v", got, want)
@@ -267,11 +275,11 @@ func TestTheNotesProviderNeverAnswersMoreThanItsLimit(t *testing.T) {
 // the hit opens.
 func TestANotesHitTitleIsAOneLineExcerpt(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
+	item := harness.saveArticle("About habits", "the text")
 	harness.seedAnnotation("ann-1", item,
-		"zarabatana\n\n"+strings.Repeat("palavra ", 60))
+		"blowgun\n\n"+strings.Repeat("word ", 60))
 
-	entries := harness.search("zarabatana", 10)
+	entries := harness.search("blowgun", 10)
 	if len(entries) != 1 {
 		t.Fatalf("the query matched %v, want one hit", notesSearchIDs(entries))
 	}
@@ -293,13 +301,13 @@ func TestANotesHitTitleIsAOneLineExcerpt(t *testing.T) {
 // note's count, which a substring count over a joined query would do.
 func TestEveryWordOfTheNotesQueryIsCountedOnce(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
-	harness.seedAnnotation("ann-both", item, "zarabatana e tamborim")
-	harness.seedAnnotation("ann-one", item, "zarabatana zarabatana")
+	item := harness.saveArticle("About habits", "the text")
+	harness.seedAnnotation("ann-both", item, "blowgun and tambourine")
+	harness.seedAnnotation("ann-one", item, "blowgun blowgun")
 
 	// Every word has to be there, so the note repeating one of the three
 	// does not match while the one carrying all three does.
-	entries := harness.search("zarabatana e tamborim", 10)
+	entries := harness.search("blowgun and tambourine", 10)
 	if got := notesSearchIDs(entries); len(got) != 1 || got[0] != "ann-both" {
 		t.Fatalf("the fragment matched %v, want only ann-both", got)
 	}
@@ -309,13 +317,13 @@ func TestEveryWordOfTheNotesQueryIsCountedOnce(t *testing.T) {
 // enforces and refuses.
 func TestEveryNotesScoreIsInTheContractsRange(t *testing.T) {
 	harness := newNotesHarness(t)
-	item := harness.saveArticle("Sobre hábitos", "o texto")
+	item := harness.saveArticle("About habits", "the text")
 	for i := 0; i < 12; i++ {
 		harness.seedAnnotation(fmt.Sprintf("ann-%02d", i), item,
-			strings.TrimSpace(strings.Repeat("zarabatana ", i*3+1)))
+			strings.TrimSpace(strings.Repeat("blowgun ", i*3+1)))
 	}
 
-	entries := harness.search("zarabatana", 10)
+	entries := harness.search("blowgun", 10)
 	if len(entries) == 0 {
 		t.Fatal("the fixtures matched nothing")
 	}

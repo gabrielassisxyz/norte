@@ -21,7 +21,7 @@ import type {
  * A notes source a test drives, holding its records in memory.
  *
  * It is here rather than in a test file because several suites need it — the
- * Notas screen, the reader's actions, the question-set screen, the shell's
+ * Notes screen, the reader's actions, the question-set screen, the shell's
  * sidebar — and because the filtering and the cursor have to behave the way the
  * server does for a filter or a pagination test to mean anything. The
  * application never constructs it: `main.ts` installs the API source.
@@ -30,7 +30,7 @@ const DEFAULT_LIMIT = 50
 
 export function noteSource(overrides: Partial<NoteSourceRef> = {}): NoteSourceRef {
   const id = overrides.id ?? 'item-1'
-  return { id, module: 'library', type: 'article', title: `Texto ${id}`, ...overrides }
+  return { id, module: 'library', type: 'article', title: `Text ${id}`, ...overrides }
 }
 
 export function highlightRecord(overrides: Partial<HighlightRecord> = {}): HighlightRecord {
@@ -38,7 +38,7 @@ export function highlightRecord(overrides: Partial<HighlightRecord> = {}): Highl
   return {
     id,
     item_id: 'item-1',
-    exact: `Trecho ${id}`,
+    exact: `Passage ${id}`,
     prefix: '',
     suffix: '',
     position_hint: 0,
@@ -54,7 +54,7 @@ export function annotationRecord(overrides: Partial<AnnotationRecord> = {}): Ann
   return {
     id,
     item_id: 'item-1',
-    text: `Anotação ${id}`,
+    text: `Annotation ${id}`,
     created_at: '2026-10-08T12:00:00Z',
     updated_at: '2026-10-08T12:00:00Z',
     source: noteSource(),
@@ -66,7 +66,7 @@ export function questionRecord(overrides: Partial<QuestionRecord> = {}): Questio
   const id = overrides.id ?? 'question-1'
   return {
     id,
-    text: `Pergunta ${id}?`,
+    text: `Question ${id}?`,
     status: 'open',
     created_at: '2026-10-08T12:00:00Z',
     updated_at: '2026-10-08T12:00:00Z',
@@ -78,7 +78,7 @@ export function questionSetRecord(overrides: Partial<QuestionSetRecord> = {}): Q
   const id = overrides.id ?? 'set-1'
   return {
     id,
-    topic: `Tema ${id}`,
+    topic: `Topic ${id}`,
     question_count: 0,
     created_at: '2026-10-08T12:00:00Z',
     questions: [],
@@ -134,7 +134,7 @@ function matches(query: NotesListQuery, text: string, source?: NoteSourceRef, it
  * One page of rows, with the cursor the offset it was issued at.
  *
  * It is the simplest token that still makes a second page a different page,
- * which is all a screen's "carregar mais" can be asked to prove.
+ * which is all a screen's "load more" can be asked to prove.
  */
 function paged<TRow>(rows: TRow[], query: NotesListQuery): NotesPage<TRow> {
   const from = query.cursor ? Number(query.cursor) : 0
@@ -223,9 +223,9 @@ export function fakeNotesSource(
       calls.counts += 1
       return {
         highlights: held.highlights.length,
-        anotacoes: held.annotations.length,
-        perguntas: held.questions.length,
-        conjuntos: held.sets.length
+        annotations: held.annotations.length,
+        questions: held.questions.length,
+        question_sets: held.sets.length
       }
     },
 

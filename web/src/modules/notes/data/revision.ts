@@ -7,7 +7,7 @@ import { reactive } from 'vue'
  * needs no new read — and must not make one, because re-reading a paginated
  * list would throw away every page after the first. The counts are the
  * opposite: they are totals over every note, no write response carries them,
- * and the sidebar and the Notas tabs hold separate copies that cannot tell each
+ * and the sidebar and the Notes tabs hold separate copies that cannot tell each
  * other anything. So every write bumps `counts`, and only a creation on a
  * screen that is not holding the row bumps `notes`.
  */

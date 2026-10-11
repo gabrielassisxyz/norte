@@ -121,16 +121,16 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect(page.locator('.reader-top-actions')).toHaveCount(0)
 
     // --- a touch selection, highlighted from the bar -----------------------
-    const destacar = bar.locator('[data-action="destacar"]')
-    await expect(destacar).toBeDisabled()
+    const highlight = bar.locator('[data-action="highlight"]')
+    await expect(highlight).toBeDisabled()
     // The bar's cell brings no frame of its own on a phone.
     const cell = bar.locator('.notes-selection-bar')
     await expect(cell).toHaveCSS('border-top-width', '0px')
     await expect(cell).toHaveCSS('padding-top', '0px')
     await expect(cell).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
     await selectPassage(page, PASSAGE)
-    await expect(destacar).toBeEnabled()
-    await tap(destacar)
+    await expect(highlight).toBeEnabled()
+    await tap(highlight)
 
     await expect
       .poll(async () => {
@@ -145,12 +145,12 @@ test.describe('at 390x844, with touch and no mouse', () => {
     // --- the annotations sheet --------------------------------------------
     const sheet = page.locator('[data-reader-sheet]')
     await expect(sheet).toBeHidden()
-    await tap(bar.locator('[data-action="anotar-abrir"]'))
+    await tap(bar.locator('[data-action="annotate-open"]'))
     await expect(sheet).toBeVisible()
     await expect(sheet.locator('#notes-reader-annotation')).toBeVisible()
 
     await sheet.locator('#notes-reader-annotation').fill('Vale reler isto.')
-    await tap(sheet.locator('[data-action="anotar"]'))
+    await tap(sheet.locator('[data-action="annotate"]'))
     await expect
       .poll(async () => {
         const answered = await api<NotesPage<{ text: string }>>(
@@ -162,9 +162,9 @@ test.describe('at 390x844, with touch and no mouse', () => {
       .toEqual(['Vale reler isto.'])
 
     // --- a question --------------------------------------------------------
-    await tap(bar.locator('[data-action="pergunta-abrir"]'))
+    await tap(bar.locator('[data-action="question-open"]'))
     await sheet.locator('#notes-reader-question').fill('O que isso muda na prática?')
-    await tap(sheet.locator('[data-action="virar-pergunta"]'))
+    await tap(sheet.locator('[data-action="turn-into-question"]'))
     await expect
       .poll(async () => {
         const answered = await api<NotesPage<{ text: string }>>(
@@ -183,8 +183,8 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect.poll(async () => (await item()).unread).toBe(false)
   })
 
-  test('reaches the Notas screen and its tabs by tap', async ({ page }) => {
-    const own = await seed('Notas no telefone')
+  test('reaches the Notes screen and its tabs by tap', async ({ page }) => {
+    const own = await seed('Notes on the phone')
     const highlight = await api<{ id: string }>(server.baseURL, '/api/notes/highlights', {
       method: 'POST',
       body: JSON.stringify({ item_id: own.id, exact: PASSAGE })
@@ -201,15 +201,15 @@ test.describe('at 390x844, with touch and no mouse', () => {
 
     await tap(page.locator('[data-action="abrir-navegacao"]'))
     const drawer = page.locator('#app-drawer')
-    await tap(drawer.locator('a.app-line-link', { hasText: 'Notas' }))
-    await expect(page).toHaveURL(/\/notas$/)
+    await tap(drawer.locator('a.app-line-link', { hasText: 'Notes' }))
+    await expect(page).toHaveURL(/\/notes$/)
 
     // Every tab of the screen is a control a thumb can reach; the test seeded
     // a highlight, an annotation and a question, so each tab has a row.
     for (const [tab, section, text] of [
-      ['Highlights', 'Lista de highlights', PASSAGE],
-      ['Anotações', 'Lista de anotações', 'Vale reler isto.'],
-      ['Perguntas', 'Lista de perguntas', 'O que isso muda na prática?']
+      ['Highlights', 'Highlights list', PASSAGE],
+      ['Annotations', 'Annotations list', 'Vale reler isto.'],
+      ['Questions', 'Questions list', 'O que isso muda na prática?']
     ] as const) {
       await tap(page.locator('.nt-seg-btn', { hasText: tab }))
       await expect(page.locator(`[aria-label="${section}"]`)).toContainText(text)
@@ -276,7 +276,7 @@ for (const phone of PHONES) {
 
     test('scrolls no route sideways', async ({ page }) => {
       const own = await seed(`Sem rolagem lateral no ${phone.name}`)
-      const routes = ['/', '/library?v=all', `/library/${own.id}`, '/notas', '/notas/conjuntos', '/projetos', '/revisao', '/estudo']
+      const routes = ['/', '/library?v=all', `/library/${own.id}`, '/notes', '/notes/sets', '/projetos', '/revisao', '/estudo']
 
       for (const route of routes) {
         await boot(page, route)
@@ -382,7 +382,7 @@ for (const phone of PHONES) {
 
       const bar = page.locator('nav[aria-label="Reading actions"]')
       const sheet = page.locator('[data-reader-sheet]')
-      await tap(bar.locator('[data-action="anotar-abrir"]'))
+      await tap(bar.locator('[data-action="annotate-open"]'))
       await expect(sheet).toBeVisible()
 
       for (const label of ['Inbox', 'Up Next', 'Later', 'Archive', 'Stash', 'Read']) {
@@ -468,7 +468,7 @@ test.describe('at 1440x900, unchanged', () => {
 test.describe('at 1440x900, on a long article', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('keeps Destacar in view once a passage near the top is selected', async ({ page }) => {
+  test('keeps Highlight in view once a passage near the top is selected', async ({ page }) => {
     const own = await seed('Texto longo na tela larga', { fillerParagraphs: 80 })
     await boot(page, `/library/${own.id}`)
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
@@ -479,11 +479,11 @@ test.describe('at 1440x900, on a long article', () => {
     expect(overflow).toBeGreaterThan(2000)
 
     await selectPassage(page, PASSAGE)
-    const destacar = page.locator('.notes-selection-bar [data-action="destacar"]')
-    await expect(destacar).toBeEnabled()
-    await expect(destacar).toBeInViewport({ ratio: 1 })
+    const highlight = page.locator('.notes-selection-bar [data-action="highlight"]')
+    await expect(highlight).toBeEnabled()
+    await expect(highlight).toBeInViewport({ ratio: 1 })
 
-    await destacar.click()
+    await highlight.click()
     await expect
       .poll(async () => {
         const page_ = await api<NotesPage<{ exact: string }>>(

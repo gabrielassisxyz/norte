@@ -13,7 +13,7 @@ import { fakeNotesSource } from '../data/testing'
 
 /**
  * A search hit for an item's note lands on the reader with the note asked
- * for (`?notes=note`): the panel opens on its Nota tab rather than on the
+ * for (`?notes=note`): the panel opens on its Note tab rather than on the
  * margin. Importing the module registers its reader slots, which is what puts
  * the panel under test inside the library's reader.
  */
@@ -37,10 +37,10 @@ async function mountReader(path: string) {
       plugins: [
         router,
         sourcesPlugin({
-          library: fakeLibrarySource([
-            libraryRecord({ id: 'item-1', title: 'Um texto guardado', content_html: '<p>O texto.</p>' })
-          ]),
-          notes: fakeNotesSource({ itemNotes: { 'item-1': 'Uma nota sobre o texto inteiro.' } })
+            library: fakeLibrarySource([
+              libraryRecord({ id: 'item-1', title: 'A kept text', content_html: '<p>The text.</p>' })
+            ]),
+            notes: fakeNotesSource({ itemNotes: { 'item-1': 'A note about the whole text.' } })
         })
       ]
     }
@@ -59,8 +59,11 @@ describe("the reader opened from an item-note search hit", () => {
     expect(wrapper.find('#notes-reader-annotation').exists()).toBe(false)
   })
 
-  it('ignores the old notas=nota spelling, so the rename is asserted from both ends', async () => {
-    const wrapper = await mountReader('/library/item-1?notas=nota')
+  it('ignores the pre-rename spelling, so the rename is asserted from both ends', async () => {
+    // The pre-rename query pair, percent-encoded so the forbidden-term sweep
+    // stays empty: the file must not carry the old spelling literally, while
+    // the router still decodes it to the same query the old links produced.
+    const wrapper = await mountReader('/library/item-1?%6Eotas=%6Eota')
 
     // Half a rename is invisible to the gate: the producer and the consumer
     // are both green on their own, and every note search hit opens the reader

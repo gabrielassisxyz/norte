@@ -155,7 +155,7 @@ function openPaletteWith(typed: string): void {
             <RouterLink role="menuitem" :to="{ name: 'home', query: { save: '1' } }" @click="closeAdd">
               Salvar link na inbox
             </RouterLink>
-            <RouterLink v-if="canReachNotes" role="menuitem" :to="{ name: 'notas', query: { tab: 'perguntas' } }" @click="closeAdd">
+            <RouterLink v-if="canReachNotes" role="menuitem" :to="{ name: 'notes', query: { tab: 'questions' } }" @click="closeAdd">
               Nova pergunta
             </RouterLink>
           </div>

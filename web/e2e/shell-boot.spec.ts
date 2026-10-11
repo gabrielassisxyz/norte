@@ -68,7 +68,7 @@ test.describe('deep-linking into a module the server is not serving', () => {
     const apiPaths = recordApiPaths(page)
     const errors = recordConsoleErrors(page)
 
-    await page.goto(`${server.baseURL}/notas`)
+    await page.goto(`${server.baseURL}/notes`)
     await expect(page.getByRole('heading', { name: 'Módulo desligado' })).toBeVisible()
     // The screen's own reads would be the next thing to happen, so settling
     // here is what makes their absence below mean something.
@@ -76,7 +76,7 @@ test.describe('deep-linking into a module the server is not serving', () => {
 
     expect(apiPaths.filter((path) => path.startsWith('/api/notes/'))).toEqual([])
     expect(errors).toEqual([])
-    await expect(page.getByRole('heading', { name: 'Notas', exact: true })).toHaveCount(0)
+    await expect(page.getByRole('heading', { name: 'Notes', exact: true })).toHaveCount(0)
   })
 })
 
