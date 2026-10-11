@@ -80,7 +80,7 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
   return [
     libraryRecord({
       id: 'lib-post',
-      kind: 'post',
+      kind: 'article',
       title: 'Um texto guardado',
       author: 'Equipe Norte',
       site: 'notas.example',
@@ -91,7 +91,7 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
     }),
     libraryRecord({
       id: 'lib-livro',
-      kind: 'livro',
+      kind: 'book',
       title: 'Um livro guardado',
       author: 'Marina Costa',
       site: 'editora.example',
@@ -106,17 +106,17 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
       title: 'Um paper guardado',
       site: 'papers.example',
       // A note is part of what the palette searches, so one record carries one.
-      why: 'Para a horta da varanda',
+      reason: 'Para a horta da varanda',
       minutes: 16,
       saved_at: '2026-09-29T09:00:00Z',
       last_opened_at: '2026-10-03T16:00:00Z'
     }),
     libraryRecord({
       id: 'lib-depois',
-      kind: 'post',
+      kind: 'article',
       title: 'Guardado para depois',
       site: 'depois.example',
-      status: 'depois',
+      location: 'later',
       minutes: 11,
       saved_at: '2026-09-27T09:00:00Z',
       last_opened_at: '2026-10-03T15:00:00Z'
@@ -126,7 +126,7 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
       kind: 'video',
       title: 'Um vídeo guardado',
       site: 'canal.example',
-      status: 'arquivo',
+      location: 'archive',
       unread: false,
       read_at: '2026-10-01T09:00:00Z',
       saved_at: '2026-09-26T09:00:00Z',
@@ -134,10 +134,10 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
     }),
     libraryRecord({
       id: 'lib-curso',
-      kind: 'curso',
+      kind: 'course',
       title: 'Um curso guardado',
       site: 'curso.example',
-      status: 'arquivo',
+      location: 'archive',
       unread: false,
       read_at: '2026-09-30T09:00:00Z',
       saved_at: '2026-09-25T09:00:00Z',

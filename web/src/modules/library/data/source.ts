@@ -9,17 +9,18 @@ import type { components } from '@/api/library'
  * the rename has to be undone the first time the contract gains a field.
  */
 export type LibraryKind = components['schemas']['ItemKind']
-export type LibraryStatus = components['schemas']['ItemStatus']
+export type LibraryLocation = components['schemas']['ItemLocation']
 export type LibraryViewName = components['schemas']['LibraryView']
 /**
- * The shelves an item can sit on, which is every view except `now`.
+ * The locations an item can sit in, plus `all`, which is every view except
+ * `suggestions`.
  *
- * `now` is a value of the same parameter but not a shelf: it reads every
- * status, nothing is counted under it, and no sidebar row addresses it. The
- * distinction is a type rather than a comment so that a map keyed by shelf —
- * the labels, the counts — cannot silently acquire an entry for it.
+ * `suggestions` is a value of the same parameter but not a location: it reads
+ * every location, nothing is counted under it, and no sidebar row addresses
+ * it. The distinction is a type rather than a comment so that a map keyed by
+ * location — the labels, the counts — cannot silently acquire an entry for it.
  */
-export type LibraryShelf = Exclude<LibraryViewName, 'now'>
+export type LibraryLocationName = Exclude<LibraryViewName, 'suggestions'>
 export type LibrarySort = components['schemas']['LibrarySort']
 export type ExtractStatus = components['schemas']['ExtractStatus']
 export type TextSelection = components['schemas']['TextSelection']
@@ -34,14 +35,14 @@ export type ExtractAck = components['schemas']['ExtractItemResponse']
 /**
  * The filters a list is read with — every one of them a query parameter.
  *
- * The shelf and the unread flag are the server's business, not the page's: a
- * page that filtered the rows it already held would show the first page of
- * `tudo` narrowed down, and call that the inbox.
+ * The location and the unread flag are the server's business, not the page's:
+ * a page that filtered the rows it already held would show the first page of
+ * `all` narrowed down, and call that the inbox.
  */
 export interface LibraryListQuery {
   view?: LibraryViewName
   /** A kind to narrow to, or null for every kind. */
-  tipo?: LibraryKind | null
+  kind?: LibraryKind | null
   /** True for unread only, false for read only, null for both. */
   unread?: boolean | null
   sort?: LibrarySort
@@ -65,8 +66,8 @@ export interface LibraryItemList {
  *
  * `away_from_focus` is the contract's own spelling and the button's whole
  * point: the items related to what the person is focused on already have the
- * “o que ler agora” view, so the draw leans the other way. `seed` exists for
- * a test that needs the same answer twice.
+ * Suggestions view, so the draw leans the other way. `seed` exists for a test
+ * that needs the same answer twice.
  */
 export interface LibraryDrawQuery {
   away_from_focus?: boolean
@@ -75,8 +76,8 @@ export interface LibraryDrawQuery {
 }
 
 /**
- * What the save dialog sends: the address, optionally why it was kept, and the
- * registry ids it is about.
+ * What the save dialog sends: the address, optionally the reason it was kept,
+ * and the registry ids it is about.
  *
  * `link_to` is the contract's own field name and the links are created by the
  * save itself, in its transaction. A dialog that saved first and linked after
@@ -84,7 +85,7 @@ export interface LibraryDrawQuery {
  */
 export interface NewSavedLink {
   url: string
-  why?: string
+  reason?: string
   link_to?: string[]
 }
 

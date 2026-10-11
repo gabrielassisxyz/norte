@@ -73,7 +73,7 @@ describe('the navigation drawer', () => {
     await wrapper.find(MENU).trigger('click')
     expect(wrapper.find('.app-drawer').classes()).toContain('is-open')
 
-    await router.push('/biblioteca?v=tudo')
+    await router.push('/library?v=all')
     await flushReads()
 
     expect(wrapper.find('.app-drawer').classes()).not.toContain('is-open')
@@ -107,7 +107,7 @@ describe('the navigation drawer', () => {
   })
 
   it('offers no menu button and no drawer on a bare route', async () => {
-    const { wrapper } = await mountAt('/biblioteca/lib-post')
+    const { wrapper } = await mountAt('/library/lib-post')
 
     expect(wrapper.find(MENU).exists()).toBe(false)
     expect(wrapper.find('.app-drawer').exists()).toBe(false)

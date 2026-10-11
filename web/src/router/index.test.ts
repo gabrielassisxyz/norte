@@ -14,13 +14,13 @@ const APP_PATHS: Array<[string, string]> = [
   // The subject screen is the shell's, not a module's: subjects belong to the
   // core, so the address answers whatever the server lists.
   ['/assuntos/kubernetes', 'assunto'],
-  ['/biblioteca', 'biblioteca'],
+  ['/library', 'library'],
   ['/notas', 'notas'],
   ['/revisao', 'revisao'],
   ['/estudo', 'estudo'],
   ['/curriculos/fundamentos-de-compiladores', 'curriculo'],
-  ['/material/post/post-compilation', 'material'],
-  ['/material/livro/book-interpreters', 'material'],
+  ['/material/article/post-compilation', 'material'],
+  ['/material/book/book-interpreters', 'material'],
   ['/material/paper/paper-parsing', 'material'],
   ['/projetos', 'projetos'],
   ['/areas/a-casa', 'area'],
@@ -32,7 +32,7 @@ const APP_PATHS: Array<[string, string]> = [
 const TITLES: Record<string, string> = {
   inicio: 'Início',
   assunto: 'Assunto',
-  biblioteca: 'Biblioteca',
+  library: 'Biblioteca',
   notas: 'Notas',
   revisao: 'Revisão',
   estudo: 'Estudo',
@@ -58,7 +58,7 @@ describe('router table', () => {
   })
 
   it('renders material screens without the sidebar', () => {
-    expect(router.resolve('/material/post/post-compilation').meta.layout).toBe('bare')
+    expect(router.resolve('/material/article/post-compilation').meta.layout).toBe('bare')
   })
 
   it('keeps the sidebar on every other screen', () => {

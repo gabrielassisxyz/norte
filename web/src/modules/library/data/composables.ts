@@ -15,19 +15,16 @@ import type {
 /**
  * Whether a row still belongs to the list a query describes.
  *
- * Only the shelf and the unread flag can change under a write, so those are
+ * Only the location and the unread flag can change under a write, so those are
  * the two checked; the kind and the search text are not touched by one.
- * `now` is not a shelf but a ranking over every unread item, so a row stays
- * on it while it is unread, whatever shelf a write moved it to.
+ * `suggestions` is not a location but a ranking over every one of them, so a
+ * row stays on it whatever location a write moved it to — only the unread
+ * filter, when the list carries one, can take it off.
  */
 function matchesFilters(item: LibraryItemSummary, filters: LibraryListQuery): boolean {
-  if (filters.view === 'now') {
-    if (!item.unread) return false
-    if (filters.unread !== null && filters.unread !== undefined && item.unread !== filters.unread) return false
-    return true
-  }
-  if (filters.view && filters.view !== 'tudo' && item.status !== filters.view) return false
   if (filters.unread !== null && filters.unread !== undefined && item.unread !== filters.unread) return false
+  if (filters.view === 'suggestions') return true
+  if (filters.view && filters.view !== 'all' && item.location !== filters.view) return false
   return true
 }
 
@@ -42,7 +39,7 @@ export interface LibraryItemsResource extends AsyncResource<LibraryItemList> {
   loadMore: () => Promise<void>
   /**
    * Put a write's response into the page, in place of the row it replaces — or
-   * take the row out when the write moved it off the shelf being shown.
+   * take the row out when the write moved it out of the location being shown.
    */
   applyItem: (item: LibraryItemSummary) => void
 }

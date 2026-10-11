@@ -116,7 +116,7 @@ test.describe('the browser tab and the addresses nothing claims', () => {
 
 test.describe('a navigation whose screen never arrives', () => {
   test('says so, and offers the address again', async ({ page }) => {
-    await page.goto(`${server.baseURL}/biblioteca`)
+    await page.goto(`${server.baseURL}/library`)
     await expect(page.locator('.app-shell')).toBeVisible()
 
     // The server going away, as far as this page is concerned. The home screen

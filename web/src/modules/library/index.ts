@@ -4,7 +4,7 @@ import type { SearchEntry } from '@/search'
 
 import type { ModuleSidebar, NorteModule, SidebarLink, SidebarRow } from '../types'
 import { useLibraryCounts } from './data/composables'
-import type { LibraryKind, LibraryShelf } from './data/source'
+import type { LibraryKind, LibraryLocationName } from './data/source'
 import LibraryReadingBlock from './home/LibraryReadingBlock.vue'
 import LibrarySaveAction from './home/LibrarySaveAction.vue'
 import LibrarySavesBlock from './home/LibrarySavesBlock.vue'
@@ -13,16 +13,16 @@ import { manifest } from './manifest'
 export { manifest }
 
 const KIND_LABELS: Record<LibraryKind, string> = {
-  post: 'Posts',
-  livro: 'Livros',
+  article: 'Posts',
+  book: 'Livros',
   paper: 'Papers',
   video: 'Vídeos',
   podcast: 'Podcasts',
   newsletter: 'Newsletters',
-  curso: 'Cursos'
+  course: 'Cursos'
 }
 
-const KIND_ORDER: LibraryKind[] = ['post', 'livro', 'paper', 'video', 'podcast', 'newsletter', 'curso']
+const KIND_ORDER: LibraryKind[] = ['article', 'book', 'paper', 'video', 'podcast', 'newsletter', 'course']
 
 /**
  * The library's lines in the sidebar, counted by `/api/library/counts`.
@@ -35,7 +35,7 @@ const KIND_ORDER: LibraryKind[] = ['post', 'livro', 'paper', 'video', 'podcast',
 export function useSidebar(): ModuleSidebar {
   const { data: counts } = useLibraryCounts()
 
-  function viewCount(view: LibraryShelf): number {
+  function viewCount(view: LibraryLocationName): number {
     return counts.value?.views[view] ?? 0
   }
 
@@ -44,23 +44,24 @@ export function useSidebar(): ModuleSidebar {
   }
 
   function libraryRows(): SidebarRow[] {
-    // The reading order of a saved link -- inbox, put off, archived -- with the
-    // view over all three before the shelf that is visited least. The
-    // Biblioteca's own tabs list the same four in the same order, because the
-    // two lists disagreeing is what made the same place move depending on
-    // where it was read.
+    // The reading order of a saved link -- arrived, chosen, put off, done,
+    // kept -- with the view over all five last. The library's own tabs list
+    // the same six in the same order, because the two lists disagreeing is
+    // what made the same place move depending on where it was read.
     const rows: SidebarRow[] = [
-      { id: 'inbox', label: 'Inbox', to: { name: 'biblioteca', query: { v: 'inbox' } }, count: viewCount('inbox') },
-      { id: 'depois', label: 'Depois', to: { name: 'biblioteca', query: { v: 'depois' } }, count: viewCount('depois') },
-      { id: 'tudo', label: 'Tudo', to: { name: 'biblioteca', query: { v: 'tudo' } }, count: viewCount('tudo') },
-      { id: 'arquivo', label: 'Arquivo', to: { name: 'biblioteca', query: { v: 'arquivo' } }, count: viewCount('arquivo') },
+      { id: 'inbox', label: 'Inbox', to: { name: 'library', query: { v: 'inbox' } }, count: viewCount('inbox') },
+      { id: 'up_next', label: 'Próximos', to: { name: 'library', query: { v: 'up_next' } }, count: viewCount('up_next') },
+      { id: 'later', label: 'Depois', to: { name: 'library', query: { v: 'later' } }, count: viewCount('later') },
+      { id: 'archive', label: 'Arquivo', to: { name: 'library', query: { v: 'archive' } }, count: viewCount('archive') },
+      { id: 'stash', label: 'Reserva', to: { name: 'library', query: { v: 'stash' } }, count: viewCount('stash') },
+      { id: 'all', label: 'Tudo', to: { name: 'library', query: { v: 'all' } }, count: viewCount('all') },
       { head: true, label: 'Tipos' }
     ]
     for (const kind of KIND_ORDER) {
       rows.push({
-        id: `tipo-${kind}`,
+        id: `kind-${kind}`,
         label: KIND_LABELS[kind],
-        to: { name: 'biblioteca', query: { v: 'tudo', tipo: kind } },
+        to: { name: 'library', query: { v: 'all', kind } },
         count: kindCount(kind)
       })
     }
@@ -69,34 +70,30 @@ export function useSidebar(): ModuleSidebar {
 
   function shortcutEntries(): SidebarLink[] {
     return [
-      { id: 'atalho-inbox', label: 'Inbox', to: { name: 'biblioteca', query: { v: 'inbox' } }, count: viewCount('inbox') },
+      { id: 'atalho-inbox', label: 'Inbox', to: { name: 'library', query: { v: 'inbox' } }, count: viewCount('inbox') },
       // The prototype links Artigos at the library root; the label names a
-      // kind, so it opens the whole library filtered to posts.
+      // kind, so it opens the whole library filtered to articles.
       {
         id: 'atalho-artigos',
         label: 'Artigos',
-        to: { name: 'biblioteca', query: { v: 'tudo', tipo: 'post' } },
-        count: kindCount('post')
-      },
-      // The prototype links Shortlist at the library root (v=tudo); the library
-      // has no shortlist yet, so it shares the full-library count.
-      {
-        id: 'atalho-shortlist',
-        label: 'Shortlist',
-        to: { name: 'biblioteca', query: { v: 'tudo' } },
-        count: viewCount('tudo')
+        to: { name: 'library', query: { v: 'all', kind: 'article' } },
+        count: kindCount('article')
       }
+      // The prototype's third shortcut was Shortlist, pointing at the whole
+      // library and borrowing its count. Up Next is the location it was
+      // standing in for, and it is a sidebar row of its own, so the shortcut
+      // is gone rather than relabelled.
     ]
   }
 
   return {
     sections: [
       {
-        id: 'biblioteca',
+        id: 'library',
         label: 'Biblioteca',
-        to: { name: 'biblioteca', query: { v: 'tudo' } },
+        to: { name: 'library', query: { v: 'all' } },
         order: 10,
-        activeRouteNames: ['biblioteca'],
+        activeRouteNames: ['library'],
         rows: libraryRows
       }
     ],
@@ -106,14 +103,14 @@ export function useSidebar(): ModuleSidebar {
 
 export const routes = [
   {
-    path: '/biblioteca',
-    name: 'biblioteca',
+    path: '/library',
+    name: 'library',
     component: () => import('./views/LibraryView.vue'),
     meta: { title: 'Biblioteca' }
   },
   {
-    path: '/biblioteca/:id',
-    name: 'leitor',
+    path: '/library/:id',
+    name: 'reader',
     component: () => import('./views/ReaderView.vue'),
     meta: { title: 'Leitor', layout: 'bare' as const }
   },
@@ -137,7 +134,7 @@ const SCREEN_ENTRY: SearchEntry = {
   subtitle: 'Inbox, depois e arquivo',
   kind: 'tela',
   keywords: 'artigos materiais leituras',
-  to: { name: 'biblioteca' }
+  to: { name: 'library' }
 }
 
 /**

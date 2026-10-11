@@ -1033,7 +1033,7 @@ func TestADuplicateSaveWithoutHTMLQueuesNoExtraction(t *testing.T) {
 	note := "a thought I had on the second reading"
 	if _, err := harness.service.Save(context.Background(), SaveInput{
 		URL:    pageURL,
-		Why:    note,
+		Reason: note,
 		Source: LibrarySourceApp,
 	}); err != nil {
 		t.Fatalf("the duplicate save without HTML failed: %v", err)
@@ -1049,8 +1049,8 @@ func TestADuplicateSaveWithoutHTMLQueuesNoExtraction(t *testing.T) {
 	if after.Title != before.Title {
 		t.Errorf("title moved from %q to %q", before.Title, after.Title)
 	}
-	if after.Why.String != note {
-		t.Errorf("why = %q, want the duplicate's note", after.Why.String)
+	if after.Reason.String != note {
+		t.Errorf("reason = %q, want the duplicate's note", after.Reason.String)
 	}
 	if got := harness.countJobs(LibraryExtractJobKind) - queuedBefore; got != 0 {
 		t.Errorf("a duplicate save without HTML enqueued %d extract jobs, want 0", got)

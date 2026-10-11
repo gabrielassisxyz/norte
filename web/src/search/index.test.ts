@@ -53,7 +53,7 @@ describe('search index', () => {
   it('builds routes and records with targets that resolve in the application', async () => {
     const index = await readIndex()
 
-    expect(index.find((entry) => entry.title === 'Biblioteca')?.to).toEqual({ name: 'biblioteca' })
+    expect(index.find((entry) => entry.title === 'Biblioteca')?.to).toEqual({ name: 'library' })
     expect(index.find((entry) => entry.title === 'Horta da varanda')?.to).toEqual({
       name: 'projeto',
       params: { id: 'project-horta' }
@@ -99,7 +99,7 @@ describe('search index', () => {
       subtitle: position === 11 ? 'leitura no subtítulo' : 'Material',
       kind: 'artigo',
       keywords: 'aprendizado',
-      to: { name: 'biblioteca' }
+      to: { name: 'library' }
     }))
 
     const results = filterSearchIndex(index, 'leitura')

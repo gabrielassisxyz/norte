@@ -1,7 +1,7 @@
 import { mount } from '@vue/test-utils'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { setClockTimeZone } from '@/lib/clock'
+import { formatLongWeekdayDate, setClockTimeZone, todayIsoDate } from '@/lib/clock'
 import { createMockStore, type MockStore } from '@/mock/store'
 import router from '@/router'
 import type { AppSources } from '@/sources'
@@ -27,15 +27,15 @@ function coreSubjects() {
   return [
     subjectRecord({
       name: 'Kubernetes',
-      counts: { total: 3, by_type: [{ module: 'library', type: 'post', count: 3 }] }
+      counts: { total: 3, by_type: [{ module: 'library', type: 'article', count: 3 }] }
     }),
     subjectRecord({
       name: 'Escrita',
       counts: {
         total: 2,
         by_type: [
-          { module: 'library', type: 'curso', count: 1 },
-          { module: 'library', type: 'post', count: 1 }
+          { module: 'library', type: 'course', count: 1 },
+          { module: 'library', type: 'article', count: 1 }
         ]
       }
     })
@@ -81,9 +81,17 @@ function studyWith(overrides: Partial<StudySource>): Partial<AppSources> {
   }
 }
 
+/**
+ * The title the screen should print, read from the helper that prints it.
+ *
+ * It used to re-implement the format with its own locale literal, which meant
+ * two places decided what a long date looks like and this one silently went
+ * stale whenever `formatLongWeekdayDate` moved. The format itself is pinned by
+ * `web/src/lib/clock.test.ts`; what this file is about is that the screen's h1
+ * is that date at all.
+ */
 function expectedTitle(): string {
-  const text = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date())
-  return text.replace(/^./, (letter) => letter.toLocaleUpperCase('pt-BR'))
+  return formatLongWeekdayDate(todayIsoDate())
 }
 
 describe('StudyHomeView', () => {
@@ -129,6 +137,11 @@ describe('StudyHomeView', () => {
     const stats = wrapper.findAll('.nt-stat')
     expect(stats[0].text()).toContain(String(currentStreak(store.studyDays)))
     expect(stats[0].text()).toContain('Streak atual')
+    // The hours are rendered through a locale, and the locale decides the
+    // separator: 1.5 in English, 1,5 in Portuguese. A number is not copy, so
+    // this is a value assertion and not a label one -- and it is what catches
+    // a locale literal left behind in a file the model owns.
+    expect(stats[1].text()).toMatch(/\d\.\d\s*h/)
     expect(stats[2].text()).toContain('Para revisar hoje')
     expect(stats[3].text()).toContain(`Concluídos em`)
     expect(stats[3].text()).toContain(String(completedThisMonth(store.studyDays).total))
@@ -182,7 +195,7 @@ describe('StudyHomeView', () => {
     // The columns are the item types the subjects actually have something of,
     // because the core does not enumerate any module's types.
     const headers = wrapper.findAll('[role="columnheader"]').map((cell) => cell.text())
-    expect(headers).toEqual(['Assunto', 'curso', 'post', 'Itens'])
+    expect(headers).toEqual(['Assunto', 'article', 'course', 'Itens'])
     expect(rows[1]!.text()).toContain('Escrita')
 
     await wrapper.get('[role="tablist"] [role="tab"]:first-child').trigger('click')

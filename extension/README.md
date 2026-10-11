@@ -2,7 +2,7 @@
 
 Save the current page's rendered HTML to a Norte server, including text available only
 in a logged-in browser. Saving does not wait for extraction. The popup reports success
-as soon as the server returns an item ID, and offers a link to `/biblioteca/<id>`.
+as soon as the server returns an item ID, and offers a link to `/library/<id>`.
 
 ## Build and install
 

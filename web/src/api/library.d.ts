@@ -19,10 +19,11 @@ export interface paths {
          *     filters or sort is refused. With q the order is the full-text rank,
          *     then id, and an explicit sort together with q is refused.
          *
-         *     view=now is not a shelf: it reads every status, keeps only unread
-         *     items and orders them by how closely they relate to what the person is
-         *     focused on, so it carries its own order and refuses q, an explicit
-         *     sort and unread=false.
+         *     view=suggestions is not a location: it reads every location and
+         *     orders items by how closely they relate to what the person is focused
+         *     on, listing unread before read within one score. It carries its own
+         *     order, so it refuses q and an explicit sort; unread is an ordinary
+         *     filter under it, and unread=false is accepted.
          */
         get: operations["listLibraryItems"];
         put?: never;
@@ -78,7 +79,7 @@ export interface paths {
          *     moment when nothing on the shelf appeals. With away_from_focus the draw
          *     is weighted by 1 / (1 + focus score), so an item unrelated to what the
          *     person is focused on is the likelier one -- which is the point, the
-         *     focused ones already having their own view. With away_from_focus false
+         *     focused ones already having the Suggestions view. With away_from_focus false
          *     every unread item is equally likely.
          *
          *     This path is declared before /api/library/items/{id} because the two
@@ -176,28 +177,32 @@ export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
         /**
-         * @description What the saved link is. A save always starts as a post; only a patch retypes.
+         * @description What the saved link is. A save always starts as an article; only a
+         *     patch retypes.
          * @enum {string}
          */
-        ItemKind: "post" | "livro" | "paper" | "video" | "podcast" | "newsletter" | "curso";
+        ItemKind: "article" | "book" | "paper" | "video" | "podcast" | "newsletter" | "course";
         /**
-         * @description Which shelf the item sits on.
+         * @description Which location the item sits in.
          * @enum {string}
          */
-        ItemStatus: "inbox" | "depois" | "arquivo";
+        ItemLocation: "inbox" | "up_next" | "later" | "archive" | "stash";
         /**
          * @description Where the save came from.
          * @enum {string}
          */
         ItemSource: "app" | "extension" | "cli" | "telegram" | "import";
         /**
-         * @description Which shelf a list reads; tudo is every status. now is not a shelf but
-         *     the focus-ranked unread list, which is why it sits here rather than in
-         *     ItemStatus: a status is something an item has, and now is a way of
-         *     looking at the library.
+         * @description Which location a list reads; all is every location. suggestions is not
+         *     a location but the focus-ranked list over every one of them, unread
+         *     before read within a score, which is why it sits here rather than in
+         *     ItemLocation: a location is something an item is in, and suggestions is
+         *     a way of looking at the library. It carries its own order and so
+         *     refuses q and an explicit sort, but unread filters it like any other
+         *     view.
          * @enum {string}
          */
-        LibraryView: "inbox" | "depois" | "arquivo" | "tudo" | "now";
+        LibraryView: "inbox" | "up_next" | "later" | "archive" | "stash" | "all" | "suggestions";
         /**
          * @description The order a list comes back in.
          * @enum {string}
@@ -228,8 +233,8 @@ export interface components {
             /** @description The page's HTML snapshot, when the saver captured one. */
             html?: string;
             selection?: components["schemas"]["TextSelection"];
-            /** @description Why this link was worth keeping. */
-            why?: string;
+            /** @description The reason this link was worth keeping. */
+            reason?: string;
             /** @description Registry ids this item is about; unknown ids refuse the save. */
             link_to?: string[];
             /**
@@ -272,9 +277,9 @@ export interface components {
             site?: string;
             published_at?: string;
             lead_image?: string;
-            why?: string;
+            reason?: string;
             selection?: components["schemas"]["TextSelection"];
-            status: components["schemas"]["ItemStatus"];
+            location: components["schemas"]["ItemLocation"];
             unread: boolean;
             saved_at: string;
             read_at?: string;
@@ -308,9 +313,9 @@ export interface components {
             site?: string;
             published_at?: string;
             lead_image?: string;
-            why?: string;
+            reason?: string;
             selection?: components["schemas"]["TextSelection"];
-            status: components["schemas"]["ItemStatus"];
+            location: components["schemas"]["ItemLocation"];
             unread: boolean;
             saved_at: string;
             read_at?: string;
@@ -349,26 +354,28 @@ export interface components {
         LibraryCounts: {
             views: {
                 inbox: number;
-                depois: number;
-                arquivo: number;
-                tudo: number;
+                up_next: number;
+                later: number;
+                archive: number;
+                stash: number;
+                all: number;
             };
             kinds: {
-                post: number;
-                livro: number;
+                article: number;
+                book: number;
                 paper: number;
                 video: number;
                 podcast: number;
                 newsletter: number;
-                curso: number;
+                course: number;
             };
             /** @description Items still unread, over every view. */
             unread: number;
         };
         PatchItemRequest: {
-            status?: components["schemas"]["ItemStatus"];
+            location?: components["schemas"]["ItemLocation"];
             unread?: boolean;
-            why?: string;
+            reason?: string;
             kind?: components["schemas"]["ItemKind"];
             title?: string;
             read_position?: components["schemas"]["ReadPosition"];
@@ -423,18 +430,19 @@ export interface operations {
         parameters: {
             query?: {
                 /**
-                 * @description Which shelf to read; tudo is every status, and now is the
-                 *     focus-ranked unread list rather than a shelf.
+                 * @description Which location to read; all is every location, and suggestions is
+                 *     the focus-ranked list over every location rather than a location
+                 *     of its own.
                  */
                 view?: components["schemas"]["LibraryView"];
                 /** @description Keep only this kind. */
-                tipo?: components["schemas"]["ItemKind"];
+                kind?: components["schemas"]["ItemKind"];
                 /** @description Keep only unread items, or only read ones. */
                 unread?: boolean;
                 /**
                  * @description The order. last_opened_desc lists only items that have been
-                 *     opened, newest-opened first, and is what the home's "continuar
-                 *     lendo" block reads.
+                 *     opened, newest-opened first, and is what the home's "Continue
+                 *     reading" block reads.
                  */
                 sort?: components["schemas"]["LibrarySort"];
                 /** @description Full-text query over the title, the note and the extracted text. */

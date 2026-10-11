@@ -24,7 +24,7 @@ const ARTICLE_HTML = '<p>Abertura do artigo.</p><h2 id="uma-secao">Uma seção</
 function record(overrides: Partial<LibraryItemRecord> = {}): LibraryItemRecord {
   return libraryRecord({
     id: 'post-um',
-    kind: 'post',
+    kind: 'article',
     title: 'Um texto guardado',
     author: 'Equipe Norte',
     content_html: ARTICLE_HTML,
@@ -34,7 +34,7 @@ function record(overrides: Partial<LibraryItemRecord> = {}): LibraryItemRecord {
 
 const SHELF: LibraryItemRecord[] = [
   record(),
-  record({ id: 'livro-um', kind: 'livro', title: 'Um livro guardado', author: 'Marina Costa' }),
+  record({ id: 'livro-um', kind: 'book', title: 'Um livro guardado', author: 'Marina Costa' }),
   record({ id: 'paper-um', kind: 'paper', title: 'Um paper guardado', site: 'papers.example' })
 ]
 
@@ -67,8 +67,8 @@ function tab(wrapper: VueWrapper, label: string) {
 
 describe('MaterialView', () => {
   it.each([
-    ['/material/post/post-um', '.reader-post', 'Leitura', '[aria-label="Nota e anotações"]'],
-    ['/material/livro/livro-um', '.reader-book', 'Leitura', '.nt-rail']
+    ['/material/article/post-um', '.reader-post', 'Leitura', '[aria-label="Nota e anotações"]'],
+    ['/material/book/livro-um', '.reader-book', 'Leitura', '.nt-rail']
   ])('renders the %s reading variant with its open or collapsed panel', async (path, readerClass, mode, panelSelector) => {
     const { wrapper } = await mountAt(path)
 
@@ -79,14 +79,14 @@ describe('MaterialView', () => {
   })
 
   it('renders the extracted article in the post variant', async () => {
-    const { wrapper } = await mountAt('/material/post/post-um')
+    const { wrapper } = await mountAt('/material/article/post-um')
 
     expect(wrapper.get('.article-content').text()).toContain('Abertura do artigo')
     expect(wrapper.find('[id="uma-secao"]').exists()).toBe(true)
   })
 
   it('renders the book controls and starts its panel collapsed', async () => {
-    const { wrapper } = await mountAt('/material/livro/livro-um')
+    const { wrapper } = await mountAt('/material/book/livro-um')
 
     expect(wrapper.text()).toContain('Sumário')
     expect(wrapper.find('button[aria-label="Tipografia"]').exists()).toBe(true)
@@ -111,7 +111,7 @@ describe('MaterialView', () => {
   })
 
   it('collapses and reopens the reading panel and switches its tabs', async () => {
-    const { wrapper } = await mountAt('/material/post/post-um')
+    const { wrapper } = await mountAt('/material/article/post-um')
 
     await wrapper.find('button[aria-label="Recolher painel"]').trigger('click')
     expect(wrapper.find('.nt-rail').exists()).toBe(true)
@@ -127,7 +127,7 @@ describe('MaterialView', () => {
       removeAllRanges: vi.fn()
     }
     vi.spyOn(window, 'getSelection').mockReturnValue(selection as unknown as Selection)
-    const { wrapper } = await mountAt('/material/post/post-um')
+    const { wrapper } = await mountAt('/material/article/post-um')
 
     await wrapper.find('[data-selection-target]').trigger('mouseup')
 
@@ -137,14 +137,14 @@ describe('MaterialView', () => {
   })
 
   it('offers no next material while the study module reads elsewhere', async () => {
-    const { wrapper } = await mountAt('/material/post/post-um')
+    const { wrapper } = await mountAt('/material/article/post-um')
 
     expect(wrapper.find('.material-next').exists()).toBe(false)
     expect(wrapper.get('.material-back').text()).toContain('Biblioteca')
   })
 
   it('refuses short exercise answers and accepts a response with ten characters', async () => {
-    const { wrapper } = await mountAt('/material/livro/livro-um')
+    const { wrapper } = await mountAt('/material/book/livro-um')
     await tab(wrapper, 'Exercícios').trigger('click')
 
     const answer = wrapper.find('#material-answer')
@@ -160,24 +160,24 @@ describe('MaterialView', () => {
 
   it('marks the material as read and returns to the previous route', async () => {
     const library: FakeLibrarySource = fakeLibrarySource(SHELF)
-    const { wrapper, router } = await mountAt('/material/livro/livro-um', '/biblioteca', library)
+    const { wrapper, router } = await mountAt('/material/book/livro-um', '/library', library)
 
     await wrapper.find('[data-action="complete"]').trigger('click')
     await flushReads()
 
     // Reading it does not move it out of the shelf it was on.
     expect(library.calls.patch).toEqual([{ id: 'livro-um', patch: { unread: false } }])
-    expect(library.records[1]).toMatchObject({ status: 'inbox', unread: false })
+    expect(library.records[1]).toMatchObject({ location: 'inbox', unread: false })
     expect(wrapper.find('[data-action="complete"]').text()).toContain('Concluído')
 
     await wrapper.find('.material-back').trigger('click')
     await new Promise((resolve) => setTimeout(resolve, 0))
-    expect(router.currentRoute.value.fullPath).toBe('/biblioteca')
+    expect(router.currentRoute.value.fullPath).toBe('/library')
   })
 
   it('says it is loading until the material answers', async () => {
     const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/material/post/post-um')
+    await router.push('/material/article/post-um')
     await router.isReady()
     const wrapper = mount(MaterialView, {
       global: {
@@ -197,16 +197,16 @@ describe('MaterialView', () => {
   })
 
   it('offers a way back instead of a reader for a material that does not exist', async () => {
-    const { wrapper } = await mountAt('/material/post/nao-existe')
+    const { wrapper } = await mountAt('/material/article/nao-existe')
 
     expect(wrapper.get('h1').text()).toBe('Material não encontrado')
-    expect(wrapper.get('a.material-state-action').attributes('href')).toBe('/biblioteca?v=tudo')
+    expect(wrapper.get('a.material-state-action').attributes('href')).toBe('/library?v=all')
     expect(wrapper.find('.material-body').exists()).toBe(false)
   })
 
   it('says why the material could not be read, and tries again when asked', async () => {
     let attempts = 0
-    const { wrapper } = await mountAt('/material/post/post-um', undefined, {
+    const { wrapper } = await mountAt('/material/article/post-um', undefined, {
       ...fakeLibrarySource(SHELF),
       getItem: async () => {
         attempts += 1
@@ -224,7 +224,7 @@ describe('MaterialView', () => {
   })
 
   it('keeps the material as it was when marking it read fails', async () => {
-    const { wrapper } = await mountAt('/material/post/post-um', undefined, {
+    const { wrapper } = await mountAt('/material/article/post-um', undefined, {
       ...fakeLibrarySource(SHELF),
       patchItem: async () => {
         throw new Error('conflito no servidor')

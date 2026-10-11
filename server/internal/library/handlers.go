@@ -48,12 +48,12 @@ func (h LibraryHandlers) SaveLibraryItem(ctx context.Context, request libraryapi
 	if body.LinkTo != nil {
 		linkTo = *body.LinkTo
 	}
-	var title, why string
+	var title, reason string
 	if body.Title != nil {
 		title = *body.Title
 	}
-	if body.Why != nil {
-		why = *body.Why
+	if body.Reason != nil {
+		reason = *body.Reason
 	}
 	var html []byte
 	if body.Html != nil {
@@ -64,7 +64,7 @@ func (h LibraryHandlers) SaveLibraryItem(ctx context.Context, request libraryapi
 		Title:     title,
 		HTML:      html,
 		Selection: selection,
-		Why:       why,
+		Reason:    reason,
 		LinkTo:    linkTo,
 		Source:    source,
 	})
@@ -84,8 +84,8 @@ func (h LibraryHandlers) ListLibraryItems(ctx context.Context, request libraryap
 	if params.View != nil {
 		in.View = string(*params.View)
 	}
-	if params.Tipo != nil {
-		in.Kind = string(*params.Tipo)
+	if params.Kind != nil {
+		in.Kind = string(*params.Kind)
 	}
 	in.Unread = params.Unread
 	if params.Sort != nil {
@@ -176,12 +176,12 @@ func (h LibraryHandlers) PatchLibraryItem(ctx context.Context, request libraryap
 	}
 	body := request.Body
 	in := PatchInput{}
-	if body.Status != nil {
-		status := string(*body.Status)
-		in.Status = &status
+	if body.Location != nil {
+		location := string(*body.Location)
+		in.Location = &location
 	}
 	in.Unread = body.Unread
-	in.Why = body.Why
+	in.Reason = body.Reason
 	if body.Kind != nil {
 		kind := string(*body.Kind)
 		in.Kind = &kind

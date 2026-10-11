@@ -12,7 +12,7 @@ type LibraryFt struct {
 	ID              string
 	Title           string
 	Author          string
-	Why             string
+	Reason          string
 	ContentHeadings string
 	ContentText     string
 }
@@ -28,9 +28,9 @@ type LibraryItem struct {
 	Site              sql.NullString
 	PublishedAt       sql.NullString
 	LeadImage         sql.NullString
-	Why               sql.NullString
+	Reason            sql.NullString
 	Selection         sql.NullString
-	Status            string
+	Location          string
 	Unread            int64
 	SavedAt           string
 	ReadAt            sql.NullString

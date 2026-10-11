@@ -18,7 +18,7 @@ function render(stored) {
   element('status').textContent = submitting ? 'Salvando…' : result?.state === 'saved' ? 'salvo' : result?.message ?? '';
   element('configure').hidden = result?.message !== CONFIGURE;
   element('reader').hidden = result?.state !== 'saved';
-  if (result?.state === 'saved') element('reader').href = `${result.origin}/biblioteca/${result.id}`;
+  if (result?.state === 'saved') element('reader').href = `${result.origin}/library/${result.id}`;
 }
 
 async function targets() {
@@ -43,7 +43,7 @@ element('save-form').addEventListener('submit', (event) => {
   if (!available || submitting) return;
   render({ state: 'saving' });
   browserAPI.runtime.sendMessage({ type: 'save', tab: { id: tab.id, url: tab.url },
-    fields: { why: element('why').value, link_to: element('link').value } })
+    fields: { reason: element('reason').value, link_to: element('link').value } })
     .then(render, () => render({ state: 'error', message: 'Não foi possível salvar. Tente novamente.' }));
 });
 

@@ -86,7 +86,7 @@ func ParseSettings(token, chat, publicURL string) (Settings, error) {
 
 // ItemURL is the address the reply sends the person to.
 func (s Settings) ItemURL(itemID string) string {
-	return s.PublicURL + "/biblioteca/" + itemID
+	return s.PublicURL + "/library/" + itemID
 }
 
 // Capture is one accepted message: the link to save, the note sent with it,
@@ -96,7 +96,7 @@ type Capture struct {
 	ChatID    int64
 	MessageID int64
 	URL       string
-	Why       string
+	Reason    string
 }
 
 // Store is the library's side of what the poller writes.
@@ -204,7 +204,7 @@ func (a *Adapter) deal(ctx context.Context, update Update) error {
 	if message == nil || message.Chat.ID != a.settings.ChatID {
 		return a.store.SkipUpdate(ctx, update.UpdateID)
 	}
-	link, why, ok := FirstLink(messageText(message))
+	link, reason, ok := FirstLink(messageText(message))
 	if !ok {
 		return a.store.SkipUpdate(ctx, update.UpdateID)
 	}
@@ -213,7 +213,7 @@ func (a *Adapter) deal(ctx context.Context, update Update) error {
 		ChatID:    message.Chat.ID,
 		MessageID: message.MessageID,
 		URL:       link,
-		Why:       why,
+		Reason:    reason,
 	})
 }
 

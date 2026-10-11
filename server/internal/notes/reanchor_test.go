@@ -224,7 +224,7 @@ func TestReanchoringLeavesAHighlightAloneWhileItsModuleIsOff(t *testing.T) {
 	harness := newNotesHarness(t, "notes")
 	// The registry row survives a module being switched off, which is what the
 	// screen renders the note's origin from.
-	itemID := harness.registerItem("library", "post", "Um artigo que a biblioteca guarda")
+	itemID := harness.registerItem("library", "article", "Um artigo que a biblioteca guarda")
 
 	created := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
 		map[string]any{"item_id": itemID, "exact": "O trecho marcado."}), http.StatusCreated)
@@ -250,7 +250,7 @@ func TestReanchoringLeavesAHighlightAloneWhileItsModuleIsOff(t *testing.T) {
 // read, and the titles come from the registry.
 func TestNotesOnlyModeStillListsEveryNoteWithItsSourceTitle(t *testing.T) {
 	harness := newNotesHarness(t, "notes")
-	itemID := harness.registerItem("library", "post", "Como compiladores leem código")
+	itemID := harness.registerItem("library", "article", "Como compiladores leem código")
 
 	highlight := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
 		map[string]any{"item_id": itemID, "exact": "O trecho marcado."}), http.StatusCreated)

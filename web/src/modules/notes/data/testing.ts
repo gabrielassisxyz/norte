@@ -30,7 +30,7 @@ const DEFAULT_LIMIT = 50
 
 export function noteSource(overrides: Partial<NoteSourceRef> = {}): NoteSourceRef {
   const id = overrides.id ?? 'item-1'
-  return { id, module: 'library', type: 'post', title: `Texto ${id}`, ...overrides }
+  return { id, module: 'library', type: 'article', title: `Texto ${id}`, ...overrides }
 }
 
 export function highlightRecord(overrides: Partial<HighlightRecord> = {}): HighlightRecord {
@@ -124,9 +124,9 @@ export interface FakeNotesRecords {
 /** The server's own narrowing: the row's text, or its source item's title. */
 function matches(query: NotesListQuery, text: string, source?: NoteSourceRef, itemId?: string): boolean {
   if (query.item_id && query.item_id !== itemId) return false
-  const needle = query.q?.trim().toLocaleLowerCase('pt-BR')
+  const needle = query.q?.trim().toLocaleLowerCase('en')
   if (!needle) return true
-  const haystack = `${text} ${source?.title ?? ''}`.toLocaleLowerCase('pt-BR')
+  const haystack = `${text} ${source?.title ?? ''}`.toLocaleLowerCase('en')
   return haystack.includes(needle)
 }
 

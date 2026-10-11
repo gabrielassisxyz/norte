@@ -27,7 +27,7 @@ function linksAboutTheSubject() {
     coreLink({
       id: 'link-confirmado',
       status: 'confirmed',
-      src: registryItem({ id: 'item-confirmado', title: 'Um texto confirmado', type: 'post' }),
+      src: registryItem({ id: 'item-confirmado', title: 'Um texto confirmado', type: 'article' }),
       dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject', title: 'Kubernetes' })
     }),
     coreLink({
@@ -92,7 +92,7 @@ describe('the "Salvos sobre isso" panel', () => {
   it('opens each listed item at the address the registry holds', async () => {
     const { wrapper } = await mountPanel()
 
-    expect(wrapper.get('.saved-about-link').attributes('href')).toBe('/biblioteca/item-confirmado')
+    expect(wrapper.get('.saved-about-link').attributes('href')).toBe('/library/item-confirmado')
   })
 
   it('says so when nothing is linked to the target', async () => {

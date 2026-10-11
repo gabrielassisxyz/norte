@@ -127,17 +127,17 @@ func TestTheReplyCarriesTheTitleOrTheReason(t *testing.T) {
 		{
 			name:  "an extracted article answers with its title",
 			reply: Reply{Title: "Notes you will read again", Extracted: true},
-			want:  "Notes you will read again\nhttps://norte.example/biblioteca/item-1",
+			want:  "Notes you will read again\nhttps://norte.example/library/item-1",
 		},
 		{
 			name:  "a failed extraction says so and still links",
 			reply: Reply{Title: "/essays/notes"},
-			want:  failedExtractionReply + "\nhttps://norte.example/biblioteca/item-1",
+			want:  failedExtractionReply + "\nhttps://norte.example/library/item-1",
 		},
 		{
 			name:  "an extracted article with no title is just the link",
 			reply: Reply{Extracted: true},
-			want:  "https://norte.example/biblioteca/item-1",
+			want:  "https://norte.example/library/item-1",
 		},
 	}
 	for _, tc := range cases {

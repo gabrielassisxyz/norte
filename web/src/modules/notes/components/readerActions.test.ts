@@ -55,7 +55,7 @@ async function mountReader(
   const library = fakeLibrarySource([options.item ?? record()])
   const notes = fakeNotesSource(options.notes ?? {})
   const router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push('/biblioteca/item-1')
+  await router.push('/library/item-1')
   await router.isReady()
   const wrapper = mount(ReaderView, {
     global: { plugins: [router, sourcesPlugin({ library, notes })] },

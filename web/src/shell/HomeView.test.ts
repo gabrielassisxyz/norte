@@ -64,7 +64,7 @@ describe('HomeView', () => {
     expect(library.calls.list).toEqual(
       expect.arrayContaining([
         { view: 'inbox', sort: 'saved_desc', limit: 5 },
-        { view: 'tudo', sort: 'last_opened_desc', limit: 6 }
+        { view: 'all', sort: 'last_opened_desc', limit: 6 }
       ])
     )
   })
@@ -76,20 +76,20 @@ describe('HomeView', () => {
       libraryRecord({
         id: 'lib-novo',
         title: 'Salvo agora',
-        status: 'inbox',
+        location: 'inbox',
         saved_at: `${TODAY}T11:00:00Z`
       }),
       libraryRecord({
         id: 'lib-antigo',
         title: 'Salvo ontem',
-        status: 'inbox',
+        location: 'inbox',
         saved_at: `${shiftIsoDate(TODAY, -1)}T11:00:00Z`,
         last_opened_at: `${TODAY}T09:00:00Z`
       }),
       libraryRecord({
         id: 'lib-arquivado',
         title: 'Lido e arquivado',
-        status: 'arquivo',
+        location: 'archive',
         saved_at: `${shiftIsoDate(TODAY, -4)}T11:00:00Z`,
         last_opened_at: `${TODAY}T10:00:00Z`
       })
@@ -156,7 +156,7 @@ describe('HomeView', () => {
     expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curriculos/fundamentos-de-compiladores')
     // The reading list arrives in the order the server sorts it: most recently
     // opened first, which is what "continuar lendo" means.
-    expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/biblioteca/lib-post')
+    expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/library/lib-post')
   })
 
   it('formats saved dates as today, yesterday, and a Portuguese calendar date', async () => {
@@ -183,7 +183,7 @@ describe('HomeView', () => {
     // The dialog sends the address and nothing else: the title, the kind and
     // the date are read from the page by the server.
     expect(library.calls.save).toEqual([{ url: 'https://example.org/reading-list' }])
-    expect(library.records[0]).toMatchObject({ status: 'inbox', url: 'https://example.org/reading-list' })
+    expect(library.records[0]).toMatchObject({ location: 'inbox', url: 'https://example.org/reading-list' })
     // The new item is on screen without a reload, in the inbox band.
     expect(wrapper.findAll('.home-save-title').map((node) => node.text())).toContain(
       'https://example.org/reading-list'
@@ -200,7 +200,7 @@ describe('HomeView', () => {
         title: 'Guardada no arquivo',
         url: 'https://example.org/duplicada',
         canonical_url: 'https://example.org/duplicada',
-        status: 'arquivo',
+        location: 'archive',
         unread: true
       })
     ])
@@ -211,8 +211,9 @@ describe('HomeView', () => {
     await flushReads()
 
     const done = wrapper.get('.save-done').text()
-    expect(done).toContain('Já estava salvo')
-    expect(done).toContain('arquivo')
+    // The whole phrase, because what this asserts is that the dialog names
+    // the location the existing item is in rather than claiming the inbox.
+    expect(done).toContain('Já estava salvo no arquivo')
     expect(done).toContain('Guardada no arquivo')
     // No second copy: the save folded into the archived item.
     expect(library.records.filter((record) => record.canonical_url === 'https://example.org/duplicada')).toHaveLength(1)

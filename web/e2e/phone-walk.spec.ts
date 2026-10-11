@@ -17,7 +17,7 @@ let article: SeededArticle
 
 interface LibraryItem {
   id: string
-  status: string
+  location: string
   unread: boolean
 }
 
@@ -79,7 +79,7 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect(drawer).toBeVisible()
 
     await tap(drawer.locator('a.app-line-link', { hasText: 'Biblioteca' }))
-    await expect(page).toHaveURL(/\/biblioteca\?v=tudo$/)
+    await expect(page).toHaveURL(/\/library\?v=all$/)
     // Arriving is what the drawer was opened for, so it is gone again.
     await expect(drawer).toBeHidden()
 
@@ -107,11 +107,11 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect(revealed).toHaveCSS('opacity', '1')
     await expect(revealed).toHaveCSS('pointer-events', 'auto')
     await tap(row.locator('button[aria-label="Depois"]'))
-    await expect.poll(async () => (await item()).status).toBe('depois')
+    await expect.poll(async () => (await item()).location).toBe('later')
 
     // --- the reader -------------------------------------------------------
     await tap(row.locator('.item-title'))
-    await expect(page).toHaveURL(new RegExp(`/biblioteca/${article.id}$`))
+    await expect(page).toHaveURL(new RegExp(`/library/${article.id}$`))
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
     const bar = page.locator('nav[aria-label="Ações da leitura"]')
@@ -276,7 +276,7 @@ for (const phone of PHONES) {
 
     test('scrolls no route sideways', async ({ page }) => {
       const own = await seed(`Sem rolagem lateral no ${phone.name}`)
-      const routes = ['/', '/biblioteca?v=tudo', `/biblioteca/${own.id}`, '/notas', '/notas/conjuntos', '/projetos', '/revisao', '/estudo']
+      const routes = ['/', '/library?v=all', `/library/${own.id}`, '/notas', '/notas/conjuntos', '/projetos', '/revisao', '/estudo']
 
       for (const route of routes) {
         await boot(page, route)
@@ -320,7 +320,7 @@ for (const phone of PHONES) {
       await expect(drawer).toBeHidden()
 
       await tap(result)
-      await expect(page).toHaveURL(new RegExp(`/biblioteca/${own.id}$`))
+      await expect(page).toHaveURL(new RegExp(`/library/${own.id}$`))
     })
 
     test('closes the drawer behind the preferences it opened', async ({ page }) => {
@@ -338,19 +338,27 @@ for (const phone of PHONES) {
 
     test('keeps every Biblioteca control inside the screen', async ({ page }) => {
       await seed(`Controles da biblioteca no ${phone.name}`)
-      await boot(page, '/biblioteca?v=tudo')
+      await boot(page, '/library?v=all')
 
       // The list has answered, so the tabs carry their counts and the toolbar
       // is at the width it will keep.
       await expect(page.locator('.item').first()).toBeVisible()
 
       const tabs = page.locator('.library-title-row .nt-seg-btn')
-      // The five tabs by name, so a toolbar that lost one cannot pass by
+      // The seven tabs by name, so a toolbar that lost one cannot pass by
       // having fewer controls left to fit.
-      await expect(tabs).toHaveText([/Inbox/, /Depois/, /Tudo/, /Arquivo/, /Sugestões/])
+      await expect(tabs).toHaveText([
+        /Inbox/,
+        /Próximos/,
+        /Depois/,
+        /Arquivo/,
+        /Reserva/,
+        /Tudo/,
+        /Sugestões/
+      ])
 
       const controls = [
-        ['the five tabs', tabs],
+        ['the seven tabs', tabs],
         ['Surpresa', page.locator('.library-surprise')],
         ['the search box', page.locator('.library-search')],
         ['the sort menu', page.locator('.library-sort button')],
@@ -369,7 +377,7 @@ for (const phone of PHONES) {
 
     test('leaves the whole action bar tappable under the notes sheet', async ({ page }) => {
       const own = await seed(`Folha de notas no ${phone.name}`)
-      await boot(page, `/biblioteca/${own.id}`)
+      await boot(page, `/library/${own.id}`)
       await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
       const bar = page.locator('nav[aria-label="Ações da leitura"]')
@@ -377,7 +385,7 @@ for (const phone of PHONES) {
       await tap(bar.locator('[data-action="anotar-abrir"]'))
       await expect(sheet).toBeVisible()
 
-      for (const label of ['Inbox', 'Depois', 'Arquivo', 'Lido']) {
+      for (const label of ['Inbox', 'Próximos', 'Depois', 'Arquivo', 'Reserva', 'Lido']) {
         const chip = bar.locator('.reader-bar-chip', { hasText: label })
         await expect(chip).toBeVisible()
         expect(await hits(chip), `${label} under the open sheet`).toBe(true)
@@ -389,8 +397,10 @@ for (const phone of PHONES) {
       expect(room).toBeGreaterThan(100)
 
       // The bar is what the sheet clears, measured rather than guessed.
-      await tap(bar.locator('[data-action="status-arquivo"]'))
-      await expect.poll(async () => (await api<LibraryItem>(server.baseURL, `/api/library/items/${own.id}`)).status).toBe('arquivo')
+      await tap(bar.locator('[data-action="location-archive"]'))
+      await expect
+        .poll(async () => (await api<LibraryItem>(server.baseURL, `/api/library/items/${own.id}`)).location)
+        .toBe('archive')
     })
 
     test('renders no collapse control in the drawer', async ({ page }) => {
@@ -421,7 +431,7 @@ test.describe('at 1440x900, unchanged', () => {
       method: 'PATCH',
       body: JSON.stringify({ unread: false })
     })
-    await boot(page, '/biblioteca?v=tudo')
+    await boot(page, '/library?v=all')
 
     // The sidebar is the layout, not a drawer over it, and there is no menu.
     await expect(page.locator('.app-sidebar')).toBeVisible()
@@ -439,7 +449,7 @@ test.describe('at 1440x900, unchanged', () => {
     await expect.poll(async () => (await item()).unread).toBe(true)
 
     await row.locator('.item-title').click()
-    await expect(page).toHaveURL(new RegExp(`/biblioteca/${article.id}$`))
+    await expect(page).toHaveURL(new RegExp(`/library/${article.id}$`))
     // The reader's own actions are in the header, and the phone's bar and sheet
     // are not rendered at all.
     await expect(page.locator('.reader-top-actions [data-action="read"]')).toBeVisible()
@@ -460,7 +470,7 @@ test.describe('at 1440x900, on a long article', () => {
 
   test('keeps Destacar in view once a passage near the top is selected', async ({ page }) => {
     const own = await seed('Texto longo na tela larga', { fillerParagraphs: 80 })
-    await boot(page, `/biblioteca/${own.id}`)
+    await boot(page, `/library/${own.id}`)
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
     const scroller = page.locator('.reader-scroll')

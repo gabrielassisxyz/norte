@@ -24,8 +24,8 @@ function kubernetes() {
     counts: {
       total: 3,
       by_type: [
-        { module: 'library', type: 'curso', count: 1 },
-        { module: 'library', type: 'post', count: 2 }
+        { module: 'library', type: 'course', count: 1 },
+        { module: 'library', type: 'article', count: 2 }
       ]
     },
     link_count: 4
@@ -70,7 +70,7 @@ describe('the subject screen', () => {
     const { wrapper } = await mountSubject()
 
     const counts = wrapper.findAll('.subject-count').map((entry) => entry.text().replace(/\s+/g, ' '))
-    expect(counts).toEqual(['1curso', '2post'])
+    expect(counts).toEqual(['1course', '2article'])
     expect(wrapper.text()).toContain('Salvos sobre isso')
     expect(wrapper.text()).toContain('Pods explicados')
   })

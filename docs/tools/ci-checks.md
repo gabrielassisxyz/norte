@@ -41,7 +41,7 @@ broken checks rather than just the first.
 
 The whole first delivery -- save, extract, classify, accept, highlight,
 question, and the item turning up on the subject's panel and first in
-`view=now` -- is walked by one test inside `go-test`, with its own negative
+`view=suggestions` -- is walked by one test inside `go-test`, with its own negative
 control. It needs no separate check, and it is the first thing to run when a
 change crosses two modules:
 

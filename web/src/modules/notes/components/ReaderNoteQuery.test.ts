@@ -13,7 +13,7 @@ import { fakeNotesSource } from '../data/testing'
 
 /**
  * A search hit for an item's note lands on the reader with the note asked
- * for (`?notas=nota`): the panel opens on its Nota tab rather than on the
+ * for (`?notes=note`): the panel opens on its Nota tab rather than on the
  * margin. Importing the module registers its reader slots, which is what puts
  * the panel under test inside the library's reader.
  */
@@ -52,15 +52,27 @@ async function mountReader(path: string) {
 
 describe("the reader opened from an item-note search hit", () => {
   it('shows the note tab when the hit asks for it', async () => {
-    const wrapper = await mountReader('/biblioteca/item-1?notas=nota')
+    const wrapper = await mountReader('/library/item-1?notes=note')
 
     expect(wrapper.find('.notes-reader').exists()).toBe(true)
     expect(wrapper.find('#notes-reader-note').exists()).toBe(true)
     expect(wrapper.find('#notes-reader-annotation').exists()).toBe(false)
   })
 
+  it('ignores the old notas=nota spelling, so the rename is asserted from both ends', async () => {
+    const wrapper = await mountReader('/library/item-1?notas=nota')
+
+    // Half a rename is invisible to the gate: the producer and the consumer
+    // are both green on their own, and every note search hit opens the reader
+    // without its note. This is the assertion that fails if only one side
+    // moved.
+    expect(wrapper.find('.notes-reader').exists()).toBe(true)
+    expect(wrapper.find('#notes-reader-note').exists()).toBe(false)
+    expect(wrapper.find('#notes-reader-annotation').exists()).toBe(true)
+  })
+
   it('shows the margin tab when no section is asked for', async () => {
-    const wrapper = await mountReader('/biblioteca/item-1')
+    const wrapper = await mountReader('/library/item-1')
 
     expect(wrapper.find('#notes-reader-annotation').exists()).toBe(true)
     expect(wrapper.find('#notes-reader-note').exists()).toBe(false)

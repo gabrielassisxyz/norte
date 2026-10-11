@@ -63,7 +63,7 @@ function newCoreSource(links: CoreLink[] = queueLinks()) {
 async function mountQueue(core = newCoreSource()) {
   setEnabledModules(['library'])
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
-  await router.push('/biblioteca?v=sugestoes')
+  await router.push('/library?v=pending-connections')
   await router.isReady()
   const wrapper = mount(LibrarySuggestions, {
     global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary({ core }))] }
@@ -109,15 +109,15 @@ describe('the "Sugestões" tab', () => {
   it('opens both ends at the addresses the registry holds', async () => {
     const { wrapper } = await mountQueue()
 
-    expect(wrapper.get('.suggestion-item').attributes('href')).toBe('/biblioteca/item-consenso')
-    expect(wrapper.get('.suggestion-dst').attributes('href')).toBe('/biblioteca/subject-sd')
+    expect(wrapper.get('.suggestion-item').attributes('href')).toBe('/library/item-consenso')
+    expect(wrapper.get('.suggestion-dst').attributes('href')).toBe('/library/subject-sd')
   })
 
   it('accepting takes the row out of the queue and puts the item on the subject’s panel', async () => {
     const core = newCoreSource()
     setEnabledModules(['library'])
     const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
-    await router.push('/biblioteca?v=sugestoes')
+    await router.push('/library?v=pending-connections')
     await router.isReady()
     const plugins = [router, sourcesPlugin(appSourcesWithLibrary({ core }))]
 
@@ -224,7 +224,7 @@ describe('the "Sugestões" tab', () => {
     setEnabledModules([])
     const core = newCoreSource()
     const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
-    await router.push('/biblioteca?v=sugestoes')
+    await router.push('/library?v=pending-connections')
     await router.isReady()
     const wrapper = mount(LibrarySuggestions, {
       global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary({ core }))] }

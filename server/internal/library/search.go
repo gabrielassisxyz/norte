@@ -12,7 +12,7 @@ import (
 // reader. The search answer carries the route rather than the id alone, so a
 // client follows a hit without having to know how this module's screens are
 // addressed.
-func libraryItemPath(id string) string { return "/biblioteca/" + id }
+func libraryItemPath(id string) string { return "/library/" + id }
 
 // librarySearchEntries is the module's answer for GET /api/core/search: the
 // same full-text query the list endpoint runs, with the bm25 ranking mapped

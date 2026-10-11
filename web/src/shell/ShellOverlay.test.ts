@@ -19,10 +19,10 @@ afterEach(() => {
 const SAVED_ITEM = coreSearchHit({
   id: 'lib-livro',
   module: 'library',
-  type: 'livro',
+  type: 'book',
   title: 'Um livro guardado',
   subtitle: 'Uma autora',
-  path: '/biblioteca/lib-livro',
+  path: '/library/lib-livro',
   score: 1
 })
 
@@ -153,7 +153,7 @@ describe('shell overlay', () => {
     // reasons that have nothing to do with the screen under test.
     const navigated = new Promise<void>((resolve) => {
       const stop = router.afterEach((to) => {
-        if (to.name !== 'leitor') return
+        if (to.name !== 'reader') return
         stop()
         resolve()
       })
@@ -163,7 +163,7 @@ describe('shell overlay', () => {
     // The overlay closes itself once its own push resolves, one turn later.
     await flushPromises()
 
-    expect(router.currentRoute.value.name).toBe('leitor')
+    expect(router.currentRoute.value.name).toBe('reader')
     expect(router.currentRoute.value.params).toMatchObject({ id: 'lib-livro' })
     expect(wrapper.emitted('close')).toHaveLength(1)
   })

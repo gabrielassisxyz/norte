@@ -31,7 +31,7 @@ func newLibrarySaveCommand() *cobra.Command {
 				return err
 			}
 			htmlPath, _ := cmd.Flags().GetString("html")
-			why, _ := cmd.Flags().GetString("why")
+			reason, _ := cmd.Flags().GetString("reason")
 			links, _ := cmd.Flags().GetStringArray("link")
 			var html []byte
 			if htmlPath != "" {
@@ -43,14 +43,14 @@ func newLibrarySaveCommand() *cobra.Command {
 			return libraryRunSave(cmd.Context(), cfg, SaveInput{
 				URL:    args[0],
 				HTML:   html,
-				Why:    why,
+				Reason: reason,
 				LinkTo: links,
 				Source: LibrarySourceCLI,
 			}, cmd)
 		},
 	}
 	cmd.Flags().String("html", "", "path to an HTML snapshot captured for the page")
-	cmd.Flags().String("why", "", "why this link was worth keeping")
+	cmd.Flags().String("reason", "", "the reason this link was worth keeping")
 	cmd.Flags().StringArray("link", nil, "registry id this item is about (may repeat)")
 	return cmd
 }

@@ -35,7 +35,7 @@ const paperSectionsOpen = ref(false)
 const citationCopied = ref(false)
 
 const kindLabel = computed(() => {
-  if (props.kind === 'livro') return 'Livro'
+  if (props.kind === 'book') return 'Livro'
   if (props.kind === 'paper') return 'Paper'
   return 'Post'
 })
@@ -43,7 +43,7 @@ const kindLabel = computed(() => {
 const sourceHost = computed(() => props.material.url.replace(/^https?:\/\//, '').split('/')[0] || 'fonte local')
 
 function handleSelection(): void {
-  if (props.kind !== 'post') return
+  if (props.kind !== 'article') return
   const selection = typeof window !== 'undefined' ? window.getSelection()?.toString().trim() : ''
   if (!selection) return
   localSelection.value = selection
@@ -78,7 +78,7 @@ async function copyCitation(): Promise<void> {
 </script>
 
 <template>
-  <article v-if="kind === 'post'" class="material-reader reader-post" aria-label="Leitor de post">
+  <article v-if="kind === 'article'" class="material-reader reader-post" aria-label="Leitor de post">
     <div class="content-grid reader-heading">
       <div class="reader-copy">
         <div class="material-meta">
@@ -126,7 +126,7 @@ async function copyCitation(): Promise<void> {
     </div>
   </article>
 
-  <section v-else-if="kind === 'livro'" class="material-reader reader-book" aria-label="Leitor de livro">
+  <section v-else-if="kind === 'book'" class="material-reader reader-book" aria-label="Leitor de livro">
     <h1 class="reader-book-title visually-hidden">{{ material.title }}</h1>
     <div class="reader-toolbar">
       <div class="reader-toolbar-start">

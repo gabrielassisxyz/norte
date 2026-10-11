@@ -16,14 +16,14 @@ import (
 // libraryItemColumns is the whole row, in sqlc's order, so the hand-built
 // list query scans into the same shape the generated queries return.
 const libraryItemColumns = `id, kind, url, canonical_url, title, title_edited, author, site,
-    published_at, lead_image, why, selection, status, unread, saved_at,
+    published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
     extracted_at, extract_error, minutes, meta, created_at, updated_at`
 
 // libraryFTSRank orders full-text hits. bm25 takes one weight per FTS column in
 // table order, the UNINDEXED id included, so the first weight is id's (0) and
-// the rest follow title, author, why, content_headings, content_text: title
+// the rest follow title, author, reason, content_headings, content_text: title
 // above headings above the note above the author above the text.
 const libraryFTSRank = `bm25(library_fts, 0.0, 10.0, 2.0, 5.0, 7.0, 1.0)`
 
@@ -69,10 +69,19 @@ type libraryCursor struct {
 	Primary    string  `json:"p,omitempty"`
 	Rank       float64 `json:"r,omitempty"`
 	HasRank    bool    `json:"hr,omitempty"`
-	ID         string  `json:"id"`
+	// Unread is the 0-or-1 flag of the row this cursor pages on, carried
+	// because the Suggestions order has unread as its second key. Without it
+	// a page boundary inside a run of equal scores would restart the unread
+	// run instead of continuing past it.
+	Unread int    `json:"u,omitempty"`
+	ID     string `json:"id"`
 }
 
-const libraryCursorVersion = 1
+// Version 2 added the Unread level to the Suggestions cursor. A cursor issued
+// by a build that ordered Suggestions by score alone would page from the wrong
+// position under the new order, so it is refused as undecodable instead, which
+// is what this field exists for.
+const libraryCursorVersion = 2
 
 func libraryEncodeCursor(cursor libraryCursor) string {
 	cursor.V = libraryCursorVersion
@@ -138,7 +147,7 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		view = "inbox"
 	}
 	switch view {
-	case "inbox", "depois", "arquivo", "tudo", LibraryViewNow:
+	case "inbox", "up_next", "later", "archive", "stash", "all", LibraryViewSuggestions:
 	default:
 		return ListResult{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown view %q", view), "view")
 	}
@@ -152,7 +161,7 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		return ListResult{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown sort %q", sort), "sort")
 	}
 	if in.Kind != "" && !libraryValidKinds[in.Kind] {
-		return ListResult{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown kind %q", in.Kind), "tipo")
+		return ListResult{}, libraryBadRequest("invalid_request", fmt.Sprintf("unknown kind %q", in.Kind), "kind")
 	}
 	if in.Query != "" && in.SortExplicit {
 		return ListResult{}, libraryBadRequest("invalid_request", "sort and q cannot be combined: a text query orders by rank", "sort")
@@ -165,19 +174,18 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		return ListResult{}, libraryBadRequest("invalid_request", "the page holds at most 200 items", "limit")
 	}
 	effectiveSort := sort
-	// The now view is not a shelf and not a sort the caller may choose: it
-	// reads every status, keeps only what is unread, and orders by the focus
-	// score. Normalising unread here rather than only in the WHERE is what
-	// makes a cursor issued with no unread parameter continue a list asked
-	// for with unread=true -- the same page, so the same filter hash.
+	// The Suggestions view is not a location and not a sort the caller may
+	// choose: it reads every location and orders by the focus score, unread
+	// first. It has no opinion about the unread flag -- whatever the caller
+	// sent, or nothing, is what filters the list, and libraryFilterHash
+	// already takes in.Unread, so the hash tells "unread only" from
+	// "everything" without the view normalising anything.
 	var focusTargets []string
-	if view == LibraryViewNow {
-		if err := libraryRefuseNowConflicts(in); err != nil {
+	if view == LibraryViewSuggestions {
+		if err := libraryRefuseSuggestionsConflicts(in); err != nil {
 			return ListResult{}, err
 		}
-		unread := true
-		in.Unread = &unread
-		effectiveSort = librarySortNow
+		effectiveSort = librarySortSuggestions
 		targets, err := s.libraryFocusTargets(ctx)
 		if err != nil {
 			return ListResult{}, err
@@ -219,7 +227,7 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		where = append(where, "library_fts MATCH ?")
 		args = append(args, match)
 	}
-	if effectiveSort == librarySortNow {
+	if effectiveSort == librarySortSuggestions {
 		// The join's placeholders sit in FROM, ahead of every WHERE
 		// placeholder, so its arguments have to be bound first.
 		join, joinArgs := libraryFocusScoreJoin(focusTargets)
@@ -227,8 +235,8 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 		from += join
 		args = append(args, joinArgs...)
 	}
-	if view != "tudo" && view != LibraryViewNow {
-		where = append(where, "library_items.status = ?")
+	if view != "all" && view != LibraryViewSuggestions {
+		where = append(where, "library_items.location = ?")
 		args = append(args, view)
 	}
 	if in.Kind != "" {
@@ -266,7 +274,7 @@ func (s *LibraryService) List(ctx context.Context, in ListInput) (ListResult, er
 	items := []db.LibraryItem{}
 	ranks := []float64{}
 	for rows.Next() {
-		row, rank, err := libraryScanListRow(rows, in.Query != "" || effectiveSort == librarySortNow)
+		row, rank, err := libraryScanListRow(rows, in.Query != "" || effectiveSort == librarySortSuggestions)
 		if err != nil {
 			return ListResult{}, err
 		}
@@ -302,8 +310,8 @@ func libraryOrderBy(sort string) string {
 		return "library_items.last_opened_at DESC, library_items.id DESC"
 	case librarySortRank:
 		return "rank ASC, library_items.id ASC"
-	case librarySortNow:
-		return libraryNowOrderBy
+	case librarySortSuggestions:
+		return librarySuggestionsOrderBy
 	default:
 		return "library_items.saved_at DESC, library_items.id DESC"
 	}
@@ -326,14 +334,19 @@ func libraryCursorPredicate(sort string, cursor libraryCursor) (string, []any) {
 		rank := "(" + libraryFTSRank + ")"
 		return "(" + rank + " > ? OR (" + rank + " = ? AND library_items.id > ?))",
 			[]any{cursor.Rank, cursor.Rank, cursor.ID}
-	case librarySortNow:
-		// Three levels deep because the now order is three columns, and a
-		// page boundary inside a run of equal scores has to continue by the
-		// saved date rather than restarting the run.
+	case librarySortSuggestions:
+		// Four levels deep because the Suggestions order is four columns, and
+		// a page boundary inside a run of equal scores has to continue past
+		// the unread run and then by the saved date rather than restarting
+		// either. unread is compared as the stored 0-or-1 integer, under the
+		// same DESC the ORDER BY uses.
 		score := libraryFocusScoreRounded
-		return "(" + score + " < ROUND(?, 9) OR (" + score + " = ROUND(?, 9) AND (library_items.saved_at < ?" +
-				" OR (library_items.saved_at = ? AND library_items.id < ?))))",
-			[]any{cursor.Rank, cursor.Rank, cursor.Primary, cursor.Primary, cursor.ID}
+		unread := libraryUnreadColumn
+		return "(" + score + " < ROUND(?, 9) OR (" + score + " = ROUND(?, 9) AND (" + unread + " < ?" +
+				" OR (" + unread + " = ? AND (library_items.saved_at < ?" +
+				" OR (library_items.saved_at = ? AND library_items.id < ?))))))",
+			[]any{cursor.Rank, cursor.Rank, cursor.Unread, cursor.Unread,
+				cursor.Primary, cursor.Primary, cursor.ID}
 	default:
 		return "(library_items.saved_at < ? OR (library_items.saved_at = ? AND library_items.id < ?))",
 			[]any{cursor.Primary, cursor.Primary, cursor.ID}
@@ -353,25 +366,26 @@ func libraryCursorFor(sort, filterHash string, row db.LibraryItem, rank float64)
 	case librarySortRank:
 		cursor.Rank = rank
 		cursor.HasRank = true
-	case librarySortNow:
+	case librarySortSuggestions:
 		cursor.Primary = row.SavedAt
 		cursor.Rank = rank
 		cursor.HasRank = true
+		cursor.Unread = int(row.Unread)
 	}
 	return cursor
 }
 
 // libraryScanListRow scans one list row in libraryItemColumns order, plus the
 // one float column a query may add: the full-text rank when the query
-// searched, or the focus score under view=now. Only one of the two is ever
-// selected, because the list refuses q together with that view.
+// searched, or the focus score under view=suggestions. Only one of the two is
+// ever selected, because the list refuses q together with that view.
 func libraryScanListRow(rows *sql.Rows, withRank bool) (db.LibraryItem, float64, error) {
 	var row db.LibraryItem
 	var rank float64
 	targets := []any{
 		&row.ID, &row.Kind, &row.Url, &row.CanonicalUrl, &row.Title, &row.TitleEdited,
-		&row.Author, &row.Site, &row.PublishedAt, &row.LeadImage, &row.Why, &row.Selection,
-		&row.Status, &row.Unread, &row.SavedAt, &row.ReadAt, &row.LastOpenedAt,
+		&row.Author, &row.Site, &row.PublishedAt, &row.LeadImage, &row.Reason, &row.Selection,
+		&row.Location, &row.Unread, &row.SavedAt, &row.ReadAt, &row.LastOpenedAt,
 		&row.ReadPosition, &row.Source, &row.HtmlHash, &row.ContentHtml, &row.ContentText,
 		&row.ContentHeadings, &row.ExtractStatus, &row.ExtractGeneration, &row.ExtractedAt,
 		&row.ExtractError, &row.Minutes, &row.Meta, &row.CreatedAt, &row.UpdatedAt,

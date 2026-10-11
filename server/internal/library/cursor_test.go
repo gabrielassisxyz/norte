@@ -1,6 +1,7 @@
 package library
 
 import (
+	"encoding/base64"
 	"testing"
 )
 
@@ -61,5 +62,18 @@ func TestLibrarySearchTermsQuoteAndJoin(t *testing.T) {
 	}
 	if _, err := librarySearchTerms("... !!!"); err == nil {
 		t.Error("a query with no word in it was accepted, want a refusal")
+	}
+}
+
+// TestLibraryCursorRefusesAnEarlierVersion is what the version field is for.
+// The Suggestions order grew an unread level, so a cursor issued by a build
+// that ordered by the score and the saved date alone names a position the new
+// predicate reads differently: continued rather than refused, it would page
+// from the wrong place, silently, on a list that still answered 200.
+func TestLibraryCursorRefusesAnEarlierVersion(t *testing.T) {
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(
+		`{"v":1,"sort":"suggestions","fh":"abc","p":"2026-10-07T21:00:00.000Z","r":1,"hr":true,"id":"some-id"}`))
+	if _, err := libraryDecodeCursor(encoded); err == nil {
+		t.Error("a version 1 cursor decoded, want it refused as undecodable")
 	}
 }

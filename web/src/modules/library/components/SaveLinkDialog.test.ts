@@ -13,7 +13,7 @@ import SaveLinkDialog from './SaveLinkDialog.vue'
 
 async function mountDialog(library: Partial<AppSources['library']>): Promise<VueWrapper> {
   const router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push('/biblioteca')
+  await router.push('/library')
   await router.isReady()
   const wrapper = mount(SaveLinkDialog, {
     props: { open: true },
@@ -45,6 +45,23 @@ describe('SaveLinkDialog', () => {
     expect(wrapper.get('.save-done').text()).toContain('https://example.org/reading-list')
   })
 
+  it('sends the note as reason, which is the field the contract names', async () => {
+    const library = fakeLibrarySource([])
+    const wrapper = await mountDialog(library)
+
+    await wrapper.get('#save-url').setValue('https://example.org/reading-list')
+    await wrapper.get('#save-reason').setValue('  Para comparar em janeiro  ')
+    await wrapper.get('form').trigger('submit')
+    await flushReads()
+
+    // Asserted whole rather than with toMatchObject: the contract pins
+    // additionalProperties: false, so a body that still carried `why` beside
+    // `reason` would be refused by the server and pass a partial match here.
+    expect(library.calls.save).toEqual([
+      { url: 'https://example.org/reading-list', reason: 'Para comparar em janeiro' }
+    ])
+  })
+
   it('names the shelf when the URL was already saved', async () => {
     const library = fakeLibrarySource([
       libraryRecord({
@@ -52,7 +69,7 @@ describe('SaveLinkDialog', () => {
         title: 'Guardada no arquivo',
         url: 'https://example.org/duplicada',
         canonical_url: 'https://example.org/duplicada',
-        status: 'arquivo'
+        location: 'archive'
       })
     ])
     const wrapper = await mountDialog(library)

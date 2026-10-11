@@ -268,14 +268,14 @@ func TestAMessageFromTheAllowedChatBecomesAnInboxItem(t *testing.T) {
 	if item.Source != LibrarySourceTelegram {
 		t.Errorf("source = %q, want telegram", item.Source)
 	}
-	if item.Status != "inbox" {
-		t.Errorf("status = %q, want inbox", item.Status)
+	if item.Location != "inbox" {
+		t.Errorf("location = %q, want inbox", item.Location)
 	}
 	if item.Url != "https://ortaessays.example/essays/notes" {
 		t.Errorf("url = %q, want the link from the message", item.Url)
 	}
-	if !item.Why.Valid || item.Why.String != "vale para o projeto" {
-		t.Errorf("why = %q, want the text around the link", item.Why.String)
+	if !item.Reason.Valid || item.Reason.String != "vale para o projeto" {
+		t.Errorf("reason = %q, want the text around the link", item.Reason.String)
 	}
 	entries := harness.entries(item.ID)
 	if len(entries) != 1 {
@@ -420,8 +420,8 @@ func TestADuplicateOfAnExtractedLinkGetsItsOwnReply(t *testing.T) {
 	if item.Source != LibrarySourceCLI {
 		t.Errorf("source = %q, want the cli it was first saved with", item.Source)
 	}
-	if !item.Why.Valid || item.Why.String != "de novo" {
-		t.Errorf("why = %q, want the note that came with the Telegram message", item.Why.String)
+	if !item.Reason.Valid || item.Reason.String != "de novo" {
+		t.Errorf("reason = %q, want the note that came with the Telegram message", item.Reason.String)
 	}
 	if count := libraryJobCount(t, harness.database, LibraryNotifyTelegramJobKind); count != 1 {
 		t.Fatalf("the save enqueued %d replies, want 1", count)
@@ -434,7 +434,7 @@ func TestADuplicateOfAnExtractedLinkGetsItsOwnReply(t *testing.T) {
 	if len(sends) != 1 {
 		t.Fatalf("the duplicate got %d replies, want 1", len(sends))
 	}
-	want := "Notes you will read again\n" + libraryTelegramTestPublic + "/biblioteca/" + outcome.ID
+	want := "Notes you will read again\n" + libraryTelegramTestPublic + "/library/" + outcome.ID
 	if sends[0].Text != want {
 		t.Errorf("the reply reads %q, want %q", sends[0].Text, want)
 	}
@@ -509,7 +509,7 @@ func TestTheReplyFollowsTheExtractionsOutcome(t *testing.T) {
 			status: "done",
 			title:  "Notes you will read again",
 			want: func(id string) string {
-				return "Notes you will read again\n" + libraryTelegramTestPublic + "/biblioteca/" + id
+				return "Notes you will read again\n" + libraryTelegramTestPublic + "/library/" + id
 			},
 		},
 		{
@@ -517,8 +517,8 @@ func TestTheReplyFollowsTheExtractionsOutcome(t *testing.T) {
 			status: "failed",
 			title:  "/essays/notes",
 			want: func(id string) string {
-				return "salvo, mas não consegui extrair o texto\n" +
-					libraryTelegramTestPublic + "/biblioteca/" + id
+				return "saved, but I could not extract the text\n" +
+					libraryTelegramTestPublic + "/library/" + id
 			},
 		},
 	}
@@ -625,7 +625,7 @@ func TestServeRefusesATelegramChatThatIsNotANumber(t *testing.T) {
 		wants     string
 	}{
 		{name: "a chat id that is a word", chat: "abc", publicURL: "https://norte.example", wants: "NORTE_TELEGRAM_CHAT"},
-		{name: "a relative public URL", chat: "-1001234567890", publicURL: "/biblioteca", wants: "NORTE_PUBLIC_URL"},
+		{name: "a relative public URL", chat: "-1001234567890", publicURL: "/library", wants: "NORTE_PUBLIC_URL"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -856,7 +856,7 @@ func TestALinkInACaptionIsSaved(t *testing.T) {
 	if !strings.EqualFold(item.Url, "https://ortaessays.example/essays/notes") {
 		t.Errorf("url = %q", item.Url)
 	}
-	if !item.Why.Valid || item.Why.String != "print do artigo" {
-		t.Errorf("why = %q", item.Why.String)
+	if !item.Reason.Valid || item.Reason.String != "print do artigo" {
+		t.Errorf("reason = %q", item.Reason.String)
 	}
 }

@@ -56,7 +56,7 @@ describe('curriculum view model', () => {
     setEnabledModules([])
     const view = buildCurriculumView(curricula.find((candidate) => candidate.slug === 'tipografia-pratica')!, libraryItems)
 
-    expect(view.modules[0].materials[0].href).toBe('/material/post/post-typography')
+    expect(view.modules[0].materials[0].href).toBe('/material/article/post-typography')
     expect(view.modules[0].materials[0].url).toBe('https://example.com/post-typography')
   })
 })

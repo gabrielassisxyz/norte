@@ -46,21 +46,23 @@ func (e ExtractStatus) Valid() bool {
 
 // Defines values for ItemKind.
 const (
-	Curso      ItemKind = "curso"
-	Livro      ItemKind = "livro"
+	Article    ItemKind = "article"
+	Book       ItemKind = "book"
+	Course     ItemKind = "course"
 	Newsletter ItemKind = "newsletter"
 	Paper      ItemKind = "paper"
 	Podcast    ItemKind = "podcast"
-	Post       ItemKind = "post"
 	Video      ItemKind = "video"
 )
 
 // Valid indicates whether the value is a known member of the ItemKind enum.
 func (e ItemKind) Valid() bool {
 	switch e {
-	case Curso:
+	case Article:
 		return true
-	case Livro:
+	case Book:
+		return true
+	case Course:
 		return true
 	case Newsletter:
 		return true
@@ -68,9 +70,34 @@ func (e ItemKind) Valid() bool {
 		return true
 	case Podcast:
 		return true
-	case Post:
-		return true
 	case Video:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ItemLocation.
+const (
+	ItemLocationArchive ItemLocation = "archive"
+	ItemLocationInbox   ItemLocation = "inbox"
+	ItemLocationLater   ItemLocation = "later"
+	ItemLocationStash   ItemLocation = "stash"
+	ItemLocationUpNext  ItemLocation = "up_next"
+)
+
+// Valid indicates whether the value is a known member of the ItemLocation enum.
+func (e ItemLocation) Valid() bool {
+	switch e {
+	case ItemLocationArchive:
+		return true
+	case ItemLocationInbox:
+		return true
+	case ItemLocationLater:
+		return true
+	case ItemLocationStash:
+		return true
+	case ItemLocationUpNext:
 		return true
 	default:
 		return false
@@ -104,27 +131,6 @@ func (e ItemSource) Valid() bool {
 	}
 }
 
-// Defines values for ItemStatus.
-const (
-	ItemStatusArquivo ItemStatus = "arquivo"
-	ItemStatusDepois  ItemStatus = "depois"
-	ItemStatusInbox   ItemStatus = "inbox"
-)
-
-// Valid indicates whether the value is a known member of the ItemStatus enum.
-func (e ItemStatus) Valid() bool {
-	switch e {
-	case ItemStatusArquivo:
-		return true
-	case ItemStatusDepois:
-		return true
-	case ItemStatusInbox:
-		return true
-	default:
-		return false
-	}
-}
-
 // Defines values for LibrarySort.
 const (
 	LastOpenedDesc LibrarySort = "last_opened_desc"
@@ -151,25 +157,31 @@ func (e LibrarySort) Valid() bool {
 
 // Defines values for LibraryView.
 const (
-	LibraryViewArquivo LibraryView = "arquivo"
-	LibraryViewDepois  LibraryView = "depois"
-	LibraryViewInbox   LibraryView = "inbox"
-	LibraryViewNow     LibraryView = "now"
-	LibraryViewTudo    LibraryView = "tudo"
+	LibraryViewAll         LibraryView = "all"
+	LibraryViewArchive     LibraryView = "archive"
+	LibraryViewInbox       LibraryView = "inbox"
+	LibraryViewLater       LibraryView = "later"
+	LibraryViewStash       LibraryView = "stash"
+	LibraryViewSuggestions LibraryView = "suggestions"
+	LibraryViewUpNext      LibraryView = "up_next"
 )
 
 // Valid indicates whether the value is a known member of the LibraryView enum.
 func (e LibraryView) Valid() bool {
 	switch e {
-	case LibraryViewArquivo:
+	case LibraryViewAll:
 		return true
-	case LibraryViewDepois:
+	case LibraryViewArchive:
 		return true
 	case LibraryViewInbox:
 		return true
-	case LibraryViewNow:
+	case LibraryViewLater:
 		return true
-	case LibraryViewTudo:
+	case LibraryViewStash:
+		return true
+	case LibraryViewSuggestions:
+		return true
+	case LibraryViewUpNext:
 		return true
 	default:
 		return false
@@ -241,34 +253,37 @@ type ExtractItemResponse struct {
 // ExtractStatus Where the background extraction of this item stands.
 type ExtractStatus string
 
-// ItemKind What the saved link is. A save always starts as a post; only a patch retypes.
+// ItemKind What the saved link is. A save always starts as an article; only a
+// patch retypes.
 type ItemKind string
+
+// ItemLocation Which location the item sits in.
+type ItemLocation string
 
 // ItemSource Where the save came from.
 type ItemSource string
 
-// ItemStatus Which shelf the item sits on.
-type ItemStatus string
-
 // LibraryCounts defines model for LibraryCounts.
 type LibraryCounts struct {
 	Kinds struct {
-		Curso      int `json:"curso"`
-		Livro      int `json:"livro"`
+		Article    int `json:"article"`
+		Book       int `json:"book"`
+		Course     int `json:"course"`
 		Newsletter int `json:"newsletter"`
 		Paper      int `json:"paper"`
 		Podcast    int `json:"podcast"`
-		Post       int `json:"post"`
 		Video      int `json:"video"`
 	} `json:"kinds"`
 
 	// Unread Items still unread, over every view.
 	Unread int `json:"unread"`
 	Views  struct {
-		Arquivo int `json:"arquivo"`
-		Depois  int `json:"depois"`
+		All     int `json:"all"`
+		Archive int `json:"archive"`
 		Inbox   int `json:"inbox"`
-		Tudo    int `json:"tudo"`
+		Later   int `json:"later"`
+		Stash   int `json:"stash"`
+		UpNext  int `json:"up_next"`
 	} `json:"views"`
 }
 
@@ -301,16 +316,21 @@ type LibraryItem struct {
 	HtmlHash *string `json:"html_hash,omitempty"`
 	Id       string  `json:"id"`
 
-	// Kind What the saved link is. A save always starts as a post; only a patch retypes.
+	// Kind What the saved link is. A save always starts as an article; only a
+	// patch retypes.
 	Kind         ItemKind `json:"kind"`
 	LastOpenedAt *string  `json:"last_opened_at,omitempty"`
 	LeadImage    *string  `json:"lead_image,omitempty"`
-	Minutes      *int     `json:"minutes,omitempty"`
-	PublishedAt  *string  `json:"published_at,omitempty"`
-	ReadAt       *string  `json:"read_at,omitempty"`
+
+	// Location Which location the item sits in.
+	Location    ItemLocation `json:"location"`
+	Minutes     *int         `json:"minutes,omitempty"`
+	PublishedAt *string      `json:"published_at,omitempty"`
+	ReadAt      *string      `json:"read_at,omitempty"`
 
 	// ReadPosition Where the person stopped reading.
 	ReadPosition *ReadPosition `json:"read_position,omitempty"`
+	Reason       *string       `json:"reason,omitempty"`
 	SavedAt      string        `json:"saved_at"`
 
 	// Selection The passage selected when the link was saved, if any.
@@ -319,17 +339,13 @@ type LibraryItem struct {
 
 	// Source Where the save came from.
 	Source ItemSource `json:"source"`
-
-	// Status Which shelf the item sits on.
-	Status ItemStatus `json:"status"`
 	Title  string     `json:"title"`
 
 	// TitleEdited True once the person overrode the extracted title.
-	TitleEdited bool    `json:"title_edited"`
-	Unread      bool    `json:"unread"`
-	UpdatedAt   string  `json:"updated_at"`
-	Url         string  `json:"url"`
-	Why         *string `json:"why,omitempty"`
+	TitleEdited bool   `json:"title_edited"`
+	Unread      bool   `json:"unread"`
+	UpdatedAt   string `json:"updated_at"`
+	Url         string `json:"url"`
 }
 
 // LibraryItemList defines model for LibraryItemList.
@@ -360,16 +376,21 @@ type LibraryItemSummary struct {
 	HtmlHash *string `json:"html_hash,omitempty"`
 	Id       string  `json:"id"`
 
-	// Kind What the saved link is. A save always starts as a post; only a patch retypes.
+	// Kind What the saved link is. A save always starts as an article; only a
+	// patch retypes.
 	Kind         ItemKind `json:"kind"`
 	LastOpenedAt *string  `json:"last_opened_at,omitempty"`
 	LeadImage    *string  `json:"lead_image,omitempty"`
-	Minutes      *int     `json:"minutes,omitempty"`
-	PublishedAt  *string  `json:"published_at,omitempty"`
-	ReadAt       *string  `json:"read_at,omitempty"`
+
+	// Location Which location the item sits in.
+	Location    ItemLocation `json:"location"`
+	Minutes     *int         `json:"minutes,omitempty"`
+	PublishedAt *string      `json:"published_at,omitempty"`
+	ReadAt      *string      `json:"read_at,omitempty"`
 
 	// ReadPosition Where the person stopped reading.
 	ReadPosition *ReadPosition `json:"read_position,omitempty"`
+	Reason       *string       `json:"reason,omitempty"`
 	SavedAt      string        `json:"saved_at"`
 
 	// Selection The passage selected when the link was saved, if any.
@@ -378,41 +399,41 @@ type LibraryItemSummary struct {
 
 	// Source Where the save came from.
 	Source ItemSource `json:"source"`
-
-	// Status Which shelf the item sits on.
-	Status ItemStatus `json:"status"`
 	Title  string     `json:"title"`
 
 	// TitleEdited True once the person overrode the extracted title.
-	TitleEdited bool    `json:"title_edited"`
-	Unread      bool    `json:"unread"`
-	UpdatedAt   string  `json:"updated_at"`
-	Url         string  `json:"url"`
-	Why         *string `json:"why,omitempty"`
+	TitleEdited bool   `json:"title_edited"`
+	Unread      bool   `json:"unread"`
+	UpdatedAt   string `json:"updated_at"`
+	Url         string `json:"url"`
 }
 
 // LibrarySort The order a list comes back in.
 type LibrarySort string
 
-// LibraryView Which shelf a list reads; tudo is every status. now is not a shelf but
-// the focus-ranked unread list, which is why it sits here rather than in
-// ItemStatus: a status is something an item has, and now is a way of
-// looking at the library.
+// LibraryView Which location a list reads; all is every location. suggestions is not
+// a location but the focus-ranked list over every one of them, unread
+// before read within a score, which is why it sits here rather than in
+// ItemLocation: a location is something an item is in, and suggestions is
+// a way of looking at the library. It carries its own order and so
+// refuses q and an explicit sort, but unread filters it like any other
+// view.
 type LibraryView string
 
 // PatchItemRequest defines model for PatchItemRequest.
 type PatchItemRequest struct {
-	// Kind What the saved link is. A save always starts as a post; only a patch retypes.
+	// Kind What the saved link is. A save always starts as an article; only a
+	// patch retypes.
 	Kind *ItemKind `json:"kind,omitempty"`
+
+	// Location Which location the item sits in.
+	Location *ItemLocation `json:"location,omitempty"`
 
 	// ReadPosition Where the person stopped reading.
 	ReadPosition *ReadPosition `json:"read_position,omitempty"`
-
-	// Status Which shelf the item sits on.
-	Status *ItemStatus `json:"status,omitempty"`
-	Title  *string     `json:"title,omitempty"`
-	Unread *bool       `json:"unread,omitempty"`
-	Why    *string     `json:"why,omitempty"`
+	Reason       *string       `json:"reason,omitempty"`
+	Title        *string       `json:"title,omitempty"`
+	Unread       *bool         `json:"unread,omitempty"`
 }
 
 // ReadPosition Where the person stopped reading.
@@ -430,6 +451,9 @@ type SaveItemRequest struct {
 	// LinkTo Registry ids this item is about; unknown ids refuse the save.
 	LinkTo *[]string `json:"link_to,omitempty"`
 
+	// Reason The reason this link was worth keeping.
+	Reason *string `json:"reason,omitempty"`
+
 	// Selection The passage selected when the link was saved, if any.
 	Selection *TextSelection `json:"selection,omitempty"`
 
@@ -442,9 +466,6 @@ type SaveItemRequest struct {
 
 	// Url The saved page's address, absolute and http or https.
 	Url string `json:"url"`
-
-	// Why Why this link was worth keeping.
-	Why *string `json:"why,omitempty"`
 }
 
 // SaveItemRequestSource The only source a request may carry is the browser extension's;
@@ -466,19 +487,20 @@ type TextSelection struct {
 
 // ListLibraryItemsParams defines parameters for ListLibraryItems.
 type ListLibraryItemsParams struct {
-	// View Which shelf to read; tudo is every status, and now is the
-	// focus-ranked unread list rather than a shelf.
+	// View Which location to read; all is every location, and suggestions is
+	// the focus-ranked list over every location rather than a location
+	// of its own.
 	View *LibraryView `form:"view,omitempty" json:"view,omitempty"`
 
-	// Tipo Keep only this kind.
-	Tipo *ItemKind `form:"tipo,omitempty" json:"tipo,omitempty"`
+	// Kind Keep only this kind.
+	Kind *ItemKind `form:"kind,omitempty" json:"kind,omitempty"`
 
 	// Unread Keep only unread items, or only read ones.
 	Unread *bool `form:"unread,omitempty" json:"unread,omitempty"`
 
 	// Sort The order. last_opened_desc lists only items that have been
-	// opened, newest-opened first, and is what the home's "continuar
-	// lendo" block reads.
+	// opened, newest-opened first, and is what the home's "Continue
+	// reading" block reads.
 	Sort *LibrarySort `form:"sort,omitempty" json:"sort,omitempty"`
 
 	// Q Full-text query over the title, the note and the extracted text.
@@ -588,15 +610,15 @@ func (siw *ServerInterfaceWrapper) ListLibraryItems(w http.ResponseWriter, r *ht
 		return
 	}
 
-	// ------------- Optional query parameter "tipo" -------------
+	// ------------- Optional query parameter "kind" -------------
 
-	err = runtime.BindQueryParameterWithOptions("form", true, false, "tipo", r.URL.Query(), &params.Tipo, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
 	if err != nil {
 		var requiredError *runtime.RequiredParameterError
 		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "tipo"})
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
 		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tipo", Err: err})
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
 		}
 		return
 	}
@@ -1615,79 +1637,81 @@ func (sh *strictHandler) OpenLibraryItem(w http.ResponseWriter, r *http.Request,
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -129,7 +129,7 @@ describe('curriculum screen', () => {
     const { wrapper, router } = await mountAt('/curriculos/fundamentos-de-compiladores')
 
     const href = wrapper.findAll('.nt-mat-title')[0].attributes('href')!
-    expect(href).toMatch(/^\/material\/(post|livro|paper)\//)
+    expect(href).toMatch(/^\/material\/(article|book|paper)\//)
     expect(router.resolve(href).name).toBe('material')
   })
 

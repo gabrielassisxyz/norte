@@ -17,7 +17,7 @@ import { useReviewQueue } from '../data/composables'
 
 const ALL_DECKS = 'all'
 const INTERVALS: [string, string, string, string] = ['10 min', '2 d', '6 d', '14 d']
-const MATERIAL_KINDS = new Set<MaterialKind>(['post', 'livro', 'paper'])
+const MATERIAL_KINDS = new Set<MaterialKind>(['article', 'book', 'paper'])
 
 interface SessionRating {
   id: string
@@ -120,7 +120,7 @@ function isMaterialKind(kind: string): boolean {
 const sourceTo = computed(() => {
   const item = sourceItem.value
   if (item && isMaterialKind(item.kind)) return `/material/${item.kind}/${item.id}`
-  return { name: 'biblioteca', query: { v: 'tudo' } }
+  return { name: 'library', query: { v: 'all' } }
 })
 
 const cardCountLabel = computed(() => (doneCount.value === 1 ? 'cartão' : 'cartões'))

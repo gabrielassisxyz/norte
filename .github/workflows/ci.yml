@@ -91,6 +91,11 @@ jobs:
           set -euo pipefail
           docker volume create norte-ci-data >/dev/null
           cleanup() {
+            # A container that dies at startup answers nothing over HTTP; its
+            # own output is the only place the reason is written.
+            for c in norte-ci norte-ci-again; do
+              docker logs "$c" 2>&1 | tail -20 | sed "s/^/[$c] /" || true
+            done
             docker rm -f norte-ci norte-ci-again >/dev/null 2>&1 || true
             docker volume rm norte-ci-data >/dev/null 2>&1 || true
           }

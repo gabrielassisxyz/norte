@@ -46,7 +46,7 @@ func TestLinkCandidatesListsEverySubjectAndEveryModulesTargets(t *testing.T) {
 
 	set := core.NewLinkCandidates(database, []core.FocusProvider{
 		fixedFocusProvider{targets: []core.FocusTarget{
-			{ID: target, Type: "curso", Title: "Um curso"},
+			{ID: target, Type: "course", Title: "Um curso"},
 		}},
 	})
 	candidates, err := set.LinkCandidates(context.Background())
@@ -100,7 +100,7 @@ func TestLinkCandidatesDropsATargetWithNoTitle(t *testing.T) {
 	untitled := registerTestItem(t, database, "sem-titulo")
 
 	set := core.NewLinkCandidates(database, []core.FocusProvider{
-		fixedFocusProvider{targets: []core.FocusTarget{{ID: untitled, Type: "curso", Title: ""}}},
+		fixedFocusProvider{targets: []core.FocusTarget{{ID: untitled, Type: "course", Title: ""}}},
 	})
 	candidates, err := set.LinkCandidates(context.Background())
 	if err != nil {

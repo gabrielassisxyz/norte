@@ -12,7 +12,7 @@ import { minutesRemainingFor, progressPercentOf, readerHref, siteOf, sourceOf } 
  * order is the server's: `last_opened_desc` lists only items that have been
  * opened at all, so an untouched inbox never fills this block.
  */
-const { data: page, loading, error } = useLibraryItems({ view: 'tudo', sort: 'last_opened_desc', limit: 6 })
+const { data: page, loading, error } = useLibraryItems({ view: 'all', sort: 'last_opened_desc', limit: 6 })
 
 const firstLoad = computed(() => loading.value && page.value === null)
 

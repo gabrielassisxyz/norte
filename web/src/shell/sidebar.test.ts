@@ -34,7 +34,7 @@ function sidebarSubjects() {
     subjectRecord({
       name: 'Escrita',
       slug: 'escrita',
-      counts: { total: 2, by_type: [{ module: 'library', type: 'post', count: 2 }] }
+      counts: { total: 2, by_type: [{ module: 'library', type: 'article', count: 2 }] }
     }),
     subjectRecord({ name: 'Kubernetes', slug: 'kubernetes' })
   ]

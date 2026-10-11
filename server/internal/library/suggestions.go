@@ -5,17 +5,19 @@ import (
 	"strings"
 )
 
-// LibraryViewNow is the view that is not a shelf: every status, unread only,
-// ordered by how closely each item relates to what the person is focused on.
+// LibraryViewSuggestions is the view that is not a location: it reads every
+// location and orders by how closely each item relates to what the person is
+// focused on, listing unread before read within one score.
 //
-// It sits in the same parameter as the shelves because a list is read one way
-// at a time, and a separate parameter would have to answer what inbox + now
-// means.
-const LibraryViewNow = "now"
+// It sits in the same parameter as the locations because a list is read one way
+// at a time, and a separate parameter would have to answer what
+// inbox + suggestions means.
+const LibraryViewSuggestions = "suggestions"
 
-// librarySortNow is the pseudo-sort that view ordered by, named like the FTS
-// rank so the cursor's sort field tells one list's pagination from another's.
-const librarySortNow = "now"
+// librarySortSuggestions is the pseudo-sort that view ordered by, named like
+// the FTS rank so the cursor's sort field tells one list's pagination from
+// another's.
+const librarySortSuggestions = "suggestions"
 
 // libraryFocusTargetsSentinel stands in for the empty focus.
 //
@@ -24,8 +26,8 @@ const librarySortNow = "now"
 // on the data, so the cursor predicate and the ORDER BY would have to be built
 // differently for a focus that emptied between two pages. An id no row can
 // carry keeps one shape for both cases: with nothing in focus every score is
-// 0, and the now view degrades to the saved order rather than to a second
-// query.
+// 0, and the Suggestions view degrades to the unread-then-saved order rather
+// than to a second query.
 const libraryFocusTargetsSentinel = ""
 
 // libraryFocusScoreColumn is an item's focus score as the query computes it.
@@ -44,12 +46,21 @@ const libraryFocusScoreColumn = "COALESCE(library_focus_score.score, 0.0)"
 // the select, the ORDER BY and the cursor agree exactly.
 const libraryFocusScoreRounded = "ROUND(" + libraryFocusScoreColumn + ", 9)"
 
-// libraryNowOrderBy orders the now view: the score first, then the saved order
-// among equal scores, then the id. Items nothing in focus points at score 0
-// and so follow the scored ones, in saved order, which is the default list
-// they would have been in anyway.
-const libraryNowOrderBy = libraryFocusScoreRounded +
-	" DESC, library_items.saved_at DESC, library_items.id DESC"
+// libraryUnreadColumn is the unread flag as the order and the cursor read it.
+// It is stored as 0 or 1, so "unread first" is a DESC on an integer and the
+// cursor compares that integer rather than a boolean.
+const libraryUnreadColumn = "library_items.unread"
+
+// librarySuggestionsOrderBy orders the Suggestions view: the score first, then
+// what is still unread among equal scores, then the saved order, then the id.
+// Items nothing in focus points at score 0 and so follow the scored ones,
+// unread first and then in saved order.
+//
+// Unread sits below the score rather than above it because the view ranks by
+// relevance to the focus: a closely related item the person has read is still
+// a better suggestion than an unrelated unread one.
+const librarySuggestionsOrderBy = libraryFocusScoreRounded +
+	" DESC, " + libraryUnreadColumn + " DESC, library_items.saved_at DESC, library_items.id DESC"
 
 // libraryFocusLinkWeight is what one link contributes to the score, as SQL.
 //
@@ -105,8 +116,9 @@ type libraryFocusReader interface {
 //
 // It is a 503 and not a 500 because the request was fine and the server is
 // running; what is missing is a dependency serve always wires. Answering an
-// unranked list instead would be worse than refusing: a now view that silently
-// scored everything 0 is the saved order wearing the focus view's name.
+// unranked list instead would be worse than refusing: a Suggestions view that
+// silently scored everything 0 is the saved order wearing the focus view's
+// name.
 var errLibraryNoFocus = &LibraryError{
 	Status:  503,
 	Code:    "no_focus",
@@ -126,24 +138,24 @@ func (s *LibraryService) libraryFocusTargets(ctx context.Context) ([]string, err
 	return targets, nil
 }
 
-// libraryRefuseNowConflicts rejects the parameters that would ask the now view
-// for two orders at once, or for an item it exists to leave out.
+// libraryRefuseSuggestionsConflicts rejects the parameters that would ask the
+// Suggestions view for two orders at once.
 //
-// None of the three is ignored instead, which is the same rule the list
-// already follows for an explicit sort together with q: a filter the caller
-// sent and the server dropped is a list that answers a question nobody asked.
-func libraryRefuseNowConflicts(in ListInput) error {
+// Neither is ignored instead, which is the same rule the list already follows
+// for an explicit sort together with q: a filter the caller sent and the
+// server dropped is a list that answers a question nobody asked.
+//
+// unread is not among them. The view reads every location and orders unread
+// first, so unread is an ordinary filter over it like it is over any other
+// view, and unread=false asks for the read items in focus order.
+func libraryRefuseSuggestionsConflicts(in ListInput) error {
 	if in.Query != "" {
 		return libraryBadRequest("invalid_request",
-			"q and view=now cannot be combined: the now view orders by the focus score", "q")
+			"q and view=suggestions cannot be combined: the suggestions view orders by the focus score", "q")
 	}
 	if in.SortExplicit {
 		return libraryBadRequest("invalid_request",
-			"sort and view=now cannot be combined: the now view carries its own order", "sort")
-	}
-	if in.Unread != nil && !*in.Unread {
-		return libraryBadRequest("invalid_request",
-			"unread=false and view=now cannot be combined: the now view is what is left to read", "unread")
+			"sort and view=suggestions cannot be combined: the suggestions view carries its own order", "sort")
 	}
 	return nil
 }

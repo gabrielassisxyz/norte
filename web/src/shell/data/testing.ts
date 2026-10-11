@@ -47,9 +47,9 @@ export function registryItem(overrides: Partial<RegistryItem> = {}): RegistryIte
   return {
     id,
     module: 'library',
-    type: 'post',
+    type: 'article',
     title: `Texto ${id}`,
-    url: `/biblioteca/${id}`,
+    url: `/library/${id}`,
     ...overrides
   }
 }
@@ -113,9 +113,9 @@ export function coreSearchHit(overrides: Partial<CoreSearchHit> = {}): CoreSearc
   return {
     id,
     module: 'library',
-    type: 'post',
+    type: 'article',
     title: `Texto ${id}`,
-    path: `/biblioteca/${id}`,
+    path: `/library/${id}`,
     score: 1,
     ...overrides
   }

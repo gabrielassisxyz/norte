@@ -33,7 +33,7 @@ test('typing a word lists the saved item that holds it, with no error', async ({
     html: articleHtml({ title: 'Girassol na varanda' })
   })
 
-  await page.goto(`${server.baseURL}/biblioteca?v=tudo`)
+  await page.goto(`${server.baseURL}/library?v=all`)
   await expect(page.locator('#app')).not.toBeEmpty()
   await expect(page.locator('.item', { hasText: seeded.title })).toBeVisible()
 
@@ -72,7 +72,7 @@ test('choosing an order from the menu sends it, and the server accepts it', asyn
     html: articleHtml({ title: 'Abacate no vaso' })
   })
 
-  await page.goto(`${server.baseURL}/biblioteca?v=tudo`)
+  await page.goto(`${server.baseURL}/library?v=all`)
   await expect(page.locator('.item').first()).toBeVisible()
   await expect(page.locator(sortTrigger)).toHaveAttribute('aria-label', 'Ordenar: Mais recentes')
 
@@ -88,15 +88,15 @@ test('choosing an order from the menu sends it, and the server accepts it', asyn
   await expect(page.locator('.library-sort [role="menu"]')).toHaveCount(0)
   await expect(page.locator('.library-error')).toHaveCount(0)
 
-  // The focus ranking is one of the orders: it asks for view=now, and for none
-  // of the three parameters the contract refuses alongside it.
+  // The focus ranking is one of the orders: it asks for view=suggestions, and
+  // for neither of the two parameters the contract refuses alongside it.
   const ranked = page.waitForResponse(
     (response) =>
       response.url().includes('/api/library/items') &&
-      new URL(response.url()).searchParams.get('view') === 'now'
+      new URL(response.url()).searchParams.get('view') === 'suggestions'
   )
   await page.locator(sortTrigger).click()
-  await page.locator('.library-sort [data-sort="now"]').click()
+  await page.locator('.library-sort [data-sort="suggestions"]').click()
   const rankedAnswer = await ranked
 
   expect(rankedAnswer.ok()).toBe(true)
@@ -117,7 +117,7 @@ test('the filter menu asks for unread only, and the server accepts that too', as
     html: articleHtml({ title: 'Cerca de bambu' })
   })
 
-  await page.goto(`${server.baseURL}/biblioteca?v=tudo`)
+  await page.goto(`${server.baseURL}/library?v=all`)
   await expect(page.locator('.item').first()).toBeVisible()
 
   const filtered = page.waitForResponse(
@@ -134,7 +134,21 @@ test('the filter menu asks for unread only, and the server accepts that too', as
   await expect(page.locator('.library-error')).toHaveCount(0)
 })
 
-test('the header is one row at 1280px', async ({ page }) => {
+/**
+ * The header at a desktop width, now that there are six locations.
+ *
+ * It used to be a single row, and that was measured: at 1280px the sidebar
+ * leaves 952px, and the five-option tab strip left the tools group just enough
+ * for its 180px basis. Up Next and Stash add about 190px of tab strip, so the
+ * budget is gone and the tools take a line of their own -- which is what the
+ * flex-wrap on `.library-head` is for.
+ *
+ * What is still worth holding, and is what this asserts: the title, the tab
+ * strip and Surpresa share one line; the tab strip does not wrap its own
+ * options at that width; the tools group stays whole on the line below rather
+ * than breaking up; and nothing drags the page sideways.
+ */
+test('the header keeps the tabs on one row and the tools on the next at 1280px', async ({ page }) => {
   await seedArticle(server.baseURL, {
     url: 'https://exemplo.invalid/telhado-verde',
     title: 'Telhado verde',
@@ -142,7 +156,7 @@ test('the header is one row at 1280px', async ({ page }) => {
   })
 
   await page.setViewportSize({ width: 1280, height: 900 })
-  await page.goto(`${server.baseURL}/biblioteca?v=tudo`)
+  await page.goto(`${server.baseURL}/library?v=all`)
   // The counts have arrived, so the tabs are at the width they will keep: a
   // header measured before them is a header a reflow is about to change.
   await expect(page.locator('.item').first()).toBeVisible()
@@ -168,20 +182,34 @@ test('the header is one row at 1280px', async ({ page }) => {
   const titleBottom = title + ((await page.locator('.library-head h1').boundingBox())?.height ?? 0)
   for (const [what, top] of [
     ['the tabs', tabs],
-    ['Surpresa', surprise],
-    ['the search box', search],
-    ['the sort menu', sort],
-    ['the filter menu', filter]
+    ['Surpresa', surprise]
   ] as const) {
     expect(top, `${what} starts at ${top}, the title at ${title}`).toBeGreaterThan(title - 40)
     expect(top, `${what} starts at ${top}, the title ends at ${titleBottom}`).toBeLessThan(titleBottom)
   }
 
-  // The tabs keep their own line too: five options, one row of them.
+  // The tools sit below the title line, and whole: the three controls share one
+  // line with each other, which is the thing a further wrap could still get
+  // wrong.
+  expect(
+    search,
+    `the search box starts at ${search}, the title ends at ${titleBottom}`
+  ).toBeGreaterThanOrEqual(titleBottom)
+  for (const [what, top] of [
+    ['the sort menu', sort],
+    ['the filter menu', filter]
+  ] as const) {
+    expect(
+      Math.abs(top - search),
+      `${what} starts at ${top}, the search box at ${search}`
+    ).toBeLessThan(20)
+  }
+
+  // The tabs keep their own line: seven options, one row of them.
   const tabTops = await page
     .locator('.library-tabs .nt-seg-btn')
     .evaluateAll((nodes) => nodes.map((node) => Math.round(node.getBoundingClientRect().y)))
-  expect(tabTops).toHaveLength(5)
+  expect(tabTops).toHaveLength(7)
   expect(new Set(tabTops).size).toBe(1)
 
   // And nothing drags the page sideways at that width.

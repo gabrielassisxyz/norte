@@ -39,7 +39,7 @@ async function mountLibrary(): Promise<{ wrapper: ReturnType<typeof mount>; libr
     libraryRecord({ id: 'item-2', title: 'Segundo texto', saved_at: '2026-10-02T09:00:00Z' })
   ])
   const router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push('/biblioteca?v=inbox')
+  await router.push('/library?v=inbox')
   await router.isReady()
   const wrapper = mount(LibraryView, {
     global: {
@@ -75,7 +75,7 @@ describe('the Biblioteca rows on a phone', () => {
     await wrapper.get('button[aria-label="Depois"]').trigger('click')
     await flushReads()
 
-    expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { status: 'depois' } }])
+    expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { location: 'later' } }])
   })
 
   it('closes the group on a second tap, and opens one row at a time', async () => {

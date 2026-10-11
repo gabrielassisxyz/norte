@@ -301,8 +301,8 @@ func libraryClassifyPrompt(item db.LibraryItem, candidates []core.LinkCandidate)
 	user.WriteString("\nTITLE: ")
 	user.WriteString(libraryClassifyDefang(item.Title))
 	user.WriteString("\nWHY SAVED: ")
-	if why := strings.TrimSpace(item.Why.String); item.Why.Valid && why != "" {
-		user.WriteString(libraryClassifyDefang(why))
+	if reason := strings.TrimSpace(item.Reason.String); item.Reason.Valid && reason != "" {
+		user.WriteString(libraryClassifyDefang(reason))
 	} else {
 		user.WriteString("(the person did not say)")
 	}

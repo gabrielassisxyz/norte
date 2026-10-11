@@ -64,7 +64,7 @@ describe('a module the server does not serve', () => {
 
   it('answers its addresses with the switched-off page instead of a blank screen', async () => {
     libraryOff()
-    const { wrapper } = await mountAt('/biblioteca')
+    const { wrapper } = await mountAt('/library')
 
     expect(wrapper.find('.app-content h1').text()).toBe('Módulo desligado')
     expect(wrapper.text()).toContain('um módulo que o servidor não está servindo')
@@ -102,7 +102,7 @@ describe('an api-backed module the server does serve', () => {
   it('mounts exactly as a mock-backed one does', async () => {
     overrideModuleBacking('library', 'api')
     setEnabledModules(['library'])
-    const { wrapper } = await mountAt('/biblioteca')
+    const { wrapper } = await mountAt('/library')
 
     expect(wrapper.find('.app-content h1').text()).toBe('Biblioteca')
     expect(wrapper.get('.app-sidebar').text()).toContain('Biblioteca')

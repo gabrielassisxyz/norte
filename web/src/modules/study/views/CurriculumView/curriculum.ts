@@ -7,15 +7,15 @@ import { crossModuleActionAllowed } from '@/modules/mounting'
 export const NEW_CURRICULUM_SLUG = 'nova'
 
 const KIND_LABELS: Record<LibraryKind, string> = {
-  post: 'Post',
-  livro: 'Livro',
+  article: 'Post',
+  book: 'Livro',
   paper: 'Paper',
   video: 'Vídeo',
   podcast: 'Podcast',
-  curso: 'Curso'
+  course: 'Curso'
 }
 
-const READABLE_KINDS: MaterialKind[] = ['post', 'livro', 'paper']
+const READABLE_KINDS: MaterialKind[] = ['article', 'book', 'paper']
 
 export interface EditableModule {
   id: string
@@ -80,7 +80,7 @@ function pad(n: number): string {
 function libraryStatus(item: LibraryItem | undefined): MaterialStatus | undefined {
   if (!item) return undefined
   if (!item.unread) return 'done'
-  if (item.status === 'arquivo') return 'skipped'
+  if (item.location === 'archive') return 'skipped'
   return undefined
 }
 

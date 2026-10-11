@@ -99,7 +99,7 @@ func (s *libraryTelegramStore) SkipUpdate(ctx context.Context, updateID int64) e
 func (s *libraryTelegramStore) SaveLink(ctx context.Context, capture telegram.Capture) error {
 	prepared, err := s.service.PrepareSave(ctx, SaveInput{
 		URL:    capture.URL,
-		Why:    capture.Why,
+		Reason: capture.Reason,
 		Source: LibrarySourceTelegram,
 	})
 	if err != nil {

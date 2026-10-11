@@ -96,7 +96,7 @@ const questionItems = computed<NoteSourceRef[]>(() => {
   ]) {
     if (row.source) byId.set(row.source.id, row.source)
   }
-  return [...byId.values()].sort((first, second) => first.title.localeCompare(second.title, 'pt-BR'))
+  return [...byId.values()].sort((first, second) => first.title.localeCompare(second.title, 'en'))
 })
 
 const emptyText = computed(() => {
@@ -116,7 +116,7 @@ const canOpenSource = computed(() => isModuleMounted('library'))
 function sourcePath(source: NoteSourceRef | undefined): string | undefined {
   if (!source || !canOpenSource.value) return undefined
   if (source.module !== 'library') return undefined
-  return `/biblioteca/${source.id}`
+  return `/library/${source.id}`
 }
 
 watch(

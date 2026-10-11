@@ -38,10 +38,10 @@ func TestTheFirstDeliveryWalksFromASavedLinkToANoteUnderASubject(t *testing.T) {
 	// behind a login.
 	saved := norteVerticalDecode[norteVerticalSaved](t, harness.request(
 		http.MethodPost, "/api/library/items", map[string]any{
-			"url":   norteVerticalPageURL,
-			"title": "Memória de trabalho",
-			"html":  norteVerticalPage,
-			"why":   "Para decidir como terminar uma leitura.",
+			"url":    norteVerticalPageURL,
+			"title":  "Memória de trabalho",
+			"html":   norteVerticalPage,
+			"reason": "Para decidir como terminar uma leitura.",
 		}), http.StatusCreated)
 
 	// 3. Extraction, then classification: two jobs on one queue, the second
@@ -124,12 +124,12 @@ func TestTheFirstDeliveryWalksFromASavedLinkToANoteUnderASubject(t *testing.T) {
 		t.Fatalf("the panel's item comes from module %q, want library", panel.Items[0].Src.Module)
 	}
 
-	// 9. And "what to read now" puts it first, because the confirmed link to
-	// a focus subject is the strongest thing that view ranks by.
-	now := norteVerticalDecode[norteVerticalItemList](t, harness.request(
-		http.MethodGet, "/api/library/items?view=now", nil), http.StatusOK)
-	if len(now.Items) == 0 || now.Items[0].ID != saved.ID {
-		t.Fatalf("view=now answered %+v, want the saved item first", now.Items)
+	// 9. And Suggestions puts it first, because the confirmed link to a focus
+	// subject is the strongest thing that view ranks by.
+	suggestions := norteVerticalDecode[norteVerticalItemList](t, harness.request(
+		http.MethodGet, "/api/library/items?view=suggestions", nil), http.StatusOK)
+	if len(suggestions.Items) == 0 || suggestions.Items[0].ID != saved.ID {
+		t.Fatalf("view=suggestions answered %+v, want the saved item first", suggestions.Items)
 	}
 
 	// 10. The search finds it by a word that is only in the article's body,
@@ -145,8 +145,8 @@ func TestTheFirstDeliveryWalksFromASavedLinkToANoteUnderASubject(t *testing.T) {
 		if entry.Module != "library" {
 			t.Errorf("the item came back from module %q, want library", entry.Module)
 		}
-		if entry.Path != "/biblioteca/"+saved.ID {
-			t.Errorf("the item's path is %q, want /biblioteca/%s", entry.Path, saved.ID)
+		if entry.Path != "/library/"+saved.ID {
+			t.Errorf("the item's path is %q, want /library/%s", entry.Path, saved.ID)
 		}
 	}
 	if !found {
