@@ -15,15 +15,15 @@ const cells = computed(() =>
 
 <template>
   <figure class="nt-streak">
-    <div class="nt-streak-grid" role="img" :aria-label="label || 'Histórico de estudo'">
+    <div class="nt-streak-grid" role="img" :aria-label="label || 'Study history'">
       <span v-for="(level, index) in cells" :key="index" class="nt-streak-cell" :data-level="level" />
     </div>
     <figcaption class="nt-streak-legend">
       <span>{{ caption || '' }}</span>
       <span class="nt-streak-scale" aria-hidden="true">
-        menos
+        less
         <span v-for="level in 5" :key="level" class="nt-streak-cell" :data-level="level - 1" />
-        mais
+        more
       </span>
     </figcaption>
   </figure>

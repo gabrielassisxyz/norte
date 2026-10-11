@@ -4,10 +4,10 @@ import { describe, expect, it } from 'vitest'
 import Flashcard from './Flashcard.vue'
 
 const props = {
-  deck: 'Sistemas',
+  deck: 'Systems',
   position: '3/10',
-  front: 'Pergunta de frente',
-  back: 'Resposta de trás'
+  front: 'Front question',
+  back: 'Back answer'
 }
 
 function press(key: string): void {
@@ -27,7 +27,7 @@ describe('Flashcard', () => {
 
     await wrapper.find('.nt-card-reveal button').trigger('click')
 
-    expect(wrapper.find('.nt-card-back').text()).toBe('Resposta de trás')
+    expect(wrapper.find('.nt-card-back').text()).toBe('Back answer')
     expect(wrapper.emitted('reveal')).toHaveLength(1)
   })
 
@@ -39,6 +39,17 @@ describe('Flashcard', () => {
 
     expect(wrapper.find('.nt-card-back').exists()).toBe(true)
     wrapper.unmount()
+  })
+
+  it('labels the four ratings in English', () => {
+    const wrapper = mount(Flashcard, { props: { ...props, revealed: true } })
+
+    expect(wrapper.findAll('.nt-rate-label').map((node) => node.text())).toEqual([
+      'Again',
+      'Hard',
+      'Good',
+      'Easy'
+    ])
   })
 
   it('emits every rating from its buttons', async () => {

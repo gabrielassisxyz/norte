@@ -1,7 +1,7 @@
 <script setup lang="ts">
 withDefaults(defineProps<{ title?: string; tagline?: string }>(), {
   title: 'Norte',
-  tagline: 'Uma plataforma de cursos pessoal, guiada por objetivos.'
+  tagline: 'A personal course platform, driven by goals.'
 })
 </script>
 

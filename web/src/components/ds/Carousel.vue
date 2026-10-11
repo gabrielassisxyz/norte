@@ -12,7 +12,7 @@ const props = withDefaults(
     arrowTop?: number
     label?: string
   }>(),
-  { itemWidth: 248, gap: 24, visible: 4, step: 2, arrowTop: 64, label: 'Carrossel' }
+  { itemWidth: 248, gap: 24, visible: 4, step: 2, arrowTop: 64, label: 'Carousel' }
 )
 
 const slots = useSlots()
@@ -88,7 +88,7 @@ function next(): void {
       class="nt-carousel-btn is-prev"
       :style="{ top: `${arrowTop}px` }"
       :disabled="index === 0"
-      aria-label="Anteriores"
+      aria-label="Previous"
       @click="prev"
     >
       <Icon name="arrowLeft" />
@@ -98,7 +98,7 @@ function next(): void {
       class="nt-carousel-btn is-next"
       :style="{ top: `${arrowTop}px` }"
       :disabled="index >= maxIndex"
-      aria-label="Próximos"
+      aria-label="Next"
       @click="next"
     >
       <Icon name="arrow" />

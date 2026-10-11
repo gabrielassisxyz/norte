@@ -19,13 +19,13 @@ afterEach(() => {
 function mountMenu(props: Record<string, unknown> = {}) {
   const wrapper = mount(Menu, {
     attachTo: document.body,
-    props: { label: 'Ordenar: Mais recentes', menuLabel: 'Ordenar', ...props },
+    props: { label: 'Sort: Newest', menuLabel: 'Sort', ...props },
     slots: {
-      trigger: '<span>abrir</span>',
+      trigger: '<span>open</span>',
       default: `
-        <button type="button" role="menuitemradio" aria-checked="true" class="row-recentes">Mais recentes</button>
-        <button type="button" role="menuitemradio" aria-checked="false" class="row-antigos">Mais antigos</button>
-        <button type="button" role="menuitemradio" aria-checked="false" class="row-titulo">Título</button>
+        <button type="button" role="menuitemradio" aria-checked="true" class="row-recentes">Newest</button>
+        <button type="button" role="menuitemradio" aria-checked="false" class="row-antigos">Oldest</button>
+        <button type="button" role="menuitemradio" aria-checked="false" class="row-titulo">Title</button>
       `
     }
   })
@@ -40,14 +40,14 @@ describe('the design system menu', () => {
 
     expect(trigger.attributes('aria-haspopup')).toBe('menu')
     expect(trigger.attributes('aria-expanded')).toBe('false')
-    expect(trigger.attributes('aria-label')).toBe('Ordenar: Mais recentes')
+    expect(trigger.attributes('aria-label')).toBe('Sort: Newest')
     expect(wrapper.find('[role="menu"]').exists()).toBe(false)
 
     await trigger.trigger('click')
 
     expect(trigger.attributes('aria-expanded')).toBe('true')
     const panel = wrapper.get('[role="menu"]')
-    expect(panel.attributes('aria-label')).toBe('Ordenar')
+    expect(panel.attributes('aria-label')).toBe('Sort')
     expect(panel.findAll('[role="menuitemradio"]')).toHaveLength(3)
   })
 
@@ -164,13 +164,13 @@ describe('the design system menu', () => {
   it('skips an item nothing can choose when the arrows move', async () => {
     const wrapper = mount(Menu, {
       attachTo: document.body,
-      props: { label: 'Filtrar' },
+      props: { label: 'Filter' },
       slots: {
-        trigger: '<span>abrir</span>',
+        trigger: '<span>open</span>',
         default: `
-          <button type="button" role="menuitemcheckbox" aria-checked="false" class="row-um">Um</button>
-          <button type="button" role="menuitemcheckbox" aria-checked="false" class="row-dois" disabled>Dois</button>
-          <button type="button" role="menuitemcheckbox" aria-checked="false" class="row-tres">Três</button>
+          <button type="button" role="menuitemcheckbox" aria-checked="false" class="row-um">One</button>
+          <button type="button" role="menuitemcheckbox" aria-checked="false" class="row-dois" disabled>Two</button>
+          <button type="button" role="menuitemcheckbox" aria-checked="false" class="row-tres">Three</button>
         `
       }
     })

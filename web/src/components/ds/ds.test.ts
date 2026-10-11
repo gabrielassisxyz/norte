@@ -20,7 +20,7 @@ describe('design-system components', () => {
   it('Button renders variant, size, icon, and disabled state', () => {
     const wrapper = mount(Button, {
       props: { variant: 'primary', size: 'sm', icon: 'play', disabled: true },
-      slots: { default: 'Iniciar estudo' }
+      slots: { default: 'Start studying' }
     })
 
     expect(wrapper.classes()).toEqual(expect.arrayContaining(['nt-btn-primary', 'nt-btn-sm']))
@@ -43,7 +43,7 @@ describe('design-system components', () => {
 
   it('SyncStatus exposes each documented state label', () => {
     const states = ['saved', 'syncing', 'offline', 'conflict'] as const
-    const labels = ['Salvo localmente', 'Sincronizando', 'Offline · salvo local', 'Conflito para revisar']
+    const labels = ['Saved locally', 'Syncing', 'Offline · saved locally', 'Conflict to review']
 
     states.forEach((state, index) => {
       const wrapper = mount(SyncStatus, { props: { state } })
@@ -54,17 +54,17 @@ describe('design-system components', () => {
 
   it('Stat renders value, unit, label, and delta tone', () => {
     const wrapper = mount(Stat, {
-      props: { value: 18, unit: 'dias', label: 'Sequência atual', delta: '−2', deltaTone: 'down' }
+      props: { value: 18, unit: 'days', label: 'Current streak', delta: '−2', deltaTone: 'down' }
     })
 
     expect(wrapper.find('.nt-stat-value').text()).toContain('18')
-    expect(wrapper.find('.nt-stat-unit').text()).toBe('dias')
-    expect(wrapper.find('.nt-stat-label').text()).toBe('Sequência atual')
+    expect(wrapper.find('.nt-stat-unit').text()).toBe('days')
+    expect(wrapper.find('.nt-stat-label').text()).toBe('Current streak')
     expect(wrapper.find('.nt-stat-delta').classes()).toContain('is-down')
   })
 
   it('ProgressBar clamps values and renders accessible progress', () => {
-    const wrapper = mount(ProgressBar, { props: { value: 9, max: 12, label: 'Plano semanal' } })
+    const wrapper = mount(ProgressBar, { props: { value: 9, max: 12, label: 'Weekly plan' } })
     const progress = wrapper.get('[role="progressbar"]')
 
     expect(progress.attributes('aria-valuenow')).toBe('75')
@@ -74,34 +74,34 @@ describe('design-system components', () => {
 
   it('StreakGrid clamps day levels and renders the legend', () => {
     const wrapper = mount(StreakGrid, {
-      props: { days: [-1, 0, 2, 8], caption: 'Últimas semanas' }
+      props: { days: [-1, 0, 2, 8], caption: 'Last weeks' }
     })
 
-    expect(wrapper.get('[role="img"]').attributes('aria-label')).toBe('Histórico de estudo')
+    expect(wrapper.get('[role="img"]').attributes('aria-label')).toBe('Study history')
     expect(wrapper.findAll('.nt-streak-grid .nt-streak-cell').map((cell) => cell.attributes('data-level'))).toEqual([
       '0',
       '0',
       '2',
       '4'
     ])
-    expect(wrapper.text()).toContain('Últimas semanas')
-    expect(wrapper.text()).toContain('menos')
-    expect(wrapper.text()).toContain('mais')
+    expect(wrapper.text()).toContain('Last weeks')
+    expect(wrapper.text()).toContain('less')
+    expect(wrapper.text()).toContain('more')
   })
 
   it('PageTitle renders title, objective, meta, and actions', () => {
     const wrapper = mount(PageTitle, {
-      props: { title: 'Estudar redes', objective: 'Conseguir explicar uma topologia.' , meta: 'Salvo', actions: 'Continuar' }
+      props: { title: 'Study networks', objective: 'Be able to explain a topology.' , meta: 'Saved', actions: 'Continue' }
     })
 
-    expect(wrapper.get('h1').text()).toBe('Estudar redes')
-    expect(wrapper.get('.nt-pagetitle-objective').text()).toBe('Conseguir explicar uma topologia.')
-    expect(wrapper.get('.nt-pagetitle-meta').text()).toBe('Salvo')
-    expect(wrapper.get('.nt-pagetitle-actions').text()).toBe('Continuar')
+    expect(wrapper.get('h1').text()).toBe('Study networks')
+    expect(wrapper.get('.nt-pagetitle-objective').text()).toBe('Be able to explain a topology.')
+    expect(wrapper.get('.nt-pagetitle-meta').text()).toBe('Saved')
+    expect(wrapper.get('.nt-pagetitle-actions').text()).toBe('Continue')
   })
 
   it('NavItem renders the active navigation state and count', () => {
-    const wrapper = mount(NavItem, { props: { label: 'Revisão', href: '/revisao', active: true, count: 16 } })
+    const wrapper = mount(NavItem, { props: { label: 'Review', href: '/revisao', active: true, count: 16 } })
 
     expect(wrapper.attributes('href')).toBe('/revisao')
     expect(wrapper.attributes('aria-current')).toBe('page')
@@ -110,13 +110,13 @@ describe('design-system components', () => {
 
   it('SectionHeader supports heading level, action, and trailing slot', () => {
     const wrapper = mount(SectionHeader, {
-      props: { title: 'Próximos estudos', level: 3, actionLabel: 'Ver todos', actionHref: '/estudo' },
-      slots: { trailing: 'Filtros' }
+      props: { title: 'Upcoming studies', level: 3, actionLabel: 'See all', actionHref: '/estudo' },
+      slots: { trailing: 'Filters' }
     })
 
-    expect(wrapper.find('h3').text()).toBe('Próximos estudos')
+    expect(wrapper.find('h3').text()).toBe('Upcoming studies')
     expect(wrapper.get('.nt-sechead-link').attributes('href')).toBe('/estudo')
-    expect(wrapper.get('.nt-sechead-trailing').text()).toBe('Filtros')
+    expect(wrapper.get('.nt-sechead-trailing').text()).toBe('Filters')
   })
 
   it('SegmentedControl emits update:modelValue when an option is clicked', async () => {
@@ -124,8 +124,8 @@ describe('design-system components', () => {
       props: {
         defaultValue: 'one',
         options: [
-          { value: 'one', label: 'Um' },
-          { value: 'two', label: 'Dois', count: 2 }
+          { value: 'one', label: 'One' },
+          { value: 'two', label: 'Two', count: 2 }
         ]
       }
     })
@@ -141,8 +141,8 @@ describe('design-system components', () => {
       props: {
         defaultValue: 'note',
         items: [
-          { value: 'note', label: 'Nota' },
-          { value: 'annotations', label: 'Anotações', count: 4 }
+          { value: 'note', label: 'Note' },
+          { value: 'annotations', label: 'Annotations', count: 4 }
         ]
       }
     })
@@ -158,13 +158,13 @@ describe('design-system components', () => {
       props: {
         collapsed: true,
         tabs: [
-          { value: 'note', label: 'Nota', icon: 'note' },
-          { value: 'annotations', label: 'Anotações', count: 4, icon: 'comment' }
+          { value: 'note', label: 'Note', icon: 'note' },
+          { value: 'annotations', label: 'Annotations', count: 4, icon: 'comment' }
         ]
       }
     })
 
-    await wrapper.get('[aria-label="Abrir painel"]').trigger('click')
+    await wrapper.get('[aria-label="Open the panel"]').trigger('click')
     await wrapper.setProps({ collapsed: false })
 
     expect(wrapper.emitted('update:collapsed')).toEqual([[false]])
@@ -173,13 +173,13 @@ describe('design-system components', () => {
 
   it('TextField emits update:modelValue for text input and supports multiline', async () => {
     const wrapper = mount(TextField, {
-      props: { label: 'Nova anotação', multiline: true, modelValue: '' }
+      props: { label: 'New annotation', multiline: true, modelValue: '' }
     })
 
-    await wrapper.get('textarea').setValue('Uma ideia')
+    await wrapper.get('textarea').setValue('An idea')
 
     expect(wrapper.get('textarea').attributes('aria-describedby')).toBeUndefined()
-    expect(wrapper.emitted('update:modelValue')).toEqual([['Uma ideia']])
+    expect(wrapper.emitted('update:modelValue')).toEqual([['An idea']])
     expect(wrapper.get('label').attributes('for')).toBe(wrapper.get('textarea').attributes('id'))
   })
 

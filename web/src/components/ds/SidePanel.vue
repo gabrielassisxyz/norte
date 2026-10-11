@@ -33,8 +33,8 @@ function setCollapsed(value: boolean): void {
 </script>
 
 <template>
-  <aside v-if="isCollapsed" class="nt-rail" :aria-label="`${label || 'Painel'} recolhido`">
-    <button type="button" class="nt-rail-btn" aria-label="Abrir painel" @click="setCollapsed(false)">
+  <aside v-if="isCollapsed" class="nt-rail" :aria-label="`${label || 'Panel'} collapsed`">
+    <button type="button" class="nt-rail-btn" aria-label="Open the panel" @click="setCollapsed(false)">
       <Icon name="expand" />
     </button>
     <span class="nt-rail-sep" aria-hidden="true" />
@@ -43,17 +43,17 @@ function setCollapsed(value: boolean): void {
       :key="tab.value"
       type="button"
       class="nt-rail-btn"
-      :aria-label="`Abrir ${tab.label}${tab.count !== undefined ? `, ${tab.count}` : ''}`"
+      :aria-label="`Open ${tab.label}${tab.count !== undefined ? `, ${tab.count}` : ''}`"
       @click="selectTab(tab.value); setCollapsed(false)"
     >
       <Icon :name="tab.icon || 'note'" :size="18" />
       <span v-if="tab.count !== undefined" class="nt-rail-count">{{ tab.count }}</span>
     </button>
   </aside>
-  <aside v-else class="nt-panel" :aria-label="label || 'Painel'">
+  <aside v-else class="nt-panel" :aria-label="label || 'Panel'">
     <div class="nt-panel-head">
       <Tabs :items="tabs" :model-value="selectedTab" :label="label" @update:model-value="selectTab" />
-      <button type="button" class="nt-icon-btn" aria-label="Recolher painel" @click="setCollapsed(true)">
+      <button type="button" class="nt-icon-btn" aria-label="Collapse the panel" @click="setCollapsed(true)">
         <Icon name="collapse" />
       </button>
     </div>

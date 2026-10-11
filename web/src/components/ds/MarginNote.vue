@@ -3,7 +3,7 @@ import { computed } from 'vue'
 
 const props = defineProps<{ n: number; id?: string }>()
 
-const anchor = computed(() => props.id ?? `nota-${props.n}`)
+const anchor = computed(() => props.id ?? `note-${props.n}`)
 </script>
 
 <template>

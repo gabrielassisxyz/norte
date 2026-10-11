@@ -22,12 +22,12 @@ const props = withDefaults(
 )
 
 const KIND_LABEL: Record<QuestionKind, string> = {
-  what: 'O quê',
-  why: 'Por quê',
-  who: 'Quem',
-  when: 'Quando',
-  where: 'Onde',
-  how: 'Como'
+  what: 'What',
+  why: 'Why',
+  who: 'Who',
+  when: 'When',
+  where: 'Where',
+  how: 'How'
 }
 
 const answered = computed(() => props.status === 'answered')
@@ -43,10 +43,10 @@ const dropped = computed(() => props.status === 'dropped')
       <div class="nt-q-meta">
         <span v-if="answered" class="nt-q-state">
           <Icon name="check" :size="12" />
-          Respondida
+          Answered
         </span>
-        <span v-else-if="dropped">Descartada</span>
-        <span v-else>Aberta</span>
+        <span v-else-if="dropped">Dropped</span>
+        <span v-else>Open</span>
         <span v-if="topic">{{ topic }}</span>
         <span v-if="age" class="nt-q-age">{{ age }}</span>
       </div>
