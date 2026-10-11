@@ -33,7 +33,7 @@ const notesWorkerStep = time.Second
 // of what this module does is react to the library: the extraction event, the
 // text a highlight anchors against, and the registry row a note renders its
 // origin from. The notes-only harness is the same thing with that module left
-// out, which is how "Notas still lists them with titles from the registry" is
+// out, which is how "Notes still lists them with titles from the registry" is
 // proved rather than asserted.
 type notesHarness struct {
 	t        *testing.T

@@ -382,9 +382,9 @@ func (h NotesHandlers) GetNoteCounts(ctx context.Context, _ notesapi.GetNoteCoun
 		return nil, err
 	}
 	return notesapi.GetNoteCounts200JSONResponse{
-		Highlights: counts.Highlights,
-		Anotacoes:  counts.Annotations,
-		Perguntas:  counts.Questions,
-		Conjuntos:  counts.Sets,
+		Highlights:   counts.Highlights,
+		Annotations:  counts.Annotations,
+		Questions:    counts.Questions,
+		QuestionSets: counts.Sets,
 	}, nil
 }

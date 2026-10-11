@@ -166,7 +166,7 @@ paths:
       summary: Read the one freeform note an item carries
       description: |
         An item that has never been annotated answers with an empty text rather
-        than 404: the reader's "Nota" tab is a place to write, and a missing
+        than 404: the reader's "Note" tab is a place to write, and a missing
         note is an empty one.
       parameters:
         - $ref: "#/components/parameters/PathItemID"
@@ -334,7 +334,7 @@ paths:
       operationId: getNoteCounts
       summary: Count the notes by kind
       description: |
-        What the sidebar and the Notas tabs print. It is one query rather than
+        What the sidebar and the Notes tabs print. It is one query rather than
         three list calls, so a screen showing the counts never pages a list it
         does not render.
       responses:
@@ -771,17 +771,17 @@ components:
       additionalProperties: false
       required:
         - highlights
-        - anotacoes
-        - perguntas
-        - conjuntos
+        - annotations
+        - questions
+        - question_sets
       properties:
         highlights:
           type: integer
-        anotacoes:
+        annotations:
           type: integer
-        perguntas:
+        questions:
           type: integer
-        conjuntos:
+        question_sets:
           type: integer
     ErrorDetail:
       type: object

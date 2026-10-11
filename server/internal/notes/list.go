@@ -233,7 +233,7 @@ type NotesHighlightPage struct {
 //
 // The source item's title is read in the same statement, from core_items rather
 // than from the owning module: that is what makes a highlight render its origin
-// with the library switched off, and it is why Notas needs no library call.
+// with the library switched off, and it is why Notes needs no library call.
 func (s *NotesService) ListHighlights(ctx context.Context, in NotesListInput) (NotesHighlightPage, error) {
 	page, err := notesPreparePage("highlights", in, []string{in.ItemID, in.Query}, "notes_highlights")
 	if err != nil {

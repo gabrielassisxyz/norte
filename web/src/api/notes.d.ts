@@ -107,7 +107,7 @@ export interface paths {
         /**
          * Read the one freeform note an item carries
          * @description An item that has never been annotated answers with an empty text rather
-         *     than 404: the reader's "Nota" tab is a place to write, and a missing
+         *     than 404: the reader's "Note" tab is a place to write, and a missing
          *     note is an empty one.
          */
         get: operations["getNoteItemNote"];
@@ -217,7 +217,7 @@ export interface paths {
         };
         /**
          * Count the notes by kind
-         * @description What the sidebar and the Notas tabs print. It is one query rather than
+         * @description What the sidebar and the Notes tabs print. It is one query rather than
          *     three list calls, so a screen showing the counts never pages a list it
          *     does not render.
          */
@@ -402,9 +402,9 @@ export interface components {
         };
         NoteCounts: {
             highlights: number;
-            anotacoes: number;
-            perguntas: number;
-            conjuntos: number;
+            annotations: number;
+            questions: number;
+            question_sets: number;
         };
         ErrorDetail: {
             code: string;

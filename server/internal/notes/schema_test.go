@@ -77,7 +77,7 @@ func TestNoNotesTableHasAForeignKeyOutsideItsOwnModule(t *testing.T) {
 func TestTheQuestionKindCheckRefusesAKindTheContractDoesNotName(t *testing.T) {
 	harness := newNotesHarness(t)
 	insert := `INSERT INTO notes_questions (id, kind, text, status, created_at, updated_at)
-	           VALUES (?, ?, 'uma pergunta?', 'open', '2026-10-08T20:00:00Z', '2026-10-08T20:00:00Z')`
+	           VALUES (?, ?, 'a question?', 'open', '2026-10-08T20:00:00Z', '2026-10-08T20:00:00Z')`
 
 	if _, err := harness.database.Writer().Exec(insert, "q-other", "other"); err == nil {
 		t.Fatal("the CHECK accepted kind 'other'")
@@ -92,7 +92,7 @@ func TestTheQuestionKindCheckRefusesAKindTheContractDoesNotName(t *testing.T) {
 	}
 	if _, err := harness.database.Writer().Exec(
 		`INSERT INTO notes_questions (id, kind, text, status, created_at, updated_at)
-		 VALUES ('q-null', NULL, 'uma pergunta?', 'open', '2026-10-08T20:00:00Z', '2026-10-08T20:00:00Z')`); err != nil {
+		 VALUES ('q-null', NULL, 'a question?', 'open', '2026-10-08T20:00:00Z', '2026-10-08T20:00:00Z')`); err != nil {
 		t.Fatalf("the CHECK refused a question with no kind: %v", err)
 	}
 }
@@ -103,16 +103,16 @@ func TestTheQuestionKindCheckRefusesAKindTheContractDoesNotName(t *testing.T) {
 // not.
 func TestDeletingAHighlightTakesItsAnnotationsAndSparesTheQuestion(t *testing.T) {
 	harness := newNotesHarness(t)
-	itemID := harness.saveArticle("Um artigo", "Antes. O trecho marcado. Depois.")
+	itemID := harness.saveArticle("An article", "Before. The marked passage. After.")
 
 	highlight := notesDecode[map[string]any](t, harness.request(http.MethodPost, "/api/notes/highlights",
-		map[string]any{"item_id": itemID, "exact": "O trecho marcado.", "prefix": "Antes. ", "suffix": " Depois."}),
+		map[string]any{"item_id": itemID, "exact": "The marked passage.", "prefix": "Before. ", "suffix": " After."}),
 		http.StatusCreated)
 	annotation := notesDecode[map[string]any](t, harness.request(http.MethodPost, "/api/notes/annotations",
-		map[string]any{"item_id": itemID, "highlight_id": highlight["id"], "text": "testar isto"}),
+		map[string]any{"item_id": itemID, "highlight_id": highlight["id"], "text": "testing this"}),
 		http.StatusCreated)
 	question := notesDecode[map[string]any](t, harness.request(http.MethodPost, "/api/notes/questions",
-		map[string]any{"annotation_id": annotation["id"], "text": "Por que isto importa?"}),
+		map[string]any{"annotation_id": annotation["id"], "text": "Why does this matter?"}),
 		http.StatusCreated)
 
 	if recorder := harness.request(http.MethodDelete,
