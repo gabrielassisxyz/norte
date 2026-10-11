@@ -39,7 +39,7 @@ test('413 is visible and never falls back to URL only', async () => {
   const api = saveAPI();
   let posts = 0;
   const result = await createSaveService(api, async () => { posts++; return { status: 413, ok: false }; })(tab);
-  assert.equal(result.message, 'página grande demais para salvar');
+  assert.equal(result.message, 'the page is too large to save');
   assert.equal(posts, 1);
   assert.equal(api.stored[resultKey(tab.url)].state, 'error');
 });
@@ -77,7 +77,7 @@ test('target wire shapes, subject search, and all pages are honored', async () =
   ]);
   assert.equal(new URL(urls[1]).searchParams.get('q'), 'science & art');
   assert.equal(new URL(urls[2]).searchParams.get('cursor'), 'next token');
-  await assert.rejects(loadTargets('http://host', '', async () => ({ ok: false })), /não respondeu/);
+  await assert.rejects(loadTargets('http://host', '', async () => ({ ok: false })), /did not answer/);
 });
 
 test('upload timeout scales with body size and is capped', () => {

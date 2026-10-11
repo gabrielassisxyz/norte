@@ -21,13 +21,13 @@ test('loaded extension saves authenticated HTML, metadata and Unicode selection,
     window.getSelection().addRange(range);
   }, selectedText);
   const view = await popup();
-  await expect(view.getByRole('button', { name: 'Salvar', exact: true })).toBeFocused();
-  await view.getByLabel('Por que salvei').fill('Compare observations next month');
-  await view.getByLabel('Assunto ou foco', { exact: true }).selectOption(subject.id);
-  await view.getByRole('button', { name: 'Salvar', exact: true }).focus();
+  await expect(view.getByRole('button', { name: 'Save', exact: true })).toBeFocused();
+  await view.getByLabel('Why am I saving this?').fill('Compare observations next month');
+  await view.getByLabel('Subject or focus', { exact: true }).selectOption(subject.id);
+  await view.getByRole('button', { name: 'Save', exact: true }).focus();
   await view.keyboard.press('Enter');
   await view.keyboard.press('Enter');
-  await expect(view.locator('#status')).toHaveText('salvo');
+  await expect(view.locator('#status')).toHaveText('saved');
   expect(posts).toHaveLength(1);
   expect(posts[0]).toMatchObject({ url: `${origin}/article`, reason: 'Compare observations next month', link_to: [subject.id], source: 'extension' });
   expect(posts[0].html).toContain(articleText);
@@ -56,7 +56,7 @@ test('missing host grant asks for settings without a server error', async () => 
   harness = await startHarness({ granted: false });
   const view = await harness.popup();
   await expect(view.locator('#configure')).toBeVisible();
-  await expect(view.locator('#configure')).toHaveText('configure o servidor');
+  await expect(view.locator('#configure')).toHaveText('configure the server');
   await expect(view.locator('#configure')).toHaveAttribute('href', 'settings.html');
   await expect(view.locator('#save')).toBeDisabled();
   expect(harness.posts).toHaveLength(0);
@@ -68,7 +68,7 @@ test('413 stays visible without a URL-only fallback', async () => {
   const view = await harness.popup();
   await expect(view.locator('#save')).toBeEnabled();
   await view.locator('#save').click();
-  await expect(view.locator('#status')).toHaveText('página grande demais para salvar');
+  await expect(view.locator('#status')).toHaveText('the page is too large to save');
   expect(harness.posts).toHaveLength(1);
   expect(harness.posts[0].html).toContain(articleText);
 });
@@ -81,7 +81,7 @@ test('closing the popup keeps the save alive and results belong only to that URL
   await view.close();
   await expect.poll(() => harness.posts.length).toBe(1);
   const reopened = await harness.popup();
-  await expect(reopened.locator('#status')).toHaveText('salvo');
+  await expect(reopened.locator('#status')).toHaveText('saved');
   expect(harness.posts).toHaveLength(1);
   await reopened.close();
   const other = await harness.context.newPage();
@@ -96,7 +96,7 @@ test('restricted page sends nothing and a stopped server reports its own error',
   const restricted = await harness.context.newPage();
   await restricted.goto('chrome://version');
   const blocked = await harness.popup(restricted);
-  await expect(blocked.locator('#status')).toContainText('Não foi possível ler esta página');
+  await expect(blocked.locator('#status')).toContainText('This page could not be read');
   await expect(blocked.locator('#save')).toBeDisabled();
   expect(harness.posts).toHaveLength(0);
   await blocked.close();
@@ -104,6 +104,6 @@ test('restricted page sends nothing and a stopped server reports its own error',
   await expect(view.locator('#save')).toBeEnabled();
   await harness.stopServer();
   await view.locator('#save').click();
-  await expect(view.locator('#status')).toContainText('O servidor não respondeu');
+  await expect(view.locator('#status')).toContainText('The server did not answer');
   expect(harness.posts).toHaveLength(0);
 });

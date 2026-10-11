@@ -56,11 +56,11 @@ test('settings rejects invalid URLs before requesting permission and persists on
     assert.equal(api.writes.length, 0);
   }
   const denied = settingsAPI(false);
-  await assert.rejects(configureServer('http://host:8080', denied, () => { throw new Error('must not fetch'); }), /Permissão/);
+  await assert.rejects(configureServer('http://host:8080', denied, () => { throw new Error('must not fetch'); }), /Permission refused/);
   assert.equal(denied.writes.length, 0);
   assert.equal(await configuredOrigin(denied), null);
   const offline = settingsAPI();
-  await assert.rejects(configureServer('http://host', offline, async () => { throw new Error('offline'); }), /não respondeu/);
+  await assert.rejects(configureServer('http://host', offline, async () => { throw new Error('offline'); }), /did not answer/);
   assert.equal(offline.writes.length, 0);
   assert.equal(serverOrigin('http://host:8080'), serverOrigin('http://host:8080/'));
   for (const value of ['http://host:8080', 'http://host:8080/']) {

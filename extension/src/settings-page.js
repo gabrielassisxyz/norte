@@ -9,7 +9,7 @@ document.getElementById('settings-form').addEventListener('submit', async (event
   button.disabled = true;
   try {
     await configureServer(input.value, browserAPI);
-    status.textContent = 'Servidor conectado.';
+    status.textContent = 'Server connected.';
   } catch (error) {
     status.textContent = error.message;
   } finally { button.disabled = false; }

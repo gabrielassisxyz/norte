@@ -1,10 +1,10 @@
 import { configuredOrigin } from './settings.js';
 import { capturePage } from './capture.js';
 
-export const CANNOT_READ = 'Não foi possível ler esta página. Abra uma página http ou https fora da loja de extensões.';
-export const SERVER_ERROR = 'O servidor não respondeu. Confira se o Norte está aberto e tente novamente.';
-export const CONFIGURE = 'configure o servidor';
-export const INTERRUPTED = 'O salvamento foi interrompido. Tente novamente.';
+export const CANNOT_READ = 'This page could not be read. Open an http or https page outside the extension store.';
+export const SERVER_ERROR = 'The server did not answer. Check that Norte is running and try again.';
+export const CONFIGURE = 'configure the server';
+export const INTERRUPTED = 'The save was interrupted. Try again.';
 export const resultKey = (url) => `save:${url}`;
 
 const BASE_TIMEOUT_MS = 25000;
@@ -73,10 +73,10 @@ export function createSaveService(browserAPI, fetcher = fetch, now = Date.now) {
           signal: AbortSignal.timeout(timeout), redirect: 'error',
         });
       } catch { throw new Error(SERVER_ERROR); }
-      if (response.status === 413) throw new Error('página grande demais para salvar');
-      if (!response.ok) throw new Error(`Não foi possível salvar (HTTP ${response.status}). Tente novamente.`);
+      if (response.status === 413) throw new Error('the page is too large to save');
+      if (!response.ok) throw new Error(`Could not save (HTTP ${response.status}). Try again.`);
       const item = await response.json();
-      if (!item.id) throw new Error('O servidor retornou uma resposta sem identificação.');
+      if (!item.id) throw new Error('The server answered without an identifier.');
       const result = { state: 'saved', id: item.id, origin };
       await browserAPI.storage.local.set({ [key]: result });
       return result;
