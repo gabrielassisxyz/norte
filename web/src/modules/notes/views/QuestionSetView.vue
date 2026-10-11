@@ -21,32 +21,32 @@ const questions = computed(() => set.value?.questions ?? [])
 
 <template>
   <main v-if="firstLoad" class="set-view set-state" role="status">
-    <p>Carregando o conjunto…</p>
+    <p>Loading the set…</p>
   </main>
 
   <main v-else-if="error" class="set-view set-state" role="alert">
-    <p>Não foi possível carregar o conjunto: {{ error }}</p>
-    <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+    <p>Could not load the set: {{ error }}</p>
+    <Button variant="secondary" @click="refresh()">Try again</Button>
   </main>
 
   <main v-else-if="!set" class="set-view set-state">
-    <p>Este conjunto não existe.</p>
-    <RouterLink :to="{ name: 'notas-conjuntos' }">Voltar para os conjuntos</RouterLink>
+    <p>This set does not exist.</p>
+    <RouterLink :to="{ name: 'notes-question-sets' }">Back to the sets</RouterLink>
   </main>
 
   <main v-else class="set-view">
     <div class="set-inner">
       <header class="set-head">
         <h1>{{ set.topic }}</h1>
-        <RouterLink class="set-back" :to="{ name: 'notas-conjuntos' }">Conjuntos</RouterLink>
+        <RouterLink class="set-back" :to="{ name: 'notes-question-sets' }">Sets</RouterLink>
       </header>
       <p class="set-meta">
-        <span class="set-mono">{{ set.question_count === 1 ? '1 pergunta' : `${set.question_count} perguntas` }}</span>
+        <span class="set-mono">{{ set.question_count === 1 ? '1 question' : `${set.question_count} questions` }}</span>
         <span class="set-mono">{{ formatShortDate(set.created_at) }}</span>
       </p>
 
       <p v-if="questions.length === 0" class="set-state">
-        Este conjunto foi aberto sem perguntas. Nada foi guardado além do tema.
+        This set was opened with no questions. Nothing was kept but the topic.
       </p>
 
       <article v-for="question in questions" :key="question.id" class="set-question">

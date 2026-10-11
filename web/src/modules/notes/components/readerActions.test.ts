@@ -19,18 +19,18 @@ import { fakeNotesSource, highlightRecord, type FakeNotesRecords } from '../data
 // reader renders what they put there.
 import '../index'
 
-const ARTICLE_HTML = '<p>Antes do trecho. O trecho marcado. Depois do trecho.</p>'
+const ARTICLE_HTML = '<p>Before the passage. The marked passage. After the passage.</p>'
 
 const SELECTION = {
-  exact: 'O trecho marcado.',
-  prefix: 'Antes do trecho. ',
-  suffix: ' Depois do trecho.'
+  exact: 'The marked passage.',
+  prefix: 'Before the passage. ',
+  suffix: ' After the passage.'
 }
 
 function record(overrides: Partial<LibraryItemRecord> = {}): LibraryItemRecord {
   return libraryRecord({
     id: 'item-1',
-    title: 'Um texto guardado',
+    title: 'A kept text',
     content_html: ARTICLE_HTML,
     ...overrides
   })
@@ -125,44 +125,44 @@ async function markedArticle(html: string, highlights: Array<Parameters<typeof h
 
 describe('marking a passage in the article', () => {
   it('marks the occurrence its context points at, not the first one', async () => {
-    const { root, marks } = await markedArticle('<p>Um: a mesma frase. fim. Dois: a mesma frase. fim.</p>', [
-      { id: 'h-1', exact: 'a mesma frase.', prefix: 'Dois: ', suffix: ' fim.' }
+    const { root, marks } = await markedArticle('<p>One: the same sentence. end. Two: the same sentence. end.</p>', [
+      { id: 'h-1', exact: 'the same sentence.', prefix: 'Two: ', suffix: ' end.' }
     ])
 
     expect(marks).toHaveLength(1)
-    expect(marks[0].previousSibling?.textContent).toBe('Um: a mesma frase. fim. Dois: ')
-    expect(root.textContent).toBe('Um: a mesma frase. fim. Dois: a mesma frase. fim.')
+    expect(marks[0].previousSibling?.textContent).toBe('One: the same sentence. end. Two: ')
+    expect(root.textContent).toBe('One: the same sentence. end. Two: the same sentence. end.')
   })
 
   it('marks a passage that crosses an inline element, one mark per text node', async () => {
     const { markedText, marks } = await markedArticle(
-      '<p>Antes. O trecho <em>muito marcado</em> de <a href="#">verdade</a>. Depois.</p>',
-      [{ id: 'h-1', exact: 'O trecho muito marcado de verdade.', prefix: 'Antes. ', suffix: ' Depois.' }]
+      '<p>Before. The passage <em>deeply marked</em> for <a href="#">real</a>. After.</p>',
+      [{ id: 'h-1', exact: 'The passage deeply marked for real.', prefix: 'Before. ', suffix: ' After.' }]
     )
 
     expect(marks.length).toBeGreaterThan(1)
-    expect(markedText).toBe('O trecho |muito marcado| de |verdade|.')
+    expect(markedText).toBe('The passage |deeply marked| for |real|.')
   })
 
   it('marks a passage whose DOM text has a newline and a double space in it', async () => {
-    const { markedText } = await markedArticle('<p>Antes do trecho.\n  O trecho\nmarcado  agora.\nDepois.</p>', [
-      { id: 'h-1', exact: 'O trecho marcado agora.', prefix: 'Antes do trecho. ', suffix: ' Depois.' }
+    const { markedText } = await markedArticle('<p>Before the passage.\n  The passage\nmarked  now.\nAfter.</p>', [
+      { id: 'h-1', exact: 'The passage marked now.', prefix: 'Before the passage. ', suffix: ' After.' }
     ])
 
-    expect(markedText).toBe('O trecho\nmarcado  agora.')
+    expect(markedText).toBe('The passage\nmarked  now.')
   })
 
   it('marks nothing when two occurrences have the same context', async () => {
-    const { marks } = await markedArticle('<p>Igual: a mesma frase. fim. Igual: a mesma frase. fim.</p>', [
-      { id: 'h-1', exact: 'a mesma frase.', prefix: 'Igual: ', suffix: ' fim.' }
-    ])
+    const { marks } = await markedArticle('<p>Same: the same sentence. end. Same: the same sentence. end.</p>', [
+      { id: 'h-1', exact: 'the same sentence.', prefix: 'Same: ', suffix: ' end.' }
+    })
 
     expect(marks).toHaveLength(0)
   })
 
   it('marks nothing when the words around the passage are not the stored ones', async () => {
-    const { marks } = await markedArticle('<p>Outra coisa. O trecho marcado. Mais outra.</p>', [
-      { id: 'h-1', exact: 'O trecho marcado.', prefix: 'Antes do trecho. ', suffix: ' Depois do trecho.' }
+    const { marks } = await markedArticle('<p>Something else. The marked passage. More besides.</p>', [
+      { id: 'h-1', exact: 'The marked passage.', prefix: 'Before the passage. ', suffix: ' After the passage.' }
     ])
 
     expect(marks).toHaveLength(0)
@@ -173,24 +173,24 @@ describe("the reader's notes actions", () => {
   it('highlights the passage the person selected, with the words around it', async () => {
     const { wrapper, notes } = await mountReader()
 
-    selectInArticle('O trecho marcado.')
+    selectInArticle('The marked passage.')
     await wrapper.get('.reader-scroll').trigger('mouseup')
     await flushReads()
 
-    await wrapper.get('[data-action="destacar"]').trigger('click')
+    await wrapper.get('[data-action="highlight"]').trigger('click')
     await flushReads()
 
     expect(notes.calls.addedHighlights).toHaveLength(1)
     const sent = notes.calls.addedHighlights[0]
     expect(sent.item_id).toBe('item-1')
-    expect(sent.exact).toBe('O trecho marcado.')
+    expect(sent.exact).toBe('The marked passage.')
     // The context is what tells two occurrences of one sentence apart, so it
     // has to travel: the server refuses to guess between them without it.
-    expect(sent.prefix).toContain('Antes do trecho.')
-    expect(sent.suffix).toContain('Depois do trecho.')
+    expect(sent.prefix).toContain('Before the passage.')
+    expect(sent.suffix).toContain('After the passage.')
   })
 
-  /** Destacar against a server that answers with `orphan`, which is what it stores. */
+  /** Highlight against a server that answers with `orphan`, which is what it stores. */
   async function destacarAnsweredWith(orphan: Partial<Parameters<typeof highlightRecord>[0]>) {
     const mounted = await mountReader()
     mounted.notes.addHighlight = async (highlight) =>
@@ -201,10 +201,10 @@ describe("the reader's notes actions", () => {
         ...orphan
       })
 
-    selectInArticle('O trecho marcado.')
+    selectInArticle('The marked passage.')
     await mounted.wrapper.get('.reader-scroll').trigger('mouseup')
     await flushReads()
-    await mounted.wrapper.get('[data-action="destacar"]').trigger('click')
+    await mounted.wrapper.get('[data-action="highlight"]').trigger('click')
     await flushReads()
     return mounted
   }
@@ -213,7 +213,7 @@ describe("the reader's notes actions", () => {
     const { wrapper } = await destacarAnsweredWith({ status: 'orphaned', ambiguous: true })
 
     expect(wrapper.get('[data-notes-unplaced="repeated"]').text()).toBe(
-      'trecho repetido: destaque guardado sem posição'
+      'repeated passage: highlight kept without a position'
     )
   })
 
@@ -224,7 +224,7 @@ describe("the reader's notes actions", () => {
     const { wrapper } = await destacarAnsweredWith({ status: 'orphaned' })
 
     expect(wrapper.get('[data-notes-unplaced="missing"]').text()).toBe(
-      'trecho não encontrado neste texto: destaque guardado sem posição'
+      'passage not found in this text: highlight kept without a position'
     )
   })
 
@@ -238,12 +238,12 @@ describe("the reader's notes actions", () => {
 
   it('marks an anchored passage in the text', async () => {
     const { wrapper } = await mountReader({
-      notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'O trecho marcado.' })] }
+      notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'The marked passage.' })] }
     })
 
     const marked = wrapper.findAll('mark[data-notes-passage]')
     expect(marked).toHaveLength(1)
-    expect(marked[0].text()).toBe('O trecho marcado.')
+    expect(marked[0].text()).toBe('The marked passage.')
   })
 
   it('marks the passage again every time the article renders, not once', async () => {
@@ -255,7 +255,7 @@ describe("the reader's notes actions", () => {
     const root = document.createElement('div')
     root.innerHTML = ARTICLE_HTML
     const notes = fakeNotesSource({
-      highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'O trecho marcado.' })]
+      highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'The marked passage.' })]
     })
     const wrapper = mount(ReaderHighlightAction, {
       props: readerSlotProps({ articleRoot: root }),
@@ -275,32 +275,32 @@ describe("the reader's notes actions", () => {
 
   it('writes a note in the margin against the passage it was opened on', async () => {
     const { wrapper, notes } = await mountReader({
-      notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'O trecho marcado.' })] }
+      notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'The marked passage.' })] }
     })
 
     await wrapper.get('.nt-ann button').trigger('click')
-    await wrapper.get('#notes-reader-annotation').setValue('Revisar esta ideia.')
-    await wrapper.get('[data-action="anotar"]').trigger('click')
+    await wrapper.get('#notes-reader-annotation').setValue('Revisit this idea.')
+    await wrapper.get('[data-action="annotate"]').trigger('click')
     await flushReads()
 
     expect(notes.calls.addedAnnotations).toEqual([
-      { item_id: 'item-1', text: 'Revisar esta ideia.', highlight_id: 'h-1' }
+      { item_id: 'item-1', text: 'Revisit this idea.', highlight_id: 'h-1' }
     ])
   })
 
   it('keeps the one note per item in its own tab', async () => {
     const { wrapper, notes } = await mountReader()
 
-    const tabs = wrapper.findAll('[aria-label="Notas desta leitura"] [role="tab"]')
+    const tabs = wrapper.findAll('[aria-label="Notes for this reading"] [role="tab"]')
     await tabs[tabs.length - 1].trigger('click')
     await flushReads()
 
-    await wrapper.get('#notes-reader-note').setValue('Uma nota sobre o texto inteiro.')
-    await wrapper.get('[data-action="salvar-nota"]').trigger('click')
+    await wrapper.get('#notes-reader-note').setValue('A note about the whole text.')
+    await wrapper.get('[data-action="save-note"]').trigger('click')
     await flushReads()
 
     expect(notes.calls.writtenNotes).toEqual([
-      { itemId: 'item-1', text: 'Uma nota sobre o texto inteiro.' }
+      { itemId: 'item-1', text: 'A note about the whole text.' }
     ])
   })
 
@@ -312,20 +312,20 @@ describe("the reader's notes actions", () => {
             id: 'h-lost',
             item_id: 'item-1',
             status: 'orphaned',
-            exact: 'Um trecho que saiu do texto.'
+            exact: 'A passage that left the text.'
           })
         ]
       }
     })
 
     const orphans = wrapper.get('[aria-labelledby="notes-orphans-title"]')
-    expect(orphans.text()).toContain('Um trecho que saiu do texto.')
-    expect(orphans.text()).toContain('não foram encontrados neste texto')
+    expect(orphans.text()).toContain('A passage that left the text.')
+    expect(orphans.text()).toContain('not found in this text')
     // The reader cannot know why a stored passage has no position, so it must
     // not name a reason: `ambiguous` rides the create response and is never
     // stored, and a re-extraction is only one of the two ways this list fills.
-    expect(orphans.text()).not.toContain('extraído de novo')
-    expect(orphans.text()).toContain('Podem estar repetidos no texto ou não estar mais nele')
+    expect(orphans.text()).not.toContain('extracted again')
+    expect(orphans.text()).toContain('They may be repeated in the text or no longer in it')
     // An orphaned passage is not marked in the text: that is the whole reason
     // it is listed here.
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(0)
@@ -334,20 +334,20 @@ describe("the reader's notes actions", () => {
   it('turns a reading into a question, pointing at the margin note it came from', async () => {
     const { wrapper, notes } = await mountReader()
 
-    await wrapper.get('#notes-reader-annotation').setValue('Isto merece uma pergunta.')
-    await wrapper.get('[data-action="anotar"]').trigger('click')
+    await wrapper.get('#notes-reader-annotation').setValue('This deserves a question.')
+    await wrapper.get('[data-action="annotate"]').trigger('click')
     await flushReads()
     const annotationId = notes.held.annotations[0].id
 
-    await wrapper.get('[aria-label="Anotação de origem"]').setValue(annotationId)
-    await wrapper.get('#notes-reader-question').setValue('Por que isto merece uma pergunta?')
-    await wrapper.get('[data-action="virar-pergunta"]').trigger('click')
+    await wrapper.get('[aria-label="Source annotation"]').setValue(annotationId)
+    await wrapper.get('#notes-reader-question').setValue('Why does this deserve a question?')
+    await wrapper.get('[data-action="turn-into-question"]').trigger('click')
     await flushReads()
 
     expect(notes.calls.addedQuestions).toEqual([
       {
         item_id: 'item-1',
-        text: 'Por que isto merece uma pergunta?',
+        text: 'Why does this deserve a question?',
         annotation_id: annotationId
       }
     ])
@@ -356,27 +356,27 @@ describe("the reader's notes actions", () => {
   it('refuses a question that does not end in a question mark', async () => {
     const { wrapper, notes } = await mountReader()
 
-    await wrapper.get('#notes-reader-question').setValue('Isto não é uma pergunta')
-    await wrapper.get('[data-action="virar-pergunta"]').trigger('click')
+    await wrapper.get('#notes-reader-question').setValue('This is not a question')
+    await wrapper.get('[data-action="turn-into-question"]').trigger('click')
     await flushReads()
 
-    expect(wrapper.get('#notes-reader-question-error').text()).toBe('A pergunta precisa terminar com “?”.')
+    expect(wrapper.get('#notes-reader-question-error').text()).toBe('A question has to end with “?”.')
     expect(notes.calls.addedQuestions).toHaveLength(0)
   })
 
   it('turns the saved selection into a highlight with that exact text', async () => {
     const { wrapper, notes } = await mountReader({ item: record({ selection: SELECTION }) })
 
-    expect(wrapper.get('.reader-selection').text()).toContain('O trecho marcado.')
-    await wrapper.get('[data-action="virar-highlight"]').trigger('click')
+    expect(wrapper.get('.reader-selection').text()).toContain('The marked passage.')
+    await wrapper.get('[data-action="turn-into-highlight"]').trigger('click')
     await flushReads()
 
     expect(notes.calls.addedHighlights).toEqual([
       {
         item_id: 'item-1',
-        exact: 'O trecho marcado.',
-        prefix: 'Antes do trecho. ',
-        suffix: ' Depois do trecho.'
+        exact: 'The marked passage.',
+        prefix: 'Before the passage. ',
+        suffix: ' After the passage.'
       }
     ])
   })
@@ -385,7 +385,7 @@ describe("the reader's notes actions", () => {
     const { wrapper } = await mountReader({ item: record({ selection: SELECTION }) })
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(0)
 
-    await wrapper.get('[data-action="virar-highlight"]').trigger('click')
+    await wrapper.get('[data-action="turn-into-highlight"]').trigger('click')
     await flushReads()
 
     // The passage layer is a second copy of the item's notes, held by the
@@ -393,20 +393,20 @@ describe("the reader's notes actions", () => {
     // the creation makes every copy read again.
     const marked = wrapper.findAll('mark[data-notes-passage]')
     expect(marked).toHaveLength(1)
-    expect(marked[0].text()).toBe('O trecho marcado.')
+    expect(marked[0].text()).toBe('The marked passage.')
   })
 
-  it('stops offering "Virar highlight" once the passage is stored', async () => {
+  it('stops offering "Turn into a highlight" once the passage is stored', async () => {
     const { wrapper } = await mountReader({ item: record({ selection: SELECTION }) })
 
-    await wrapper.get('[data-action="virar-highlight"]').trigger('click')
+    await wrapper.get('[data-action="turn-into-highlight"]').trigger('click')
     await flushReads()
 
-    expect(wrapper.find('[data-action="virar-highlight"]').exists()).toBe(false)
-    expect(wrapper.get('.notes-selection-done').text()).toBe('Trecho guardado nos highlights.')
+    expect(wrapper.find('[data-action="turn-into-highlight"]').exists()).toBe(false)
+    expect(wrapper.get('.notes-selection-done').text()).toBe('Passage kept in the highlights.')
   })
 
-  it('does not offer "Virar highlight" for a passage the item already holds', async () => {
+  it('does not offer "Turn into a highlight" for a passage the item already holds', async () => {
     // What a reload looks like: the highlight is on the server and the action is
     // mounted knowing nothing of the click that made it. Offering the button
     // again is how a second copy of one passage got stored.
@@ -417,52 +417,52 @@ describe("the reader's notes actions", () => {
           highlightRecord({
             id: 'h-stored',
             item_id: 'item-1',
-            exact: 'O trecho marcado.',
-            prefix: 'Antes do trecho. ',
-            suffix: ' Depois do trecho.'
+            exact: 'The marked passage.',
+            prefix: 'Before the passage. ',
+            suffix: ' After the passage.'
           })
         ]
       }
     })
 
-    expect(wrapper.find('[data-action="virar-highlight"]').exists()).toBe(false)
-    expect(wrapper.get('.notes-selection-done').text()).toBe('Trecho guardado nos highlights.')
+    expect(wrapper.find('[data-action="turn-into-highlight"]').exists()).toBe(false)
+    expect(wrapper.get('.notes-selection-done').text()).toBe('Passage kept in the highlights.')
   })
 
-  it('puts a passage highlighted with Destacar in the margin list, with no reload', async () => {
+  it('puts a passage highlighted with Highlight in the margin list, with no reload', async () => {
     const { wrapper } = await mountReader()
     expect(wrapper.findAll('.nt-ann')).toHaveLength(0)
 
-    selectInArticle('O trecho marcado.')
+    selectInArticle('The marked passage.')
     await wrapper.get('.reader-scroll').trigger('mouseup')
     await flushReads()
-    await wrapper.get('[data-action="destacar"]').trigger('click')
+    await wrapper.get('[data-action="highlight"]').trigger('click')
     await flushReads()
 
     // The panel under the article holds its own copy of the item's notes, so
     // this row is only here because the creation made that copy read again.
     const rows = wrapper.findAll('.nt-ann')
     expect(rows).toHaveLength(1)
-    expect(rows[0].text()).toContain('O trecho marcado.')
+    expect(rows[0].text()).toContain('The marked passage.')
   })
 
   it('renders none of the five actions when the server lists only the library', async () => {
     const { wrapper } = await mountReader({
       item: record({ selection: SELECTION }),
-      notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'O trecho marcado.' })] },
+      notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'The marked passage.' })] },
       modules: ['library']
     })
 
     // The article is there: this is a reader, not an empty page.
-    expect(wrapper.get('.article-content').text()).toContain('O trecho marcado.')
+    expect(wrapper.get('.article-content').text()).toContain('The marked passage.')
     // And the saved selection still shows, without the action under it.
-    expect(wrapper.get('.reader-selection').text()).toContain('O trecho marcado.')
+    expect(wrapper.get('.reader-selection').text()).toContain('The marked passage.')
 
-    expect(wrapper.find('[data-action="virar-highlight"]').exists()).toBe(false)
-    expect(wrapper.find('[data-action="destacar"]').exists()).toBe(false)
-    expect(wrapper.find('[data-action="anotar"]').exists()).toBe(false)
-    expect(wrapper.find('[data-action="salvar-nota"]').exists()).toBe(false)
-    expect(wrapper.find('[data-action="virar-pergunta"]').exists()).toBe(false)
+    expect(wrapper.find('[data-action="turn-into-highlight"]').exists()).toBe(false)
+    expect(wrapper.find('[data-action="highlight"]').exists()).toBe(false)
+    expect(wrapper.find('[data-action="annotate"]').exists()).toBe(false)
+    expect(wrapper.find('[data-action="save-note"]').exists()).toBe(false)
+    expect(wrapper.find('[data-action="turn-into-question"]').exists()).toBe(false)
     expect(wrapper.find('[aria-labelledby="notes-reader-title"]').exists()).toBe(false)
   })
 })

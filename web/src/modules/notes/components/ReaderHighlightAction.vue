@@ -18,7 +18,7 @@ import { markPassage } from './passageMarking'
  * It fills the reader's `bottom-actions` slot, which is the bar across the
  * bottom on a phone and the place under the article it has always been
  * otherwise. In the bar the control is there before anything is selected, so
- * that "Destacar" is a visible action rather than something that appears if you
+ * that "Highlight" is a visible action rather than something that appears if you
  * happen to have selected the right thing first; under the article it stays
  * what it was, a box that shows up with the passage in it.
  *
@@ -50,8 +50,8 @@ const { data: notesOfItem, applyHighlight } = useItemNotes(
 type UnplacedReason = 'repeated' | 'missing'
 
 const UNPLACED_NOTICES: Record<UnplacedReason, string> = {
-  repeated: 'trecho repetido: destaque guardado sem posição',
-  missing: 'trecho não encontrado neste texto: destaque guardado sem posição'
+  repeated: 'repeated passage: highlight kept without a position',
+  missing: 'passage not found in this text: highlight kept without a position'
 }
 
 const unplacedReason = ref<UnplacedReason | null>(null)
@@ -107,18 +107,18 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
 
 <template>
   <div v-if="allowed" class="notes-highlight-action" :class="{ 'is-pinned': liveSelection }">
-    <div v-if="liveSelection || phone" class="notes-selection-bar" role="group" aria-label="Trecho selecionado">
+    <div v-if="liveSelection || phone" class="notes-selection-bar" role="group" aria-label="Selected passage">
       <blockquote v-if="liveSelection" class="notes-selection-quote">{{ liveSelection.exact }}</blockquote>
       <Button
-        data-action="destacar"
+        data-action="highlight"
         variant="primary"
         size="sm"
         :disabled="!liveSelection || writing.pending.value"
         @click="highlightSelection"
       >
-        Destacar
+        Highlight
       </Button>
-      <Button v-if="liveSelection" variant="secondary" size="sm" @click="clearSelection">Cancelar</Button>
+      <Button v-if="liveSelection" variant="secondary" size="sm" @click="clearSelection">Cancel</Button>
     </div>
     <p
       v-if="unplacedReason"
@@ -129,7 +129,7 @@ watch([() => props.renderedAt, () => props.articleRoot, anchored], markPassages,
       {{ UNPLACED_NOTICES[unplacedReason] }}
     </p>
     <p v-if="writing.error.value" class="notes-highlight-error" role="alert">
-      Não foi possível destacar: {{ writing.error.value }}
+      Could not highlight: {{ writing.error.value }}
     </p>
   </div>
 </template>

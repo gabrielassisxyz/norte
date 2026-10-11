@@ -15,22 +15,22 @@ export { manifest }
 
 export const routes = [
   {
-    path: '/notas',
-    name: 'notas',
+    path: '/notes',
+    name: 'notes',
     component: () => import('./views/NotesView.vue'),
-    meta: { title: 'Notas' }
+    meta: { title: 'Notes' }
   },
   {
-    path: '/notas/conjuntos',
-    name: 'notas-conjuntos',
+    path: '/notes/sets',
+    name: 'notes-question-sets',
     component: () => import('./views/QuestionSetsView.vue'),
-    meta: { title: 'Conjuntos de perguntas' }
+    meta: { title: 'Question sets' }
   },
   {
-    path: '/notas/conjuntos/:id',
-    name: 'notas-conjunto',
+    path: '/notes/sets/:id',
+    name: 'notes-question-set',
     component: () => import('./views/QuestionSetView.vue'),
-    meta: { title: 'Conjunto de perguntas' }
+    meta: { title: 'Question set' }
   }
 ]
 
@@ -81,28 +81,28 @@ export function useSidebar(): ModuleSidebar {
   function noteRows(): SidebarRow[] {
     return [
       {
-        id: 'anotacoes',
-        label: 'Anotações',
-        to: { name: 'notas', query: { tab: 'anotacoes' } },
-        count: counts.value?.anotacoes ?? 0
+        id: 'annotations',
+        label: 'Annotations',
+        to: { name: 'notes', query: { tab: 'annotations' } },
+        count: counts.value?.annotations ?? 0
       },
       {
         id: 'highlights',
         label: 'Highlights',
-        to: { name: 'notas', query: { tab: 'highlights' } },
+        to: { name: 'notes', query: { tab: 'highlights' } },
         count: counts.value?.highlights ?? 0
       },
       {
-        id: 'perguntas-notas',
-        label: 'Perguntas',
-        to: { name: 'notas', query: { tab: 'perguntas' } },
-        count: counts.value?.perguntas ?? 0
+        id: 'notes-questions',
+        label: 'Questions',
+        to: { name: 'notes', query: { tab: 'questions' } },
+        count: counts.value?.questions ?? 0
       },
       {
-        id: 'conjuntos',
-        label: 'Conjuntos',
-        to: { name: 'notas-conjuntos' },
-        count: counts.value?.conjuntos ?? 0
+        id: 'question-sets',
+        label: 'Question sets',
+        to: { name: 'notes-question-sets' },
+        count: counts.value?.question_sets ?? 0
       }
     ]
   }
@@ -110,22 +110,22 @@ export function useSidebar(): ModuleSidebar {
   return {
     sections: [
       {
-        id: 'notas',
-        label: 'Notas',
-        to: { name: 'notas' },
+        id: 'notes',
+        label: 'Notes',
+        to: { name: 'notes' },
         order: 40,
-        activeRouteNames: ['notas', 'notas-conjuntos', 'notas-conjunto'],
+        activeRouteNames: ['notes', 'notes-question-sets', 'notes-question-set'],
         rows: noteRows
       },
       {
-        // Questions are written while studying, so Estudo gets a way into them.
-        id: 'estudo-perguntas',
-        label: 'Perguntas',
-        to: { name: 'notas', query: { tab: 'perguntas' } },
+        // Questions are written while studying, so Study gets a way into them.
+        id: 'study-questions',
+        label: 'Questions',
+        to: { name: 'notes', query: { tab: 'questions' } },
         order: 45,
         activeRouteNames: [],
         nestUnder: 'study' as const,
-        count: () => counts.value?.perguntas ?? 0
+        count: () => counts.value?.questions ?? 0
       }
     ],
     shortcuts: []
@@ -139,19 +139,19 @@ export function useSearchEntries(): ComputedRef<SearchEntry[]> {
   return computed<SearchEntry[]>(() => [
     {
       group: 'Estudo',
-      title: 'Notas',
-      subtitle: 'Highlights, anotações e perguntas',
+      title: 'Notes',
+      subtitle: 'Highlights, annotations and questions',
       kind: 'tela',
-      keywords: 'highlights anotacoes perguntas',
-      to: { name: 'notas' }
+      keywords: 'highlights annotations questions',
+      to: { name: 'notes' }
     },
     {
       group: 'Estudo',
-      title: 'Conjuntos de perguntas',
-      subtitle: 'Um tema e as seis perguntas',
+      title: 'Question sets',
+      subtitle: 'A topic and its six questions',
       kind: 'tela',
-      keywords: 'conjunto perguntas tema o que por que quem quando onde como',
-      to: { name: 'notas-conjuntos' }
+      keywords: 'question set questions topic what why who when where how',
+      to: { name: 'notes-question-sets' }
     }
   ])
 }

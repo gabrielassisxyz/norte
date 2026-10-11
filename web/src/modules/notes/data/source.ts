@@ -26,8 +26,8 @@ export type NewQuestionSet = components['schemas']['NewQuestionSet']
 /** The six prompts a question set offers, in the order its screen shows them. */
 export const QUESTION_KINDS: QuestionKind[] = ['what', 'why', 'who', 'when', 'where', 'how']
 
-/** The three lists the Notas screen is split into, named as its tabs are. */
-export type NoteTab = 'highlights' | 'anotacoes' | 'perguntas'
+/** The three lists the Notes screen is split into, named as its tabs are. */
+export type NoteTab = 'highlights' | 'annotations' | 'questions'
 
 /**
  * The filters a notes list is read with — every one of them a query parameter.
@@ -90,10 +90,10 @@ export interface NotesSource {
 
 /** The label each prompt of a question set is offered under. */
 export const QUESTION_KIND_LABELS: Record<QuestionKind, string> = {
-  what: 'O quê',
-  why: 'Por quê',
-  who: 'Quem',
-  when: 'Quando',
-  where: 'Onde',
-  how: 'Como'
+  what: 'What',
+  why: 'Why',
+  who: 'Who',
+  when: 'When',
+  where: 'Where',
+  how: 'How'
 }

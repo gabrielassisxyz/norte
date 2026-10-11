@@ -11,7 +11,7 @@ import { useItemNotes } from '../data/composables'
 import { notesGainedNote } from '../data/revision'
 
 /**
- * "Virar highlight" on the passage captured when the link was saved.
+ * "Turn into a highlight" on the passage captured when the link was saved.
  *
  * It renders inside the reader's selection box, through the slot the library
  * exposes, so the library never names this module. With notes switched off
@@ -81,17 +81,17 @@ async function turnIntoHighlight(): Promise<void> {
   <div v-if="allowed && selection" class="notes-selection-action">
     <Button
       v-if="!stored"
-      data-action="virar-highlight"
+      data-action="turn-into-highlight"
       variant="secondary"
       size="sm"
       :disabled="writing.pending.value"
       @click="turnIntoHighlight"
     >
-      Virar highlight
+      Turn into a highlight
     </Button>
-    <p v-else class="notes-selection-done" role="status">Trecho guardado nos highlights.</p>
+    <p v-else class="notes-selection-done" role="status">Passage kept in the highlights.</p>
     <p v-if="writing.error.value" class="notes-selection-error" role="alert">
-      Não foi possível guardar: {{ writing.error.value }}
+      Could not keep: {{ writing.error.value }}
     </p>
   </div>
 </template>

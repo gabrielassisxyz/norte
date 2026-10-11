@@ -21,11 +21,11 @@ import {
 import { noteChanged } from '../data/revision'
 import type { NoteSourceRef, NoteTab } from '../data/source'
 
-const TABS: NoteTab[] = ['highlights', 'anotacoes', 'perguntas']
+const TABS: NoteTab[] = ['highlights', 'annotations', 'questions']
 const TAB_LABELS: Record<NoteTab, string> = {
   highlights: 'Highlights',
-  anotacoes: 'Anotações',
-  perguntas: 'Perguntas'
+  annotations: 'Annotations',
+  questions: 'Questions'
 }
 
 const route = useRoute()
@@ -54,14 +54,14 @@ const query = computed(() => ({ q: filter.value.trim() }))
  * and what made the question's kind and answer fields optional on a highlight.
  */
 const highlights = useNotesHighlights(query, () => tab.value === 'highlights')
-const annotations = useNotesAnnotations(query, () => tab.value === 'anotacoes')
-const questions = useNotesQuestions(query, () => tab.value === 'perguntas')
+const annotations = useNotesAnnotations(query, () => tab.value === 'annotations')
+const questions = useNotesQuestions(query, () => tab.value === 'questions')
 const { data: counts } = useNotesSummary()
 const writing = useAsyncAction()
 
 const active = computed(() => {
   if (tab.value === 'highlights') return highlights
-  if (tab.value === 'anotacoes') return annotations
+  if (tab.value === 'annotations') return annotations
   return questions
 })
 
@@ -84,7 +84,7 @@ const heading = computed(() => TAB_LABELS[tab.value])
  *
  * Notes cannot read the library's catalogue — it has to keep working with the
  * library switched off — so what is offered is the items the person already has
- * notes on, which the registry gave us with each row. "Sem material" is the
+ * notes on, which the registry gave us with each row. "No material" is the
  * default, because a question raised while thinking is not about a text.
  */
 const questionItems = computed<NoteSourceRef[]>(() => {
@@ -100,10 +100,10 @@ const questionItems = computed<NoteSourceRef[]>(() => {
 })
 
 const emptyText = computed(() => {
-  if (filter.value.trim()) return `Nada encontrado para “${filter.value.trim()}”.`
-  if (tab.value === 'highlights') return 'Nenhum highlight ainda. O que você marcar na leitura aparece aqui.'
-  if (tab.value === 'anotacoes') return 'Nenhuma anotação ainda.'
-  return 'Nenhuma pergunta ainda.'
+  if (filter.value.trim()) return `Nothing found for “${filter.value.trim()}”.`
+  if (tab.value === 'highlights') return 'No highlights yet. Whatever you mark while reading shows up here.'
+  if (tab.value === 'annotations') return 'No annotations yet.'
+  return 'No questions yet.'
 })
 
 /**
@@ -130,13 +130,13 @@ watch(
 async function selectTab(value: string): Promise<void> {
   if (!isNotesTab(value)) return
   tab.value = value
-  await router.replace({ name: 'notas', query: { ...route.query, tab: value } })
+  await router.replace({ name: 'notes', query: { ...route.query, tab: value } })
 }
 
 async function addQuestion(): Promise<void> {
   const text = questionText.value.trim()
   if (!text.endsWith('?')) {
-    questionError.value = 'A pergunta precisa terminar com “?”.'
+    questionError.value = 'A question has to end with “?”.'
     return
   }
 
@@ -144,7 +144,7 @@ async function addQuestion(): Promise<void> {
     notesSource.addQuestion({ text, ...(questionItem.value ? { item_id: questionItem.value } : {}) })
   )
   if (!created) {
-    questionError.value = `Não foi possível salvar: ${writing.error.value ?? 'erro desconhecido'}`
+    questionError.value = `Could not save: ${writing.error.value ?? 'unknown error'}`
     return
   }
 
@@ -167,45 +167,45 @@ async function addQuestion(): Promise<void> {
       <header class="notes-head">
         <div class="notes-tabs">
           <h1>{{ heading }}</h1>
-          <SegmentedControl :model-value="tab" :options="options" label="Tipo de nota" @change="selectTab" />
+          <SegmentedControl :model-value="tab" :options="options" label="Kind of note" @change="selectTab" />
         </div>
-        <RouterLink class="notes-sets-link" :to="{ name: 'notas-conjuntos' }">Conjuntos de perguntas</RouterLink>
-        <label class="notes-filter-label" for="notes-filter">Filtrar</label>
+        <RouterLink class="notes-sets-link" :to="{ name: 'notes-question-sets' }">Question sets</RouterLink>
+        <label class="notes-filter-label" for="notes-filter">Filter</label>
         <input
           id="notes-filter"
           v-model="filter"
           class="notes-filter"
           type="search"
-          placeholder="Filtrar por texto ou fonte…"
+          placeholder="Filter by text or source…"
         />
       </header>
 
-      <p v-if="firstLoad" class="notes-state" role="status">Carregando as notas…</p>
+      <p v-if="firstLoad" class="notes-state" role="status">Loading the notes…</p>
 
       <div v-else-if="error" class="notes-state" role="alert">
-        <p>Não foi possível carregar as notas: {{ error }}</p>
-        <Button variant="secondary" @click="active.refresh()">Tentar de novo</Button>
+        <p>The notes could not be loaded: {{ error }}</p>
+        <Button variant="secondary" @click="active.refresh()">Try again</Button>
       </div>
 
-      <section v-else-if="tab === 'highlights'" aria-label="Lista de highlights" class="notes-highlights">
+      <section v-else-if="tab === 'highlights'" aria-label="Highlights list" class="notes-highlights">
         <p v-if="shownCount === 0" class="notes-state">{{ emptyText }}</p>
         <article v-for="highlight in highlights.data.value?.items ?? []" :key="highlight.id" class="notes-highlight">
           <Highlight
             :quote="highlight.exact"
-            :source="highlight.source?.title ?? 'Material sem fonte'"
+            :source="highlight.source?.title ?? 'Unknown source'"
             :timestamp="formatShortDate(highlight.created_at)"
             :href="sourcePath(highlight.source)"
           />
           <p v-if="highlight.status === 'orphaned'" class="notes-orphaned">
-            Este trecho não está mais no texto extraído.
+            This passage is no longer in the extracted text.
           </p>
           <div v-if="sourcePath(highlight.source)" class="notes-links">
-            <RouterLink :to="sourcePath(highlight.source)!">Abrir fonte</RouterLink>
+            <RouterLink :to="sourcePath(highlight.source)!">Open the source</RouterLink>
           </div>
         </article>
       </section>
 
-      <section v-else-if="tab === 'anotacoes'" aria-label="Lista de anotações" class="notes-annotations">
+      <section v-else-if="tab === 'annotations'" aria-label="Annotations list" class="notes-annotations">
         <p v-if="shownCount === 0" class="notes-state">{{ emptyText }}</p>
         <article
           v-for="annotation in annotations.data.value?.items ?? []"
@@ -219,32 +219,32 @@ async function addQuestion(): Promise<void> {
             :time="formatShortDate(annotation.created_at)"
           />
           <div v-if="sourcePath(annotation.source)" class="notes-links">
-            <RouterLink :to="sourcePath(annotation.source)!">Abrir fonte</RouterLink>
+            <RouterLink :to="sourcePath(annotation.source)!">Open the source</RouterLink>
           </div>
         </article>
       </section>
 
       <section v-else aria-labelledby="new-question-title" class="notes-questions">
         <form class="notes-question-form" @submit.prevent="addQuestion">
-          <label id="new-question-title" for="new-question">Nova pergunta</label>
-          <label class="notes-filter-label" for="new-question-item">Material de origem</label>
+          <label id="new-question-title" for="new-question">New question</label>
+          <label class="notes-filter-label" for="new-question-item">Source material</label>
           <select id="new-question-item" v-model="questionItem">
-            <option value="">Sem material</option>
+            <option value="">No material</option>
             <option v-for="item in questionItems" :key="item.id" :value="item.id">{{ item.title }}</option>
           </select>
           <textarea
             id="new-question"
             v-model="questionText"
             rows="2"
-            placeholder="Termina com “?”. Ex.: Por que a curva de esquecimento é exponencial?"
+            placeholder="Ends with “?”. E.g.: Why is the forgetting curve exponential?"
             aria-describedby="question-error"
             @input="questionError = ''"
           />
           <p v-if="questionError" id="question-error" class="notes-question-error" role="alert">{{ questionError }}</p>
-          <div class="notes-submit"><Button variant="primary" type="submit">Adicionar à lista</Button></div>
+          <div class="notes-submit"><Button variant="primary" type="submit">Add to the list</Button></div>
         </form>
 
-        <div class="notes-question-list" aria-label="Lista de perguntas">
+        <div class="notes-question-list" aria-label="Questions list">
           <p v-if="shownCount === 0" class="notes-state">{{ emptyText }}</p>
           <article v-for="question in questions.data.value?.items ?? []" :key="question.id" class="notes-question">
             <QuestionItem
@@ -256,7 +256,7 @@ async function addQuestion(): Promise<void> {
               :age="formatDayAge(question.created_at, todayIsoDate())"
             />
             <div v-if="sourcePath(question.source)" class="notes-links">
-              <RouterLink :to="sourcePath(question.source)!">Abrir fonte</RouterLink>
+              <RouterLink :to="sourcePath(question.source)!">Open the source</RouterLink>
             </div>
           </article>
         </div>
@@ -264,20 +264,20 @@ async function addQuestion(): Promise<void> {
 
       <div v-if="!firstLoad && !error" class="notes-foot">
         <p v-if="active.loadMoreError.value" class="notes-question-error" role="alert">
-          Não foi possível carregar mais: {{ active.loadMoreError.value }}
+          Could not load more: {{ active.loadMoreError.value }}
         </p>
         <Button
           v-if="active.hasMore.value"
-          data-action="carregar-mais"
+          data-action="load-more"
           variant="secondary"
           :disabled="active.loadingMore.value"
           @click="active.loadMore()"
         >
-          Carregar mais
+          Load more
         </Button>
         <p class="notes-count">
-          {{ shownCount }} {{ shownCount === 1 ? 'item' : 'itens'
-          }}<template v-if="filter.trim()"> para “{{ filter.trim() }}”</template>
+          {{ shownCount }} {{ shownCount === 1 ? 'item' : 'items'
+          }}<template v-if="filter.trim()"> for “{{ filter.trim() }}”</template>
         </p>
       </div>
     </div>

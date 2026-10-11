@@ -19,13 +19,13 @@ import type {
   QuestionSetSummary
 } from './source'
 
-/** One row of any of the three lists the Notas screen shows. */
+/** One row of any of the three lists the Notes screen shows. */
 export type NoteRow = HighlightRecord | AnnotationRecord | QuestionRecord
 
 export interface NotesListResource<TRow> extends AsyncResource<NotesPage<TRow>> {
   /** True while a further page is on its way, which is not the first load. */
   loadingMore: Ref<boolean>
-  /** Why the last "carregar mais" failed, or null; the loaded rows stay. */
+  /** Why the last "load more" failed, or null; the loaded rows stay. */
   loadMoreError: Ref<string | null>
   /** Whether the server said there is another page. */
   hasMore: ComputedRef<boolean>
@@ -48,7 +48,7 @@ type NotesListReader<TRow> = (
  * A changed query supersedes the request in flight rather than racing it, which
  * is what keeps a fast typist from seeing the results of a filter they have
  * already moved past. `data.items` is every page loaded so far, not the last
- * one: "carregar mais" is how the screen grows a list, so the value it renders
+ * one: "load more" is how the screen grows a list, so the value it renders
  * has to be the whole list and `next_cursor` the frontier of it.
  */
 function useNotesList<TRow extends { id: string }>(
@@ -230,7 +230,7 @@ export interface ItemNoteResource extends AsyncResource<ItemNoteRecord | null> {
   apply: (note: ItemNoteRecord) => void
 }
 
-/** The one freeform note an item carries, which is the reader's "Nota" tab. */
+/** The one freeform note an item carries, which is the reader's "Note" tab. */
 export function useItemNote(
   itemId: MaybeRefOrGetter<string>,
   enabled: MaybeRefOrGetter<boolean> = true
@@ -253,7 +253,7 @@ export function useItemNote(
 }
 
 /**
- * The counts the sidebar and the Notas tabs print, straight from `/counts`.
+ * The counts the sidebar and the Notes tabs print, straight from `/counts`.
  *
  * They are never derived from the rows on screen: a count over one page of a
  * paginated list is the size of that page, which is not what any of these
@@ -273,6 +273,6 @@ export function useNotesSummary(enabled: MaybeRefOrGetter<boolean> = true): Asyn
 /** Which tab a row belongs to, for a screen that counts what it just created. */
 export function noteTabOf(row: NoteRow): NoteTab {
   if ('exact' in row) return 'highlights'
-  if ('status' in row) return 'perguntas'
-  return 'anotacoes'
+  if ('status' in row) return 'questions'
+  return 'annotations'
 }

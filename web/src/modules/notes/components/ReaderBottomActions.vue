@@ -21,11 +21,11 @@ const allowed = computed(() => crossModuleActionAllowed('library', 'notes'))
 
 <template>
   <div v-if="allowed && phone" class="notes-bottom-actions">
-    <Button data-action="anotar-abrir" variant="secondary" size="sm" @click="props.openNotes('anotacoes')">
-      Anotar
+    <Button data-action="annotate-open" variant="secondary" size="sm" @click="props.openNotes('annotations')">
+      Annotate
     </Button>
-    <Button data-action="pergunta-abrir" variant="secondary" size="sm" @click="props.openNotes('pergunta')">
-      Pergunta
+    <Button data-action="question-open" variant="secondary" size="sm" @click="props.openNotes('question')">
+      Question
     </Button>
   </div>
 </template>
