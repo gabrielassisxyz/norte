@@ -22,13 +22,15 @@ import (
 // has just changed; the library knows nothing about that and must not.
 const LibraryItemExtractedEvent = "library.item_extracted"
 
-// The two follow-up job kinds extraction enqueues. Their handlers belong to
-// other beads -- the Telegram bot and the LLM classifier -- and until those
-// land the jobs sit queued, untouched, which is exactly what an unregistered
-// kind is meant to do.
+// The three follow-up job kinds extraction enqueues: the Telegram reply, the
+// classification that follows extraction, and the tagging that follows it
+// too. The handlers live in classify.go and tag.go; until a handler is
+// registered the jobs sit queued, untouched, which is exactly what an
+// unregistered kind is meant to do.
 const (
 	LibraryNotifyTelegramJobKind = "notify_telegram"
 	LibraryClassifyJobKind       = "classify"
+	LibraryTagJobKind            = "library.tag"
 )
 
 // libraryExtractPayload is what a save or a retry puts in the job.
@@ -372,6 +374,9 @@ func (e *LibraryExtraction) writeExtraction(
 	if err := e.enqueueClassification(ctx, tx, item.ID); err != nil {
 		return false, err
 	}
+	if err := e.enqueueTagging(ctx, tx, item.ID); err != nil {
+		return false, err
+	}
 	if err := tx.Commit(); err != nil {
 		return false, fmt.Errorf("committing the extraction of %s: %w", item.ID, err)
 	}
@@ -602,6 +607,29 @@ func libraryHasConfirmedLink(ctx context.Context, tx *sql.Tx, itemID string) (bo
 		return false, fmt.Errorf("reading the confirmed links of %s: %w", itemID, err)
 	}
 	return true, nil
+}
+
+// enqueueTagging queues the LLM's tags for the item, when there is an LLM to
+// ask. Unlike the classifier it has no person-confirmed state to respect: the
+// tags are not decisions to review, and a re-extraction runs the tagger
+// again, which keeps whatever was added by hand and never re-adds whatever
+// was removed by one.
+func (e *LibraryExtraction) enqueueTagging(ctx context.Context, tx *sql.Tx, itemID string) error {
+	if !e.llmConfigured {
+		return nil
+	}
+	payload, err := json.Marshal(map[string]string{"item_id": itemID})
+	if err != nil {
+		return fmt.Errorf("encoding the tag job of %s: %w", itemID, err)
+	}
+	// The kind is library.tag and the dedupe key is tag:<item>, spelled
+	// separately: the queue is read by a person, and the short key is the one
+	// they will find a run by.
+	if _, err := e.jobs.Enqueue(ctx, tx, LibraryTagJobKind, string(payload),
+		fmt.Sprintf("tag:%s", itemID)); err != nil {
+		return fmt.Errorf("enqueueing the tag job of %s: %w", itemID, err)
+	}
+	return nil
 }
 
 // libraryRevalidateReadPosition keeps a stored reading position across a

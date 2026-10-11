@@ -14,6 +14,7 @@ import (
 	libraryapi "github.com/gabrielassisxyz/norte/server/gen/api/library"
 	"github.com/gabrielassisxyz/norte/server/internal/app"
 	"github.com/gabrielassisxyz/norte/server/internal/core"
+	"github.com/gabrielassisxyz/norte/server/internal/library/db"
 )
 
 // LibraryHandlers implements the library's generated strict interface: plain
@@ -95,6 +96,9 @@ func (h LibraryHandlers) ListLibraryItems(ctx context.Context, request libraryap
 	if params.Q != nil {
 		in.Query = *params.Q
 	}
+	if params.Tag != nil && *params.Tag != "" {
+		in.Tag = *params.Tag
+	}
 	if params.Cursor != nil {
 		in.Cursor = *params.Cursor
 	}
@@ -105,9 +109,13 @@ func (h LibraryHandlers) ListLibraryItems(ctx context.Context, request libraryap
 	if err != nil {
 		return libraryListError(err, ctx)
 	}
+	pageTags, err := h.service.TagsForItems(ctx, libraryIDsOf(result.Items))
+	if err != nil {
+		return nil, err
+	}
 	items := make([]libraryapi.LibraryItemSummary, 0, len(result.Items))
 	for _, row := range result.Items {
-		items = append(items, libraryMapSummary(row))
+		items = append(items, libraryMapSummary(row, pageTags[row.ID]))
 	}
 	list := libraryapi.LibraryItemList{Items: items}
 	if result.NextCursor != "" {
@@ -137,16 +145,25 @@ func (h LibraryHandlers) DrawLibraryItems(ctx context.Context, request libraryap
 		}
 		return nil, err
 	}
+	pageTags, err := h.service.TagsForItems(ctx, libraryIDsOf(result.Items))
+	if err != nil {
+		return nil, err
+	}
 	items := make([]libraryapi.LibraryItemSummary, 0, len(result.Items))
 	for _, row := range result.Items {
-		items = append(items, libraryMapSummary(row))
+		items = append(items, libraryMapSummary(row, pageTags[row.ID]))
 	}
 	return libraryapi.DrawLibraryItems200JSONResponse{Items: items}, nil
 }
 
-// GetLibraryCounts answers every library count in one query.
-func (h LibraryHandlers) GetLibraryCounts(ctx context.Context, _ libraryapi.GetLibraryCountsRequestObject) (libraryapi.GetLibraryCountsResponseObject, error) {
-	counts, err := h.service.Counts(ctx)
+// GetLibraryCounts answers every library count in one query, over the whole
+// library or over only the items carrying the tag the call named.
+func (h LibraryHandlers) GetLibraryCounts(ctx context.Context, request libraryapi.GetLibraryCountsRequestObject) (libraryapi.GetLibraryCountsResponseObject, error) {
+	tag := ""
+	if request.Params.Tag != nil {
+		tag = *request.Params.Tag
+	}
+	counts, err := h.service.Counts(ctx, tag)
 	if err != nil {
 		var domain *LibraryError
 		if errors.As(err, &domain) {
@@ -166,7 +183,11 @@ func (h LibraryHandlers) GetLibraryItem(ctx context.Context, request libraryapi.
 	if err != nil {
 		return libraryItemError(err, ctx)
 	}
-	return libraryapi.GetLibraryItem200JSONResponse(libraryMapItem(row)), nil
+	tags, err := h.service.ItemTags(ctx, request.Id)
+	if err != nil {
+		return nil, err
+	}
+	return libraryapi.GetLibraryItem200JSONResponse(libraryMapItem(row, tags)), nil
 }
 
 // PatchLibraryItem applies the fields present and returns the item after.
@@ -199,7 +220,11 @@ func (h LibraryHandlers) PatchLibraryItem(ctx context.Context, request libraryap
 	if err != nil {
 		return libraryPatchError(err, ctx)
 	}
-	return libraryapi.PatchLibraryItem200JSONResponse(libraryMapItem(row)), nil
+	tags, err := h.service.ItemTags(ctx, request.Id)
+	if err != nil {
+		return nil, err
+	}
+	return libraryapi.PatchLibraryItem200JSONResponse(libraryMapItem(row, tags)), nil
 }
 
 // ExtractLibraryItem puts an item back to pending and enqueues the extraction,
@@ -241,7 +266,21 @@ func (h LibraryHandlers) OpenLibraryItem(ctx context.Context, request libraryapi
 		}
 		return nil, err
 	}
-	return libraryapi.OpenLibraryItem200JSONResponse(libraryMapItem(row)), nil
+	tags, err := h.service.ItemTags(ctx, request.Id)
+	if err != nil {
+		return nil, err
+	}
+	return libraryapi.OpenLibraryItem200JSONResponse(libraryMapItem(row, tags)), nil
+}
+
+// libraryIDsOf is a page's distinct ids, in row order, which is what one tag
+// lookup is read by.
+func libraryIDsOf(items []db.LibraryItem) []string {
+	ids := make([]string, 0, len(items))
+	for _, row := range items {
+		ids = append(ids, row.ID)
+	}
+	return ids
 }
 
 // libraryErrorBody renders a domain failure in the one envelope the API

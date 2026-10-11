@@ -29,6 +29,10 @@ const (
 	libraryLocationVersion    = 4
 )
 
+// libraryTagVersion is the tags migration, which a database holding rows from
+// 00003 reaches through 00004's rename on its way up.
+const libraryTagVersion = 5
+
 // newLibraryMigrationHarness opens a database, migrates the core in full and
 // the library only as far as the migration before this one.
 func newLibraryMigrationHarness(t *testing.T) *libraryMigrationHarness {
@@ -373,7 +377,7 @@ func TestTheLibraryCountsAnswerEveryLocation(t *testing.T) {
 	}
 	librarySaveOne(t, service, "https://example.org/count-inbox", "")
 
-	counts, err := service.Counts(context.Background())
+	counts, err := service.Counts(context.Background(), "")
 	if err != nil {
 		t.Fatalf("counting the library: %v", err)
 	}
@@ -394,5 +398,86 @@ func TestTheLibraryCountsAnswerEveryLocation(t *testing.T) {
 	}
 	if fmt.Sprint(counts.Kinds.Article) != "5" {
 		t.Errorf("counts.kinds.article = %d, want 5", counts.Kinds.Article)
+	}
+}
+
+// TestTheTagMigrationHoldsTheTagShapeOnExistingItems is the up step arriving
+// over the migration before it: a database holding rows written at 00003 is
+// carried through the location rename and then given the three tag tables,
+// with every stored item intact. The shape each table pins is the shape the
+// tagger and the endpoints read -- one unique normalized name, one row per
+// item and tag closed to two origins, and the per-item removal record.
+func TestTheTagMigrationHoldsTheTagShapeOnExistingItems(t *testing.T) {
+	harness := newLibraryMigrationHarness(t)
+	harness.writePortugueseItem("row-inbox", "post", "inbox", "zarabatana")
+	harness.writePortugueseItem("row-depois", "livro", "depois", "para reler")
+
+	harness.upTo(libraryTagVersion)
+
+	if got := harness.queryString(`SELECT location FROM library_items WHERE id = ?`, "row-inbox"); got != "inbox" {
+		t.Fatalf("the pre-rename item landed in %q, want inbox", got)
+	}
+	if got := harness.queryString(`SELECT location FROM library_items WHERE id = ?`, "row-depois"); got != "later" {
+		t.Fatalf("the pre-rename item landed in %q, want later", got)
+	}
+
+	stamp := core.FormatTime(libraryFixedInstant)
+	harness.exec(`INSERT INTO library_tags (name, created_at) VALUES ('llm', ?)`, stamp)
+	harness.exec(`INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+	              VALUES ('row-inbox', 'llm', 'auto', ?)`, stamp)
+
+	// One row per item and tag: a UNIQUE index on the normalized name.
+	if err := harness.execErr(`INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+	           VALUES ('row-inbox', 'llm', 'manual', ?)`, stamp); err == nil {
+		t.Error("a second row for one item and tag was accepted")
+	}
+	if err := harness.execErr(`INSERT INTO library_tags (name, created_at) VALUES ('llm', ?)`, stamp); err == nil {
+		t.Error("a second vocabulary row for one normalized name was accepted")
+	}
+	if err := harness.execErr(`INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+	           VALUES ('row-inbox', 'origin-check', 'llm', ?)`, stamp); err == nil {
+		t.Error("an origin outside the two values was accepted")
+	}
+	// The tags point at items: a name the item table does not hold is refused.
+	if err := harness.execErr(`INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+	           VALUES ('row-gone', 'llm', 'auto', ?)`, stamp); err == nil {
+		t.Error("an item tag for an item that does not exist was accepted")
+	}
+
+	harness.exec(`INSERT INTO library_item_removed_tags (item_id, tag_name, created_at)
+	              VALUES ('row-depois', 'llm', ?)`, stamp)
+	if err := harness.execErr(`INSERT INTO library_item_removed_tags (item_id, tag_name, created_at)
+	           VALUES ('row-gone', 'llm', ?)`, stamp); err == nil {
+		t.Error("a removal record for an item that does not exist was accepted")
+	}
+
+	// A third item exists only to be deleted: what the ON DELETE CASCADE
+	// guarantees is that nothing is left pointing at it afterwards, so the
+	// rows above -- which point at items that stay -- are the control.
+	if err := harness.writeEnglishItem("row-cascade", "article", "archive", "kept"); err != nil {
+		t.Fatalf("writing the cascade item: %v", err)
+	}
+	harness.exec(`INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+	              VALUES ('row-cascade', 'llm', 'auto', ?)`, stamp)
+	harness.exec(`INSERT INTO library_item_removed_tags (item_id, tag_name, created_at)
+	              VALUES ('row-cascade', 'llm', ?)`, stamp)
+	harness.exec(`DELETE FROM library_items WHERE id = 'row-cascade'`)
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_item_tags`); got != 1 {
+		t.Errorf("%d item tag rows remain, want only the one on the item that stayed", got)
+	}
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_item_removed_tags`); got != 1 {
+		t.Errorf("%d removal records remain, want only the one on the item that stayed", got)
+	}
+
+	// The down step retires the three tables and touches nothing else.
+	harness.down()
+	for _, table := range []string{"library_tags", "library_item_tags", "library_item_removed_tags"} {
+		if got := harness.queryInt(
+			`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = ?`, table); got != 0 {
+			t.Errorf("%s survived the down step", table)
+		}
+	}
+	if got := harness.queryString(`SELECT location FROM library_items WHERE id = 'row-inbox'`); got != "inbox" {
+		t.Errorf("the item came back in %q after the down step, want inbox", got)
 	}
 }

@@ -121,3 +121,142 @@ WHERE id = ?;
 -- find out whether a newer request has superseded this run.
 -- name: GetLibraryExtractGeneration :one
 SELECT extract_generation FROM library_items WHERE id = ?;
+
+-- The vocabulary, and what serves it.
+
+-- Every tag in use with its item count, most used first and equal counts in
+-- alphabetical order. The LEFT JOIN is deliberate: a tag row without a single
+-- item is a broken invariant, and the endpoint reporting it at zero is the
+-- symptom a person can see, rather than a silently hidden row.
+-- name: ListLibraryTags :many
+SELECT t.name AS name, COUNT(it.item_id) AS item_count
+  FROM library_tags t
+  LEFT JOIN library_item_tags it ON it.tag_name = t.name
+ GROUP BY t.name
+ ORDER BY item_count DESC, t.name ASC;
+
+-- The automatic tagger's "prefer existing tags" list: every tag in use, most
+-- used first, capped by the caller's limit.
+-- name: ListLibraryVocabulary :many
+SELECT t.name
+  FROM library_tags t
+  JOIN library_item_tags it ON it.tag_name = t.name
+ GROUP BY t.name
+ ORDER BY COUNT(it.item_id) DESC, t.name ASC
+ LIMIT ?;
+
+-- One tag row, or nothing: what the rename checks against.
+-- name: GetLibraryTag :one
+SELECT name FROM library_tags WHERE name = ?;
+
+-- name: InsertLibraryTag :exec
+INSERT OR IGNORE INTO library_tags (name, created_at) VALUES (?, ?);
+
+-- Retires every tag nothing carries any more. Every path that deletes rows
+-- from library_item_tags runs this in its transaction, so the vocabulary and
+-- the item tags can never disagree about which tags exist.
+-- name: PruneUnusedLibraryTags :exec
+DELETE FROM library_tags
+ WHERE name NOT IN (SELECT DISTINCT tag_name FROM library_item_tags);
+
+-- One item's tags.
+
+-- name: ListLibraryItemTagNames :many
+SELECT tag_name FROM library_item_tags WHERE item_id = ? ORDER BY tag_name ASC;
+
+-- The same rows with who put them there, which is what the tag job's diff
+-- needs: it rewrites the rows it owns and never touches a manual one.
+-- name: ListLibraryItemTagRows :many
+SELECT tag_name, origin FROM library_item_tags WHERE item_id = ?;
+
+-- The tagger's insert, which keeps whatever row is already there: an existing
+-- manual row staying manual is the rule that a hand-add is never taken down
+-- by a later automatic answer.
+-- name: InsertLibraryItemTag :exec
+INSERT OR IGNORE INTO library_item_tags (item_id, tag_name, origin, created_at)
+VALUES (?, ?, ?, ?);
+
+-- The person's own add, which makes the tag theirs even when the tagger had
+-- it first: from here on the job must not remove it either.
+-- name: UpsertLibraryItemTagManual :exec
+INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+VALUES (?, ?, 'manual', ?)
+  ON CONFLICT (item_id, tag_name) DO UPDATE SET origin = 'manual';
+
+-- name: DeleteLibraryItemTag :exec
+DELETE FROM library_item_tags WHERE item_id = ? AND tag_name = ?;
+
+-- name: CountLibraryItemTagUses :one
+SELECT COUNT(*) AS item_count FROM library_item_tags WHERE tag_name = ?;
+
+-- The rename and the merge, one shape for both: the target row of the item
+-- tags absorbs the source's rows, manual origin beating automatic, and the
+-- tag's row moves when nothing held the target name already. Items whose
+-- person removed the target tag by hand are never re-tagged: a merge follows
+-- the removals rather than overriding them.
+-- name: MoveLibraryItemTags :exec
+INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+SELECT item_id, ?, origin, created_at
+  FROM library_item_tags
+ WHERE library_item_tags.tag_name = ?
+   AND item_id NOT IN (SELECT item_id FROM library_item_removed_tags
+                        WHERE library_item_removed_tags.tag_name = ?)
+ON CONFLICT (item_id, tag_name) DO UPDATE SET origin =
+    CASE WHEN library_item_tags.origin = 'manual' OR excluded.origin = 'manual'
+         THEN 'manual' ELSE 'auto' END;
+
+-- The source's rows are gone once they are absorbed, under either spelling.
+-- name: DeleteLibraryTagItemRows :exec
+DELETE FROM library_item_tags WHERE tag_name = ?;
+
+-- The rename carries the removed-by-hand records with the tag, so a refusal
+-- the person made keeps refusing under the new name.
+-- name: MoveLibraryRemovedItemTags :exec
+INSERT OR IGNORE INTO library_item_removed_tags (item_id, tag_name, created_at)
+SELECT item_id, ?, created_at
+  FROM library_item_removed_tags
+ WHERE library_item_removed_tags.tag_name = ?;
+
+-- name: DeleteLibraryRemovedItemTagRows :exec
+DELETE FROM library_item_removed_tags WHERE tag_name = ?;
+
+-- name: RenameLibraryTag :exec
+UPDATE OR IGNORE library_tags SET name = ? WHERE name = ?;
+
+-- What the person removed from one item by hand.
+
+-- name: ListLibraryRemovedItemTagNames :many
+SELECT tag_name FROM library_item_removed_tags WHERE item_id = ?;
+
+-- name: RecordLibraryRemovedItemTag :exec
+INSERT OR IGNORE INTO library_item_removed_tags (item_id, tag_name, created_at)
+VALUES (?, ?, ?);
+
+-- Handing the tag back: the person re-added what they once removed, and the
+-- record that keeps the tagger from re-adding it must not outlive that.
+-- name: DropLibraryRemovedItemTag :exec
+DELETE FROM library_item_removed_tags WHERE item_id = ? AND tag_name = ?;
+
+-- Every count the library screen shows, over only the items carrying one tag,
+-- which is what the counts endpoint answers while a tag is selected.
+-- name: CountLibraryItemsByTag :one
+WITH tagged AS (
+    SELECT id, kind, location, unread
+      FROM library_items
+     WHERE id IN (SELECT item_id FROM library_item_tags WHERE tag_name = ?)
+)
+SELECT
+    (SELECT COUNT(*) FROM tagged WHERE location = 'inbox') AS inbox,
+    (SELECT COUNT(*) FROM tagged WHERE location = 'up_next') AS up_next,
+    (SELECT COUNT(*) FROM tagged WHERE location = 'later') AS later,
+    (SELECT COUNT(*) FROM tagged WHERE location = 'archive') AS archive,
+    (SELECT COUNT(*) FROM tagged WHERE location = 'stash') AS stash,
+    (SELECT COUNT(*) FROM tagged) AS all_items,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'article') AS kind_article,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'book') AS kind_book,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'paper') AS kind_paper,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'video') AS kind_video,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'podcast') AS kind_podcast,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'newsletter') AS kind_newsletter,
+    (SELECT COUNT(*) FROM tagged WHERE kind = 'course') AS kind_course,
+    (SELECT COUNT(*) FROM tagged WHERE unread = 1) AS unread;
