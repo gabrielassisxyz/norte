@@ -435,7 +435,7 @@ func TestTheTagMigrationHoldsTheTagShapeOnExistingItems(t *testing.T) {
 		t.Error("a second vocabulary row for one normalized name was accepted")
 	}
 	if err := harness.execErr(`INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
-	           VALUES ('row-inbox', 'llm', 'llm', ?)`, stamp); err == nil {
+	           VALUES ('row-inbox', 'origin-check', 'llm', ?)`, stamp); err == nil {
 		t.Error("an origin outside the two values was accepted")
 	}
 	// The tags point at items: a name the item table does not hold is refused.

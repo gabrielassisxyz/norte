@@ -517,6 +517,20 @@ func TestTheTagEndpointsAnswerThroughTheRouter(t *testing.T) {
 		t.Fatalf("the second item's add answered %d", status)
 	}
 
+	// The list reads its tags before anything is folded, in the order the
+	// vocabulary reads them -- not the order they were written in.
+	status, body = libraryRequest(t, handler, http.MethodGet,
+		"/api/library/items?view=all", nil)
+	if status != http.StatusOK {
+		t.Fatalf("the list answered %d: %v", status, body)
+	}
+	for _, item := range body["items"].([]any) {
+		summary := item.(map[string]any)
+		if summary["id"] == id && fmt.Sprint(summary["tags"]) != "[llm rust]" {
+			t.Fatalf("the summary carries tags %v, want [llm rust], sorted", summary["tags"])
+		}
+	}
+
 	// The vocabulary reads back through its own endpoint, most used first.
 	status, body = libraryRequest(t, handler, http.MethodGet, "/api/library/tags", nil)
 	if status != http.StatusOK {
