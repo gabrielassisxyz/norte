@@ -76,7 +76,7 @@ describe('the subject screen', () => {
   })
 
   it('says so when no subject answers to that address', async () => {
-    const { wrapper } = await mountSubject('nao-existe')
+    const { wrapper } = await mountSubject('no-such-slug')
 
     expect(wrapper.text()).toContain('No subject at the address')
     expect(wrapper.find('h1').exists()).toBe(false)
