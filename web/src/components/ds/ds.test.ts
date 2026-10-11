@@ -101,9 +101,9 @@ describe('design-system components', () => {
   })
 
   it('NavItem renders the active navigation state and count', () => {
-    const wrapper = mount(NavItem, { props: { label: 'Review', href: '/revisao', active: true, count: 16 } })
+    const wrapper = mount(NavItem, { props: { label: 'Review', href: '/review', active: true, count: 16 } })
 
-    expect(wrapper.attributes('href')).toBe('/revisao')
+    expect(wrapper.attributes('href')).toBe('/review')
     expect(wrapper.attributes('aria-current')).toBe('page')
     expect(wrapper.find('.nt-nav-count').text()).toBe('16')
   })

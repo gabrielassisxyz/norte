@@ -65,7 +65,7 @@ describe('app shell', () => {
   it('names every screen on its own route', async () => {
     const cases: Array<[string, string]> = [
       ['/library', 'Library'],
-      ['/revisao', 'Revisão'],
+      ['/review', 'Review'],
       ['/projects', 'Projects'],
       ['/areas/a-casa', 'Home'],
       ['/projects/project-horta', 'Balcony garden'],
@@ -99,7 +99,7 @@ describe('app shell', () => {
     expect(targets['All']).toMatchObject({ name: 'library', query: { v: 'all' } })
     expect(targets['Later']).toMatchObject({ name: 'library', query: { v: 'later' } })
     expect(targets['Books']).toMatchObject({ name: 'library', query: { kind: 'book' } })
-    expect(targets['Revisão']).toMatchObject({ name: 'revisao' })
+    expect(targets['Review']).toMatchObject({ name: 'review' })
     expect(targets['Curricula']).toMatchObject({ name: 'study' })
     expect(targets['Annotations']).toMatchObject({ name: 'notes', query: { tab: 'annotations' } })
     expect(targets['Highlights']).toMatchObject({ name: 'notes', query: { tab: 'highlights' } })
@@ -108,7 +108,7 @@ describe('app shell', () => {
 
     for (const [label, target] of Object.entries(targets)) {
       expect(
-        ['home', 'library', 'notes', 'notes-question-sets', 'revisao', 'study', 'area', 'projects'],
+        ['home', 'library', 'notes', 'notes-question-sets', 'review', 'study', 'area', 'projects'],
         `sidebar entry "${label}" points at an unknown route`
       ).toContain(target.name)
     }
@@ -127,11 +127,11 @@ describe('app shell', () => {
   })
 
   it('marks the entry for the current route as active', async () => {
-    const { wrapper } = await mountAt('/revisao')
+    const { wrapper } = await mountAt('/review')
     await expandAll(wrapper)
 
-    const revisao = sidebarLinks(wrapper).find((link) => link.text().includes('Revisão'))
-    expect(revisao?.classes()).toContain('is-active')
+    const review = sidebarLinks(wrapper).find((link) => link.text().includes('Review'))
+    expect(review?.classes()).toContain('is-active')
   })
 
   it('collapses and expands sidebar sections', async () => {

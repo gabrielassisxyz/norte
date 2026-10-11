@@ -9,11 +9,11 @@ const dueCount = computed(() => summary.value?.due ?? 0)
 </script>
 
 <template>
-  <RouterLink :to="{ name: 'revisao' }" class="home-review">
+  <RouterLink :to="{ name: 'review' }" class="home-review">
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M5.5 3.5v9l7-4.5z" />
     </svg>
-    Revisar {{ dueCount }} cartões
+    Review {{ dueCount }} cards
   </RouterLink>
 </template>
 

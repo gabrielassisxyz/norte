@@ -27,7 +27,7 @@ afterEach(() => {
   vi.useRealTimers()
 })
 
-async function mountReview(path = '/revisao', sources?: Partial<AppSources>) {
+async function mountReview(path = '/review', sources?: Partial<AppSources>) {
   const router = createRouter({ history: createMemoryHistory(), routes })
   await router.push(path)
   await router.isReady()
@@ -93,49 +93,49 @@ describe('review view', () => {
   it('renders its title, stats and the deck list before a session starts', async () => {
     const { wrapper } = await mountReview()
 
-    expect(wrapper.get('h1').text()).toBe('Revisão')
-    expect(wrapper.text()).toContain('Restam hoje')
-    expect(wrapper.text()).toContain('Revisados nesta sessão')
-    expect(wrapper.text()).toContain('Lembrados')
-    expect(wrapper.text()).toContain('Baralhos')
-    for (const name of ['Tudo de hoje', 'Construção de linguagens', 'Letras e leitura', 'Aprendizagem']) {
+    expect(wrapper.get('h1').text()).toBe('Review')
+    expect(wrapper.text()).toContain('Left today')
+    expect(wrapper.text()).toContain('Reviewed this session')
+    expect(wrapper.text()).toContain('Recalled')
+    expect(wrapper.text()).toContain('Decks')
+    for (const name of ['All due today', 'Building languages', 'Letters and reading', 'Learning']) {
       expect(wrapper.text()).toContain(name)
     }
     expect(wrapper.findAll('button.deck')).toHaveLength(4)
-    expect(deckButton(wrapper, 'Tudo de hoje').text()).toContain('24 / 24')
-    expect(deckButton(wrapper, 'Construção de linguagens').text()).toContain('8 / 8')
-    expect(wrapper.text()).toContain('Escolha um baralho')
+    expect(deckButton(wrapper, 'All due today').text()).toContain('24 / 24')
+    expect(deckButton(wrapper, 'Building languages').text()).toContain('8 / 8')
+    expect(wrapper.text()).toContain('Choose a deck')
     expect(wrapper.find('.nt-card').exists()).toBe(false)
   })
 
   it('starts a session with exactly the picked deck due cards and drops the counts per rating', async () => {
     const { wrapper } = await mountReview()
 
-    await deckButton(wrapper, 'Construção de linguagens').trigger('click')
+    await deckButton(wrapper, 'Building languages').trigger('click')
     await flushReads()
 
-    expect(wrapper.get('.nt-card-front').text()).toBe('Para que serve uma tabela de símbolos?')
+    expect(wrapper.get('.nt-card-front').text()).toBe('What is a symbol table for?')
     expect(wrapper.get('.nt-card-pos').text()).toBe('1/8')
     expect(statValues(wrapper)[0]).toContain('24')
 
     await reveal(wrapper)
-    expect(wrapper.get('.nt-card-back').text()).toContain('Ela associa nomes')
+    expect(wrapper.get('.nt-card-back').text()).toContain('It maps names')
     await rateVisible(wrapper, 2)
 
-    expect(wrapper.get('.nt-card-front').text()).toBe('O que é um token?')
+    expect(wrapper.get('.nt-card-front').text()).toBe('What is a token?')
     expect(wrapper.get('.nt-card-pos').text()).toBe('2/8')
     expect(statValues(wrapper)[0]).toContain('23')
     expect(statValues(wrapper)[1]).toContain('1')
     expect(store.reviewCards.find((card) => card.id === 'card-comp-1')).toMatchObject({
       lastRating: 'good'
     })
-    expect(deckButton(wrapper, 'Construção de linguagens').text()).toContain('7 / 8')
+    expect(deckButton(wrapper, 'Building languages').text()).toContain('7 / 8')
   })
 
   it('drives the whole session from the keyboard without the mouse', async () => {
     const { wrapper } = await mountReview()
 
-    await deckButton(wrapper, 'Tudo de hoje').trigger('click')
+    await deckButton(wrapper, 'All due today').trigger('click')
     await flushReads()
     const first = wrapper.get('.nt-card-front').text()
 
@@ -167,7 +167,7 @@ describe('review view', () => {
     const { wrapper, router } = await mountReview()
     const pattern: CardRating[] = ['good', 'easy', 'hard', 'again', 'good', 'easy', 'good', 'easy']
 
-    await deckButton(wrapper, 'Letras e leitura').trigger('click')
+    await deckButton(wrapper, 'Letters and reading').trigger('click')
     await flushReads()
     for (const rating of pattern) {
       press(' ')
@@ -176,7 +176,7 @@ describe('review view', () => {
       await flushReads()
     }
 
-    expect(wrapper.text()).toContain('Sessão concluída')
+    expect(wrapper.text()).toContain('Session complete')
     // Six of eight ratings count as recalled: 75%.
     expect(wrapper.text()).toContain('75%')
     expect(wrapper.find('.nt-card').exists()).toBe(false)
@@ -185,7 +185,7 @@ describe('review view', () => {
     expect(resolveName(router, home.attributes('href'))).toBe('home')
 
     await wrapper.find('.review-panel .nt-btn-primary').trigger('click')
-    expect(wrapper.text()).toContain('Escolha um baralho')
+    expect(wrapper.text()).toContain('Choose a deck')
     expect(wrapper.find('.nt-card').exists()).toBe(false)
     expect(wrapper.find('.review-home').exists()).toBe(false)
   })
@@ -195,20 +195,20 @@ describe('review view', () => {
 
     expect(resolveName(router, wrapper.get('.crumb a').attributes('href'))).toBe('study')
 
-    await deckButton(wrapper, 'Tudo de hoje').trigger('click')
+    await deckButton(wrapper, 'All due today').trigger('click')
     await flushReads()
 
     // The source of a card is a library item, and the library reads the server
     // while this module reads the mock. The hint still says where the card came
     // from; it just does not offer a link that would resolve to nothing.
     const hint = wrapper.get('.review-hint')
-    expect(hint.text()).toContain('origem:')
+    expect(hint.text()).toContain('source:')
     expect(hint.find('a').exists()).toBe(false)
   })
 
   it('says it is loading before the queue answers', async () => {
     const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/revisao')
+    await router.push('/review')
     await router.isReady()
     const wrapper = mount(ReviewView, {
       global: {
@@ -216,57 +216,57 @@ describe('review view', () => {
       }
     })
 
-    expect(wrapper.get('[role="status"]').text()).toBe('Carregando os cartões…')
+    expect(wrapper.get('[role="status"]').text()).toBe('Loading the cards…')
     expect(wrapper.find('button.deck').exists()).toBe(false)
   })
 
   it('says there are no cards once the queue answers empty', async () => {
-    const { wrapper } = await mountReview('/revisao', reviewWith({}))
+    const { wrapper } = await mountReview('/review', reviewWith({}))
 
-    expect(wrapper.get('.review-state').text()).toContain('Nenhum cartão ainda')
+    expect(wrapper.get('.review-state').text()).toContain('No cards yet')
     expect(wrapper.find('button.deck').exists()).toBe(false)
   })
 
   it('says why the queue could not be read, and reads again when asked', async () => {
     let attempts = 0
     const { wrapper } = await mountReview(
-      '/revisao',
+      '/review',
       reviewWith({
         listCards: async () => {
           attempts += 1
-          if (attempts === 1) throw new Error('rede indisponível')
+          if (attempts === 1) throw new Error('network unavailable')
           return { items: [], next_cursor: null, counts: { cards: 0, due: 0, decks: 0 }, decks: [] }
         }
       })
     )
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar os cartões: rede indisponível')
+    expect(wrapper.get('[role="alert"]').text()).toContain('The cards could not be loaded: network unavailable')
 
     await wrapper.get('[role="alert"] button').trigger('click')
     await flushReads()
 
-    expect(wrapper.get('.review-state').text()).toContain('Nenhum cartão ainda')
+    expect(wrapper.get('.review-state').text()).toContain('No cards yet')
   })
 
   it('keeps the card in front of the reader when the rating cannot be recorded', async () => {
-    const { wrapper } = await mountReview('/revisao', {
+    const { wrapper } = await mountReview('/review', {
       ...createMockSources(store),
       review: {
         ...createMockSources(store).review,
         rateCard: async () => {
-          throw new Error('conflito no servidor')
+          throw new Error('conflict on the server')
         }
       }
     })
 
-    await deckButton(wrapper, 'Construção de linguagens').trigger('click')
+    await deckButton(wrapper, 'Building languages').trigger('click')
     await flushReads()
     const front = wrapper.get('.nt-card-front').text()
 
     await reveal(wrapper)
     await rateVisible(wrapper, 2)
 
-    expect(wrapper.get('.review-write-error').text()).toContain('Não foi possível registrar a resposta: conflito no servidor')
+    expect(wrapper.get('.review-write-error').text()).toContain('Could not record the answer: conflict on the server')
     expect(wrapper.get('.nt-card-front').text()).toBe(front)
     expect(wrapper.get('.nt-card-pos').text()).toBe('1/8')
     expect(statValues(wrapper)[0]).toContain('24')
@@ -275,14 +275,14 @@ describe('review view', () => {
   it('shows the due date the source came back with, by dropping the card from the deck', async () => {
     const { wrapper } = await mountReview()
 
-    await deckButton(wrapper, 'Construção de linguagens').trigger('click')
+    await deckButton(wrapper, 'Building languages').trigger('click')
     await flushReads()
     await reveal(wrapper)
     await rateVisible(wrapper, 0)
 
-    // "De novo" is the first interval, so the card stays due today and the deck
+    // "Again" is the first interval, so the card stays due today and the deck
     // count does not drop — which only a page reading the response can tell.
-    expect(deckButton(wrapper, 'Construção de linguagens').text()).toContain('8 / 8')
+    expect(deckButton(wrapper, 'Building languages').text()).toContain('8 / 8')
     expect(statValues(wrapper)[0]).toContain('24')
   })
 })
@@ -292,14 +292,14 @@ describe('review view', () => {
  * day moved, and a fixed queue read on two days has to answer differently.
  */
 describe('review view against the calendar', () => {
-  const DECK = { id: 'deck-linguagens', title: 'Construção de linguagens', curriculumSlug: 'c', description: 'd' }
+  const DECK = { id: 'deck-languages', title: 'Building languages', curriculumSlug: 'c', description: 'd' }
 
   function queueDueOn(dates: string[]): Partial<AppSources> {
     const items = dates.map((dueAt, position) => ({
       id: `card-${position}`,
       deckId: DECK.id,
-      front: `Frente ${position}`,
-      back: `Verso ${position}`,
+      front: `Front ${position}`,
+      back: `Back ${position}`,
       sourceLibraryItemId: 'post-compilation',
       dueAt
     }))
@@ -315,11 +315,11 @@ describe('review view against the calendar', () => {
   it('moves a card into the due list when the day it is due arrives', async () => {
     const sources = queueDueOn(['2026-10-03', '2026-10-04', '2026-10-05'])
 
-    const { wrapper: onThird } = await mountReview('/revisao', sources)
-    expect(deckButton(onThird, 'Tudo de hoje').text()).toContain('1 / 3')
+    const { wrapper: onThird } = await mountReview('/review', sources)
+    expect(deckButton(onThird, 'All due today').text()).toContain('1 / 3')
 
     vi.setSystemTime(new Date('2026-10-04T12:00:00Z'))
-    const { wrapper: onFourth } = await mountReview('/revisao', sources)
-    expect(deckButton(onFourth, 'Tudo de hoje').text()).toContain('2 / 3')
+    const { wrapper: onFourth } = await mountReview('/review', sources)
+    expect(deckButton(onFourth, 'All due today').text()).toContain('2 / 3')
   })
 })
