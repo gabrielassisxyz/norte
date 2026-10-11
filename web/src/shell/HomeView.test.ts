@@ -139,6 +139,8 @@ describe('HomeView', () => {
     expect(wrapper.get('h1').text()).toBe('Sábado, 3 de outubro')
     expect(wrapper.get('#home-search').attributes('placeholder')).toBe('Buscar artigos, notas, cursos…')
     expect(wrapper.get('#continue-study').text()).toBe('Continue studying')
+    // The block's see-all names the study module's own home.
+    expect(wrapper.get('.home-study .home-see-all').attributes('href')).toBe('/study')
     expect(wrapper.get('#continue-reading').text()).toBe('Continue reading')
     expect(wrapper.get('#recent-saves').text()).toBe('Recently saved')
     expect(wrapper.findAll('.home-study-row')).toHaveLength(2)

@@ -29,7 +29,7 @@ export function createStandInLibraryItem(
     id,
     kind: KIND_BY_ID_PREFIX[id.split('-')[0] ?? ''] ?? 'article',
     title: `Material ${id}`,
-    author: 'Material referenciado',
+    author: 'Referenced material',
     url: `https://example.com/${id}`,
     location: 'archive',
     unread: false,

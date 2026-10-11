@@ -70,6 +70,6 @@ describe('each slice carries the library items it names', () => {
     const records = buildMockData(TODAY).libraryItems
 
     expect(records.length).toBeGreaterThan(0)
-    expect(records.filter((item) => item.author !== 'Material referenciado')).toEqual([])
+    expect(records.filter((item) => item.author !== 'Referenced material')).toEqual([])
   })
 })
