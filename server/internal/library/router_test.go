@@ -422,8 +422,8 @@ func TestTheDeciderStashesOnlyWhenItIsSureEnough(t *testing.T) {
 			if err := harness.route(id); err != nil {
 				t.Fatalf("routing: %v", err)
 			}
-			if harness.calls != 1 {
-				t.Errorf("the sidecar saw %d calls, want 1", harness.calls)
+			if harness.calls != 2 {
+				t.Errorf("the sidecar saw %d calls, want 2: the placement, then the kind", harness.calls)
 			}
 			harness.assertPlaced(id, tc.location, tc.source)
 		})
@@ -445,8 +445,13 @@ func TestTheRoutedStateCarriesWhatTheBeadNames(t *testing.T) {
 	if err := harness.route(id); err != nil {
 		t.Fatalf("routing: %v", err)
 	}
-	if len(harness.states) != 1 {
-		t.Fatalf("the sidecar saw %d states, want 1", len(harness.states))
+	if len(harness.states) != 2 {
+		t.Fatalf("the sidecar saw %d states, want 2: the placement, then the kind", len(harness.states))
+	}
+	// The kind is asked without the host, which pulled an essay to podcast
+	// against the real model.
+	if host, ok := harness.states[1]["host"]; ok {
+		t.Errorf("the kind question's state carried host %q, want none", host)
 	}
 	state := harness.states[0]
 	for field, want := range map[string]string{
@@ -524,8 +529,8 @@ func TestTheDeciderNeverOverridesAPlacementItDoesNotOwn(t *testing.T) {
 			if err := harness.route(id); err != nil {
 				t.Fatalf("routing: %v", err)
 			}
-			if harness.calls != 1 {
-				t.Errorf("the sidecar saw %d calls, want 1", harness.calls)
+			if harness.calls != 2 {
+				t.Errorf("the sidecar saw %d calls, want 2: the placement, then the kind", harness.calls)
 			}
 			harness.assertPlaced(id, tc.location, tc.source)
 		})

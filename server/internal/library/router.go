@@ -204,11 +204,34 @@ func (r *LibraryRouter) Handle(ctx context.Context, job core.Job) error {
 		}
 		return fmt.Errorf("reading the library item to route: %w", err)
 	}
-	answers, err := r.decider.Decide(ctx, libraryRouteState(item), libraryRouteQuestions())
+	questions := libraryRouteQuestions()
+	state := libraryRouteState(item)
+	answers, err := r.decider.Decide(ctx, state,
+		map[string]libraryDeciderQuestion{libraryRouteWhereQuestion: questions[libraryRouteWhereQuestion]})
 	if err != nil {
 		r.logger.Warn("the routing could not be decided", "item_id", item.ID,
 			"kind", LibraryRouteJobKind, "error", core.RedactError(err))
 		return nil
+	}
+	// The kind is asked apart and without the host. Measured against the real
+	// model on 2026-10-11: with "host" in the state an essay came back
+	// podcast at 0.70-0.91; without it the same essay spread across article,
+	// book and newsletter under the 0.6 threshold, so nothing is retyped
+	// wrongly. A failure here leaves the kind as it is and the placement
+	// stands.
+	kindState := make(map[string]string, len(state))
+	for key, value := range state {
+		if key != "host" {
+			kindState[key] = value
+		}
+	}
+	kindAnswers, err := r.decider.Decide(ctx, kindState,
+		map[string]libraryDeciderQuestion{libraryRouteKindQuestion: questions[libraryRouteKindQuestion]})
+	if err != nil {
+		r.logger.Warn("the kind could not be decided", "item_id", item.ID,
+			"kind", LibraryRouteJobKind, "error", core.RedactError(err))
+	} else if answer, ok := kindAnswers[libraryRouteKindQuestion]; ok {
+		answers[libraryRouteKindQuestion] = answer
 	}
 
 	moved, retyped, err := r.apply(ctx, item, answers)
