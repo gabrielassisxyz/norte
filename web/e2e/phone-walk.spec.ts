@@ -468,7 +468,7 @@ test.describe('at 1440x900, unchanged', () => {
 test.describe('at 1440x900, on a long article', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('keeps Destacar in view once a passage near the top is selected', async ({ page }) => {
+  test('keeps Highlight in view once a passage near the top is selected', async ({ page }) => {
     const own = await seed('Texto longo na tela larga', { fillerParagraphs: 80 })
     await boot(page, `/library/${own.id}`)
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
