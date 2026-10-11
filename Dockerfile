@@ -46,10 +46,16 @@ RUN cd server && CGO_ENABLED=0 go build -trimpath \
 # ownership on first start, which is what makes the first start succeed.
 RUN mkdir -p -m 0700 /out/data && chown 65532:65532 /out/data
 
+# SQLite spills to a temporary file when a statement outgrows memory, as a
+# table rebuild in a migration does, and scratch has no /tmp: without one the
+# migration fails with "disk I/O error" (SQLITE_IOERR_GETTEMPPATH).
+RUN mkdir -p -m 1777 /out/tmp
+
 FROM scratch
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 COPY --from=build /out/norte /norte
 COPY --from=build --chown=65532:65532 --chmod=0700 /out/data /data
+COPY --from=build --chmod=1777 /out/tmp /tmp
 USER 65532
 ENV NORTE_LISTEN=0.0.0.0:8080 NORTE_DATA=/data
 EXPOSE 8080
