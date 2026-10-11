@@ -197,11 +197,11 @@ export interface Subject {
   videos: number
   notes: number
   questions: number
-  /** Short Portuguese recency label, e.g. "hoje" or "há 2d". */
+  /** Short recency label, e.g. "today" or "2d ago". */
   activity: string
 }
 
-/** One day of study activity backing the Estudo streak band and stats. */
+/** One day of study activity backing the Home streak band and stats. */
 export interface StudyDay {
   /** ISO date (YYYY-MM-DD). */
   date: string

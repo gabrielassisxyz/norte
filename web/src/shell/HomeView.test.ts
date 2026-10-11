@@ -138,7 +138,7 @@ describe('HomeView', () => {
 
     expect(wrapper.get('h1').text()).toBe('Sábado, 3 de outubro')
     expect(wrapper.get('#home-search').attributes('placeholder')).toBe('Buscar artigos, notas, cursos…')
-    expect(wrapper.get('#continue-study').text()).toBe('Continuar estudando')
+    expect(wrapper.get('#continue-study').text()).toBe('Continue studying')
     expect(wrapper.get('#continue-reading').text()).toBe('Continue reading')
     expect(wrapper.get('#recent-saves').text()).toBe('Recently saved')
     expect(wrapper.findAll('.home-study-row')).toHaveLength(2)
@@ -153,7 +153,7 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     expect(wrapper.get('.home-review').attributes('href')).toBe('/revisao')
-    expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curricula/fundamentos-de-compiladores')
+    expect(wrapper.get('.home-study-row').attributes('href')).toBe('/curricula/compiler-fundamentals')
     // The reading list arrives in the order the server sorts it: most recently
     // opened first, which is what "continue reading" means.
     expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/library/lib-post')
@@ -350,7 +350,7 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
 
     expect(waiting).toContain('Loading the readings…')
     expect(waiting).toContain('Loading the saved items…')
-    expect(waiting).toContain('Carregando os currículos…')
+    expect(waiting).toContain('Loading the curricula…')
   })
 
   it('says each band is empty once its read answers with nothing', async () => {
@@ -374,7 +374,7 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
         },
         study: {
           studyHome: async () => {
-            throw new Error('servidor sem resposta')
+            throw new Error('server gave no answer')
           }
         }
       })
@@ -383,6 +383,6 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
 
     expect(failures).toContain('The readings could not be loaded: network down')
     expect(failures).toContain('The saved items could not be loaded: network down')
-    expect(failures).toContain('Não foi possível carregar os currículos: servidor sem resposta')
+    expect(failures).toContain('The curricula could not be loaded: server gave no answer')
   })
 })

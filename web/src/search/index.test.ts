@@ -121,9 +121,12 @@ describe('search index', () => {
   it('keeps matching results in their product groups', async () => {
     const grouped = groupSearchResults(filterSearchIndex(await readIndex(), 'garden'))
 
-    expect(grouped.map((group) => group.label)).toEqual(['Projects'])
+    // 'garden' reaches two products: the Projects area on one side and, since
+    // the study mock reads in English, the Backyard garden curriculum on the
+    // other. Each lands in its own group, and no entry crosses over.
+    expect(grouped.map((group) => group.label)).toEqual(['Study', 'Projects'])
     expect(
-      grouped.flatMap((group) => group.items).every((entry) => ['Biblioteca', 'Estudo', 'Projects'].includes(entry.group))
+      grouped.flatMap((group) => group.items).every((entry) => ['Biblioteca', 'Estudo', 'Study', 'Projects'].includes(entry.group))
     ).toBe(true)
   })
 })

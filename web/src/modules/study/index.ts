@@ -29,10 +29,10 @@ export function useSidebar(): ModuleSidebar {
 
   function studyRows(): SidebarRow[] {
     return [
-      { id: 'curricula', label: 'Currículos', to: { name: 'study' }, count: summary.value?.counts.curricula ?? 0 }
-      // Assuntos is no longer a row here. Subjects are the core's and have
+      { id: 'curricula', label: 'Curricula', to: { name: 'study' }, count: summary.value?.counts.curricula ?? 0 }
+      // Subjects are no longer a row here. They are the core's and have
       // their own pages, so the shell lists them as a top-level section; a
-      // second entry under Estudo would point at a screen that only shows the
+      // second entry under Study would point at a screen that only shows the
       // ones this module happens to be holding.
     ]
   }
@@ -41,7 +41,7 @@ export function useSidebar(): ModuleSidebar {
     return [
       {
         id: 'shortcut-curricula',
-        label: 'Currículos',
+        label: 'Curricula',
         to: { name: 'study' },
         count: summary.value?.counts.curricula ?? 0
       }
@@ -52,25 +52,25 @@ export function useSidebar(): ModuleSidebar {
     sections: [
       {
         id: 'study',
-        label: 'Estudo',
+        label: 'Study',
         to: { name: 'study' },
         order: 20,
         activeRouteNames: ['study', 'curriculum'],
         rows: studyRows
       }
     ],
-    shortcuts: [{ label: 'Estudo', order: 20, entries: shortcutEntries }]
+    shortcuts: [{ label: 'Study', order: 20, entries: shortcutEntries }]
   }
 }
 
 export const homeBlocks = [{ id: 'study-continue', order: 10, region: 'main' as const, component: StudyContinueBlock }]
 
 const SCREEN_ENTRY: SearchEntry = {
-  group: 'Estudo',
-  title: 'Estudo',
-  subtitle: 'Currículos e assuntos',
+  group: 'Study',
+  title: 'Study',
+  subtitle: 'Curricula and subjects',
   kind: 'tela',
-  keywords: 'curriculos assuntos aprender',
+  keywords: 'curricula subjects learn',
   to: { name: 'study' }
 }
 
@@ -84,10 +84,10 @@ export function useSearchEntries(): ComputedRef<SearchEntry[]> {
   return computed(() => [
     SCREEN_ENTRY,
     ...(page.value?.items ?? []).map<SearchEntry>((curriculum) => ({
-      group: 'Estudo',
+      group: 'Study',
       title: curriculum.title,
       subtitle: curriculum.goal,
-      kind: 'currículo',
+      kind: 'curriculum',
       keywords: curriculum.modules.map((module) => module.title).join(' '),
       to: { name: 'curriculum', params: { slug: curriculum.slug } }
     }))

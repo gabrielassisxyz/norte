@@ -187,7 +187,7 @@ export function createMockStore(today: string = todayIsoDate()) {
     const created: Curriculum = {
       slug,
       status: 'planned',
-      modules: [{ id: 'mod-1', title: 'Primeiro módulo', summary: '', materials: [], exercises: [] }],
+      modules: [{ id: 'mod-1', title: 'First module', summary: '', materials: [], exercises: [] }],
       ...curriculum
     }
     state.curricula.unshift(created)

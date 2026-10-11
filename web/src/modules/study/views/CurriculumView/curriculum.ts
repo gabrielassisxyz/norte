@@ -8,11 +8,11 @@ export const NEW_CURRICULUM_SLUG = 'new'
 
 const KIND_LABELS: Record<LibraryKind, string> = {
   article: 'Post',
-  book: 'Livro',
+  book: 'Book',
   paper: 'Paper',
-  video: 'Vídeo',
+  video: 'Video',
   podcast: 'Podcast',
-  course: 'Curso'
+  course: 'Course'
 }
 
 const READABLE_KINDS: MaterialKind[] = ['article', 'book', 'paper']
@@ -33,7 +33,7 @@ export interface MaterialView {
   n: number
   title: string
   by: string
-  /** The O/P marker the curriculum uses, followed by the kind: "O · Livro". */
+  /** The O/P marker the curriculum uses, followed by the kind: "O · Book". */
   type: string
   optional: boolean
   status: MaterialStatus
@@ -67,7 +67,7 @@ export interface CurriculumView {
   materialCount: number
   exerciseCount: number
   weeks: number
-  /** The first unfinished required material, the one "Continuar" points at. */
+  /** The first unfinished required material, the one "Continue" points at. */
   next?: MaterialView
   summaryLine: string
 }
@@ -157,10 +157,10 @@ export function buildCurriculumView(curriculum: Curriculum, libraryItems: Librar
     const done = moduleRequired > 0 && moduleRequiredDone === moduleRequired
     const holdsCurrent = materials.some((material) => material.status === 'current')
     const status: ModuleStatus = done ? 'done' : holdsCurrent ? 'current' : 'next'
-    const duration = module.weeks ? `${plural(module.weeks, 'semana', 'semanas')}` : ''
+    const duration = module.weeks ? `${plural(module.weeks, 'week', 'weeks')}` : ''
     const metaParts = [duration]
-    if (materials.length > 0) metaParts.push(`${plural(materials.length, 'material', 'materiais')}, ${moduleRequired} obrigatórios`)
-    if (module.exercises.length > 0) metaParts.push(plural(module.exercises.length, 'exercício', 'exercícios'))
+    if (materials.length > 0) metaParts.push(`${plural(materials.length, 'material', 'materials')}, ${moduleRequired} required`)
+    if (module.exercises.length > 0) metaParts.push(plural(module.exercises.length, 'exercise', 'exercises'))
 
     return {
       id: module.id,
@@ -171,7 +171,7 @@ export function buildCurriculumView(curriculum: Curriculum, libraryItems: Librar
       duration,
       meta: metaParts.filter(Boolean).join(' · '),
       status,
-      statusText: done ? 'Concluído' : status === 'current' ? `Em andamento · ${moduleRequiredDone}/${moduleRequired}` : '',
+      statusText: done ? 'Done' : status === 'current' ? `In progress · ${moduleRequiredDone}/${moduleRequired}` : '',
       materials,
       exercises: module.exercises.map((exercise, index) => ({ n: pad(index + 1), title: exercise.title, prompt: exercise.prompt })),
       ...(module.instrument ? { instrument: module.instrument } : {}),
@@ -180,9 +180,9 @@ export function buildCurriculumView(curriculum: Curriculum, libraryItems: Librar
   })
 
   const summaryParts = [
-    weeks > 0 ? `≈ ${plural(weeks, 'semana', 'semanas')}` : '',
-    plural(modules.length, 'módulo', 'módulos'),
-    materialCount > 0 ? `${plural(materialCount, 'material', 'materiais')}, ${requiredTotal} obrigatórios` : 'sem materiais ainda'
+    weeks > 0 ? `≈ ${plural(weeks, 'week', 'weeks')}` : '',
+    plural(modules.length, 'module', 'modules'),
+    materialCount > 0 ? `${plural(materialCount, 'material', 'materials')}, ${requiredTotal} required` : 'no materials yet'
   ]
 
   return {

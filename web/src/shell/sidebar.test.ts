@@ -85,34 +85,34 @@ describe('the sidebar as the phone drawer\'s panel', () => {
 })
 
 describe('Revisão in the sidebar', () => {
-  it('nests under Estudo when both are mounted', async () => {
+  it('nests under Study when both are mounted', async () => {
     const wrapper = await mountSidebar()
 
     expect(topLevelLabels(wrapper)).not.toContain('Revisão')
-    await expand(wrapper, 'Estudo')
+    await expand(wrapper, 'Study')
     const nested = wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub').map((row) => row.text().replace(/\d+$/, '').trim())
     expect(nested).toContain('Revisão')
   })
 
-  it('stands on its own when Revisão is mounted without Estudo', async () => {
+  it('stands on its own when Revisão is mounted without Study', async () => {
     switchOff('study')
     const wrapper = await mountSidebar()
 
     expect(topLevelLabels(wrapper)).toContain('Revisão')
-    expect(topLevelLabels(wrapper)).not.toContain('Estudo')
+    expect(topLevelLabels(wrapper)).not.toContain('Study')
     // Nothing to expand: it has no rows of its own.
     expect(wrapper.find('button[aria-label="Expandir Revisão"]').exists()).toBe(false)
   })
 
-  it('leaves Estudo without a Revisão row when only Estudo is mounted', async () => {
+  it('leaves Study without a Revisão row when only Study is mounted', async () => {
     switchOff('review')
     const wrapper = await mountSidebar()
 
-    expect(topLevelLabels(wrapper)).toContain('Estudo')
+    expect(topLevelLabels(wrapper)).toContain('Study')
     expect(topLevelLabels(wrapper)).not.toContain('Revisão')
-    await expand(wrapper, 'Estudo')
+    await expand(wrapper, 'Study')
     const nested = wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub').map((row) => row.text().replace(/\d+$/, '').trim())
-    expect(nested).toContain('Currículos')
+    expect(nested).toContain('Curricula')
     expect(nested).not.toContain('Revisão')
   })
 
@@ -121,14 +121,14 @@ describe('Revisão in the sidebar', () => {
     const wrapper = await mountSidebar()
     const labels = topLevelLabels(wrapper)
 
-    expect(labels).not.toContain('Estudo')
+    expect(labels).not.toContain('Study')
     expect(labels).not.toContain('Revisão')
     // The sidebar is still a sidebar: the other products are untouched.
     expect(labels).toContain('Library')
     expect(labels).toContain('Projects')
     expect(labels).toContain('Notes')
-    // And the Estudo shortcut group goes with its module.
-    expect(wrapper.get('nav[aria-label="Atalhos"]').text()).not.toContain('Currículos')
+    // And the Study shortcut group goes with its module.
+    expect(wrapper.get('nav[aria-label="Atalhos"]').text()).not.toContain('Curricula')
   })
 })
 
@@ -163,15 +163,15 @@ describe('Assuntos in the sidebar', () => {
     expect(wrapper.get('nav[aria-label="Principal"]').text()).toContain('Nenhum assunto ainda')
   })
 
-  it('replaces the Assuntos row that used to sit under Estudo', async () => {
+  it('replaces the row that was the Assuntos row under Study', async () => {
     const wrapper = await mountSidebar()
 
-    await expand(wrapper, 'Estudo')
-    const estudoRows = wrapper
+    await expand(wrapper, 'Study')
+    const studyRows = wrapper
       .findAll('nav[aria-label="Principal"] .app-children .app-sub')
       .filter((row) => row.attributes('href')?.startsWith('/study'))
       .map((row) => row.text().replace(/\d+$/, '').trim())
-    expect(estudoRows).toEqual(['Currículos'])
+    expect(studyRows).toEqual(['Curricula'])
   })
 })
 

@@ -18,8 +18,8 @@ const studies = computed(() =>
       const currentItem = Math.min(totalItems, curriculum.currentItem ?? Math.max(1, index + 1))
       return {
         ...curriculum,
-        module: curriculum.currentModule ?? `Módulo ${Math.min(curriculum.modules.length, index + 1)}`,
-        lesson: curriculum.currentLesson ?? curriculum.modules[0]?.title ?? 'Primeira lição',
+        module: curriculum.currentModule ?? `Module ${Math.min(curriculum.modules.length, index + 1)}`,
+        lesson: curriculum.currentLesson ?? curriculum.modules[0]?.title ?? 'First lesson',
         item: `item ${currentItem}/${totalItems}`,
         percent: Math.round(progress * 100),
         progress
@@ -31,12 +31,12 @@ const studies = computed(() =>
 <template>
   <section aria-labelledby="continue-study" class="home-section home-study">
     <div class="home-section-head">
-      <h2 id="continue-study">Continuar estudando</h2>
-      <RouterLink :to="{ name: 'study' }" class="home-see-all">Todos os currículos</RouterLink>
+      <h2 id="continue-study">Continue studying</h2>
+      <RouterLink :to="{ name: 'study' }" class="home-see-all">All curricula</RouterLink>
     </div>
-    <p v-if="firstLoad" class="home-study-state" role="status">Carregando os currículos…</p>
-    <p v-else-if="error" class="home-study-state" role="alert">Não foi possível carregar os currículos: {{ error }}</p>
-    <p v-else-if="studies.length === 0" class="home-study-state">Nenhum currículo em andamento.</p>
+    <p v-if="firstLoad" class="home-study-state" role="status">Loading the curricula…</p>
+    <p v-else-if="error" class="home-study-state" role="alert">The curricula could not be loaded: {{ error }}</p>
+    <p v-else-if="studies.length === 0" class="home-study-state">No curricula in progress.</p>
     <div v-else class="home-list">
       <RouterLink v-for="study in studies" :key="study.slug" :to="`/curricula/${study.slug}`" class="home-study-row">
         <span class="home-study-main">
@@ -52,7 +52,7 @@ const studies = computed(() =>
         <span
           class="home-study-progress"
           role="progressbar"
-          :aria-label="`Progresso de ${study.title}`"
+          :aria-label="`${study.title} progress`"
           :aria-valuenow="study.percent"
           aria-valuemin="0"
           aria-valuemax="100"
@@ -60,7 +60,7 @@ const studies = computed(() =>
           <span class="home-study-track"><span class="home-study-fill" :style="{ width: `${study.percent}%` }" /></span>
           <span class="home-mono home-study-percent">{{ study.percent }}%</span>
         </span>
-        <span class="home-study-continue">Continuar</span>
+        <span class="home-study-continue">Continue</span>
       </RouterLink>
     </div>
   </section>

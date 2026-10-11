@@ -4,75 +4,75 @@ import type { StudyDay, Subject } from '@/mock/types'
 
 export const STUDY_DAY_COUNT = 182
 
-export const WEEKLY_FOCUS = 'Foco da semana: fechar Léxico e sintaxe e manter a revisão em dia.'
+export const WEEKLY_FOCUS = 'Focus this week: finish Lexing and syntax and keep the reviews up to date.'
 
 /** Subjects grouping library material across curricula (neutral invented data). */
 export const subjects: Subject[] = [
   {
-    id: 'computacao',
-    name: 'Computação',
+    id: 'computing',
+    name: 'Computing',
     curricula: 2,
     courses: 4,
     articles: 12,
     videos: 6,
     notes: 38,
     questions: 9,
-    activity: 'hoje'
+    activity: 'today'
   },
   {
-    id: 'tipografia',
-    name: 'Tipografia',
+    id: 'typography',
+    name: 'Typography',
     curricula: 1,
     courses: 2,
     articles: 8,
     videos: 3,
     notes: 21,
     questions: 4,
-    activity: 'há 1d'
+    activity: '1d ago'
   },
   {
-    id: 'culinaria',
-    name: 'Culinária',
+    id: 'cooking',
+    name: 'Cooking',
     curricula: 1,
     courses: 2,
     articles: 3,
     videos: 7,
     notes: 12,
     questions: 2,
-    activity: 'há 2d'
+    activity: '2d ago'
   },
   {
-    id: 'jardinagem',
-    name: 'Jardinagem',
+    id: 'gardening',
+    name: 'Gardening',
     curricula: 1,
     courses: 1,
     articles: 5,
     videos: 2,
     notes: 9,
     questions: 3,
-    activity: 'há 4d'
+    activity: '4d ago'
   },
   {
-    id: 'desenho',
-    name: 'Desenho',
+    id: 'drawing',
+    name: 'Drawing',
     curricula: 1,
     courses: 1,
     articles: 2,
     videos: 5,
     notes: 7,
     questions: 1,
-    activity: 'há 1sem'
+    activity: '1w ago'
   },
   {
-    id: 'organizacao',
-    name: 'Organização',
+    id: 'organization',
+    name: 'Organization',
     curricula: 2,
     courses: 2,
     articles: 4,
     videos: 1,
     notes: 11,
     questions: 2,
-    activity: 'há 2sem'
+    activity: '2w ago'
   }
 ]
 
