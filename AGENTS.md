@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Norte is a learning and life-projects app with a Portuguese UI, used from a desktop browser
+Norte is a learning and life-projects app with an English UI, used from a desktop browser
 and a phone. The repo is a monorepo: `web/` is the Vue 3 frontend, ported from a design-tool
 prototype, and `server/` is the Go backend. One binary, `norte`, serves both the API and the
 built frontend, so there is one thing to build and one thing to install.
@@ -109,7 +109,7 @@ is where a locally running `norte serve` listens by default.
 
 - The repo is public. Never copy the prototypes' mock content into code; write neutral
   invented data instead.
-- UI strings are Portuguese. Code, comments and commits are English.
+- UI strings, code, comments and commits are English.
 - No inline `<script>` in `web/index.html`: the server sends a content security policy with
   no `script-src` exception. The theme bootstrap is served from
   `web/public/theme-bootstrap.js` as a classic script, so it still runs before first paint.
@@ -123,3 +123,83 @@ is where a locally running `norte serve` listens by default.
   `~/repositories/.worktrees/norte/<task>`; `bin/worktree rm <task>` removes it.
 - This repo ships itself: an agent opens a pull request for its work, and once the gate is
   green and the review is done it merges that pull request itself and closes the bead.
+
+## Deliberate Portuguese (allowlist)
+
+Everything in Norte is English. The forbidden-term sweep still reports a few
+places where Portuguese is deliberate, each with its reason, so the next run
+does not read them as regressions and nobody "fixes" them. Portuguese
+**input** is not Portuguese product: a test that proves Norte reads an
+article needs an article, and an article is written in some language — and
+Norte reads both, so fixtures in Portuguese prove exactly that.
+
+- `server/internal/library/cleanup.go` — the cleanup regexes match both
+  languages because Norte reads both.
+- `server/internal/library/testdata/pages/*.html` and
+  `server/internal/library/testdata/golden/*`
+  (`classify-user-prompt.txt:2,3,6,9` with `Sistemas distribuídos`,
+  `WHY SAVED: para a aula de sistemas` and
+  `O que é consenso distribuído`; `news-article.json:4` with an author named
+  `Inês Kowalczyk`) — captured input pages and golden files compared whole
+  (`server/internal/library/classify_test.go:515-541`); what language a saved
+  page is in is not a property of Norte.
+- Comments that demonstrate accent stripping, which cannot be demonstrated
+  in English: `server/internal/core/slug.go:18`,
+  `server/internal/library/extractor.go:288`,
+  `server/internal/notes/list.go:159,186` and
+  `server/internal/notes/search.go:45`.
+- `web/src/search/index.ts` — the NFD accent-stripping comparison, because a
+  saved title can be in any language.
+- `web/e2e/helpers/article.ts` (the whole file, not a line list) — the
+  fixture article the reading-position and highlight-anchoring suites scroll
+  through; its `PASSAGE` constant is searched for as a literal, so
+  translating it means rewriting the assertions for no gain, and its
+  `<html lang="pt-BR">` at line 21 is the saved page's own language.
+- Slug and accent cases, where the accented input is the behaviour under
+  test: `server/internal/library/extract_test.go:352,356,599,722-724,748,753`
+  (`Instalação e Configuração` becoming `instalacao-e-configuracao`);
+  `server/internal/core/slug_test.go:16,17,22`;
+  `server/internal/app/subjectsapi_test.go:476,487,495` (unaccented
+  `programacao` finds `Programação`);
+  `server/internal/app/subjectsfixes_test.go:20,33` (renaming to
+  `Orquestração de Contêineres` derives `orquestracao-de-conteineres`);
+  `server/internal/library/extracthandler_test.go:1197` (a Latin-1 snapshot
+  titled `Acentuação`); `web/src/mock/store.test.ts:127-145` (mock-store
+  fixtures deriving the `a-leitura-publica` slug).
+- Fixture prose proving Norte reads Portuguese input: the shared vertical
+  fixture `server/internal/app/verticaltest_test.go:292-322` (also exercised
+  through `server/internal/app/e2e_test.go:29,42,111,201,205`);
+  `server/internal/notes/reanchor_test.go:22,253,258,271,277,286` (also
+  allowlisted in norte-bb4's own check);
+  `server/internal/library/classify_test.go` (fixture subjects such as
+  `Sistemas distribuídos`, `why` notes such as `por quê`);
+  `server/internal/library/classifyworker_test.go:26` (a subject named
+  `Sistemas distribuídos`, which is what a Portuguese-reading person's
+  subject looks like); `server/internal/core/text_test.go:34,41`
+  (`"o texto extraído"`, a stub's extracted text);
+  `server/internal/core/search_test.go` and
+  `server/internal/library/search_test.go` (accented titles and texts proving
+  accent-insensitive search); and
+  `server/internal/library/telegram/message_test.go:47,49` (message bodies
+  around the link are user input, written in some language).
+- Rename guards and migrations, which must name the old values to refuse or
+  carry them: `server/internal/library/api_test.go:594` and
+  `server/internal/library/service_test.go:91,97` (the pre-rename `depois`,
+  `arquivo` and `tudo` are refused rather than stored);
+  `server/internal/core/subjectpaths_test.go:93,98,103,132,150,151,153` and
+  `server/internal/core/migrations/00003_core_subject_paths.sql`
+  (`/assuntos/` carried to `/subjects/`);
+  `server/internal/library/migrations/00002_library_items.sql` and
+  `00004_library_location.sql:80,81,85,86,163,167,168,193,204,236,237,241,242,244,320,321`
+  (stored `livro`, `curso`, `depois` and `arquivo` mapped to English);
+  `server/internal/library/migrations_test.go` (`writePortugueseItem` and the
+  pre-rename rows proving the migration carries them).
+- `web/src/appClock.test.ts` is deliberately **not** allowlisted. norte-05j
+  rewrote its written-day vocabulary to the English weekday and month names,
+  because a guard that only knows Portuguese stops catching the thing it was
+  written for the moment the app writes English days. A Portuguese month name
+  in that file is a regression, not a fixture.
+- Sweep false positive:
+  `web/src/modules/library/components/SaveLinkDialog.vue:180` uses `×`
+  (U+00D7 multiplication sign) as the chosen-subject chip's remove icon. The
+  sweep's `[À-ÿ]` range reaches it, and it is not Portuguese.
