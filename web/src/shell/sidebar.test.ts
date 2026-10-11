@@ -80,7 +80,7 @@ describe('the sidebar as the phone drawer\'s panel', () => {
     const drawer = await mountSidebar(sidebarSubjects(), { drawer: true })
 
     expect(drawer.find('button.app-collapse').exists()).toBe(false)
-    expect(drawer.get('nav[aria-label="Principal"]').text()).toContain('Biblioteca')
+    expect(drawer.get('nav[aria-label="Principal"]').text()).toContain('Library')
   })
 })
 
@@ -124,7 +124,7 @@ describe('Revisão in the sidebar', () => {
     expect(labels).not.toContain('Estudo')
     expect(labels).not.toContain('Revisão')
     // The sidebar is still a sidebar: the other products are untouched.
-    expect(labels).toContain('Biblioteca')
+    expect(labels).toContain('Library')
     expect(labels).toContain('Projetos')
     expect(labels).toContain('Notas')
     // And the Estudo shortcut group goes with its module.
@@ -228,12 +228,12 @@ describe('the Listas group', () => {
   it('is not rendered while Estudo is mock-backed', async () => {
     const wrapper = await mountSidebar()
 
-    await expand(wrapper, 'Biblioteca')
+    await expand(wrapper, 'Library')
     // An `api`-backed library item cannot point at a mock curriculum, so there
     // is nothing a Listas group could list; it returns with the study delivery,
     // fed by `material_of` links.
     const heads = wrapper.findAll('nav[aria-label="Principal"] .app-head').map((head) => head.text())
-    expect(heads).toContain('Tipos')
+    expect(heads).toContain('Kinds')
     expect(heads).not.toContain('Listas')
     expect(wrapper.get('nav[aria-label="Principal"]').text()).not.toContain('Listas')
   })

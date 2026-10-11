@@ -129,7 +129,7 @@ export const homeBlocks = [
 ]
 
 const SCREEN_ENTRY: SearchEntry = {
-  group: 'Library',
+  group: 'Biblioteca',
   title: 'Library',
   subtitle: 'Inbox, Up Next, Later, Archive and Stash',
   kind: 'tela',

@@ -32,7 +32,7 @@ const APP_PATHS: Array<[string, string]> = [
 const TITLES: Record<string, string> = {
   inicio: 'Início',
   assunto: 'Assunto',
-  library: 'Biblioteca',
+  library: 'Library',
   notas: 'Notas',
   revisao: 'Revisão',
   estudo: 'Estudo',

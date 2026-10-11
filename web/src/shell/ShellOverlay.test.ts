@@ -96,7 +96,7 @@ describe('shell overlay', () => {
   it('shows the screens it owns above the hits it had to ask for', async () => {
     const { wrapper } = await mountOverlay('busca')
 
-    await wrapper.get('input[aria-label="Buscar"]').setValue('biblioteca')
+    await wrapper.get('input[aria-label="Buscar"]').setValue('library')
     await flushReads()
 
     const groups = wrapper.findAll('[role="group"]').map((group) => group.attributes('aria-label'))
