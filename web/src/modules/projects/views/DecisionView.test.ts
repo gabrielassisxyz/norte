@@ -35,7 +35,7 @@ async function mountDecision(
   preselect = false
 ): Promise<{ wrapper: VueWrapper; router: Router }> {
   const router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push({ name: 'decisao', params: { id }, query: preselect ? { preselect: '1' } : undefined })
+  await router.push({ name: 'decision', params: { id }, query: preselect ? { preselect: '1' } : undefined })
   await router.isReady()
   const wrapper = mount(DecisionView, {
     props: { id, preselect },
@@ -85,13 +85,13 @@ describe('decision view over the mock source', () => {
   it('renders the decision title and its main regions', async () => {
     const { wrapper, router } = await mountDecision('decision-backup-media', createMockSources(store))
 
-    expect(wrapper.find('h1').text()).toBe('Escolher mídia para a cópia externa')
-    for (const heading of ['Contexto', 'Opções', 'O que li para decidir', 'Bloqueia']) {
+    expect(wrapper.find('h1').text()).toBe('Choose media for the off-site copy')
+    for (const heading of ['Context', 'Options', 'What I read to decide', 'Blocks']) {
       expect(wrapper.text()).toContain(heading)
     }
     expect(wrapper.findAll('.decision-blocked-task')).not.toHaveLength(0)
     for (const link of wrapper.findAll('.decision-blocked-task')) {
-      expect(router.resolve(link.attributes('href')!).name).toBe('tarefa')
+      expect(router.resolve(link.attributes('href')!).name).toBe('task')
     }
     // The reading behind a decision lives in the library, which reads the
     // server while this module reads the mock: the section is there and names
@@ -109,30 +109,30 @@ describe('decision view over the mock source', () => {
     await decideButton.trigger('click')
     await flushReads()
 
-    expect(wrapper.text()).toContain('Decidida hoje: Disco portátil')
+    expect(wrapper.text()).toContain('Decided today: Portable drive')
     expect(store.decisions.find((decision) => decision.id === 'decision-backup-media')).toMatchObject({
       status: 'decided',
       selectedOptionId: 'option-drive'
     })
   })
 
-  it('requires reasoning when Outra is selected', async () => {
+  it('requires reasoning when Other is selected', async () => {
     const { wrapper } = await mountDecision('decision-budget-period', createMockSources(store))
     const decideButton = wrapper.find('.decision-action-primary')
     const other = wrapper.findAll('[role="radio"]').at(-1)!
 
     await other.trigger('click')
     expect(decideButton.attributes('disabled')).toBeDefined()
-    await wrapper.find('#decision-reasoning-input').setValue('Acompanhar cada entrada em um ciclo próprio.')
+    await wrapper.find('#decision-reasoning-input').setValue('Track each income in its own cycle.')
     expect(decideButton.attributes('disabled')).toBeUndefined()
     await decideButton.trigger('click')
     await flushReads()
 
-    expect(wrapper.text()).toContain('Decidida hoje: Outra')
+    expect(wrapper.text()).toContain('Decided today: Other')
     expect(store.decisions.find((decision) => decision.id === 'decision-budget-period')).toMatchObject({
       status: 'decided',
       selectedOptionId: 'other',
-      reasoning: 'Acompanhar cada entrada em um ciclo próprio.'
+      reasoning: 'Track each income in its own cycle.'
     })
   })
 
@@ -141,7 +141,7 @@ describe('decision view over the mock source', () => {
     const stored = () => store.decisions.find((candidate) => candidate.id === 'decision-backup-media')!
     const currentDue = stored().postponedUntil ?? shiftIsoDate(todayIsoDate(), 7)
 
-    await wrapper.findAll('button').find((button) => button.text() === 'Adiar uma semana')!.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Postpone a week')!.trigger('click')
     await flushReads()
 
     expect(stored().postponedUntil).toBe(addDays(currentDue, 7))
@@ -151,12 +151,12 @@ describe('decision view over the mock source', () => {
     const { wrapper } = await mountDecision('decision-backup-media', createMockSources(store), true)
 
     expect(wrapper.findAll('[role="radio"]')[0].attributes('aria-checked')).toBe('true')
-    await wrapper.findAll('button').find((button) => button.text() === 'Editar')!.trigger('click')
-    await wrapper.find('#decision-title').setValue('Escolher mídia de cópia')
-    await wrapper.findAll('button').find((button) => button.text() === 'Salvar')!.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Edit')!.trigger('click')
+    await wrapper.find('#decision-title').setValue('Choose copy media')
+    await wrapper.findAll('button').find((button) => button.text() === 'Save')!.trigger('click')
     await flushReads()
 
-    expect(wrapper.find('h1').text()).toBe('Escolher mídia de cópia')
+    expect(wrapper.find('h1').text()).toBe('Choose copy media')
   })
 })
 
@@ -167,14 +167,14 @@ describe('decision view while it waits, is missing, or fails', () => {
       sourcesWith(null, { getDecision: () => new Promise(() => {}) })
     )
 
-    expect(wrapper.get('[role="status"]').text()).toBe('Carregando a decisão…')
+    expect(wrapper.get('[role="status"]').text()).toBe('Loading the decision…')
     expect(wrapper.find('[role="radio"]').exists()).toBe(false)
   })
 
   it('shows a not-found message for an unknown id', async () => {
     const { wrapper } = await mountDecision('decision-that-does-not-exist', createMockSources(store))
 
-    expect(wrapper.text()).toContain('Decisão não encontrada')
+    expect(wrapper.text()).toContain('Decision not found')
   })
 
   it('says why the decision could not be read, and reads again when asked', async () => {
@@ -185,18 +185,18 @@ describe('decision view while it waits, is missing, or fails', () => {
       sourcesWith(detail, {
         getDecision: async () => {
           attempts += 1
-          if (attempts === 1) throw new Error('rede fora do ar')
+          if (attempts === 1) throw new Error('network offline')
           return detail
         }
       })
     )
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar a decisão: rede fora do ar')
+    expect(wrapper.get('[role="alert"]').text()).toContain('The decision could not be loaded: network offline')
 
-    await wrapper.findAll('button').find((button) => button.text() === 'Tentar de novo')!.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Try again')!.trigger('click')
     await flushReads()
 
-    expect(wrapper.find('h1').text()).toBe('Escolher mídia para a cópia externa')
+    expect(wrapper.find('h1').text()).toBe('Choose media for the off-site copy')
   })
 })
 
@@ -207,7 +207,7 @@ describe('decision view writing to its source', () => {
       'decision-backup-media',
       sourcesWith(detail, {
         decideDecision: async () => {
-          throw new Error('decisão já fechada')
+          throw new Error('decision already closed')
         }
       })
     )
@@ -216,8 +216,8 @@ describe('decision view writing to its source', () => {
     await wrapper.find('.decision-action-primary').trigger('click')
     await flushReads()
 
-    expect(wrapper.get('.decision-write-error').text()).toContain('Não foi possível salvar: decisão já fechada')
-    expect(wrapper.find('.decision-status').text()).toBe('Pendente')
+    expect(wrapper.get('.decision-write-error').text()).toContain('Could not save: decision already closed')
+    expect(wrapper.find('.decision-status').text()).toBe('Pending')
   })
 
   it('shows the decision the source answered with, not the one it was sent', async () => {
@@ -237,6 +237,6 @@ describe('decision view writing to its source', () => {
     await wrapper.find('.decision-action-primary').trigger('click')
     await flushReads()
 
-    expect(wrapper.text()).toContain(`Decidida hoje: ${detail.decision.options[1].title}`)
+    expect(wrapper.text()).toContain(`Decided today: ${detail.decision.options[1].title}`)
   })
 })

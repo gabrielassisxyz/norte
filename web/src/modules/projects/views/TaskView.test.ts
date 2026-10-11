@@ -25,7 +25,7 @@ beforeEach(() => {
 
 async function mountTask(id: string, sources: Partial<AppSources>): Promise<{ wrapper: VueWrapper; router: Router }> {
   const router = createRouter({ history: createMemoryHistory(), routes })
-  await router.push(`/tarefas/${id}`)
+  await router.push(`/tasks/${id}`)
   await router.isReady()
   const wrapper = mount(TaskView, { props: { id }, global: { plugins: [router, sourcesPlugin(sources)] } })
   await flushReads()
@@ -58,14 +58,14 @@ describe('task view over the mock source', () => {
   it('renders the task title and every main region', async () => {
     const { wrapper } = await mountTask('task-backup', createMockSources(store))
 
-    expect(wrapper.find('h1').text()).toBe('Definir destinos de cópia')
-    for (const heading of ['O que fazer', 'Contexto', 'Sessões nesta tarefa']) {
+    expect(wrapper.find('h1').text()).toBe('Decide backup destinations')
+    for (const heading of ['What to do', 'Context', 'Sessions in this task']) {
       expect(wrapper.text()).toContain(heading)
     }
-    expect(wrapper.find('.task-strip').text()).toContain('Em andamento')
+    expect(wrapper.find('.task-strip').text()).toContain('In progress')
     expect(wrapper.findAll('.step')).toHaveLength(2)
-    expect(wrapper.text()).toContain('Mover para')
-    expect(wrapper.find('nav.crumb').text()).toContain('Servidor caseiro')
+    expect(wrapper.text()).toContain('Move to')
+    expect(wrapper.find('nav.crumb').text()).toContain('Home server')
   })
 
   it('ticks steps through its source', async () => {
@@ -83,26 +83,26 @@ describe('task view over the mock source', () => {
     expect(step().completed).toBe(false)
   })
 
-  it('flips Marcar como feita to Reabrir and back through its source', async () => {
+  it('flips Mark as done to Reopen and back through its source', async () => {
     const { wrapper } = await mountTask('task-dns', createMockSources(store))
     const done = () => store.tasks.find((task) => task.id === 'task-dns')!.completed
     const doneButton = () =>
       wrapper
         .findAll('.task-actions button')
-        .find((button) => button.text().includes('feita') || button.text().includes('Reabrir'))!
+        .find((button) => button.text().includes('done') || button.text().includes('Reopen'))!
 
     expect(done()).toBe(false)
-    expect(doneButton().text()).toBe('Marcar como feita')
+    expect(doneButton().text()).toBe('Mark as done')
     await doneButton().trigger('click')
     await flushReads()
     expect(done()).toBe(true)
-    expect(doneButton().text()).toBe('Reabrir tarefa')
-    expect(wrapper.find('.task-strip').text()).toContain('Concluída')
+    expect(doneButton().text()).toBe('Reopen task')
+    expect(wrapper.find('.task-strip').text()).toContain('Done')
 
     await doneButton().trigger('click')
     await flushReads()
     expect(done()).toBe(false)
-    expect(doneButton().text()).toBe('Marcar como feita')
+    expect(doneButton().text()).toBe('Mark as done')
   })
 
   it('persists bucket changes and the project list shows the new bucket', async () => {
@@ -113,34 +113,34 @@ describe('task view over the mock source', () => {
       wrapper.findAll('.bucket-row .nt-tag').find((tag) => tag.text().includes(label))!
 
     expect(bucket()).toBe('today')
-    await bucketTag('Esta semana').trigger('click')
+    await bucketTag('This week').trigger('click')
     await flushReads()
     expect(bucket()).toBe('next')
 
     const router = createRouter({ history: createMemoryHistory(), routes })
-    await router.push('/projetos/project-horta')
+    await router.push('/projects/project-horta')
     await router.isReady()
     const project = mount(ProjectView, {
       props: { id: 'project-horta', tasksExpanded: true },
       global: { plugins: [router, sourcesPlugin(sources)] }
     })
     await flushReads()
-    const row = project.findAll('.task').find((task) => task.text().includes('Separar sementes de folhas'))!
-    expect(row.text()).toContain('A seguir')
+    const row = project.findAll('.task').find((task) => task.text().includes('Sort leaf seeds'))!
+    expect(row.text()).toContain('Up next')
 
-    await bucketTag('Hoje').trigger('click')
+    await bucketTag('Today').trigger('click')
     await flushReads()
     expect(bucket()).toBe('today')
   })
 
   it('edits the title and description through its source', async () => {
     const { wrapper } = await mountTask('task-vasos', createMockSources(store))
-    const edited = 'Reutilizar vasos disponíveis (revisto)'
+    const edited = 'Reuse spare pots (revised)'
 
     await wrapper.find('.ghost').trigger('click')
     await wrapper.findAll('.task-edit .nt-input')[0].setValue(edited)
-    await wrapper.findAll('.task-edit .nt-input')[1].setValue('Limpar e etiquetar os vasos.')
-    await wrapper.findAll('.task-edit-actions button').find((button) => button.text() === 'Salvar')!.trigger('click')
+    await wrapper.findAll('.task-edit .nt-input')[1].setValue('Clean and label the pots.')
+    await wrapper.findAll('.task-edit-actions button').find((button) => button.text() === 'Save')!.trigger('click')
     await flushReads()
 
     expect(store.tasks.find((task) => task.id === 'task-vasos')!.title).toBe(edited)
@@ -153,16 +153,16 @@ describe('task view over the mock source', () => {
 
     await wrapper
       .findAll('.task-actions button')
-      .find((button) => button.text() === 'Registrar sessão')!
+      .find((button) => button.text() === 'Log session')!
       .trigger('click')
     const dialog = wrapper.find('[role="dialog"]')
-    expect(dialog.text()).toContain('Registrar sessão')
-    const save = dialog.findAll('button').find((button) => button.text() === 'Registrar')!
+    expect(dialog.text()).toContain('Log session')
+    const save = dialog.findAll('button').find((button) => button.text() === 'Log')!
     expect(save.attributes('disabled')).toBeDefined()
 
-    await dialog.find('input[placeholder="Uma linha"]').setValue('Liste os arquivos por tamanho')
+    await dialog.find('input[placeholder="One line"]').setValue('List files by size')
     expect(save.attributes('disabled')).toBeDefined()
-    await dialog.find('input[placeholder="A primeira coisa da próxima sessão"]').setValue('Escolher o segundo destino')
+    await dialog.find('input[placeholder="The first thing of the next session"]').setValue('Pick the second destination')
     expect(save.attributes('disabled')).toBeUndefined()
     await save.trigger('click')
     await flushReads()
@@ -170,30 +170,30 @@ describe('task view over the mock source', () => {
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
     expect(store.sessions.filter((session) => session.taskId === 'task-backup')).toHaveLength(before + 1)
     expect(store.sessions[0]).toMatchObject({ projectId: 'project-servidor-caseiro', taskId: 'task-backup' })
-    expect(store.sessions[0].summary).toContain('Escolher o segundo destino')
-    expect(wrapper.text()).toContain('Liste os arquivos por tamanho')
+    expect(store.sessions[0].summary).toContain('Pick the second destination')
+    expect(wrapper.text()).toContain('List files by size')
   })
 
   it('routes the project, the blocking decision and the sibling tasks to their screens', async () => {
     const { wrapper, router } = await mountTask('task-backup', createMockSources(store))
 
     const projectLink = wrapper.find('.meta .meta-link')
-    expect(resolveName(router, projectLink.attributes('href'))).toBe('projeto')
+    expect(resolveName(router, projectLink.attributes('href'))).toBe('project')
     expect(router.resolve(projectLink.attributes('href')!).params.id).toBe('project-servidor-caseiro')
 
     const decisionLinks = wrapper.findAll('.meta-blocker')
     expect(decisionLinks).not.toHaveLength(0)
     for (const link of decisionLinks) {
-      expect(resolveName(router, link.attributes('href'))).toBe('decisao')
+      expect(resolveName(router, link.attributes('href'))).toBe('decision')
     }
     expect(router.resolve(decisionLinks[0].attributes('href')!).params.id).toBe('decision-backup-media')
 
-    expect(resolveName(router, wrapper.findAll('.refs .ref')[1].attributes('href'))).toBe('decisao')
+    expect(resolveName(router, wrapper.findAll('.refs .ref')[1].attributes('href'))).toBe('decision')
 
     const siblings = wrapper.findAll('.sibling')
     expect(siblings).not.toHaveLength(0)
     for (const sibling of siblings) {
-      expect(resolveName(router, sibling.attributes('href'))).toBe('tarefa')
+      expect(resolveName(router, sibling.attributes('href'))).toBe('task')
     }
   })
 })
@@ -202,15 +202,15 @@ describe('task view while it waits, is missing, or fails', () => {
   it('says it is loading before the task answers', async () => {
     const { wrapper } = await mountTask('task-backup', projectsWith(null, { getTask: () => new Promise(() => {}) }))
 
-    expect(wrapper.get('[role="status"]').text()).toBe('Carregando a tarefa…')
+    expect(wrapper.get('[role="status"]').text()).toBe('Loading the task…')
     expect(wrapper.find('.step').exists()).toBe(false)
   })
 
   it('shows a not-found message for an unknown id', async () => {
     const { wrapper, router } = await mountTask('task-that-does-not-exist', createMockSources(store))
 
-    expect(wrapper.text()).toContain('Tarefa não encontrada')
-    expect(resolveName(router, wrapper.find('.missing-link').attributes('href'))).toBe('projetos')
+    expect(wrapper.text()).toContain('Task not found')
+    expect(resolveName(router, wrapper.find('.missing-link').attributes('href'))).toBe('projects')
   })
 
   it('says why the task could not be read, and reads again when asked', async () => {
@@ -221,18 +221,18 @@ describe('task view while it waits, is missing, or fails', () => {
       projectsWith(detail, {
         getTask: async () => {
           attempts += 1
-          if (attempts === 1) throw new Error('rede fora do ar')
+          if (attempts === 1) throw new Error('network offline')
           return detail
         }
       })
     )
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar a tarefa: rede fora do ar')
+    expect(wrapper.get('[role="alert"]').text()).toContain('The task could not be loaded: network offline')
 
-    await wrapper.findAll('button').find((button) => button.text() === 'Tentar de novo')!.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Try again')!.trigger('click')
     await flushReads()
 
-    expect(wrapper.find('h1').text()).toBe('Definir destinos de cópia')
+    expect(wrapper.find('h1').text()).toBe('Decide backup destinations')
   })
 })
 
@@ -243,7 +243,7 @@ describe('task view writing to its source', () => {
       'task-backup',
       projectsWith(detail, {
         toggleTaskStep: async () => {
-          throw new Error('tarefa removida')
+          throw new Error('task removed')
         }
       })
     )
@@ -251,7 +251,7 @@ describe('task view writing to its source', () => {
     await wrapper.findAll('.step')[1].trigger('click')
     await flushReads()
 
-    expect(wrapper.get('.task-write-error').text()).toContain('Não foi possível salvar: tarefa removida')
+    expect(wrapper.get('.task-write-error').text()).toContain('Could not save: task removed')
     expect(wrapper.findAll('.step')[1].classes()).not.toContain('is-done')
   })
 
@@ -260,16 +260,16 @@ describe('task view writing to its source', () => {
     const { wrapper } = await mountTask(
       'task-vasos',
       projectsWith(detail, {
-        updateTask: async () => ({ ...detail.task, title: 'Vasos, como a fonte os nomeou' })
+        updateTask: async () => ({ ...detail.task, title: 'Pots, as the source named them' })
       })
     )
 
     await wrapper.find('.ghost').trigger('click')
-    await wrapper.findAll('.task-edit .nt-input')[0].setValue('O título que eu digitei')
-    await wrapper.findAll('.task-edit .nt-input')[1].setValue('Limpar e etiquetar os vasos.')
-    await wrapper.findAll('.task-edit-actions button').find((button) => button.text() === 'Salvar')!.trigger('click')
+    await wrapper.findAll('.task-edit .nt-input')[0].setValue('The title I typed')
+    await wrapper.findAll('.task-edit .nt-input')[1].setValue('Clean and label the pots.')
+    await wrapper.findAll('.task-edit-actions button').find((button) => button.text() === 'Save')!.trigger('click')
     await flushReads()
 
-    expect(wrapper.find('h1').text()).toBe('Vasos, como a fonte os nomeou')
+    expect(wrapper.find('h1').text()).toBe('Pots, as the source named them')
   })
 })

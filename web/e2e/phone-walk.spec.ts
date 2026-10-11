@@ -276,7 +276,7 @@ for (const phone of PHONES) {
 
     test('scrolls no route sideways', async ({ page }) => {
       const own = await seed(`Sem rolagem lateral no ${phone.name}`)
-      const routes = ['/', '/library?v=all', `/library/${own.id}`, '/notes', '/notes/sets', '/projetos', '/revisao', '/estudo']
+      const routes = ['/', '/library?v=all', `/library/${own.id}`, '/notes', '/notes/sets', '/projects', '/revisao', '/estudo']
 
       for (const route of routes) {
         await boot(page, route)

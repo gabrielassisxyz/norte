@@ -54,12 +54,12 @@ describe('search index', () => {
     const index = await readIndex()
 
     expect(index.find((entry) => entry.title === 'Library')?.to).toEqual({ name: 'library' })
-    expect(index.find((entry) => entry.title === 'Horta da varanda')?.to).toEqual({
-      name: 'projeto',
+    expect(index.find((entry) => entry.title === 'Balcony garden')?.to).toEqual({
+      name: 'project',
       params: { id: 'project-horta' }
     })
-    expect(index.find((entry) => entry.title === 'Definir destinos de cópia')?.to).toEqual({
-      name: 'tarefa',
+    expect(index.find((entry) => entry.title === 'Decide backup destinations')?.to).toEqual({
+      name: 'task',
       params: { id: 'task-backup' }
     })
   })
@@ -109,21 +109,21 @@ describe('search index', () => {
     expect(results.every((result) => result.group === 'Biblioteca')).toBe(true)
   })
 
-  it('matches Portuguese accents across the title, subtitle, kind and keywords', async () => {
+  it('matches accents across the title, subtitle, kind and keywords', async () => {
     const index = await readIndex()
 
-    expect(filterSearchIndex(index, 'decisao').some((entry) => entry.kind === 'decisão')).toBe(true)
+    expect(filterSearchIndex(index, 'decision').some((entry) => entry.kind === 'decision')).toBe(true)
     expect(filterSearchIndex(index, 'flashcards').some((entry) => entry.title === 'Revisão')).toBe(true)
     expect(filterSearchIndex(index, 'archive').some((entry) => entry.title === 'Library')).toBe(true)
     expect(filterSearchIndex(index, 'materials').some((entry) => entry.title === 'Library')).toBe(true)
   })
 
   it('keeps matching results in their product groups', async () => {
-    const grouped = groupSearchResults(filterSearchIndex(await readIndex(), 'horta'))
+    const grouped = groupSearchResults(filterSearchIndex(await readIndex(), 'garden'))
 
-    expect(grouped.map((group) => group.label)).toEqual(['Estudo', 'Projetos'])
+    expect(grouped.map((group) => group.label)).toEqual(['Projects'])
     expect(
-      grouped.flatMap((group) => group.items).every((entry) => ['Biblioteca', 'Estudo', 'Projetos'].includes(entry.group))
+      grouped.flatMap((group) => group.items).every((entry) => ['Biblioteca', 'Estudo', 'Projects'].includes(entry.group))
     ).toBe(true)
   })
 })

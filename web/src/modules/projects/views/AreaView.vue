@@ -16,15 +16,15 @@ import { useArea } from '../data/composables'
 const props = defineProps<{ id: string }>()
 
 /** The id the route uses for the empty form of a brand new area. */
-const NEW_AREA_ID = 'nova'
+const NEW_AREA_ID = 'new'
 
-type ProjectFilter = 'todos' | 'ativos'
+type ProjectFilter = 'all' | 'active'
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
-  active: 'Ativo',
-  planning: 'Planejando',
-  paused: 'Pausado',
-  completed: 'Concluído'
+  active: 'Active',
+  planning: 'Planning',
+  paused: 'Paused',
+  completed: 'Completed'
 }
 
 const STATUS_TONE: Record<ProjectStatus, string> = {
@@ -35,10 +35,10 @@ const STATUS_TONE: Record<ProjectStatus, string> = {
 }
 
 const BUCKET_LABELS: Record<Bucket, string> = {
-  today: 'Hoje',
-  next: 'A seguir',
-  later: 'Mais tarde',
-  someday: 'Algum dia'
+  today: 'Today',
+  next: 'Up next',
+  later: 'Later',
+  someday: 'Someday'
 }
 
 const router = useRouter()
@@ -59,13 +59,13 @@ const area = computed(() => detail.value?.area)
 const editing = ref(isNew.value)
 const editTitle = ref('')
 const editIntention = ref('')
-const projectFilter = ref<ProjectFilter>('todos')
+const projectFilter = ref<ProjectFilter>('all')
 
 watch(
   () => props.id,
   () => {
     editing.value = isNew.value
-    projectFilter.value = 'todos'
+    projectFilter.value = 'all'
   }
 )
 
@@ -98,17 +98,17 @@ function projectTitle(projectId: string): string {
 }
 
 const projectRows = computed(() => {
-  const visible = projectFilter.value === 'ativos' ? activeProjects.value : areaProjects.value
+  const visible = projectFilter.value === 'active' ? activeProjects.value : areaProjects.value
   return visible.map((project) => {
     const open = areaTasks.value.filter((task) => task.projectId === project.id && !task.completed)
     const bugs = project.bugs.filter((bug) => !bug.resolved)
-    const counts = [`${open.length} tarefas`]
+    const counts = [`${open.length} tasks`]
     if (bugs.length > 0) counts.push(`${bugs.length} bugs`)
     return {
       id: project.id,
       title: project.title,
       purpose: project.purpose,
-      next: open[0]?.title ?? 'Nada em aberto',
+      next: open[0]?.title ?? 'Nothing open',
       open: counts.join(' · '),
       status: STATUS_LABELS[project.status],
       statusColor: STATUS_TONE[project.status],
@@ -118,8 +118,8 @@ const projectRows = computed(() => {
 })
 
 const projectFilterOptions = computed(() => [
-  { value: 'todos', label: 'Todos', count: areaProjects.value.length },
-  { value: 'ativos', label: 'Ativos', count: activeProjects.value.length }
+  { value: 'all', label: 'All', count: areaProjects.value.length },
+  { value: 'active', label: 'Active', count: activeProjects.value.length }
 ])
 
 const railAreas = computed(() =>
@@ -130,7 +130,7 @@ const railAreas = computed(() =>
 
 const archivedCount = computed(() => detail.value?.archivedCount ?? 0)
 
-const editHeading = computed(() => (isNew.value ? 'Nova área' : 'Editar área'))
+const editHeading = computed(() => (isNew.value ? 'New area' : 'Edit area'))
 const canSave = computed(() => editTitle.value.trim().length > 0 && editIntention.value.trim().length > 0)
 
 function toggleEdit(): void {
@@ -166,7 +166,7 @@ async function save(): Promise<void> {
 
 function cancel(): void {
   if (isNew.value) {
-    void router.push({ name: 'projetos' })
+    void router.push({ name: 'projects' })
     return
   }
   editTitle.value = area.value?.title ?? ''
@@ -193,20 +193,20 @@ async function unarchive(): Promise<void> {
 
 <template>
   <main v-if="firstLoad" class="area area-missing" role="status">
-    <p>Carregando a área…</p>
+    <p>Loading the area…</p>
   </main>
 
   <main v-else-if="error" class="area area-missing" role="alert">
-    <p>Não foi possível carregar a área: {{ error }}</p>
-    <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+    <p>The area could not be loaded: {{ error }}</p>
+    <Button variant="secondary" @click="refresh()">Try again</Button>
   </main>
 
   <main v-else-if="area || isNew" class="area">
     <div class="area-top">
-      <nav class="crumb" aria-label="Navegação estrutural">
-        <RouterLink :to="{ name: 'projetos' }">Projetos</RouterLink>
+      <nav class="crumb" aria-label="Breadcrumb">
+        <RouterLink :to="{ name: 'projects' }">Projects</RouterLink>
         <span aria-hidden="true">/</span>
-        <span class="crumb-current">{{ area?.title ?? 'Nova área' }}</span>
+        <span class="crumb-current">{{ area?.title ?? 'New area' }}</span>
       </nav>
       <div class="area-actions">
         <button
@@ -216,17 +216,17 @@ async function unarchive(): Promise<void> {
           :aria-expanded="editing"
           @click="toggleEdit()"
         >
-          {{ editing ? 'Fechar edição' : 'Editar área' }}
+          {{ editing ? 'Close editing' : 'Edit area' }}
         </button>
-        <RouterLink :to="{ name: 'projetos' }" class="area-new-project">
+        <RouterLink :to="{ name: 'projects' }" class="area-new-project">
           <Icon name="plus" />
-          Novo projeto
+          New project
         </RouterLink>
       </div>
     </div>
 
     <p v-if="writing.error.value" class="area-write-error" role="alert">
-      Não foi possível salvar: {{ writing.error.value }}
+      Could not save: {{ writing.error.value }}
     </p>
 
     <div class="area-page">
@@ -237,20 +237,20 @@ async function unarchive(): Promise<void> {
           </div>
 
           <p v-if="area.archived" class="body-sm area-archived">
-            Área arquivada. Some da sidebar e da lista; os projetos continuam acessíveis pela busca.
-            <button type="button" class="ghost ghost-inline" @click="unarchive()">Desfazer</button>
+            Archived area. Hidden from the sidebar and the list; its projects stay reachable through search.
+            <button type="button" class="ghost ghost-inline" @click="unarchive()">Undo</button>
           </p>
 
           <div class="area-strip">
             <span class="mono area-strip-meta">
-              {{ areaProjects.length }} projetos · {{ activeProjects.length }} ativos ·
-              {{ pausedCount }} pausados
+              {{ areaProjects.length }} projects · {{ activeProjects.length }} active ·
+              {{ pausedCount }} paused
             </span>
             <span class="mono area-strip-meta">
-              {{ areaTasks.length }} tarefas · {{ areaDecisions.length }} decisões ·
+              {{ areaTasks.length }} tasks · {{ areaDecisions.length }} decisions ·
               {{ openBugCount }} bugs
             </span>
-            <span class="mono area-strip-meta">{{ areaSessions.length }} sessões</span>
+            <span class="mono area-strip-meta">{{ areaSessions.length }} sessions</span>
           </div>
         </template>
 
@@ -258,41 +258,41 @@ async function unarchive(): Promise<void> {
           <div class="area-edit-head">
             <h1 class="area-edit-title">{{ editHeading }}</h1>
             <p class="body-sm area-muted">
-              Uma área é um projeto permanente: não termina, só muda de forma. Nome curto, intenção
-              em uma frase.
+              An area is a permanent project: it never ends, it only changes shape. Short name, one-sentence
+              intention.
             </p>
           </div>
           <div class="area-edit-grid">
             <div class="area-edit-form">
               <TextField
                 v-model="editTitle"
-                label="Nome"
-                placeholder="Curto: Finanças, Saúde, Escrita"
+                label="Name"
+                placeholder="Short: Finances, Health, Writing"
               />
               <TextField
                 v-model="editIntention"
-                label="Intenção"
+                label="Intention"
                 multiline
                 :rows="3"
-                placeholder="Uma frase que diz o que entra nesta área"
+                placeholder="One sentence saying what belongs in this area"
               />
               <p class="body-sm area-muted area-edit-hint">
-                A intenção aparece ao lado do nome na lista de projetos e no topo desta página.
-                Escreva como critério: o que entra nesta área e o que não entra.
+                The intention shows next to the name in the project list and at the top of this page.
+                Write it as a rule: what belongs in this area and what does not.
               </p>
               <div class="area-edit-actions">
-                <Button variant="primary" :disabled="!canSave" @click="save()">Salvar</Button>
-                <Button variant="secondary" @click="cancel()">Cancelar</Button>
+                <Button variant="primary" :disabled="!canSave" @click="save()">Save</Button>
+                <Button variant="secondary" @click="cancel()">Cancel</Button>
               </div>
             </div>
             <div v-if="area" class="area-edit-side">
               <div class="area-edit-block">
                 <div class="sub area-edit-sub">
-                  {{ area.archived ? 'Desarquivar área' : 'Arquivar área' }}
+                  {{ area.archived ? 'Unarchive area' : 'Archive area' }}
                 </div>
                 <p class="body-sm area-edit-note">
-                  Some da sidebar e da lista de projetos. Os {{ areaProjects.length }} projetos
-                  continuam acessíveis pela busca e podem ser movidos para outra área.
+                  Hidden from the sidebar and the project list. Its {{ areaProjects.length }} projects
+                  stay reachable through search and can be moved to another area.
                 </p>
                 <button
                   v-if="area.archived"
@@ -300,21 +300,21 @@ async function unarchive(): Promise<void> {
                   class="ghost area-edit-button"
                   @click="unarchive()"
                 >
-                  Desarquivar
+                  Unarchive
                 </button>
                 <button v-else type="button" class="ghost area-edit-button" @click="archive()">
-                  Arquivar
+                  Archive
                 </button>
               </div>
               <div class="area-edit-rule" />
               <div class="area-edit-block">
-                <div class="sub area-edit-sub">Excluir área</div>
+                <div class="sub area-edit-sub">Delete area</div>
                 <p class="body-sm area-edit-note">
-                  Só é possível com a área vazia. Mova ou arquive os {{ areaProjects.length }}
-                  projetos antes.
+                  Only possible while the area is empty. Move or archive its {{ areaProjects.length }}
+                  projects first.
                 </p>
                 <button type="button" class="ghost ghost-danger area-edit-button" disabled>
-                  Excluir
+                  Delete
                 </button>
               </div>
             </div>
@@ -324,9 +324,9 @@ async function unarchive(): Promise<void> {
         <template v-if="!editing && area">
           <section aria-labelledby="h-area-proj" class="area-section">
             <div class="sec-head">
-              <h2 id="h-area-proj" class="sec-title">Projetos</h2>
+              <h2 id="h-area-proj" class="sec-title">Projects</h2>
               <SegmentedControl
-                label="Filtrar projetos"
+                label="Filter projects"
                 :options="projectFilterOptions"
                 :model-value="projectFilter"
                 @change="projectFilter = $event as ProjectFilter"
@@ -336,7 +336,7 @@ async function unarchive(): Promise<void> {
               <RouterLink
                 v-for="project in projectRows"
                 :key="project.id"
-                :to="{ name: 'projeto', params: { id: project.id } }"
+                :to="{ name: 'project', params: { id: project.id } }"
                 class="row row-proj"
               >
                 <div class="row-main">
@@ -345,11 +345,11 @@ async function unarchive(): Promise<void> {
                 </div>
                 <div class="row-meta">
                   <div class="row-fact">
-                    <span class="mono row-key">próximo</span>
+                    <span class="mono row-key">next</span>
                     <span class="row-value">{{ project.next }}</span>
                   </div>
                   <div class="row-fact">
-                    <span class="mono row-key">aberto</span>
+                    <span class="mono row-key">open</span>
                     <span class="mono">{{ project.open }}</span>
                   </div>
                 </div>
@@ -365,21 +365,21 @@ async function unarchive(): Promise<void> {
                   <span class="mono row-priority">{{ project.priority }}</span>
                 </div>
               </RouterLink>
-              <p v-if="projectRows.length === 0" class="empty">Nenhum projeto aqui.</p>
+              <p v-if="projectRows.length === 0" class="empty">No projects here.</p>
             </div>
           </section>
 
           <div class="area-two">
-            <section aria-labelledby="h-area-tarefas">
+            <section aria-labelledby="h-area-tasks">
               <div class="sec-head sec-head-inline">
-                <h2 id="h-area-tarefas" class="sec-title">Tarefas da área</h2>
-                <span class="sec-hint">Em aberto</span>
+                <h2 id="h-area-tasks" class="sec-title">Area tasks</h2>
+                <span class="sec-hint">Open</span>
               </div>
               <div class="sec-lines">
                 <RouterLink
                   v-for="task in openTasks"
                   :key="task.id"
-                  :to="{ name: 'tarefa', params: { id: task.id } }"
+                  :to="{ name: 'task', params: { id: task.id } }"
                   class="task-row"
                 >
                   <span class="task-box" aria-hidden="true" />
@@ -389,22 +389,22 @@ async function unarchive(): Promise<void> {
                   </div>
                   <span class="mono task-bucket">{{ BUCKET_LABELS[task.bucket] }}</span>
                 </RouterLink>
-                <p v-if="openTasks.length === 0" class="empty">Nada em aberto.</p>
+                <p v-if="openTasks.length === 0" class="empty">Nothing open.</p>
               </div>
               <p class="body-sm area-muted area-note">
-                Tarefa que cresce vira projeto: "Promover a projeto" leva o por quê junto.
+                A task that outgrows its place becomes a project: "Promote to project" carries the why along.
               </p>
             </section>
             <section aria-labelledby="h-area-dec">
               <div class="sec-head sec-head-inline">
-                <h2 id="h-area-dec" class="sec-title">Decisões pendentes</h2>
+                <h2 id="h-area-dec" class="sec-title">Pending decisions</h2>
                 <span class="mono sec-hint">{{ pendingDecisions.length }}</span>
               </div>
               <div class="sec-lines">
                 <RouterLink
                   v-for="decision in pendingDecisions"
                   :key="decision.id"
-                  :to="{ name: 'decisao', params: { id: decision.id } }"
+                  :to="{ name: 'decision', params: { id: decision.id } }"
                   class="decision-row"
                 >
                   <span class="decision-title">{{ decision.title }}</span>
@@ -412,42 +412,42 @@ async function unarchive(): Promise<void> {
                     <span>{{ projectTitle(decision.projectId) }}</span>
                     <span aria-hidden="true">·</span>
                     <span class="mono" :class="{ 'is-undated': !decision.postponedUntil }">
-                      {{ decision.postponedUntil ?? 'sem prazo' }}
+                      {{ decision.postponedUntil ?? 'no due date' }}
                     </span>
                   </span>
                 </RouterLink>
-                <p v-if="pendingDecisions.length === 0" class="empty">Nada pendente.</p>
+                <p v-if="pendingDecisions.length === 0" class="empty">Nothing pending.</p>
               </div>
             </section>
           </div>
 
           <section aria-labelledby="h-area-hist" class="area-section">
             <div class="sec-head sec-head-inline">
-              <h2 id="h-area-hist" class="sec-title">Últimas sessões</h2>
-              <span class="sec-hint">Para onde o tempo da área está indo</span>
+              <h2 id="h-area-hist" class="sec-title">Recent sessions</h2>
+              <span class="sec-hint">Where the area time is going</span>
             </div>
             <div class="sec-lines">
               <div v-for="session in areaSessions" :key="session.id" class="session-row">
                 <span class="mono session-date">{{ session.startedAt.slice(0, 10) }}</span>
                 <RouterLink
-                  :to="{ name: 'projeto', params: { id: session.projectId } }"
+                  :to="{ name: 'project', params: { id: session.projectId } }"
                   class="session-project"
                 >
                   {{ projectTitle(session.projectId) }}
                 </RouterLink>
                 <span class="session-note">{{ session.summary }}</span>
               </div>
-              <p v-if="areaSessions.length === 0" class="empty">Nenhuma sessão registada.</p>
+              <p v-if="areaSessions.length === 0" class="empty">No sessions recorded.</p>
             </div>
           </section>
         </template>
       </div>
 
-      <nav class="rail" aria-label="Áreas">
+      <nav class="rail" aria-label="Areas">
         <div class="rail-head">
-          <span class="rail-label">Áreas</span>
+          <span class="rail-label">Areas</span>
           <RouterLink :to="{ name: 'area', params: { id: NEW_AREA_ID } }" class="rail-new">
-            Nova
+            New
           </RouterLink>
         </div>
         <RouterLink
@@ -460,8 +460,8 @@ async function unarchive(): Promise<void> {
           <span class="area-link-label">{{ entry.label }}</span>
           <span class="mono area-link-count">{{ entry.count }}</span>
         </RouterLink>
-        <RouterLink :to="{ name: 'projetos' }" class="area-link area-link-archived">
-          <span class="area-link-label">Arquivadas</span>
+        <RouterLink :to="{ name: 'projects' }" class="area-link area-link-archived">
+          <span class="area-link-label">Archived</span>
           <span class="mono area-link-count">{{ archivedCount }}</span>
         </RouterLink>
       </nav>
@@ -469,8 +469,8 @@ async function unarchive(): Promise<void> {
   </main>
 
   <main v-else class="area area-missing">
-    <h1 class="sec-title">Área não encontrada</h1>
-    <RouterLink :to="{ name: 'projetos' }" class="missing-link">Voltar para Projetos</RouterLink>
+    <h1 class="sec-title">Area not found</h1>
+    <RouterLink :to="{ name: 'projects' }" class="missing-link">Back to Projects</RouterLink>
   </main>
 </template>
 

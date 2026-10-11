@@ -28,10 +28,10 @@ const bucket = ref<Bucket>('next')
 
 const priorities: Priority[] = ['P1', 'P2', 'P3']
 const buckets: Array<{ value: Bucket; label: string }> = [
-  { value: 'today', label: 'Hoje' },
-  { value: 'next', label: 'A seguir' },
-  { value: 'later', label: 'Mais tarde' },
-  { value: 'someday', label: 'Algum dia' }
+  { value: 'today', label: 'Today' },
+  { value: 'next', label: 'Up next' },
+  { value: 'later', label: 'Later' },
+  { value: 'someday', label: 'Someday' }
 ]
 
 const canSave = computed(
@@ -55,28 +55,28 @@ function save(): void {
   <div class="dlg-backdrop" @mousedown.self="emit('close')">
     <div role="dialog" aria-labelledby="project-task-title" class="dlg" @mousedown.stop="">
       <div class="dlg-head">
-        <h2 id="project-task-title" class="dlg-title">Nova tarefa</h2>
-        <p class="dlg-sub">Sem por quê e critério de pronto, não salva. A fricção é de propósito.</p>
+        <h2 id="project-task-title" class="dlg-title">New task</h2>
+        <p class="dlg-sub">No why and no done-criteria, no save. The friction is on purpose.</p>
       </div>
-      <TextField label="Título" placeholder="Começa com verbo" v-model="title" />
+      <TextField label="Title" placeholder="Starts with a verb" v-model="title" />
       <TextField
-        label="Por quê"
-        placeholder="O que esta tarefa resolve e por que agora"
+        label="Why"
+        placeholder="What this task solves and why now"
         :multiline="true"
         :rows="2"
         v-model="why"
       />
       <TextField
-        label="O que fazer"
-        placeholder="Passos concretos"
+        label="What to do"
+        placeholder="Concrete steps"
         :multiline="true"
         :rows="2"
         v-model="what"
       />
-      <TextField label="Pronto quando" placeholder="Um teste observável" v-model="done" />
+      <TextField label="Done when" placeholder="An observable test" v-model="done" />
       <div class="dlg-picks">
         <div class="dlg-pick">
-          <span class="dlg-pick-label">Prioridade</span>
+          <span class="dlg-pick-label">Priority</span>
           <div class="dlg-pick-row">
             <button
               v-for="option in priorities"
@@ -91,7 +91,7 @@ function save(): void {
           </div>
         </div>
         <div class="dlg-pick">
-          <span class="dlg-pick-label">Domínio</span>
+          <span class="dlg-pick-label">Domain</span>
           <div class="dlg-pick-row">
             <button
               v-for="option in buckets"
@@ -107,8 +107,8 @@ function save(): void {
         </div>
       </div>
       <div class="dlg-actions">
-        <Button variant="secondary" @click="emit('close')">Cancelar</Button>
-        <Button variant="primary" :disabled="!canSave" @click="save">Criar tarefa</Button>
+        <Button variant="secondary" @click="emit('close')">Cancel</Button>
+        <Button variant="primary" :disabled="!canSave" @click="save">Create task</Button>
       </div>
     </div>
   </div>

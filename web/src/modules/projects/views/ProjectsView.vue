@@ -17,15 +17,15 @@ import type { ProjectRow } from '../data/source'
 type GroupBy = 'area' | 'status'
 
 const GROUP_OPTIONS = [
-  { value: 'area', label: 'Por área' },
-  { value: 'status', label: 'Por estado' }
+  { value: 'area', label: 'By area' },
+  { value: 'status', label: 'By status' }
 ]
 
 const STATUS_DETAILS: Record<ProjectStatus, { label: string; tone: string }> = {
-  active: { label: 'Ativo', tone: 'var(--norte)' },
-  planning: { label: 'Planejando', tone: 'var(--ink-2)' },
-  paused: { label: 'Pausado', tone: 'var(--muted)' },
-  completed: { label: 'Concluído', tone: 'var(--success)' }
+  active: { label: 'Active', tone: 'var(--norte)' },
+  planning: { label: 'Planning', tone: 'var(--ink-2)' },
+  paused: { label: 'Paused', tone: 'var(--muted)' },
+  completed: { label: 'Completed', tone: 'var(--success)' }
 }
 
 const STATUS_ORDER: ProjectStatus[] = ['active', 'planning', 'paused', 'completed']
@@ -118,9 +118,9 @@ function selectGroup(value: string): void {
 
 function projectSummary(project: ProjectRow): string {
   const parts: string[] = []
-  if (project.openTasks) parts.push(`${project.openTasks} ${project.openTasks === 1 ? 'tarefa' : 'tarefas'}`)
-  if (project.pendingDecisions) parts.push(`${project.pendingDecisions} ${project.pendingDecisions === 1 ? 'decisão' : 'decisões'}`)
-  return parts.length ? parts.join(' · ') : 'Nada em aberto'
+  if (project.openTasks) parts.push(`${project.openTasks} ${project.openTasks === 1 ? 'task' : 'tasks'}`)
+  if (project.pendingDecisions) parts.push(`${project.pendingDecisions} ${project.pendingDecisions === 1 ? 'decision' : 'decisions'}`)
+  return parts.length ? parts.join(' · ') : 'Nothing open'
 }
 
 async function createProject(): Promise<void> {
@@ -152,38 +152,38 @@ async function createProject(): Promise<void> {
   <main class="projects-view">
     <div class="projects-inner">
       <div class="projects-actions">
-        <Button variant="primary" icon="plus" @click="openDialog">Novo projeto</Button>
+        <Button variant="primary" icon="plus" @click="openDialog">New project</Button>
       </div>
 
       <PageTitle
         class="projects-title"
-        title="Projetos"
-        objective="Saber o que está em andamento, por que importa e qual é o próximo passo de cada projeto."
+        title="Projects"
+        objective="Know what is in progress, why it matters and what the next step of each project is."
       />
 
-      <section aria-label="Resumo dos projetos" class="projects-stats">
+      <section aria-label="Projects summary" class="projects-stats">
         <div class="projects-stat-list">
-          <Stat :value="stats.active" label="Projetos ativos" />
-          <Stat :value="stats.openTasks" label="Tarefas abertas" />
-          <Stat :value="stats.pendingDecisions" label="Decisões pendentes" />
-          <Stat :value="stats.paused" label="Projetos parados" />
+          <Stat :value="stats.active" label="Active projects" />
+          <Stat :value="stats.openTasks" label="Open tasks" />
+          <Stat :value="stats.pendingDecisions" label="Pending decisions" />
+          <Stat :value="stats.paused" label="Paused projects" />
         </div>
-        <SegmentedControl :model-value="groupBy" :options="GROUP_OPTIONS" label="Agrupar projetos" @change="selectGroup" />
+        <SegmentedControl :model-value="groupBy" :options="GROUP_OPTIONS" label="Group projects" @change="selectGroup" />
       </section>
 
       <p v-if="writing.error.value" class="projects-write-error" role="alert">
-        Não foi possível salvar: {{ writing.error.value }}
+        Could not save: {{ writing.error.value }}
       </p>
 
-      <p v-if="firstLoad" class="projects-state" role="status">Carregando os projetos…</p>
+      <p v-if="firstLoad" class="projects-state" role="status">Loading the projects…</p>
 
       <div v-else-if="error" class="projects-state" role="alert">
-        <p>Não foi possível carregar os projetos: {{ error }}</p>
-        <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+        <p>The projects could not be loaded: {{ error }}</p>
+        <Button variant="secondary" @click="refresh()">Try again</Button>
       </div>
 
       <p v-else-if="projectRows.length === 0" class="projects-state">
-        Nenhum projeto ainda. Comece criando um — ele guarda o próximo passo para você.
+        No projects yet. Start by creating one — it keeps the next step for you.
       </p>
 
       <div v-else-if="groupBy === 'area'" class="projects-groups" data-grouping="area">
@@ -193,17 +193,17 @@ async function createProject(): Promise<void> {
               <h2 :id="area.id"><RouterLink :to="`/areas/${area.id}`">{{ area.title }}</RouterLink></h2>
               <p>{{ area.intention }}</p>
             </div>
-            <span class="project-group-count">{{ area.active }} {{ area.active === 1 ? 'ativo' : 'ativos' }} · {{ area.projects.length }} total</span>
+            <span class="project-group-count">{{ area.active }} active · {{ area.projects.length }} total</span>
           </div>
           <div class="project-list">
-            <RouterLink v-for="project in area.projects" :key="project.id" :to="`/projetos/${project.id}`" class="project-row">
+            <RouterLink v-for="project in area.projects" :key="project.id" :to="`/projects/${project.id}`" class="project-row">
               <div class="project-row-main">
                 <span class="project-row-title">{{ project.title }}</span>
                 <span class="project-row-purpose">{{ project.purpose }}</span>
               </div>
               <div class="project-row-facts">
-                <span><b>próximo</b>{{ project.nextStep }}</span>
-                <span><b>aberto</b>{{ projectSummary(project) }}</span>
+                <span><b>next</b>{{ project.nextStep }}</span>
+                <span><b>open</b>{{ projectSummary(project) }}</span>
               </div>
               <div class="project-row-status">
                 <span :style="{ color: STATUS_DETAILS[project.status].tone }" class="project-status"><i :style="{ background: STATUS_DETAILS[project.status].tone }" />{{ STATUS_DETAILS[project.status].label }}</span>
@@ -217,18 +217,18 @@ async function createProject(): Promise<void> {
       <div v-else class="projects-groups" data-grouping="status">
         <section v-for="group in statusGroups" :key="group.status" :aria-labelledby="`status-${group.status}`" class="project-group">
           <div class="project-group-head status-group-head">
-            <div class="project-group-title"><h2 :id="`status-${group.status}`">{{ group.label }}{{ group.label === 'Pausado' ? 's' : group.label === 'Ativo' ? 's' : '' }}</h2></div>
-            <span class="project-group-count">{{ group.projects.length }} {{ group.projects.length === 1 ? 'projeto' : 'projetos' }}</span>
+            <div class="project-group-title"><h2 :id="`status-${group.status}`">{{ group.label }}</h2></div>
+            <span class="project-group-count">{{ group.projects.length }} {{ group.projects.length === 1 ? 'project' : 'projects' }}</span>
           </div>
           <div class="project-list">
-            <RouterLink v-for="project in group.projects" :key="project.id" :to="`/projetos/${project.id}`" class="project-row">
+            <RouterLink v-for="project in group.projects" :key="project.id" :to="`/projects/${project.id}`" class="project-row">
               <div class="project-row-main">
                 <span class="project-row-title">{{ project.title }}</span>
                 <span class="project-row-purpose">{{ project.purpose }}</span>
               </div>
               <div class="project-row-facts">
-                <span><b>área</b>{{ project.areaTitle }}</span>
-                <span><b>próximo</b>{{ project.nextStep }}</span>
+                <span><b>area</b>{{ project.areaTitle }}</span>
+                <span><b>next</b>{{ project.nextStep }}</span>
               </div>
               <div class="project-row-status">
                 <span class="project-summary">{{ projectSummary(project) }}</span>
@@ -244,14 +244,14 @@ async function createProject(): Promise<void> {
   <div v-if="dialogOpen" class="projects-backdrop" @mousedown.self="closeDialog">
     <form class="projects-dialog" role="dialog" aria-labelledby="new-project-title" @submit.prevent="createProject">
       <div>
-        <h2 id="new-project-title">Novo projeto</h2>
-        <p>Registre o motivo e o primeiro passo para poder retomar depois.</p>
+        <h2 id="new-project-title">New project</h2>
+        <p>Record the reason and the first step so you can pick it up later.</p>
       </div>
-      <TextField v-model="title" label="Nome" placeholder="Curto, como um título" />
-      <TextField v-model="purpose" label="Por quê" placeholder="O que torna este projeto importante" :multiline="true" :rows="3" />
-      <TextField v-model="nextStep" label="Próximo passo" placeholder="A primeira coisa concreta a fazer" />
+      <TextField v-model="title" label="Name" placeholder="Short, like a title" />
+      <TextField v-model="purpose" label="Why" placeholder="What makes this project matter" :multiline="true" :rows="3" />
+      <TextField v-model="nextStep" label="Next step" placeholder="The first concrete thing to do" />
       <fieldset class="projects-area-picker">
-        <legend>Área</legend>
+        <legend>Area</legend>
         <div>
           <button
             v-for="area in areas"
@@ -266,8 +266,8 @@ async function createProject(): Promise<void> {
         </div>
       </fieldset>
       <div class="projects-dialog-actions">
-        <Button variant="secondary" @click="closeDialog">Cancelar</Button>
-        <Button variant="primary" type="submit" :disabled="!canCreate">Criar projeto</Button>
+        <Button variant="secondary" @click="closeDialog">Cancel</Button>
+        <Button variant="primary" type="submit" :disabled="!canCreate">Create project</Button>
       </div>
     </form>
   </div>

@@ -67,63 +67,63 @@ describe('area view over the mock source', () => {
   it('renders the area title and every main region', async () => {
     const { wrapper } = await mountArea('a-casa', createMockSources(store))
 
-    expect(wrapper.find('h1').text()).toBe('Casa')
-    for (const heading of ['Projetos', 'Tarefas da área', 'Decisões pendentes', 'Últimas sessões']) {
+    expect(wrapper.find('h1').text()).toBe('Home')
+    for (const heading of ['Projects', 'Area tasks', 'Pending decisions', 'Recent sessions']) {
       expect(wrapper.text()).toContain(heading)
     }
-    expect(wrapper.text()).toContain('Manter o espaço funcional e acolhedor.')
+    expect(wrapper.text()).toContain('Keep the living space functional and welcoming.')
   })
 
   it('lists only the projects, tasks, decisions and sessions of its own area', async () => {
     const { wrapper } = await mountArea('a-casa', createMockSources(store))
 
     expect(wrapper.findAll('.row-title').map((row) => row.text())).toEqual([
-      'Horta da varanda',
-      'Inventário da despensa'
+      'Balcony garden',
+      'Pantry inventory'
     ])
-    // The completed task of the Despensa project stays out of the open list.
+    // The completed task of the Pantry project stays out of the open list.
     expect(wrapper.findAll('.task-title').map((row) => row.text())).toEqual([
-      'Separar sementes de folhas',
-      'Reutilizar vasos disponíveis'
+      'Sort leaf seeds',
+      'Reuse spare pots'
     ])
-    expect(wrapper.findAll('.decision-title').map((row) => row.text())).toEqual(['Definir o arranjo dos vasos'])
+    expect(wrapper.findAll('.decision-title').map((row) => row.text())).toEqual(['Decide the pot layout'])
     expect(wrapper.findAll('.session-row')).toHaveLength(1)
-    expect(wrapper.find('.session-row').text()).toContain('Medi a área disponível.')
+    expect(wrapper.find('.session-row').text()).toContain('Measured the available area.')
   })
 
   it('gives another area its own lists', async () => {
     const { wrapper } = await mountArea('a-aprendizagem', createMockSources(store))
 
     expect(wrapper.findAll('.row-title').map((row) => row.text())).toEqual([
-      'Interpretador de expressões',
-      'Caderno de estudo'
+      'Expression interpreter',
+      'Study notebook'
     ])
   })
 
   it('narrows the project list to the active ones', async () => {
     const { wrapper } = await mountArea('a-casa', createMockSources(store))
 
-    await clickSegment(wrapper, 'Ativos')
-    expect(wrapper.findAll('.row-title').map((row) => row.text())).toEqual(['Horta da varanda'])
-    await clickSegment(wrapper, 'Todos')
+    await clickSegment(wrapper, 'Active')
+    expect(wrapper.findAll('.row-title').map((row) => row.text())).toEqual(['Balcony garden'])
+    await clickSegment(wrapper, 'All')
     expect(wrapper.findAll('.row-title')).toHaveLength(2)
   })
 
   it('routes every project, task and decision row to its own screen', async () => {
     const { wrapper, router } = await mountArea('a-casa', createMockSources(store))
 
-    expect(resolveTarget(router, wrapper.find('.row-proj').attributes('href'))).toBe('/projetos/project-horta')
-    expect(resolveTarget(router, wrapper.find('.task-row').attributes('href'))).toBe('/tarefas/task-sementes')
+    expect(resolveTarget(router, wrapper.find('.row-proj').attributes('href'))).toBe('/projects/project-horta')
+    expect(resolveTarget(router, wrapper.find('.task-row').attributes('href'))).toBe('/tasks/task-sementes')
     expect(resolveTarget(router, wrapper.find('.decision-row').attributes('href'))).toBe(
-      '/decisoes/decision-garden-layout'
+      '/decisions/decision-garden-layout'
     )
-    expect(resolveTarget(router, wrapper.find('.session-project').attributes('href'))).toBe('/projetos/project-horta')
+    expect(resolveTarget(router, wrapper.find('.session-project').attributes('href'))).toBe('/projects/project-horta')
   })
 
   it('links the rail to the new-area form and to each area', async () => {
     const { wrapper, router } = await mountArea('a-casa', createMockSources(store))
 
-    expect(resolveTarget(router, wrapper.find('.rail-new').attributes('href'))).toBe('/areas/nova')
+    expect(resolveTarget(router, wrapper.find('.rail-new').attributes('href'))).toBe('/areas/new')
     expect(resolveTarget(router, wrapper.find('.area-link.is-active').attributes('href'))).toBe('/areas/a-casa')
   })
 
@@ -131,22 +131,22 @@ describe('area view over the mock source', () => {
     const { wrapper } = await mountArea('a-tecnologia', createMockSources(store))
 
     await wrapper.find('button.ghost').trigger('click')
-    expect(wrapper.find('.area-edit-title').text()).toBe('Editar área')
-    await wrapper.find('.nt-field input').setValue('Ferramentas')
-    await wrapper.find('.nt-field textarea').setValue('Cuidar do que uso todo dia.')
-    await wrapper.findAll('.nt-btn').find((button) => button.text() === 'Salvar')!.trigger('click')
+    expect(wrapper.find('.area-edit-title').text()).toBe('Edit area')
+    await wrapper.find('.nt-field input').setValue('Tools')
+    await wrapper.find('.nt-field textarea').setValue('Look after what I use every day.')
+    await wrapper.findAll('.nt-btn').find((button) => button.text() === 'Save')!.trigger('click')
     await flushReads()
 
-    expect(wrapper.find('h1').text()).toBe('Ferramentas')
-    expect(wrapper.text()).toContain('Cuidar do que uso todo dia.')
-    expect(store.areas.find((area) => area.id === 'a-tecnologia')?.title).toBe('Ferramentas')
+    expect(wrapper.find('h1').text()).toBe('Tools')
+    expect(wrapper.text()).toContain('Look after what I use every day.')
+    expect(store.areas.find((area) => area.id === 'a-tecnologia')?.title).toBe('Tools')
   })
 
   it('archives an area and takes the archiving back', async () => {
     const { wrapper } = await mountArea('a-saude', createMockSources(store))
 
     await wrapper.find('button.ghost').trigger('click')
-    await wrapper.findAll('button.ghost').find((button) => button.text() === 'Arquivar')!.trigger('click')
+    await wrapper.findAll('button.ghost').find((button) => button.text() === 'Archive')!.trigger('click')
     await flushReads()
     expect(store.areas.find((area) => area.id === 'a-saude')?.archived).toBe(true)
     expect(wrapper.find('.area-archived').exists()).toBe(true)
@@ -157,21 +157,21 @@ describe('area view over the mock source', () => {
     expect(wrapper.find('.area-archived').exists()).toBe(false)
   })
 
-  it('opens an empty form on /areas/nova and saves a new area', async () => {
-    const { wrapper, router } = await mountArea('nova', createMockSources(store))
+  it('opens an empty form on /areas/new and saves a new area', async () => {
+    const { wrapper, router } = await mountArea('new', createMockSources(store))
 
-    expect(wrapper.find('.area-edit-title').text()).toBe('Nova área')
-    const save = () => wrapper.findAll('.nt-btn').find((button) => button.text() === 'Salvar')!
+    expect(wrapper.find('.area-edit-title').text()).toBe('New area')
+    const save = () => wrapper.findAll('.nt-btn').find((button) => button.text() === 'Save')!
     expect(save().attributes('disabled')).toBeDefined()
 
-    await wrapper.find('.nt-field input').setValue('Leituras')
-    await wrapper.find('.nt-field textarea').setValue('Guardar o que vale reler.')
+    await wrapper.find('.nt-field input').setValue('Reading')
+    await wrapper.find('.nt-field textarea').setValue('Keep what is worth rereading.')
     await save().trigger('click')
     await flushReads()
     await flushPromises()
 
-    expect(store.areas.some((area) => area.id === 'a-leituras' && !area.archived)).toBe(true)
-    expect(router.currentRoute.value.path).toBe('/areas/a-leituras')
+    expect(store.areas.some((area) => area.id === 'a-reading' && !area.archived)).toBe(true)
+    expect(router.currentRoute.value.path).toBe('/areas/a-reading')
   })
 })
 
@@ -179,15 +179,15 @@ describe('area view while it waits, is missing, or fails', () => {
   it('says it is loading before the area answers', async () => {
     const { wrapper } = await mountArea('a-casa', projectsWith(null, { getArea: () => new Promise(() => {}) }))
 
-    expect(wrapper.get('[role="status"]').text()).toBe('Carregando a área…')
+    expect(wrapper.get('[role="status"]').text()).toBe('Loading the area…')
     expect(wrapper.find('h1').exists()).toBe(false)
   })
 
   it('shows a not-found message for an unknown id', async () => {
     const { wrapper, router } = await mountArea('a-that-does-not-exist', createMockSources(store))
 
-    expect(wrapper.text()).toContain('Área não encontrada')
-    expect(resolveTarget(router, wrapper.find('.missing-link').attributes('href'))).toBe('/projetos')
+    expect(wrapper.text()).toContain('Area not found')
+    expect(resolveTarget(router, wrapper.find('.missing-link').attributes('href'))).toBe('/projects')
   })
 
   it('says why the area could not be read, and reads again when asked', async () => {
@@ -198,18 +198,18 @@ describe('area view while it waits, is missing, or fails', () => {
       projectsWith(detail, {
         getArea: async () => {
           attempts += 1
-          if (attempts === 1) throw new Error('rede fora do ar')
+          if (attempts === 1) throw new Error('network offline')
           return detail
         }
       })
     )
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar a área: rede fora do ar')
+    expect(wrapper.get('[role="alert"]').text()).toContain('The area could not be loaded: network offline')
 
-    await wrapper.findAll('button').find((button) => button.text() === 'Tentar de novo')!.trigger('click')
+    await wrapper.findAll('button').find((button) => button.text() === 'Try again')!.trigger('click')
     await flushReads()
 
-    expect(wrapper.find('h1').text()).toBe('Casa')
+    expect(wrapper.find('h1').text()).toBe('Home')
   })
 })
 
@@ -220,23 +220,23 @@ describe('area view writing to its source', () => {
       'a-tecnologia',
       projectsWith(detail, {
         updateArea: async () => {
-          throw new Error('área arquivada por outro cliente')
+          throw new Error('area archived by another client')
         }
       })
     )
 
     await wrapper.find('button.ghost').trigger('click')
-    await wrapper.find('.nt-field input').setValue('Ferramentas')
-    await wrapper.find('.nt-field textarea').setValue('Cuidar do que uso todo dia.')
-    await wrapper.findAll('.nt-btn').find((button) => button.text() === 'Salvar')!.trigger('click')
+    await wrapper.find('.nt-field input').setValue('Tools')
+    await wrapper.find('.nt-field textarea').setValue('Look after what I use every day.')
+    await wrapper.findAll('.nt-btn').find((button) => button.text() === 'Save')!.trigger('click')
     await flushReads()
 
     expect(wrapper.get('.area-write-error').text()).toContain(
-      'Não foi possível salvar: área arquivada por outro cliente'
+      'Could not save: area archived by another client'
     )
     // The editor hides the page title, so the breadcrumb is where the area the
     // screen still holds is readable.
-    expect(wrapper.find('.crumb-current').text()).toBe('Tecnologia')
+    expect(wrapper.find('.crumb-current').text()).toBe('Technology')
     expect(wrapper.find('.area-edit-title').exists()).toBe(true)
   })
 
@@ -245,17 +245,17 @@ describe('area view writing to its source', () => {
     const { wrapper } = await mountArea(
       'a-tecnologia',
       projectsWith(detail, {
-        updateArea: async () => ({ ...detail.area, title: 'Ferramentas, renomeada pela fonte' })
+        updateArea: async () => ({ ...detail.area, title: 'Tools, renamed by the source' })
       })
     )
 
     await wrapper.find('button.ghost').trigger('click')
-    await wrapper.find('.nt-field input').setValue('Ferramentas')
-    await wrapper.find('.nt-field textarea').setValue('Cuidar do que uso todo dia.')
-    await wrapper.findAll('.nt-btn').find((button) => button.text() === 'Salvar')!.trigger('click')
+    await wrapper.find('.nt-field input').setValue('Tools')
+    await wrapper.find('.nt-field textarea').setValue('Look after what I use every day.')
+    await wrapper.findAll('.nt-btn').find((button) => button.text() === 'Save')!.trigger('click')
     await flushReads()
 
-    expect(wrapper.find('h1').text()).toBe('Ferramentas, renomeada pela fonte')
+    expect(wrapper.find('h1').text()).toBe('Tools, renamed by the source')
   })
 })
 
