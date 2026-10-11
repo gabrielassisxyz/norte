@@ -37,6 +37,7 @@ func BuildNorteRuntime(cfg *Config, database *core.Database, clock core.Clock,
 		FetchMaxBytes: cfg.FetchMaxBytes,
 		LLMURL:        cfg.LLMURL,
 		LLM:           core.NewLLM(cfg.LLMURL, cfg.LLMModel, cfg.LLMKey),
+		DeciderURL:    cfg.DeciderURL,
 		// The same providers GET /api/core/focus merges, so what a
 		// classifier may propose and what the focus screen shows are one
 		// list read twice rather than two lists.

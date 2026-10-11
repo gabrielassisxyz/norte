@@ -214,7 +214,8 @@ SELECT
     published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
-    extracted_at, extract_error, minutes, meta, created_at, updated_at
+    extracted_at, extract_error, minutes, meta, created_at, updated_at,
+    location_source
 FROM library_items WHERE canonical_url = ?
 `
 
@@ -253,6 +254,7 @@ func (q *Queries) GetLibraryItemByCanonical(ctx context.Context, canonicalUrl st
 		&i.Meta,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LocationSource,
 	)
 	return i, err
 }
@@ -263,7 +265,8 @@ SELECT
     published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
-    extracted_at, extract_error, minutes, meta, created_at, updated_at
+    extracted_at, extract_error, minutes, meta, created_at, updated_at,
+    location_source
 FROM library_items WHERE id = ?
 `
 
@@ -302,6 +305,7 @@ func (q *Queries) GetLibraryItemByID(ctx context.Context, id string) (LibraryIte
 		&i.Meta,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LocationSource,
 	)
 	return i, err
 }
@@ -325,13 +329,15 @@ INSERT INTO library_items (
     published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
-    extracted_at, extract_error, minutes, meta, created_at, updated_at
+    extracted_at, extract_error, minutes, meta, created_at, updated_at,
+    location_source
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?,
-    ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?,
+    ?
 )
 `
 
@@ -367,6 +373,7 @@ type InsertLibraryItemParams struct {
 	Meta              string
 	CreatedAt         string
 	UpdatedAt         string
+	LocationSource    string
 }
 
 // The library's own statements: every one of them reads only library_items,
@@ -410,6 +417,7 @@ func (q *Queries) InsertLibraryItem(ctx context.Context, arg InsertLibraryItemPa
 		arg.Meta,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.LocationSource,
 	)
 	return err
 }
@@ -451,6 +459,44 @@ type InsertLibraryTagParams struct {
 func (q *Queries) InsertLibraryTag(ctx context.Context, arg InsertLibraryTagParams) error {
 	_, err := q.db.ExecContext(ctx, insertLibraryTag, arg.Name, arg.CreatedAt)
 	return err
+}
+
+const listLibraryDomainRules = `-- name: ListLibraryDomainRules :many
+
+SELECT domain, location FROM library_domain_rules ORDER BY domain ASC
+`
+
+type ListLibraryDomainRulesRow struct {
+	Domain   string
+	Location string
+}
+
+// The router: the rules it reads, and the two guarded writes the decider makes.
+// Every domain rule the person set. The whole table is read and matched in Go
+// because a rule covers its subdomains and the longest match wins, which no
+// single SQLite predicate says; the rules are the person's own handful, not a
+// corpus to scan.
+func (q *Queries) ListLibraryDomainRules(ctx context.Context) ([]ListLibraryDomainRulesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryDomainRules)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibraryDomainRulesRow{}
+	for rows.Next() {
+		var i ListLibraryDomainRulesRow
+		if err := rows.Scan(&i.Domain, &i.Location); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listLibraryItemTagNames = `-- name: ListLibraryItemTagNames :many
@@ -664,6 +710,36 @@ func (q *Queries) MarkLibraryItemOpened(ctx context.Context, arg MarkLibraryItem
 	return q.db.ExecContext(ctx, markLibraryItemOpened, arg.LastOpenedAt, arg.UpdatedAt, arg.ID)
 }
 
+const moveLibraryItemByDecider = `-- name: MoveLibraryItemByDecider :execrows
+UPDATE library_items
+SET location = ?, location_source = 'decider', updated_at = ?
+WHERE id = ? AND location = ? AND location_source = 'default'
+`
+
+type MoveLibraryItemByDeciderParams struct {
+	Location   string
+	UpdatedAt  string
+	ID         string
+	Location_2 string
+}
+
+// The decider's move, guarded by both halves of "nobody has touched this":
+// the source is still the default the save wrote, and the location is still
+// the one the save left. A row failing either predicate belongs to the person
+// or to a rule, and :execrows is how the handler learns it changed nothing.
+func (q *Queries) MoveLibraryItemByDecider(ctx context.Context, arg MoveLibraryItemByDeciderParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, moveLibraryItemByDecider,
+		arg.Location,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.Location_2,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const moveLibraryItemTags = `-- name: MoveLibraryItemTags :exec
 INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
 SELECT item_id, ?, origin, created_at
@@ -828,6 +904,33 @@ type ResetLibraryExtractionParams struct {
 func (q *Queries) ResetLibraryExtraction(ctx context.Context, arg ResetLibraryExtractionParams) error {
 	_, err := q.db.ExecContext(ctx, resetLibraryExtraction, arg.UpdatedAt, arg.ID)
 	return err
+}
+
+const setLibraryItemKindByDecider = `-- name: SetLibraryItemKindByDecider :execrows
+UPDATE library_items SET kind = ?, updated_at = ? WHERE id = ? AND kind = ?
+`
+
+type SetLibraryItemKindByDeciderParams struct {
+	Kind      string
+	UpdatedAt string
+	ID        string
+	Kind_2    string
+}
+
+// The decider's kind, guarded by the kind the save wrote. A column reading
+// anything else was set by the only other writer there is -- the person's
+// PATCH -- and an answer from a model does not overrule that.
+func (q *Queries) SetLibraryItemKindByDecider(ctx context.Context, arg SetLibraryItemKindByDeciderParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, setLibraryItemKindByDecider,
+		arg.Kind,
+		arg.UpdatedAt,
+		arg.ID,
+		arg.Kind_2,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 const touchLibraryItem = `-- name: TouchLibraryItem :exec

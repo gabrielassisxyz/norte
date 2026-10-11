@@ -19,7 +19,8 @@ const libraryItemColumns = `id, kind, url, canonical_url, title, title_edited, a
     published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
-    extracted_at, extract_error, minutes, meta, created_at, updated_at`
+    extracted_at, extract_error, minutes, meta, created_at, updated_at,
+    location_source`
 
 // libraryFTSRank orders full-text hits. bm25 takes one weight per FTS column in
 // table order, the UNINDEXED id included, so the first weight is id's (0) and
@@ -406,6 +407,7 @@ func libraryScanListRow(rows *sql.Rows, withRank bool) (db.LibraryItem, float64,
 		&row.ReadPosition, &row.Source, &row.HtmlHash, &row.ContentHtml, &row.ContentText,
 		&row.ContentHeadings, &row.ExtractStatus, &row.ExtractGeneration, &row.ExtractedAt,
 		&row.ExtractError, &row.Minutes, &row.Meta, &row.CreatedAt, &row.UpdatedAt,
+		&row.LocationSource,
 	}
 	if withRank {
 		targets = append(targets, &rank)

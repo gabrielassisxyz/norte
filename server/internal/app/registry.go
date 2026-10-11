@@ -70,6 +70,10 @@ type Deps struct {
 	// build a client with. A nil client, or one built from an empty URL,
 	// answers core.ErrDisabled.
 	LLM *core.LLM
+	// DeciderURL is where the Laya decision sidecar answers, and is empty
+	// when none is configured -- which is how the library decides not to
+	// enqueue a routing job whose handler would have nothing to ask.
+	DeciderURL string
 	// LinkCandidates is everything a classifier may propose linking to: the
 	// subject vocabulary plus every enabled module's in-progress targets. The
 	// registry injects it for the same reason it injects the focus providers

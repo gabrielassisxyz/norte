@@ -13,13 +13,15 @@ INSERT INTO library_items (
     published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
-    extracted_at, extract_error, minutes, meta, created_at, updated_at
+    extracted_at, extract_error, minutes, meta, created_at, updated_at,
+    location_source
 ) VALUES (
     ?, ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?, ?, ?,
     ?, ?, ?, ?,
-    ?, ?, ?, ?, ?, ?
+    ?, ?, ?, ?, ?, ?,
+    ?
 );
 
 -- name: GetLibraryItemByID :one
@@ -28,7 +30,8 @@ SELECT
     published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
-    extracted_at, extract_error, minutes, meta, created_at, updated_at
+    extracted_at, extract_error, minutes, meta, created_at, updated_at,
+    location_source
 FROM library_items WHERE id = ?;
 
 -- name: GetLibraryItemByCanonical :one
@@ -37,7 +40,8 @@ SELECT
     published_at, lead_image, reason, selection, location, unread, saved_at,
     read_at, last_opened_at, read_position, source, html_hash, content_html,
     content_text, content_headings, extract_status, extract_generation,
-    extracted_at, extract_error, minutes, meta, created_at, updated_at
+    extracted_at, extract_error, minutes, meta, created_at, updated_at,
+    location_source
 FROM library_items WHERE canonical_url = ?;
 
 -- A duplicate save applies the note and the selection that came with it, or
@@ -260,3 +264,27 @@ SELECT
     (SELECT COUNT(*) FROM tagged WHERE kind = 'newsletter') AS kind_newsletter,
     (SELECT COUNT(*) FROM tagged WHERE kind = 'course') AS kind_course,
     (SELECT COUNT(*) FROM tagged WHERE unread = 1) AS unread;
+
+-- The router: the rules it reads, and the two guarded writes the decider makes.
+
+-- Every domain rule the person set. The whole table is read and matched in Go
+-- because a rule covers its subdomains and the longest match wins, which no
+-- single SQLite predicate says; the rules are the person's own handful, not a
+-- corpus to scan.
+-- name: ListLibraryDomainRules :many
+SELECT domain, location FROM library_domain_rules ORDER BY domain ASC;
+
+-- The decider's move, guarded by both halves of "nobody has touched this":
+-- the source is still the default the save wrote, and the location is still
+-- the one the save left. A row failing either predicate belongs to the person
+-- or to a rule, and :execrows is how the handler learns it changed nothing.
+-- name: MoveLibraryItemByDecider :execrows
+UPDATE library_items
+SET location = ?, location_source = 'decider', updated_at = ?
+WHERE id = ? AND location = ? AND location_source = 'default';
+
+-- The decider's kind, guarded by the kind the save wrote. A column reading
+-- anything else was set by the only other writer there is -- the person's
+-- PATCH -- and an answer from a model does not overrule that.
+-- name: SetLibraryItemKindByDecider :execrows
+UPDATE library_items SET kind = ?, updated_at = ? WHERE id = ? AND kind = ?;

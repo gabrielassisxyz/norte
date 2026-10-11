@@ -104,6 +104,13 @@ type SaveInput struct {
 	Reason    string
 	LinkTo    []string
 	Source    string
+	// AsImport asks the router for an import's destinations: where it would
+	// choose the Inbox it chooses the Archive instead, because an import of a
+	// dump the person already keeps holds nothing they are waiting to read.
+	// It is an option on the save path rather than a router of its own, so
+	// the domain rules and the one placement rule stay in one place -- and a
+	// rule sending a host to the Stash still does.
+	AsImport bool
 }
 
 // SaveOutcome is what a save reports: the item, and whether this call created
@@ -263,16 +270,21 @@ func (s *LibraryService) insertLibraryItem(ctx context.Context, tx *sql.Tx, quer
 	if in.Selection != nil {
 		selection = sql.NullString{String: *in.Selection, Valid: true}
 	}
+	placement, err := s.placeNewItem(ctx, queries, prepared.parsed.Hostname(), in.AsImport)
+	if err != nil {
+		return SaveOutcome{}, err
+	}
 	if err := queries.InsertLibraryItem(ctx, db.InsertLibraryItemParams{
 		ID:                id,
-		Kind:              "article",
+		Kind:              libraryDefaultKind,
 		Url:               in.URL,
 		CanonicalUrl:      prepared.canonical,
 		Title:             title,
 		TitleEdited:       0,
 		Reason:            reason,
 		Selection:         selection,
-		Location:          "inbox",
+		Location:          placement.location,
+		LocationSource:    placement.source,
 		Unread:            1,
 		SavedAt:           stamp,
 		Source:            in.Source,
@@ -288,7 +300,7 @@ func (s *LibraryService) insertLibraryItem(ctx context.Context, tx *sql.Tx, quer
 	if err := core.RegisterItem(ctx, tx, core.ItemRegistration{
 		ID:        id,
 		Module:    ModuleName,
-		Type:      "article",
+		Type:      libraryDefaultKind,
 		Title:     title,
 		URL:       in.URL,
 		CreatedAt: now,
@@ -311,10 +323,31 @@ func (s *LibraryService) insertLibraryItem(ctx context.Context, tx *sql.Tx, quer
 	return SaveOutcome{ID: id, Created: true}, nil
 }
 
+// placeNewItem reads the person's domain rules and answers where this save
+// lands. It runs inside the save's transaction, so a rule written while the
+// save was in flight is either wholly in or wholly out of this placement.
+//
+// A rule table that cannot be read fails the save rather than defaulting to
+// the Inbox: the rules are the person's own standing instruction, and
+// silently ignoring them would put a host they told Norte to stash in front
+// of them with nothing to explain why.
+func (s *LibraryService) placeNewItem(ctx context.Context, queries *db.Queries, host string, asImport bool) (libraryPlacement, error) {
+	rules, err := queries.ListLibraryDomainRules(ctx)
+	if err != nil {
+		return libraryPlacement{}, fmt.Errorf("reading the domain rules: %w", err)
+	}
+	return libraryPlaceNewItem(rules, host, asImport), nil
+}
+
 // applyLibraryDuplicate folds a second save into the existing item: its note
 // and selection are applied, its links are created unless they exist, and its
 // snapshot replaces the stored one only when the request carries HTML and the
 // stored snapshot did not come from the extension or extraction failed.
+//
+// Its location and its kind are not among them. The item was placed once, and
+// a second save of the same URL is not a new arrival: re-running the router
+// over it would undo the person's own triage every time they saved a link
+// they had saved before.
 func (s *LibraryService) applyLibraryDuplicate(ctx context.Context, tx *sql.Tx, queries *db.Queries, existing db.LibraryItem, prepared *PreparedSave, targets []string) (SaveOutcome, error) {
 	in := prepared.input
 	now := s.clock.Now()
