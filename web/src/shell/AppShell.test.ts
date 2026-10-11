@@ -99,7 +99,7 @@ describe('app shell', () => {
     expect(targets['All']).toMatchObject({ name: 'library', query: { v: 'all' } })
     expect(targets['Later']).toMatchObject({ name: 'library', query: { v: 'later' } })
     expect(targets['Books']).toMatchObject({ name: 'library', query: { kind: 'book' } })
-    expect(targets['Revisão']).toMatchObject({ name: 'review' })
+    expect(targets['Review']).toMatchObject({ name: 'review' })
     expect(targets['Curricula']).toMatchObject({ name: 'study' })
     expect(targets['Annotations']).toMatchObject({ name: 'notes', query: { tab: 'annotations' } })
     expect(targets['Highlights']).toMatchObject({ name: 'notes', query: { tab: 'highlights' } })
@@ -130,8 +130,8 @@ describe('app shell', () => {
     const { wrapper } = await mountAt('/review')
     await expandAll(wrapper)
 
-    const revisao = sidebarLinks(wrapper).find((link) => link.text().includes('Revisão'))
-    expect(revisao?.classes()).toContain('is-active')
+    const review = sidebarLinks(wrapper).find((link) => link.text().includes('Review'))
+    expect(review?.classes()).toContain('is-active')
   })
 
   it('collapses and expands sidebar sections', async () => {

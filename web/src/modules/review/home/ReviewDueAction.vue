@@ -13,7 +13,7 @@ const dueCount = computed(() => summary.value?.due ?? 0)
     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
       <path d="M5.5 3.5v9l7-4.5z" />
     </svg>
-    Revisar {{ dueCount }} cartões
+    Review {{ dueCount }} cards
   </RouterLink>
 </template>
 

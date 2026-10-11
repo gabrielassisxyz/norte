@@ -113,7 +113,7 @@ describe('search index', () => {
     const index = await readIndex()
 
     expect(filterSearchIndex(index, 'decision').some((entry) => entry.kind === 'decision')).toBe(true)
-    expect(filterSearchIndex(index, 'flashcards').some((entry) => entry.title === 'Revisão')).toBe(true)
+    expect(filterSearchIndex(index, 'flashcards').some((entry) => entry.title === 'Review')).toBe(true)
     expect(filterSearchIndex(index, 'archive').some((entry) => entry.title === 'Library')).toBe(true)
     expect(filterSearchIndex(index, 'materials').some((entry) => entry.title === 'Library')).toBe(true)
   })

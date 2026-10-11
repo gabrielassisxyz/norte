@@ -84,36 +84,36 @@ describe('the sidebar as the phone drawer\'s panel', () => {
   })
 })
 
-describe('Revisão in the sidebar', () => {
+describe('Review in the sidebar', () => {
   it('nests under Study when both are mounted', async () => {
     const wrapper = await mountSidebar()
 
-    expect(topLevelLabels(wrapper)).not.toContain('Revisão')
+    expect(topLevelLabels(wrapper)).not.toContain('Review')
     await expand(wrapper, 'Study')
     const nested = wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub').map((row) => row.text().replace(/\d+$/, '').trim())
-    expect(nested).toContain('Revisão')
+    expect(nested).toContain('Review')
   })
 
-  it('stands on its own when Revisão is mounted without Study', async () => {
+  it('stands on its own when Review is mounted without Study', async () => {
     switchOff('study')
     const wrapper = await mountSidebar()
 
-    expect(topLevelLabels(wrapper)).toContain('Revisão')
+    expect(topLevelLabels(wrapper)).toContain('Review')
     expect(topLevelLabels(wrapper)).not.toContain('Study')
     // Nothing to expand: it has no rows of its own.
-    expect(wrapper.find('button[aria-label="Expandir Revisão"]').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="Expandir Review"]').exists()).toBe(false)
   })
 
-  it('leaves Study without a Revisão row when only Study is mounted', async () => {
+  it('leaves Study without a Review row when only Study is mounted', async () => {
     switchOff('review')
     const wrapper = await mountSidebar()
 
     expect(topLevelLabels(wrapper)).toContain('Study')
-    expect(topLevelLabels(wrapper)).not.toContain('Revisão')
+    expect(topLevelLabels(wrapper)).not.toContain('Review')
     await expand(wrapper, 'Study')
     const nested = wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub').map((row) => row.text().replace(/\d+$/, '').trim())
     expect(nested).toContain('Curricula')
-    expect(nested).not.toContain('Revisão')
+    expect(nested).not.toContain('Review')
   })
 
   it('mentions neither when neither is mounted', async () => {
@@ -122,7 +122,7 @@ describe('Revisão in the sidebar', () => {
     const labels = topLevelLabels(wrapper)
 
     expect(labels).not.toContain('Study')
-    expect(labels).not.toContain('Revisão')
+    expect(labels).not.toContain('Review')
     // The sidebar is still a sidebar: the other products are untouched.
     expect(labels).toContain('Library')
     expect(labels).toContain('Projects')

@@ -25,7 +25,7 @@ export function useSidebar(): ModuleSidebar {
     sections: [
       {
         id: 'review',
-        label: 'Revisão',
+        label: 'Review',
         to: { name: 'review' },
         order: 25,
         activeRouteNames: ['review'],
@@ -45,11 +45,11 @@ export const homeBlocks = [{ id: 'review-due', order: 20, region: 'actions' as c
 export function useSearchEntries(): ComputedRef<SearchEntry[]> {
   return computed<SearchEntry[]>(() => [
     {
-      group: 'Estudo',
-      title: 'Revisão',
-      subtitle: 'Cartões para revisar',
+      group: 'Study',
+      title: 'Review',
+      subtitle: 'Cards to review',
       kind: 'tela',
-      keywords: 'flashcards cartões anki',
+      keywords: 'flashcards cards anki',
       to: { name: 'review' }
     }
   ])

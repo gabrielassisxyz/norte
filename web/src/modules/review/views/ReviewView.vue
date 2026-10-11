@@ -68,8 +68,8 @@ function progress(due: ReviewCard[], all: ReviewCard[]): { left: number; total: 
 const deckRows = computed<DeckRow[]>(() => [
   {
     id: ALL_DECKS,
-    name: 'Tudo de hoje',
-    sub: `${decks.value.length} baralhos`,
+    name: 'All due today',
+    sub: `${decks.value.length} decks`,
     ...progress(dueCards(ALL_DECKS), cards.value),
     active: pickedId.value === ALL_DECKS
   },
@@ -123,7 +123,7 @@ const sourceTo = computed(() => {
   return { name: 'library', query: { v: 'all' } }
 })
 
-const cardCountLabel = computed(() => (doneCount.value === 1 ? 'cartão' : 'cartões'))
+const cardCountLabel = computed(() => (doneCount.value === 1 ? 'card' : 'cards'))
 
 function pick(id: string): void {
   pickedId.value = id
@@ -158,44 +158,44 @@ function restart(): void {
 <template>
   <main class="review">
     <div class="review-top">
-      <nav class="crumb" aria-label="Navegação estrutural">
+      <nav class="crumb" aria-label="Breadcrumb">
         <template v-if="canReachStudy">
-          <RouterLink :to="{ name: 'study' }">Estudo</RouterLink>
+          <RouterLink :to="{ name: 'study' }">Study</RouterLink>
           <span aria-hidden="true">/</span>
         </template>
-        <span class="crumb-current">Revisão</span>
+        <span class="crumb-current">Review</span>
       </nav>
       <div v-if="pickedId !== null" class="review-actions">
-        <Button variant="secondary" @click="restart">Reiniciar sessão</Button>
+        <Button variant="secondary" @click="restart">Restart session</Button>
       </div>
     </div>
 
     <div class="review-hero">
       <PageTitle
-        title="Revisão"
-        objective="Lembrar o que li, não só reconhecer. Responda de memória antes de virar o cartão."
+        title="Review"
+        objective="Remember what you read, not just recognize it. Answer from memory before flipping the card."
       />
     </div>
 
     <div class="review-stats">
-      <Stat :value="leftToday" unit="cartões" label="Restam hoje" />
-      <Stat :value="doneCount" label="Revisados nesta sessão" />
-      <Stat :value="recalled" unit="%" label="Lembrados" />
+      <Stat :value="leftToday" unit="cards" label="Left today" />
+      <Stat :value="doneCount" label="Reviewed this session" />
+      <Stat :value="recalled" unit="%" label="Recalled" />
     </div>
 
     <p v-if="rating.error.value" class="review-write-error" role="alert">
-      Não foi possível registrar a resposta: {{ rating.error.value }}
+      Could not record the answer: {{ rating.error.value }}
     </p>
 
-    <p v-if="firstLoad" class="review-state" role="status">Carregando os cartões…</p>
+    <p v-if="firstLoad" class="review-state" role="status">Loading the cards…</p>
 
     <div v-else-if="error" class="review-state" role="alert">
-      <p>Não foi possível carregar os cartões: {{ error }}</p>
-      <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+      <p>The cards could not be loaded: {{ error }}</p>
+      <Button variant="secondary" @click="refresh()">Try again</Button>
     </div>
 
     <div v-else-if="cards.length === 0" class="review-state">
-      <p>Nenhum cartão ainda. Os cartões nascem do que você lê e marca.</p>
+      <p>No cards yet. Cards come from what you read and mark.</p>
     </div>
 
     <div v-else class="review-page">
@@ -211,44 +211,44 @@ function restart(): void {
             @rate="rate"
           />
           <p class="review-hint">
-            Espaço vira o cartão · <span class="mono">1</span> a <span class="mono">4</span> avaliam ·
-            origem:
-            <RouterLink v-if="canReachLibrary" :to="sourceTo">{{ sourceItem?.title ?? 'Biblioteca' }}</RouterLink>
-            <span v-else>{{ sourceItem?.title ?? 'Biblioteca' }}</span>
+            Space flips the card · <span class="mono">1</span> to <span class="mono">4</span> rate ·
+            source:
+            <RouterLink v-if="canReachLibrary" :to="sourceTo">{{ sourceItem?.title ?? 'Library' }}</RouterLink>
+            <span v-else>{{ sourceItem?.title ?? 'Library' }}</span>
           </p>
         </template>
 
         <section v-else-if="finished" class="review-panel" aria-labelledby="review-finish-title">
-          <h2 id="review-finish-title" class="sec-title">Sessão concluída</h2>
+          <h2 id="review-finish-title" class="sec-title">Session complete</h2>
           <p v-if="doneCount > 0" class="review-text">
-            Você revisou <span class="mono">{{ doneCount }} {{ cardCountLabel }}</span> e lembrou
-            de <span class="mono">{{ recalled }}%</span>. Os marcados como “De novo” voltam em 10
-            minutos; os demais reaparecem na próxima sessão.
+            You reviewed <span class="mono">{{ doneCount }} {{ cardCountLabel }}</span> and remembered
+            <span class="mono">{{ recalled }}%</span>. Cards marked “Again” come back in 10
+            minutes; the rest return in the next session.
           </p>
-          <p v-else class="review-text">Não havia cartões vencidos neste baralho.</p>
+          <p v-else class="review-text">No cards were due in this deck.</p>
           <div class="review-panel-actions">
-            <Button variant="primary" @click="restart">Revisar de novo</Button>
-            <RouterLink :to="{ name: 'home' }" class="review-home">Voltar ao início</RouterLink>
+            <Button variant="primary" @click="restart">Review again</Button>
+            <RouterLink :to="{ name: 'home' }" class="review-home">Back to home</RouterLink>
           </div>
         </section>
 
         <section v-else class="review-panel" aria-labelledby="review-pick-title">
-          <h2 id="review-pick-title" class="sec-title">Escolha um baralho</h2>
+          <h2 id="review-pick-title" class="sec-title">Choose a deck</h2>
           <p class="review-text">
-            Os cartões vencidos hoje estão nos baralhos ao lado. Escolha um para começar a
-            sessão — ou comece por tudo de uma vez.
+            The cards due today are in the decks on the side. Choose one to start the
+            session — or start with everything at once.
           </p>
           <div class="review-panel-actions">
-            <Button variant="primary" @click="pick(ALL_DECKS)">Começar tudo de hoje</Button>
+            <Button variant="primary" @click="pick(ALL_DECKS)">Start all due today</Button>
           </div>
         </section>
       </div>
 
-      <aside class="review-side" aria-label="Baralhos">
+      <aside class="review-side" aria-label="Decks">
         <div>
           <div class="review-decks-head">
-            <h2 class="sec-title sec-title-sm">Baralhos</h2>
-            <span class="mono review-today">hoje</span>
+            <h2 class="sec-title sec-title-sm">Decks</h2>
+            <span class="mono review-today">today</span>
           </div>
           <div class="review-decks">
             <button
@@ -269,10 +269,10 @@ function restart(): void {
           </div>
         </div>
         <div class="review-about">
-          <span class="review-about-title">Como os intervalos são calculados</span>
+          <span class="review-about-title">How intervals are calculated</span>
           <p>
-            Os intervalos seguem repetição espaçada: “Bom” mantém o ritmo, “Fácil” estica,
-            “Difícil” encurta e “De novo” traz o cartão de volta em 10 minutos.
+            Intervals follow spaced repetition: “Good” keeps the pace, “Easy” stretches it,
+            “Hard” shortens it and “Again” brings the card back in 10 minutes.
           </p>
         </div>
       </aside>
