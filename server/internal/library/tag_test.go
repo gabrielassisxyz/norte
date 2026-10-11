@@ -22,10 +22,10 @@ func TestTheTagNormalizerKeepsOneSpellingOfEveryName(t *testing.T) {
 	long := strings.Repeat("a", libraryTagMaxNameRunes)
 	tooLong := strings.Repeat("a", libraryTagMaxNameRunes+1)
 	for _, tc := range []struct {
-		name    string
-		raw     string
-		removed map[string]bool
-		want    string
+		name     string
+		raw      string
+		removed  map[string]bool
+		want     string
 		wantKept bool
 	}{
 		{"case folds", "LLM", nil, "llm", true},
