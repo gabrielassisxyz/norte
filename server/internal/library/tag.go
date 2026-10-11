@@ -78,9 +78,11 @@ type libraryTagPayload struct {
 	ItemID string `json:"item_id"`
 }
 
-// libraryTagAnswer is the whole answer the schema asks for.
+// libraryTagAnswer is the whole answer the schema asks for. Tags is a
+// pointer so that an object without the key is knowable: a missing key is an
+// answer that ignored the schema, not an opinion of no tags.
 type libraryTagAnswer struct {
-	Tags []string `json:"tags"`
+	Tags *[]string `json:"tags"`
 }
 
 // LibraryTagOptions is everything the handler needs. The LLM is injected, so
@@ -176,12 +178,19 @@ func (t *LibraryTagger) Handle(ctx context.Context, job core.Job) error {
 		// a broken endpoint look like a model with no opinion.
 		return fmt.Errorf("reading the tagging of %s: %w", item.ID, err)
 	}
-	kept := libraryNormalizeTags(answer.Tags, removed)
+	if answer.Tags == nil {
+		// Same reason, one shape further in: valid JSON that ignores the key
+		// the schema demands. Retrying is what gives the endpoint its next
+		// chance, and it keeps this run from wiping the item's automatic rows
+		// on the strength of an answer the classifier would refuse too.
+		return fmt.Errorf("tagging %s: the answer does not name tags", item.ID)
+	}
+	kept := libraryNormalizeTags(*answer.Tags, removed)
 	if err := t.store(ctx, item.ID, kept); err != nil {
 		return err
 	}
 	t.logger.Info("tagged a saved item", "item_id", item.ID, "kind", LibraryTagJobKind,
-		"proposed", len(answer.Tags), "stored", len(kept))
+		"proposed", len(*answer.Tags), "stored", len(kept))
 	return nil
 }
 

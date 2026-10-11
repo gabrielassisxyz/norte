@@ -30,7 +30,11 @@ func TestTheFirstDeliveryWalksFromASavedLinkToANoteUnderASubject(t *testing.T) {
 	if !subject.Focus {
 		t.Fatalf("the subject was created with focus = %v, want true", subject.Focus)
 	}
-	harness.llm.Answer(fmt.Sprintf(`{"suggestions":[{"id":%q,"confidence":0.88}]}`, subject.ID))
+	// The stub answers one body to every completion, so it carries both jobs'
+	// shapes: the classifier reads suggestions, the tagger reads tags, and
+	// json.Unmarshal in each handler ignores the other key.
+	harness.llm.Answer(fmt.Sprintf(
+		`{"suggestions":[{"id":%q,"confidence":0.88}],"tags":["memoria-de-trabalho"]}`, subject.ID))
 
 	// 2. The save, carrying the rendered page. The extraction refuses
 	// loopback and private addresses on purpose, so the page travels as a
@@ -44,14 +48,28 @@ func TestTheFirstDeliveryWalksFromASavedLinkToANoteUnderASubject(t *testing.T) {
 			"reason": "Para decidir como terminar uma leitura.",
 		}), http.StatusCreated)
 
-	// 3. Extraction, then classification: two jobs on one queue, the second
-	// enqueued by the first.
+	// 3. Extraction, then classification and tagging: two follow-up jobs on
+	// one queue, both enqueued by the extraction inside its transaction.
 	harness.drainJobs()
 	if status := harness.extractStatus(saved.ID); status != "done" {
 		t.Fatalf("extract_status = %q, want done", status)
 	}
-	if len(harness.llm.Requests()) != 1 {
-		t.Fatalf("the classifier called the model %d times, want 1", len(harness.llm.Requests()))
+	if len(harness.llm.Requests()) != 2 {
+		t.Fatalf("the model was called %d times, want 2: the classifier once and the tagger once", len(harness.llm.Requests()))
+	}
+	first, second := harness.llm.Requests()[0], harness.llm.Requests()[1]
+	if first.SchemaName != "library_classification" || second.SchemaName != "library_tags" {
+		t.Fatalf("the model was called for %q then %q, want a classification then a tagging",
+			first.SchemaName, second.SchemaName)
+	}
+	// The tags the model answered are on the item, sorted, in the detail read
+	// back -- the only place the walk itself can prove tagging survived the
+	// whole chain rather than a handler's unit test.
+	detail := norteVerticalDecode[map[string]any](t, harness.request(
+		http.MethodGet, "/api/library/items/"+saved.ID, nil), http.StatusOK)
+	tags, ok := detail["tags"].([]any)
+	if !ok || len(tags) != 1 || tags[0] != "memoria-de-trabalho" {
+		t.Fatalf("the item carries %v, want the one tag the model answered", detail["tags"])
 	}
 
 	// 4. The suggestion, as the review queue would read it.

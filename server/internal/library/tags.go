@@ -271,12 +271,12 @@ func (s *LibraryService) RenameTag(ctx context.Context, rawFrom, rawTo string) (
 			return libraryapi.LibraryTag{}, fmt.Errorf("retiring tags nothing carries: %w", err)
 		}
 	}
-	if err := tx.Commit(); err != nil {
-		return libraryapi.LibraryTag{}, fmt.Errorf("committing the tag rename: %w", err)
-	}
 	count, err := queries.CountLibraryItemTagUses(ctx, newName)
 	if err != nil {
 		return libraryapi.LibraryTag{}, fmt.Errorf("counting the items of %s: %w", newName, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return libraryapi.LibraryTag{}, fmt.Errorf("committing the tag rename: %w", err)
 	}
 	return libraryapi.LibraryTag{Name: newName, Count: int(count)}, nil
 }
