@@ -93,7 +93,7 @@ describe('a module the server does not serve', () => {
     await wrapper.get('.app-foot .app-button').trigger('click')
     const palette = wrapper.get('.shell-palette-results')
 
-    expect(palette.text()).not.toContain('Inbox, depois e arquivo')
+    expect(palette.text()).not.toContain('Inbox, Up Next, Later, Archive and Stash')
     expect(palette.text()).toContain('Curricula and subjects')
   })
 })

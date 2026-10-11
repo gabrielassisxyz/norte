@@ -81,9 +81,9 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
     libraryRecord({
       id: 'lib-post',
       kind: 'article',
-      title: 'Um texto guardado',
-      author: 'Equipe Norte',
-      site: 'notas.example',
+      title: 'A saved article',
+      author: 'The Norte team',
+      site: 'notes.example',
       minutes: 8,
       saved_at: '2026-10-03T09:00:00Z',
       last_opened_at: '2026-10-03T18:00:00Z',
@@ -92,9 +92,9 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
     libraryRecord({
       id: 'lib-livro',
       kind: 'book',
-      title: 'Um livro guardado',
+      title: 'A saved book',
       author: 'Marina Costa',
-      site: 'editora.example',
+      site: 'publisher.example',
       minutes: 28,
       saved_at: '2026-10-02T09:00:00Z',
       last_opened_at: '2026-10-03T17:00:00Z',
@@ -103,10 +103,10 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
     libraryRecord({
       id: 'lib-paper',
       kind: 'paper',
-      title: 'Um paper guardado',
+      title: 'A saved paper',
       site: 'papers.example',
       // A note is part of what the palette searches, so one record carries one.
-      reason: 'Para a horta da varanda',
+      reason: 'For the balcony garden',
       minutes: 16,
       saved_at: '2026-09-29T09:00:00Z',
       last_opened_at: '2026-10-03T16:00:00Z'
@@ -114,8 +114,8 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
     libraryRecord({
       id: 'lib-depois',
       kind: 'article',
-      title: 'Guardado para depois',
-      site: 'depois.example',
+      title: 'Saved for later',
+      site: 'later.example',
       location: 'later',
       minutes: 11,
       saved_at: '2026-09-27T09:00:00Z',
@@ -124,8 +124,8 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
     libraryRecord({
       id: 'lib-video',
       kind: 'video',
-      title: 'Um vídeo guardado',
-      site: 'canal.example',
+      title: 'A saved video',
+      site: 'channel.example',
       location: 'archive',
       unread: false,
       read_at: '2026-10-01T09:00:00Z',
@@ -135,8 +135,8 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
     libraryRecord({
       id: 'lib-curso',
       kind: 'course',
-      title: 'Um curso guardado',
-      site: 'curso.example',
+      title: 'A saved course',
+      site: 'course.example',
       location: 'archive',
       unread: false,
       read_at: '2026-09-30T09:00:00Z',

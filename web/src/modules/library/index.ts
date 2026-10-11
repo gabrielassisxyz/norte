@@ -129,10 +129,10 @@ export const homeBlocks = [
 ]
 
 const SCREEN_ENTRY: SearchEntry = {
-  group: 'Biblioteca',
+  group: 'Library',
   title: 'Library',
   subtitle: 'Inbox, Up Next, Later, Archive and Stash',
-  kind: 'tela',
+  kind: 'screen',
   keywords: 'articles materials reading',
   to: { name: 'library' }
 }

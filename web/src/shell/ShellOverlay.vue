@@ -41,7 +41,7 @@ const theme = ref<Theme>(getTheme())
  * cannot offer a way into a screen that is not there.
  */
 const index = useSearchIndex()
-const screenEntries = computed<SearchEntry[]>(() => index.value.filter((entry) => entry.kind === 'tela'))
+const screenEntries = computed<SearchEntry[]>(() => index.value.filter((entry) => entry.kind === 'screen'))
 
 /** What the server found, which is everything the static index cannot know. */
 const remote = usePaletteSearch()
@@ -55,7 +55,7 @@ const defaultGroups = computed<PaletteGroup[]>(() => [
   {
     label: 'Ir para',
     items: screenEntries.value.map((entry) => ({
-      key: `tela:${entry.title}`,
+      key: `screen:${entry.title}`,
       title: entry.title,
       subtitle: entry.subtitle,
       kind: entry.kind,

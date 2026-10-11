@@ -225,13 +225,13 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     const saves = wrapper.findAll('.home-save')
-    const paperSave = saves.find((node) => node.text().includes('Um paper guardado'))
+    const paperSave = saves.find((node) => node.text().includes('A saved paper'))
     expect(paperSave).toBeDefined()
     const saveMeta = paperSave!.get('.home-save-meta').text()
     expect(saveMeta.match(/papers\.example/g) ?? []).toHaveLength(1)
 
     const cards = wrapper.findAll('.home-reading-card')
-    const paperCard = cards.find((node) => node.text().includes('Um paper guardado'))
+    const paperCard = cards.find((node) => node.text().includes('A saved paper'))
     expect(paperCard).toBeDefined()
     expect(paperCard!.text().match(/papers\.example/g) ?? []).toHaveLength(1)
   })
@@ -241,13 +241,13 @@ describe('HomeView', () => {
 
     const cards = wrapper.findAll('.home-reading-card')
     // 8 minutes at 42% read leaves ceil(8 × 0.58) = 5 minutes, not the whole 8.
-    const started = cards.find((node) => node.text().includes('Um texto guardado'))
+    const started = cards.find((node) => node.text().includes('A saved article'))
     expect(started).toBeDefined()
     expect(started!.get('.home-reading-meta').text()).toContain('5 min left')
     expect(started!.get('.home-reading-meta').text()).not.toContain('8 min left')
 
     // No minutes stored means no invented duration.
-    const unknown = cards.find((node) => node.text().includes('Um vídeo guardado'))
+    const unknown = cards.find((node) => node.text().includes('A saved video'))
     expect(unknown).toBeDefined()
     expect(unknown!.text()).not.toContain('min left')
   })

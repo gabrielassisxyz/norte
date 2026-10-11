@@ -138,18 +138,18 @@ export const homeBlocks = []
 export function useSearchEntries(): ComputedRef<SearchEntry[]> {
   return computed<SearchEntry[]>(() => [
     {
-      group: 'Estudo',
+      group: 'Study',
       title: 'Notes',
       subtitle: 'Highlights, annotations and questions',
-      kind: 'tela',
+      kind: 'screen',
       keywords: 'highlights annotations questions',
       to: { name: 'notes' }
     },
     {
-      group: 'Estudo',
+      group: 'Study',
       title: 'Question sets',
       subtitle: 'A topic and its six questions',
-      kind: 'tela',
+      kind: 'screen',
       keywords: 'question set questions topic what why who when where how',
       to: { name: 'notes-question-sets' }
     }

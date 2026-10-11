@@ -20,8 +20,8 @@ const SAVED_ITEM = coreSearchHit({
   id: 'lib-livro',
   module: 'library',
   type: 'book',
-  title: 'Um livro guardado',
-  subtitle: 'Uma autora',
+  title: 'A saved book',
+  subtitle: 'An author',
   path: '/library/lib-livro',
   score: 1
 })
@@ -30,7 +30,7 @@ const SAVED_NOTE = coreSearchHit({
   id: 'ann-1',
   module: 'notes',
   type: 'annotation',
-  title: 'uma anotação sobre o livro guardado',
+  title: 'an annotation about the saved book',
   path: '/notes?tab=annotations',
   score: 0.5
 })
@@ -75,21 +75,21 @@ describe('shell overlay', () => {
     const { wrapper } = await mountOverlay('busca')
     const search = wrapper.get('input[aria-label="Buscar"]')
 
-    // "guardado" is in no screen's title: the only way this row can appear is
+    // "saved" is in no screen's title: the only way this row can appear is
     // the server's answer, which is the point of the whole endpoint.
-    await search.setValue('guardado')
+    await search.setValue('saved')
     await flushReads()
 
     const rows = wrapper.findAll('.shell-palette-row')
     expect(rows.map((row) => row.get('.shell-palette-title').text())).toEqual([
-      'Um livro guardado',
-      'uma anotação sobre o livro guardado'
+      'A saved book',
+      'an annotation about the saved book'
     ])
     // Each source's hits sit under their own heading, in the order the server
     // sent them.
     expect(wrapper.findAll('[role="group"]').map((group) => group.attributes('aria-label'))).toEqual([
-      'Biblioteca',
-      'Notas'
+      'Library',
+      'Notes'
     ])
   })
 
@@ -100,7 +100,7 @@ describe('shell overlay', () => {
     await flushReads()
 
     const groups = wrapper.findAll('[role="group"]').map((group) => group.attributes('aria-label'))
-    expect(groups[0]).toBe('Telas')
+    expect(groups[0]).toBe('Screens')
   })
 
   it('is a combobox: the roles, the ids and the active option are all named', async () => {
@@ -113,7 +113,7 @@ describe('shell overlay', () => {
     expect(search.attributes('aria-controls')).toBe('shell-palette-listbox')
     expect(wrapper.get('#shell-palette-listbox').attributes('role')).toBe('listbox')
 
-    await search.setValue('guardado')
+    await search.setValue('saved')
     await flushReads()
 
     const rows = wrapper.findAll('.shell-palette-row')
@@ -129,7 +129,7 @@ describe('shell overlay', () => {
     const { wrapper } = await mountOverlay('busca')
     const search = wrapper.get('input[aria-label="Buscar"]')
 
-    await search.setValue('guardado')
+    await search.setValue('saved')
     await flushReads()
 
     await search.trigger('keydown', { key: 'ArrowDown' })
@@ -144,7 +144,7 @@ describe('shell overlay', () => {
     const { wrapper, router } = await mountOverlay('busca')
     const search = wrapper.get('input[aria-label="Buscar"]')
 
-    await search.setValue('guardado')
+    await search.setValue('saved')
     await flushReads()
     expect(wrapper.get('.shell-palette-row').classes()).toContain('is-highlighted')
     // Module routes are lazy, so the push also waits on a dynamic import. The
@@ -170,17 +170,17 @@ describe('shell overlay', () => {
 
   it('finds a subject by its name', async () => {
     const core = fakeCoreSource({
-      subjects: [subjectRecord({ id: 'subject-memoria', name: 'Memória', slug: 'memoria' })]
+      subjects: [subjectRecord({ id: 'subject-memory', name: 'Memory', slug: 'memory' })]
     })
     const { wrapper } = await mountOverlay('busca', core)
 
-    await wrapper.get('input[aria-label="Buscar"]').setValue('memoria')
+    await wrapper.get('input[aria-label="Buscar"]').setValue('memory')
     await flushReads()
 
     const titles = wrapper.findAll('.shell-palette-row').map((row) => row.get('.shell-palette-title').text())
-    expect(titles).toContain('Memória')
+    expect(titles).toContain('Memory')
     expect(wrapper.findAll('[role="group"]').map((group) => group.attributes('aria-label'))).toContain(
-      'Assuntos'
+      'Subjects'
     )
   })
 
@@ -188,19 +188,19 @@ describe('shell overlay', () => {
     const { wrapper } = await mountOverlay('busca')
     const search = wrapper.get('input[aria-label="Buscar"]')
 
-    await search.setValue('zarabatana')
+    await search.setValue('xyzzy')
     await flushReads()
     expect(wrapper.get('.shell-palette-empty').text()).toContain('Nada encontrado')
 
     const refusing = fakeCoreSource({}, {
       async search(): Promise<CoreSearchHit[]> {
-        throw new Error('a busca não tem palavra nenhuma')
+        throw new Error('the search has no word at all')
       }
     })
     const refused = await mountOverlay('busca', refusing)
     await refused.wrapper.get('input[aria-label="Buscar"]').setValue('...')
     await flushReads()
-    expect(refused.wrapper.get('.shell-palette-empty').text()).toBe('a busca não tem palavra nenhuma')
+    expect(refused.wrapper.get('.shell-palette-empty').text()).toBe('the search has no word at all')
   })
 
   it('aborts a query the next keystroke supersedes, and never renders its answer', async () => {
@@ -219,7 +219,7 @@ describe('shell overlay', () => {
     const search = wrapper.get('input[aria-label="Buscar"]')
 
     await search.setValue('mem')
-    await search.setValue('memória')
+    await search.setValue('memory')
     expect(signals).toHaveLength(2)
 
     // The first request is cancelled by the second, which is the whole point:
@@ -230,14 +230,14 @@ describe('shell overlay', () => {
     // Releasing it anyway must change nothing on screen. A promise already
     // resolved before the abort fired would still arrive here, so the state
     // is guarded by identity and not only by the signal.
-    const stale = coreSearchHit({ id: 'stale', title: 'Resultado velho' })
+    const stale = coreSearchHit({ id: 'stale', title: 'Stale result' })
     releases[0]([stale])
     await flushReads()
-    expect(wrapper.text()).not.toContain('Resultado velho')
+    expect(wrapper.text()).not.toContain('Stale result')
 
-    releases[1]([coreSearchHit({ id: 'fresh', title: 'Resultado novo' })])
+    releases[1]([coreSearchHit({ id: 'fresh', title: 'Fresh result' })])
     await flushReads()
-    expect(wrapper.text()).toContain('Resultado novo')
+    expect(wrapper.text()).toContain('Fresh result')
   })
 
   it('drops a superseded answer that arrives anyway, signal or no signal', async () => {
@@ -256,16 +256,16 @@ describe('shell overlay', () => {
     const search = wrapper.get('input[aria-label="Buscar"]')
 
     await search.setValue('mem')
-    await search.setValue('memória')
+    await search.setValue('memory')
     expect(releases).toHaveLength(2)
 
-    releases[0]([coreSearchHit({ id: 'stale', title: 'Resultado velho' })])
+    releases[0]([coreSearchHit({ id: 'stale', title: 'Stale result' })])
     await flushReads()
-    expect(wrapper.text()).not.toContain('Resultado velho')
+    expect(wrapper.text()).not.toContain('Stale result')
 
-    releases[1]([coreSearchHit({ id: 'fresh', title: 'Resultado novo' })])
+    releases[1]([coreSearchHit({ id: 'fresh', title: 'Fresh result' })])
     await flushReads()
-    expect(wrapper.text()).toContain('Resultado novo')
+    expect(wrapper.text()).toContain('Fresh result')
   })
 
   it('opens with the text a screen handed over and searches for it at once', async () => {
@@ -276,7 +276,7 @@ describe('shell overlay', () => {
     await router.push('/')
     await router.isReady()
     const wrapper = mount(ShellOverlay, {
-      props: { open: null, initialQuery: 'guardado' },
+      props: { open: null, initialQuery: 'saved' },
       global: { plugins: [router, sourcesPlugin(appSourcesWithLibrary({ core }))] }
     })
     await flushReads()
@@ -284,9 +284,9 @@ describe('shell overlay', () => {
     await wrapper.setProps({ open: 'busca' })
     await flushReads()
 
-    expect(searched).toHaveBeenCalledWith('guardado', expect.anything())
-    expect(wrapper.get('input[aria-label="Buscar"]').element).toHaveProperty('value', 'guardado')
-    expect(wrapper.text()).toContain('Um livro guardado')
+    expect(searched).toHaveBeenCalledWith('saved', expect.anything())
+    expect(wrapper.get('input[aria-label="Buscar"]').element).toHaveProperty('value', 'saved')
+    expect(wrapper.text()).toContain('A saved book')
   })
 
   it('closes on Escape', async () => {

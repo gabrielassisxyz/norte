@@ -69,7 +69,7 @@ const SCREEN_ENTRY: SearchEntry = {
   group: 'Study',
   title: 'Study',
   subtitle: 'Curricula and subjects',
-  kind: 'tela',
+  kind: 'screen',
   keywords: 'curricula subjects learn',
   to: { name: 'study' }
 }

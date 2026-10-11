@@ -48,7 +48,7 @@ export function useSearchEntries(): ComputedRef<SearchEntry[]> {
       group: 'Study',
       title: 'Review',
       subtitle: 'Cards to review',
-      kind: 'tela',
+      kind: 'screen',
       keywords: 'flashcards cards anki',
       to: { name: 'review' }
     }

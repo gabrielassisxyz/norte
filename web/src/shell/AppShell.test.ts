@@ -303,6 +303,6 @@ describe('app shell', () => {
     const { wrapper } = await mountAt('/library/lib-post')
 
     expect(wrapper.find('.app-sidebar').exists()).toBe(false)
-    expect(wrapper.find('.app-content h1').text()).toBe('Um texto guardado')
+    expect(wrapper.find('.app-content h1').text()).toBe('A saved article')
   })
 })
