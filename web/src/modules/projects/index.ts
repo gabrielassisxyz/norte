@@ -89,7 +89,7 @@ const SCREEN_ENTRY: SearchEntry = {
   group: 'Projects',
   title: 'Projects',
   subtitle: 'Areas, decisions and tasks',
-  kind: 'tela',
+  kind: 'screen',
   keywords: 'areas decisions tasks',
   to: { name: 'projects' }
 }

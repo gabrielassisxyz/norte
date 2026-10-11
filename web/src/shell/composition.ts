@@ -46,7 +46,7 @@ export interface SidebarTree {
  *
  * A section asking to nest under a module gets its wish only while that module
  * is mounted and offers a section to nest in; otherwise it stands on its own,
- * which is what keeps Revisão reachable when Estudo is switched off.
+ * which is what keeps Review reachable when Study is switched off.
  */
 export function sidebarTree(entries: ModuleSidebarEntry[]): SidebarTree[] {
   const sections = entries.flatMap((entry) => entry.sidebar.sections.map((section) => ({ module: entry.module, section })))
@@ -128,7 +128,7 @@ export function useShellSidebarSections(): ShellSidebarSection[] {
   return [
     {
       id: 'subjects',
-      label: 'Assuntos',
+      label: 'Subjects',
       // Ahead of every product: a subject is what the other lines are filed
       // under, and the core is on before any of them.
       order: 5,

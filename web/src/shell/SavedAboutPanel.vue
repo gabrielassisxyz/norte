@@ -49,7 +49,7 @@ const links = computed<CoreLink[]>(() => (page.value?.items ?? []).filter((link)
 // of them on one page would otherwise share the id their heading is labelled by.
 const titleId = `saved-about-title-${useId()}`
 const firstLoad = computed(() => loading.value && page.value === null)
-const heading = computed(() => props.title ?? 'Salvos sobre isso')
+const heading = computed(() => props.title ?? 'Saved about this')
 
 /** What the row says the item is: its module's own word for its type. */
 function kindLabel(link: CoreLink): string {
@@ -61,14 +61,14 @@ function kindLabel(link: CoreLink): string {
   <section class="saved-about" :aria-labelledby="titleId">
     <h2 :id="titleId">{{ heading }}</h2>
 
-    <p v-if="firstLoad" class="saved-about-state" role="status">Carregando o que foi salvo…</p>
+    <p v-if="firstLoad" class="saved-about-state" role="status">Loading what was saved…</p>
 
     <div v-else-if="error" class="saved-about-state" role="alert">
-      <p>Não foi possível carregar: {{ error }}</p>
-      <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+      <p>Could not load: {{ error }}</p>
+      <Button variant="secondary" @click="refresh()">Try again</Button>
     </div>
 
-    <p v-else-if="links.length === 0 && !hasMore" class="saved-about-state">Nada salvo sobre isso ainda.</p>
+    <p v-else-if="links.length === 0 && !hasMore" class="saved-about-state">Nothing saved about this yet.</p>
 
     <ul v-if="!firstLoad && !error && links.length > 0" class="saved-about-list">
       <li v-for="link in links" :key="link.id" class="saved-about-row">
@@ -82,10 +82,10 @@ function kindLabel(link: CoreLink): string {
 
     <div v-if="!firstLoad && !error && hasMore" class="saved-about-more">
       <Button variant="secondary" :disabled="loadingMore" @click="loadMore()">
-        {{ loadingMore ? 'Carregando…' : 'Carregar mais' }}
+        {{ loadingMore ? 'Loading…' : 'Load more' }}
       </Button>
       <p v-if="loadMoreError" class="saved-about-state" role="alert">
-        Não foi possível carregar mais: {{ loadMoreError }}
+        Could not load more: {{ loadMoreError }}
       </p>
     </div>
   </section>

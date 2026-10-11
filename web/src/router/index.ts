@@ -52,7 +52,7 @@ export function disabledModuleRoutes(module: NorteModule): RouteRecordRaw[] {
     path,
     name: `module-off-${module.manifest.name}-${index}`,
     component: () => import('@/shell/ModuleDisabled.vue'),
-    meta: { title: 'Módulo desligado' }
+    meta: { title: 'Module switched off' }
   }))
 }
 
@@ -68,7 +68,7 @@ export const notFoundRoute: RouteRecordRaw = {
   path: '/:unmatchedPath(.*)*',
   name: 'not-found',
   component: () => import('@/shell/NotFoundView.vue'),
-  meta: { title: 'Página não encontrada' }
+  meta: { title: 'Page not found' }
 }
 
 export function createRouteTable(modules: NorteModule[] = norteModules): RouteRecordRaw[] {

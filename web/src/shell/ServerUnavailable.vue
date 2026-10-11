@@ -4,14 +4,13 @@ defineProps<{ attempts: number }>()
 
 <template>
   <main class="server-unavailable" role="alert">
-    <h1>Servidor indisponível</h1>
+    <h1>Server unavailable</h1>
     <p>
-      O aplicativo precisa do servidor para saber quais módulos estão ligados. Nenhuma ação é necessária: a conexão é
-      tentada de novo sozinha.
+      The app needs the server to know which modules are on. Nothing to do: the connection is retried on its own.
     </p>
     <p class="server-unavailable-attempts">
       <span class="server-unavailable-dot" aria-hidden="true" />
-      <span>{{ attempts }} tentativa{{ attempts === 1 ? '' : 's' }}</span>
+      <span>{{ attempts }} attempt{{ attempts === 1 ? '' : 's' }}</span>
     </p>
   </main>
 </template>

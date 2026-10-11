@@ -20,7 +20,7 @@ const APP_PATHS: Array<[string, string]> = [
   ['/notes', 'notes'],
   ['/review', 'review'],
   ['/study', 'study'],
-  ['/curricula/fundamentos-de-compiladores', 'curriculum'],
+  ['/curricula/compiler-fundamentals', 'curriculum'],
   ['/material/article/post-compilation', 'material'],
   ['/material/book/book-interpreters', 'material'],
   ['/material/paper/paper-parsing', 'material'],
@@ -73,10 +73,10 @@ describe('router table', () => {
 
 describe('an address no screen claims', () => {
   it('resolves to the not-found view rather than to nothing', () => {
-    const match = router.resolve('/nao-existe')
+    const match = router.resolve('/no-such-screen')
 
     expect(match.name).toBe('not-found')
-    expect(match.meta.title).toBe('Página não encontrada')
+    expect(match.meta.title).toBe('Page not found')
   })
 
   it('keeps every real address ahead of it', () => {
@@ -112,7 +112,7 @@ function moduleWithRoutePaths(name: NorteModule['manifest']['name'], routePaths:
 
 describe('the browser tab', () => {
   it('names the screen and then the app', () => {
-    expect(shellDocumentTitle('Biblioteca')).toBe('Biblioteca · Norte')
+    expect(shellDocumentTitle('Library')).toBe('Library · Norte')
   })
 
   it('falls back to the app alone when a route carries no title', () => {
@@ -123,8 +123,8 @@ describe('the browser tab', () => {
     await router.push('/')
     expect(document.title).toBe('Home · Norte')
 
-    await router.push('/nao-existe')
-    expect(document.title).toBe('Página não encontrada · Norte')
+    await router.push('/no-such-screen')
+    expect(document.title).toBe('Page not found · Norte')
   })
 })
 
@@ -133,8 +133,8 @@ function routerWithAFailingChunk(error: Error) {
   const failing = createRouter({
     history: createMemoryHistory(),
     routes: [
-      { path: '/', name: 'start', component: { template: '<div />' }, meta: { title: 'Início' } },
-      { path: '/tarde', name: 'tarde', component: () => Promise.reject(error), meta: { title: 'Tarde' } }
+      { path: '/', name: 'start', component: { template: '<div />' }, meta: { title: 'Start' } },
+      { path: '/late', name: 'late', component: () => Promise.reject(error), meta: { title: 'Late' } }
     ]
   })
   installShellRouterBehaviour(failing)
@@ -144,13 +144,13 @@ function routerWithAFailingChunk(error: Error) {
 describe('a navigation whose screen never arrives', () => {
   it('records the address so the shell can offer it again', async () => {
     const failing = routerWithAFailingChunk(
-      new TypeError('Failed to fetch dynamically imported module: /assets/TardeView-abc123.js')
+      new TypeError('Failed to fetch dynamically imported module: /assets/LateView-abc123.js')
     )
     await failing.push('/')
 
-    await failing.push('/tarde').catch(() => undefined)
+    await failing.push('/late').catch(() => undefined)
 
-    expect(shellNavigationFailure.path).toBe('/tarde')
+    expect(shellNavigationFailure.path).toBe('/late')
     expect(failing.currentRoute.value.path).toBe('/')
   })
 
@@ -158,7 +158,7 @@ describe('a navigation whose screen never arrives', () => {
     const failing = routerWithAFailingChunk(new Error('a guard refused the navigation'))
     await failing.push('/')
 
-    await failing.push('/tarde').catch(() => undefined)
+    await failing.push('/late').catch(() => undefined)
 
     expect(shellNavigationFailure.path).toBeNull()
   })

@@ -12,12 +12,12 @@ import PageTitle from '@/components/ds/PageTitle.vue'
 -->
 <template>
   <main class="not-found">
-    <PageTitle title="Página não encontrada" objective="Este endereço não corresponde a nenhuma tela do Norte." />
+    <PageTitle title="Page not found" objective="This address matches no screen in Norte." />
     <p class="not-found-copy">
-      Confira o endereço na barra do navegador. Se você chegou aqui por um link dentro do aplicativo, a tela pode ter
-      sido renomeada.
+      Check the address in the browser's bar. If you got here from a link inside the app, the screen may have been
+      renamed.
     </p>
-    <RouterLink :to="{ name: 'home' }" class="not-found-link">Voltar ao início</RouterLink>
+    <RouterLink :to="{ name: 'home' }" class="not-found-link">Back to home</RouterLink>
   </main>
 </template>
 

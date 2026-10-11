@@ -32,8 +32,8 @@ function switchOff(...names: ModuleName[]): void {
 function sidebarSubjects() {
   return [
     subjectRecord({
-      name: 'Escrita',
-      slug: 'escrita',
+      name: 'Writing',
+      slug: 'writing',
       counts: { total: 2, by_type: [{ module: 'library', type: 'article', count: 2 }] }
     }),
     subjectRecord({ name: 'Kubernetes', slug: 'kubernetes' })
@@ -63,11 +63,11 @@ async function mountSidebar(subjects = sidebarSubjects(), props: { collapsed?: b
 }
 
 function topLevelLabels(wrapper: { findAll: (selector: string) => Array<{ text: () => string }> }): string[] {
-  return wrapper.findAll('nav[aria-label="Principal"] > .app-line > .app-line-link').map((link) => link.text().replace(/\d+$/, '').trim())
+  return wrapper.findAll('nav[aria-label="Main"] > .app-line > .app-line-link').map((link) => link.text().replace(/\d+$/, '').trim())
 }
 
 async function expand(wrapper: Awaited<ReturnType<typeof mountSidebar>>, label: string) {
-  await wrapper.get(`button[aria-label="Expandir ${label}"]`).trigger('click')
+  await wrapper.get(`button[aria-label="Expand ${label}"]`).trigger('click')
 }
 
 describe('the sidebar as the phone drawer\'s panel', () => {
@@ -80,7 +80,7 @@ describe('the sidebar as the phone drawer\'s panel', () => {
     const drawer = await mountSidebar(sidebarSubjects(), { drawer: true })
 
     expect(drawer.find('button.app-collapse').exists()).toBe(false)
-    expect(drawer.get('nav[aria-label="Principal"]').text()).toContain('Library')
+    expect(drawer.get('nav[aria-label="Main"]').text()).toContain('Library')
   })
 })
 
@@ -90,7 +90,7 @@ describe('Review in the sidebar', () => {
 
     expect(topLevelLabels(wrapper)).not.toContain('Review')
     await expand(wrapper, 'Study')
-    const nested = wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub').map((row) => row.text().replace(/\d+$/, '').trim())
+    const nested = wrapper.findAll('nav[aria-label="Main"] .app-children .app-sub').map((row) => row.text().replace(/\d+$/, '').trim())
     expect(nested).toContain('Review')
   })
 
@@ -101,7 +101,7 @@ describe('Review in the sidebar', () => {
     expect(topLevelLabels(wrapper)).toContain('Review')
     expect(topLevelLabels(wrapper)).not.toContain('Study')
     // Nothing to expand: it has no rows of its own.
-    expect(wrapper.find('button[aria-label="Expandir Review"]').exists()).toBe(false)
+    expect(wrapper.find('button[aria-label="Expand Review"]').exists()).toBe(false)
   })
 
   it('leaves Study without a Review row when only Study is mounted', async () => {
@@ -111,7 +111,7 @@ describe('Review in the sidebar', () => {
     expect(topLevelLabels(wrapper)).toContain('Study')
     expect(topLevelLabels(wrapper)).not.toContain('Review')
     await expand(wrapper, 'Study')
-    const nested = wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub').map((row) => row.text().replace(/\d+$/, '').trim())
+    const nested = wrapper.findAll('nav[aria-label="Main"] .app-children .app-sub').map((row) => row.text().replace(/\d+$/, '').trim())
     expect(nested).toContain('Curricula')
     expect(nested).not.toContain('Review')
   })
@@ -128,72 +128,73 @@ describe('Review in the sidebar', () => {
     expect(labels).toContain('Projects')
     expect(labels).toContain('Notes')
     // And the Study shortcut group goes with its module.
-    expect(wrapper.get('nav[aria-label="Atalhos"]').text()).not.toContain('Curricula')
+    expect(wrapper.get('nav[aria-label="Shortcuts"]').text()).not.toContain('Curricula')
   })
 })
 
-describe('Assuntos in the sidebar', () => {
+describe('the subjects section in the sidebar', () => {
   it('is a top-level section listing every subject, each at its own page', async () => {
     const wrapper = await mountSidebar()
 
-    expect(topLevelLabels(wrapper)).toContain('Assuntos')
+    expect(topLevelLabels(wrapper)).toContain('Subjects')
     // It starts expanded: it is a grouping with no index page behind it, so
     // collapsed it says nothing at all.
-    const rows = wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub')
+    const rows = wrapper.findAll('nav[aria-label="Main"] .app-children .app-sub')
     const subjects = rows.filter((row) => row.attributes('href')?.startsWith('/subjects/'))
-    expect(subjects.map((row) => row.attributes('href'))).toEqual(['/subjects/escrita', '/subjects/kubernetes'])
-    expect(subjects[0]!.text()).toContain('Escrita')
+    expect(subjects.map((row) => row.attributes('href'))).toEqual(['/subjects/kubernetes', '/subjects/writing'])
+    expect(subjects[0]!.text()).toContain('Kubernetes')
     // The count is what the subject has linked to it, straight from the read.
-    expect(subjects[0]!.text()).toContain('2')
+    expect(subjects[1]!.text()).toContain('Writing')
+    expect(subjects[1]!.text()).toContain('2')
   })
 
   it('is there whatever the server lists, because the core is not a module', async () => {
     switchOff('study', 'review', 'notes', 'projects')
     const wrapper = await mountSidebar()
 
-    expect(topLevelLabels(wrapper)).toContain('Assuntos')
-    expect(wrapper.findAll('nav[aria-label="Principal"] .app-children .app-sub')
-      .some((row) => row.attributes('href') === '/subjects/escrita')).toBe(true)
+    expect(topLevelLabels(wrapper)).toContain('Subjects')
+    expect(wrapper.findAll('nav[aria-label="Main"] .app-children .app-sub')
+      .some((row) => row.attributes('href') === '/subjects/writing')).toBe(true)
   })
 
   it('says the vocabulary is empty rather than showing an empty block', async () => {
     const wrapper = await mountSidebar([])
 
-    expect(topLevelLabels(wrapper)).toContain('Assuntos')
-    expect(wrapper.get('nav[aria-label="Principal"]').text()).toContain('Nenhum assunto ainda')
+    expect(topLevelLabels(wrapper)).toContain('Subjects')
+    expect(wrapper.get('nav[aria-label="Main"]').text()).toContain('No subject yet')
   })
 
-  it('replaces the row that was the Assuntos row under Study', async () => {
+  it('replaces the row that was the subjects row under Study', async () => {
     const wrapper = await mountSidebar()
 
     await expand(wrapper, 'Study')
     const studyRows = wrapper
-      .findAll('nav[aria-label="Principal"] .app-children .app-sub')
+      .findAll('nav[aria-label="Main"] .app-children .app-sub')
       .filter((row) => row.attributes('href')?.startsWith('/study'))
       .map((row) => row.text().replace(/\d+$/, '').trim())
     expect(studyRows).toEqual(['Curricula'])
   })
 })
 
-describe('Assuntos in the sidebar: more than one page', () => {
+describe('the subjects section in the sidebar: more than one page', () => {
   function manySubjects(count: number) {
     return Array.from({ length: count }, (_, index) =>
-      subjectRecord({ name: `Assunto ${String(index).padStart(3, '0')}` })
+      subjectRecord({ name: `Subject ${String(index).padStart(3, '0')}` })
     )
   }
 
   function subjectRows(wrapper: Awaited<ReturnType<typeof mountSidebar>>) {
     return wrapper
-      .findAll('nav[aria-label="Principal"] .app-children .app-sub')
+      .findAll('nav[aria-label="Main"] .app-children .app-sub')
       .filter((row) => row.attributes('href')?.startsWith('/subjects/'))
   }
 
   function assuntosCount(wrapper: Awaited<ReturnType<typeof mountSidebar>>): string {
-    return wrapper.get('nav[aria-label="Principal"] .app-group .app-count').text()
+    return wrapper.get('nav[aria-label="Main"] .app-group .app-count').text()
   }
 
   function moreButton(wrapper: Awaited<ReturnType<typeof mountSidebar>>) {
-    return wrapper.findAll('nav[aria-label="Principal"] button').find((button) => button.text() === 'Carregar mais')
+    return wrapper.findAll('nav[aria-label="Main"] button').find((button) => button.text() === 'Load more')
   }
 
   it('lists the first page, marks the count as partial, and loads the rest on request', async () => {
@@ -215,7 +216,7 @@ describe('Assuntos in the sidebar: more than one page', () => {
     expect(moreButton(wrapper)).toBeUndefined()
   })
 
-  it('offers no "carregar mais" when everything fits on the first page', async () => {
+  it('offers no "Load more" when everything fits on the first page', async () => {
     const wrapper = await mountSidebar(manySubjects(3))
 
     expect(subjectRows(wrapper)).toHaveLength(3)
@@ -224,17 +225,17 @@ describe('Assuntos in the sidebar: more than one page', () => {
   })
 })
 
-describe('the Listas group', () => {
-  it('is not rendered while Estudo is mock-backed', async () => {
+describe('the Lists group', () => {
+  it('is not rendered while Study is mock-backed', async () => {
     const wrapper = await mountSidebar()
 
     await expand(wrapper, 'Library')
     // An `api`-backed library item cannot point at a mock curriculum, so there
-    // is nothing a Listas group could list; it returns with the study delivery,
+    // is nothing a Lists group could list; it returns with the study delivery,
     // fed by `material_of` links.
-    const heads = wrapper.findAll('nav[aria-label="Principal"] .app-head').map((head) => head.text())
+    const heads = wrapper.findAll('nav[aria-label="Main"] .app-head').map((head) => head.text())
     expect(heads).toContain('Kinds')
-    expect(heads).not.toContain('Listas')
-    expect(wrapper.get('nav[aria-label="Principal"]').text()).not.toContain('Listas')
+    expect(heads).not.toContain('Lists')
+    expect(wrapper.get('nav[aria-label="Main"]').text()).not.toContain('Lists')
   })
 })

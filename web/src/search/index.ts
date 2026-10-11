@@ -4,10 +4,10 @@ import type { RouteLocationRaw } from 'vue-router'
 import type { NorteModule } from '@/modules/types'
 import { mountedModules } from '@/shell/composition'
 
-// 'Estudo' is still the group the review, notes and shell entries carry; the
-// study module answers as 'Study' already, so for a while the union holds
-// both and the two groups sit side by side in the palette.
-export type SearchGroup = 'Biblioteca' | 'Estudo' | 'Study' | 'Projects'
+// 'Study' is the group the shell, the notes and the review entries carry; the
+// library answers as 'Library', the projects as 'Projects'. The palette's
+// static screens therefore arrive in three groups, side by side.
+export type SearchGroup = 'Library' | 'Study' | 'Projects'
 
 export interface SearchEntry {
   group: SearchGroup
@@ -26,7 +26,7 @@ function normalize(value: string): string {
   return value
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR')
+    .toLocaleLowerCase('en')
     .trim()
 }
 
@@ -50,11 +50,11 @@ function score(entry: SearchEntry, query: string): number | null {
  * module unsearchable rather than searchable and broken.
  */
 const SHELL_ENTRY: SearchEntry = {
-  group: 'Estudo',
-  title: 'Início',
-  subtitle: 'Hoje, leituras e estudo',
-  kind: 'tela',
-  keywords: 'home começo',
+  group: 'Study',
+  title: 'Home',
+  subtitle: 'Today, readings and study',
+  kind: 'screen',
+  keywords: 'home start',
   to: { name: 'home' }
 }
 

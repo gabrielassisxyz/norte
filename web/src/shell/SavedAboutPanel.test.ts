@@ -25,29 +25,29 @@ afterEach(() => {
 function linksAboutTheSubject() {
   return [
     coreLink({
-      id: 'link-confirmado',
+      id: 'link-confirmed',
       status: 'confirmed',
-      src: registryItem({ id: 'item-confirmado', title: 'Um texto confirmado', type: 'article' }),
+      src: registryItem({ id: 'item-confirmed', title: 'A confirmed article', type: 'article' }),
       dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject', title: 'Kubernetes' })
     }),
     coreLink({
-      id: 'link-sugerido',
+      id: 'link-suggested',
       status: 'suggested',
       source: 'llm',
-      src: registryItem({ id: 'item-sugerido', title: 'Um texto sugerido' }),
+      src: registryItem({ id: 'item-suggested', title: 'A suggested article' }),
       dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject', title: 'Kubernetes' })
     }),
     coreLink({
-      id: 'link-rejeitado',
+      id: 'link-rejected',
       status: 'rejected',
-      src: registryItem({ id: 'item-rejeitado', title: 'Um texto rejeitado' }),
+      src: registryItem({ id: 'item-rejected', title: 'A rejected article' }),
       dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject', title: 'Kubernetes' })
     }),
     // A confirmed link into something else entirely.
     coreLink({
-      id: 'link-outro',
+      id: 'link-other',
       status: 'confirmed',
-      src: registryItem({ id: 'item-outro', title: 'Sobre outro assunto' }),
+      src: registryItem({ id: 'item-other', title: 'About another subject' }),
       dst: registryItem({ id: 'subject-2', module: 'core', type: 'subject', title: 'Escrita' })
     })
   ]
@@ -71,7 +71,7 @@ async function mountPanel(targetId = 'subject-1') {
   return { wrapper, core }
 }
 
-describe('the "Salvos sobre isso" panel', () => {
+describe('the "Saved about this" panel', () => {
   it('lists exactly the confirmed about links into the target', async () => {
     const { wrapper, core } = await mountPanel()
 
@@ -83,22 +83,22 @@ describe('the "Salvos sobre isso" panel', () => {
 
     const titles = wrapper.findAll('.saved-about-row').map((row) => row.text())
     expect(titles).toHaveLength(1)
-    expect(titles[0]).toContain('Um texto confirmado')
-    expect(wrapper.text()).not.toContain('Um texto sugerido')
-    expect(wrapper.text()).not.toContain('Um texto rejeitado')
-    expect(wrapper.text()).not.toContain('Sobre outro assunto')
+    expect(titles[0]).toContain('A confirmed article')
+    expect(wrapper.text()).not.toContain('A suggested article')
+    expect(wrapper.text()).not.toContain('A rejected article')
+    expect(wrapper.text()).not.toContain('About another subject')
   })
 
   it('opens each listed item at the address the registry holds', async () => {
     const { wrapper } = await mountPanel()
 
-    expect(wrapper.get('.saved-about-link').attributes('href')).toBe('/library/item-confirmado')
+    expect(wrapper.get('.saved-about-link').attributes('href')).toBe('/library/item-confirmed')
   })
 
   it('says so when nothing is linked to the target', async () => {
-    const { wrapper } = await mountPanel('subject-sem-nada')
+    const { wrapper } = await mountPanel('subject-with-nothing')
 
-    expect(wrapper.text()).toContain('Nada salvo sobre isso ainda.')
+    expect(wrapper.text()).toContain('Nothing saved about this yet.')
     expect(wrapper.find('.saved-about-row').exists()).toBe(false)
   })
 
@@ -110,7 +110,7 @@ describe('the "Salvos sobre isso" panel', () => {
       {
         listLinks: async () => {
           attempts += 1
-          if (attempts === 1) throw new Error('rede indisponível')
+          if (attempts === 1) throw new Error('network down')
           return { items: [], next_cursor: null }
         }
       }
@@ -125,23 +125,23 @@ describe('the "Salvos sobre isso" panel', () => {
     mounted.push(wrapper)
     await flushReads()
 
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível carregar: rede indisponível')
+    expect(wrapper.get('[role="alert"]').text()).toContain('Could not load: network down')
 
     await wrapper.get('[role="alert"] button').trigger('click')
     await flushReads()
 
     expect(wrapper.find('[role="alert"]').exists()).toBe(false)
-    expect(wrapper.text()).toContain('Nada salvo sobre isso ainda.')
+    expect(wrapper.text()).toContain('Nothing saved about this yet.')
   })
 })
 
-describe('the "Salvos sobre isso" panel: more than one page', () => {
+describe('the "Saved about this" panel: more than one page', () => {
   function manyLinks(count: number) {
     return Array.from({ length: count }, (_, index) =>
       coreLink({
         id: `link-${index}`,
         created_at: `2026-10-07T12:${String(Math.floor(index / 60)).padStart(2, '0')}:${String(index % 60).padStart(2, '0')}.000Z`,
-        src: registryItem({ id: `item-${index}`, title: `Texto ${index}` }),
+        src: registryItem({ id: `item-${index}`, title: `Text ${index}` }),
         dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject', title: 'Kubernetes' })
       })
     )
@@ -163,7 +163,7 @@ describe('the "Salvos sobre isso" panel: more than one page', () => {
   }
 
   const moreButton = (wrapper: Awaited<ReturnType<typeof mountWith>>['wrapper']) =>
-    wrapper.findAll('button').find((button) => button.text() === 'Carregar mais')
+    wrapper.findAll('button').find((button) => button.text() === 'Load more')
 
   it('shows the first page and appends the next ones under the same filters', async () => {
     const { wrapper, core } = await mountWith(manyLinks(120))
@@ -183,7 +183,7 @@ describe('the "Salvos sobre isso" panel: more than one page', () => {
     }
   })
 
-  it('offers no "carregar mais" for a single page', async () => {
+  it('offers no "Load more" for a single page', async () => {
     const { wrapper } = await mountWith(manyLinks(3))
     expect(moreButton(wrapper)).toBeUndefined()
   })
@@ -191,25 +191,25 @@ describe('the "Salvos sobre isso" panel: more than one page', () => {
   it('does not list items of a module the server has switched off', async () => {
     const links = [
       coreLink({
-        id: 'link-vivo',
-        src: registryItem({ id: 'item-vivo', title: 'De um módulo ligado' }),
+        id: 'link-alive',
+        src: registryItem({ id: 'item-alive', title: 'From a module that is on' }),
         dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject' })
       }),
       coreLink({
-        id: 'link-morto',
+        id: 'link-dead',
         created_at: '2026-10-06T12:00:00.000Z',
-        src: registryItem({ id: 'item-morto', module: 'notes', title: 'De um módulo desligado' }),
+        src: registryItem({ id: 'item-dead', module: 'notes', title: 'From a module that is off' }),
         dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject' })
       })
     ]
     const { wrapper } = await mountWith(links as ReturnType<typeof manyLinks>)
 
-    expect(wrapper.text()).toContain('De um módulo ligado')
-    expect(wrapper.text()).not.toContain('De um módulo desligado')
+    expect(wrapper.text()).toContain('From a module that is on')
+    expect(wrapper.text()).not.toContain('From a module that is off')
   })
 })
 
-describe('the "Salvos sobre isso" panel: ids', () => {
+describe('the "Saved about this" panel: ids', () => {
   it('gives every instance its own heading id, so two panels on one page do not share one', async () => {
     setEnabledModules(['library'])
     const core = fakeCoreSource({})

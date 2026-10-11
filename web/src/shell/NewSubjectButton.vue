@@ -12,11 +12,11 @@ import { subjectsChanged } from './data/revision'
 /**
  * Create a subject from wherever subjects are shown.
  *
- * It is one component rather than a dialog per screen because the Estudo home
+ * It is one component rather than a dialog per screen because the study home
  * and the subject page both offer it, and a second copy of the "the slug is
  * already taken" handling is a second place for it to be wrong.
  */
-withDefaults(defineProps<{ label?: string }>(), { label: 'Novo assunto' })
+withDefaults(defineProps<{ label?: string }>(), { label: 'New subject' })
 
 const router = useRouter()
 const { core } = useSources()
@@ -43,12 +43,12 @@ function closeDialog(): void {
 async function create(): Promise<void> {
   const typed = name.value.trim()
   if (!typed) {
-    failure.value = 'Dê um nome ao assunto.'
+    failure.value = 'Give the subject a name.'
     return
   }
   const created = await creating.run(() => core.createSubject(typed))
   if (!created) {
-    failure.value = `Não foi possível criar: ${creating.error.value ?? 'erro desconhecido'}`
+    failure.value = `Could not create: ${creating.error.value ?? 'unknown error'}`
     return
   }
   open.value = false
@@ -62,12 +62,12 @@ async function create(): Promise<void> {
 
   <div v-if="open" class="new-subject-backdrop" @mousedown.self="closeDialog">
     <form class="new-subject-dialog" role="dialog" aria-labelledby="new-subject-title" @submit.prevent="create">
-      <h2 id="new-subject-title">Novo assunto</h2>
-      <TextField v-model="name" label="Nome" placeholder="Kubernetes, Escrita…" />
+      <h2 id="new-subject-title">New subject</h2>
+      <TextField v-model="name" label="Name" placeholder="Kubernetes, Writing…" />
       <p v-if="failure" class="new-subject-error" role="alert">{{ failure }}</p>
       <div class="new-subject-buttons">
-        <Button variant="secondary" @click="closeDialog">Cancelar</Button>
-        <Button variant="primary" type="submit" :disabled="!name.trim() || creating.pending.value">Criar</Button>
+        <Button variant="secondary" @click="closeDialog">Cancel</Button>
+        <Button variant="primary" type="submit" :disabled="!name.trim() || creating.pending.value">Create</Button>
       </div>
     </form>
   </div>

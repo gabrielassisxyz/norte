@@ -44,8 +44,8 @@ describe('a module the server does not serve', () => {
     const { wrapper } = await mountAt('/')
     const sidebar = wrapper.get('.app-sidebar')
 
-    expect(sidebar.text()).not.toContain('Biblioteca')
-    expect(sidebar.find('button[aria-label="Expandir Biblioteca"]').exists()).toBe(false)
+    expect(sidebar.text()).not.toContain('Library')
+    expect(sidebar.find('button[aria-label="Expand Library"]').exists()).toBe(false)
     // Study and Projects are mock-backed, so they are still there.
     expect(sidebar.text()).toContain('Study')
     expect(sidebar.text()).toContain('Projects')
@@ -66,8 +66,8 @@ describe('a module the server does not serve', () => {
     libraryOff()
     const { wrapper } = await mountAt('/library')
 
-    expect(wrapper.find('.app-content h1').text()).toBe('Módulo desligado')
-    expect(wrapper.text()).toContain('um módulo que o servidor não está servindo')
+    expect(wrapper.find('.app-content h1').text()).toBe('Module switched off')
+    expect(wrapper.text()).toContain('a module the server is not serving')
   })
 
   it('leaves the mock-backed screens rendering', async () => {
@@ -83,7 +83,7 @@ describe('a module the server does not serve', () => {
 
     const { wrapper } = await mountAt('/study')
     expect(wrapper.find('.app-content h1').text().length).toBeGreaterThan(0)
-    expect(wrapper.find('.app-content h1').text()).not.toBe('Módulo desligado')
+    expect(wrapper.find('.app-content h1').text()).not.toBe('Module switched off')
   })
 
   it('drops its screens out of the search index', async () => {
@@ -93,7 +93,7 @@ describe('a module the server does not serve', () => {
     await wrapper.get('.app-foot .app-button').trigger('click')
     const palette = wrapper.get('.shell-palette-results')
 
-    expect(palette.text()).not.toContain('Inbox, depois e arquivo')
+    expect(palette.text()).not.toContain('Inbox, Up Next, Later, Archive and Stash')
     expect(palette.text()).toContain('Curricula and subjects')
   })
 })

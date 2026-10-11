@@ -162,7 +162,7 @@ export async function bootApplication(router: Router, onConfigured?: (config: Co
         // mounted the real screen of a module the server is not serving, which
         // fired that module's requests -- and, in the reader, a write -- against
         // endpoints answering 404, and logged a vue-router error, all before
-        // "Módulo desligado" replaced it.
+        // "Module switched off" replaced it.
         //
         // Waiting for `isReady` first is what makes a deep link work. The
         // route's component is a dynamic import, so the initial navigation is

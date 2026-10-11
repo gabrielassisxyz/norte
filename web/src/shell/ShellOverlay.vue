@@ -36,33 +36,33 @@ const highlighted = ref(0)
 const theme = ref<Theme>(getTheme())
 
 /**
- * The screens a mounted module offers, which is where the "Ir para" list comes
+ * The screens a mounted module offers, which is where the "Go to" list comes
  * from: a module the server switched off contributes no entry, so the palette
  * cannot offer a way into a screen that is not there.
  */
 const index = useSearchIndex()
-const screenEntries = computed<SearchEntry[]>(() => index.value.filter((entry) => entry.kind === 'tela'))
+const screenEntries = computed<SearchEntry[]>(() => index.value.filter((entry) => entry.kind === 'screen'))
 
 /** What the server found, which is everything the static index cannot know. */
 const remote = usePaletteSearch()
 
 const ACTION_ROWS: PaletteRow[] = [
-  { key: 'acao:tema', action: 'theme', title: 'Alternar tema', subtitle: 'Claro ou escuro', kind: 'ação' },
-  { key: 'acao:prefs', action: 'prefs', title: 'Preferências', subtitle: 'Tema e dados', kind: 'ação' }
+  { key: 'theme', action: 'theme', title: 'Toggle the theme', subtitle: 'Light or dark', kind: 'action' },
+  { key: 'prefs', action: 'prefs', title: 'Preferences', subtitle: 'Theme and data', kind: 'action' }
 ]
 
 const defaultGroups = computed<PaletteGroup[]>(() => [
   {
-    label: 'Ir para',
+    label: 'Go to',
     items: screenEntries.value.map((entry) => ({
-      key: `tela:${entry.title}`,
+      key: `screen:${entry.title}`,
       title: entry.title,
       subtitle: entry.subtitle,
       kind: entry.kind,
       to: entry.to
     }))
   },
-  { label: 'Ações', items: ACTION_ROWS }
+  { label: 'Actions', items: ACTION_ROWS }
 ])
 
 /**
@@ -158,14 +158,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleWindowKeydown)
 
 <template>
   <div v-if="open === 'busca'" class="shell-overlay-backdrop" @mousedown.self="close">
-    <section class="shell-palette" role="dialog" aria-label="Buscar" aria-modal="true">
+    <section class="shell-palette" role="dialog" aria-label="Search" aria-modal="true">
       <input
         ref="input"
         v-model="query"
         class="shell-palette-input"
         type="text"
-        placeholder="Buscar telas, artigos, notas, assuntos…"
-        aria-label="Buscar"
+        placeholder="Search screens, articles, notes, subjects…"
+        aria-label="Search"
         role="combobox"
         aria-autocomplete="list"
         :aria-expanded="entries.length > 0"
@@ -173,7 +173,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleWindowKeydown)
         :aria-activedescendant="activeDescendant"
         @keydown="handleSearchKeydown"
       />
-      <div :id="LISTBOX_ID" class="shell-palette-results" role="listbox" aria-label="Resultados">
+      <div :id="LISTBOX_ID" class="shell-palette-results" role="listbox" aria-label="Results">
         <div v-for="group in groups" :key="group.label" role="group" :aria-label="group.label">
           <div class="shell-palette-heading" aria-hidden="true">{{ group.label }}</div>
           <button
@@ -197,39 +197,39 @@ onBeforeUnmount(() => window.removeEventListener('keydown', handleWindowKeydown)
         </div>
         <p v-if="remote.failure.value" class="shell-palette-empty" role="status">{{ remote.failure.value }}</p>
         <p v-else-if="searching && remote.pending.value && entries.length === 0" class="shell-palette-empty" role="status">
-          Buscando…
+          Searching…
         </p>
         <p v-else-if="searching && !remote.pending.value && entries.length === 0" class="shell-palette-empty" role="status">
-          Nada encontrado para “{{ query }}”.
+          Nothing found for “{{ query }}”.
         </p>
       </div>
-      <footer class="shell-palette-footer"><span><kbd>↑↓</kbd> navegar</span><span><kbd>↵</kbd> abrir</span><span><kbd>esc</kbd> fechar</span></footer>
+      <footer class="shell-palette-footer"><span><kbd>↑↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span><kbd>esc</kbd> close</span></footer>
     </section>
   </div>
 
   <div v-else-if="open === 'prefs'" class="shell-overlay-backdrop" @mousedown.self="close">
     <section class="shell-preferences" role="dialog" aria-labelledby="shell-preferences-title" aria-modal="true">
       <div class="shell-preferences-intro">
-        <h2 id="shell-preferences-title">Preferências</h2>
-        <p>Valem para este dispositivo.</p>
+        <h2 id="shell-preferences-title">Preferences</h2>
+        <p>They apply to this device.</p>
       </div>
       <div class="shell-theme-section">
-        <span class="shell-theme-label">Tema</span>
-        <div role="radiogroup" aria-label="Tema" class="shell-theme-options">
+        <span class="shell-theme-label">Theme</span>
+        <div role="radiogroup" aria-label="Theme" class="shell-theme-options">
           <button type="button" role="radio" class="shell-theme-option" :class="{ 'is-selected': theme === 'light' }" :aria-checked="theme === 'light'" @click="changeTheme('light')">
-            <span class="shell-theme-radio"></span><span><strong>Claro</strong><small>Branco frio, cobalto como acento.</small></span>
+            <span class="shell-theme-radio"></span><span><strong>Light</strong><small>Cold white, cobalt as the accent.</small></span>
           </button>
           <button type="button" role="radio" class="shell-theme-option" :class="{ 'is-selected': theme === 'dark' }" :aria-checked="theme === 'dark'" @click="changeTheme('dark')">
-            <span class="shell-theme-radio"></span><span><strong>Escuro</strong><small>O cobalto clareia; o texto sobre ele escurece.</small></span>
+            <span class="shell-theme-radio"></span><span><strong>Dark</strong><small>The cobalt lightens; the text on it darkens.</small></span>
           </button>
         </div>
       </div>
       <dl class="shell-preferences-details">
-        <dt>dados</dt><dd>Dados locais neste dispositivo</dd>
-        <dt>servidor</dt><dd>Os dados vêm do servidor Norte</dd>
-        <dt>atalho</dt><dd>Buscar com <kbd>⌘K</kbd></dd>
+        <dt>data</dt><dd>Local data on this device</dd>
+        <dt>server</dt><dd>The data comes from the Norte server</dd>
+        <dt>shortcut</dt><dd>Search with <kbd>⌘K</kbd></dd>
       </dl>
-      <div class="shell-preferences-actions"><button type="button" class="shell-close" @click="close">Fechar</button></div>
+      <div class="shell-preferences-actions"><button type="button" class="shell-close" @click="close">Close</button></div>
     </section>
   </div>
 </template>

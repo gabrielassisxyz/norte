@@ -64,8 +64,8 @@ describe('the core API source: subjects', () => {
   })
 
   it('throws the sentence the server wrote when listing fails', async () => {
-    fetchStub.mockResolvedValue(failure('invalid_cursor', 'cursor de outra busca', 400))
-    await expect(createApiCoreSource().listSubjects({ cursor: 'x' }, signal)).rejects.toThrow('cursor de outra busca')
+    fetchStub.mockResolvedValue(failure('invalid_cursor', 'cursor of another query', 400))
+    await expect(createApiCoreSource().listSubjects({ cursor: 'x' }, signal)).rejects.toThrow('cursor of another query')
   })
 
   it('falls back to the code, then to the status, when no sentence came', async () => {
@@ -82,11 +82,11 @@ describe('the core API source: subjects', () => {
     expect(lastUrl().pathname).toBe('/api/core/subjects/by-slug/escrita')
     expect(subject).toMatchObject({ id: 's1' })
 
-    fetchStub.mockResolvedValueOnce(failure('not_found', 'sem assunto', 404))
-    expect(await createApiCoreSource().getSubjectBySlug('nada', signal)).toBeNull()
+    fetchStub.mockResolvedValueOnce(failure('not_found', 'no such subject', 404))
+    expect(await createApiCoreSource().getSubjectBySlug('no-such-slug', signal)).toBeNull()
 
-    fetchStub.mockResolvedValueOnce(failure('internal', 'quebrou', 500))
-    await expect(createApiCoreSource().getSubjectBySlug('escrita', signal)).rejects.toThrow('quebrou')
+    fetchStub.mockResolvedValueOnce(failure('internal', 'it broke', 500))
+    await expect(createApiCoreSource().getSubjectBySlug('escrita', signal)).rejects.toThrow('it broke')
   })
 
   it('reads a subject by its id, answers null for not_found and throws otherwise', async () => {
@@ -95,27 +95,27 @@ describe('the core API source: subjects', () => {
     expect(lastUrl().pathname).toBe('/api/core/subjects/s1')
     expect(subject).toMatchObject({ link_count: 4 })
 
-    fetchStub.mockResolvedValueOnce(failure('not_found', 'sem assunto', 404))
-    expect(await createApiCoreSource().getSubject('nada', signal)).toBeNull()
+    fetchStub.mockResolvedValueOnce(failure('not_found', 'no such subject', 404))
+    expect(await createApiCoreSource().getSubject('no-such-id', signal)).toBeNull()
 
-    fetchStub.mockResolvedValueOnce(failure('internal', 'quebrou', 500))
-    await expect(createApiCoreSource().getSubject('s1', signal)).rejects.toThrow('quebrou')
+    fetchStub.mockResolvedValueOnce(failure('internal', 'it broke', 500))
+    await expect(createApiCoreSource().getSubject('s1', signal)).rejects.toThrow('it broke')
   })
 
   it('creates a subject with the name as the body and returns the record', async () => {
-    fetchStub.mockResolvedValue(json({ id: 's2', name: 'Escrita' }, 201))
+    fetchStub.mockResolvedValue(json({ id: 's2', name: 'Writing' }, 201))
 
-    const subject = await createApiCoreSource().createSubject('Escrita')
+    const subject = await createApiCoreSource().createSubject('Writing')
 
     expect(lastRequest().method).toBe('POST')
     expect(lastUrl().pathname).toBe('/api/core/subjects')
-    expect(await lastRequest().clone().json()).toEqual({ name: 'Escrita' })
+    expect(await lastRequest().clone().json()).toEqual({ name: 'Writing' })
     expect(subject).toMatchObject({ id: 's2' })
   })
 
   it('throws the server sentence when the slug is taken', async () => {
-    fetchStub.mockResolvedValue(failure('slug_taken', 'o slug "escrita" já existe', 409))
-    await expect(createApiCoreSource().createSubject('Escrita')).rejects.toThrow('o slug "escrita" já existe')
+    fetchStub.mockResolvedValue(failure('slug_taken', 'the slug "writing" is already taken', 409))
+    await expect(createApiCoreSource().createSubject('Writing')).rejects.toThrow('the slug "writing" is already taken')
   })
 
   it('patches a subject by id with only the fields given', async () => {
@@ -135,8 +135,8 @@ describe('the core API source: subjects', () => {
     expect(lastRequest().method).toBe('DELETE')
     expect(lastUrl().pathname).toBe('/api/core/subjects/s1')
 
-    fetchStub.mockResolvedValueOnce(failure('not_found', 'sem assunto', 404))
-    await expect(createApiCoreSource().deleteSubject('s1')).rejects.toThrow('sem assunto')
+    fetchStub.mockResolvedValueOnce(failure('not_found', 'no such subject', 404))
+    await expect(createApiCoreSource().deleteSubject('s1')).rejects.toThrow('no such subject')
   })
 })
 
@@ -151,8 +151,8 @@ describe('the core API source: focus', () => {
   })
 
   it('throws when the focus cannot be read', async () => {
-    fetchStub.mockResolvedValue(failure('internal', 'um módulo falhou', 500))
-    await expect(createApiCoreSource().focus(signal)).rejects.toThrow('um módulo falhou')
+    fetchStub.mockResolvedValue(failure('internal', 'a module failed', 500))
+    await expect(createApiCoreSource().focus(signal)).rejects.toThrow('a module failed')
   })
 })
 
@@ -188,8 +188,8 @@ describe('the core API source: links', () => {
   })
 
   it('throws the server sentence when the cursor belongs to other filters', async () => {
-    fetchStub.mockResolvedValue(failure('invalid_cursor', 'o cursor é de outro filtro', 400))
-    await expect(createApiCoreSource().listLinks({ cursor: 'x' }, signal)).rejects.toThrow('o cursor é de outro filtro')
+    fetchStub.mockResolvedValue(failure('invalid_cursor', 'the cursor belongs to another query', 400))
+    await expect(createApiCoreSource().listLinks({ cursor: 'x' }, signal)).rejects.toThrow('the cursor belongs to another query')
   })
 
   it('creates a link from the source to the target, about by default', async () => {
@@ -210,8 +210,8 @@ describe('the core API source: links', () => {
   })
 
   it('throws the server sentence when an end is not in the registry', async () => {
-    fetchStub.mockResolvedValue(failure('unknown_item', 'src_id não está no registro', 400))
-    await expect(createApiCoreSource().createLink('x', 'y')).rejects.toThrow('src_id não está no registro')
+    fetchStub.mockResolvedValue(failure('unknown_item', 'src_id is not in the registry', 400))
+    await expect(createApiCoreSource().createLink('x', 'y')).rejects.toThrow('src_id is not in the registry')
   })
 
   it('decides a link by id with the decision as the body', async () => {
@@ -226,8 +226,8 @@ describe('the core API source: links', () => {
   })
 
   it('throws the server sentence when the link is not a suggestion', async () => {
-    fetchStub.mockResolvedValue(failure('not_suggested', 'só uma sugestão pode ser decidida', 409))
-    await expect(createApiCoreSource().decideLink('l1', 'accept')).rejects.toThrow('só uma sugestão pode ser decidida')
+    fetchStub.mockResolvedValue(failure('not_suggested', 'only a suggestion can be decided', 409))
+    await expect(createApiCoreSource().decideLink('l1', 'accept')).rejects.toThrow('only a suggestion can be decided')
   })
 })
 
@@ -236,13 +236,13 @@ describe('the core API source: search', () => {
     fetchStub.mockResolvedValue(
       json({
         entries: [
-          { id: 's1', module: 'core', type: 'subject', title: 'Memória', path: '/subjects/memoria', score: 1 },
+          { id: 's1', module: 'core', type: 'subject', title: 'Memory', path: '/subjects/memory', score: 1 },
           {
             id: 'i1',
             module: 'library',
             type: 'article',
-            title: 'Sobre hábitos',
-            subtitle: 'Uma autora',
+            title: 'On habits',
+            subtitle: 'An author',
             path: '/library/i1',
             score: 0.4
           }
@@ -250,27 +250,27 @@ describe('the core API source: search', () => {
       })
     )
 
-    const entries = await createApiCoreSource().search('memória de trabalho', signal)
+    const entries = await createApiCoreSource().search('working memory', signal)
 
     expect(lastRequest().method).toBe('GET')
     expect(lastUrl().pathname).toBe('/api/core/search')
-    expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ q: 'memória de trabalho' })
+    expect(Object.fromEntries(lastUrl().searchParams)).toEqual({ q: 'working memory' })
     expect(entries.map((entry) => entry.id)).toEqual(['s1', 'i1'])
-    expect(entries[1]).toMatchObject({ path: '/library/i1', subtitle: 'Uma autora', score: 0.4 })
+    expect(entries[1]).toMatchObject({ path: '/library/i1', subtitle: 'An author', score: 0.4 })
   })
 
   it('throws the server sentence when the query holds no searchable word', async () => {
-    fetchStub.mockResolvedValue(failure('invalid_request', 'a busca não tem palavra nenhuma', 400))
+    fetchStub.mockResolvedValue(failure('invalid_request', 'the search has no word at all', 400))
 
     await expect(createApiCoreSource().search('...', signal)).rejects.toThrow(
-      'a busca não tem palavra nenhuma'
+      'the search has no word at all'
     )
   })
 
   it('throws the status when the answer carries no envelope at all', async () => {
     fetchStub.mockResolvedValue(new Response('', { status: 502 }))
 
-    await expect(createApiCoreSource().search('memória', signal)).rejects.toThrow('502')
+    await expect(createApiCoreSource().search('memory', signal)).rejects.toThrow('502')
   })
 
   it('passes the abort signal through, so a superseded query never lands', async () => {

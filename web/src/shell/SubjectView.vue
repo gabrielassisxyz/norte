@@ -45,11 +45,11 @@ async function toggleFocus(): Promise<void> {
   writeError.value = ''
   const updated = await writing.run(() => core.patchSubject(current.id, { focus: !current.focus }))
   if (!updated) {
-    writeError.value = `Não foi possível mudar o foco: ${writing.error.value ?? 'erro desconhecido'}`
+    writeError.value = `The focus could not be changed: ${writing.error.value ?? 'unknown error'}`
     return
   }
   apply(updated)
-  // The sidebar and the Estudo home hold their own lists, and no write
+  // The sidebar and the study home hold their own lists, and no write
   // response can reach them.
   subjectsChanged()
 }
@@ -68,8 +68,8 @@ async function openDelete(): Promise<void> {
   const fresh = await writing.run(() => core.getSubject(current.id, new AbortController().signal))
   if (!fresh) {
     writeError.value = writing.error.value
-      ? `Não foi possível contar as ligações: ${writing.error.value}`
-      : 'Este assunto não existe mais.'
+      ? `The links could not be counted: ${writing.error.value}`
+      : 'This subject no longer exists.'
     return
   }
   apply(fresh)
@@ -89,7 +89,7 @@ async function confirmDelete(): Promise<void> {
     return true
   })
   if (!done) {
-    writeError.value = `Não foi possível apagar: ${writing.error.value ?? 'erro desconhecido'}`
+    writeError.value = `Could not delete: ${writing.error.value ?? 'unknown error'}`
     return
   }
   deleteOpen.value = false
@@ -101,20 +101,20 @@ async function confirmDelete(): Promise<void> {
 <template>
   <main class="subject-view">
     <div class="subject-inner">
-      <p v-if="firstLoad" class="subject-state" role="status">Carregando o assunto…</p>
+      <p v-if="firstLoad" class="subject-state" role="status">Loading the subject…</p>
 
       <div v-else-if="error" class="subject-state" role="alert">
-        <p>Não foi possível carregar o assunto: {{ error }}</p>
-        <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+        <p>The subject could not be loaded: {{ error }}</p>
+        <Button variant="secondary" @click="refresh()">Try again</Button>
       </div>
 
       <div v-else-if="subject === null" class="subject-state" role="status">
-        <p>Nenhum assunto com o endereço <span class="mono">{{ slug }}</span>.</p>
-        <NewSubjectButton label="Criar assunto" />
+        <p>No subject at the address <span class="mono">{{ slug }}</span>.</p>
+        <NewSubjectButton label="Create the subject" />
       </div>
 
       <template v-else>
-        <PageTitle :title="subject.name" :objective="`${total} ${total === 1 ? 'item salvo' : 'itens salvos'}`">
+        <PageTitle :title="subject.name" :objective="`${total} ${total === 1 ? 'saved item' : 'saved items'}`">
           <template #actions>
             <div class="subject-actions">
               <button
@@ -127,10 +127,10 @@ async function confirmDelete(): Promise<void> {
                 @click="toggleFocus"
               >
                 <span class="subject-switch-track" aria-hidden="true"><span class="subject-switch-knob" /></span>
-                <span>Em foco</span>
+                <span>In focus</span>
               </button>
               <NewSubjectButton />
-              <Button variant="secondary" :disabled="writing.pending.value" @click="openDelete">Apagar</Button>
+              <Button variant="secondary" :disabled="writing.pending.value" @click="openDelete">Delete</Button>
             </div>
           </template>
         </PageTitle>
@@ -138,8 +138,8 @@ async function confirmDelete(): Promise<void> {
         <p v-if="writeError" class="subject-error" role="alert">{{ writeError }}</p>
 
         <section aria-labelledby="subject-counts" class="subject-section">
-          <h2 id="subject-counts">O que já está aqui</h2>
-          <p v-if="counts.length === 0" class="subject-state">Nenhum item ligado a este assunto ainda.</p>
+          <h2 id="subject-counts">What is already here</h2>
+          <p v-if="counts.length === 0" class="subject-state">No item linked to this subject yet.</p>
           <ul v-else class="subject-counts">
             <li v-for="count in counts" :key="`${count.module}-${count.type}`" class="subject-count">
               <span class="subject-count-value">{{ count.count }}</span>
@@ -154,16 +154,16 @@ async function confirmDelete(): Promise<void> {
 
         <div v-if="deleteOpen" class="subject-backdrop" @mousedown.self="cancelDelete">
           <div class="subject-dialog" role="dialog" aria-labelledby="subject-delete-title">
-            <h2 id="subject-delete-title">Apagar “{{ subject.name }}”?</h2>
+            <h2 id="subject-delete-title">Delete “{{ subject.name }}”?</h2>
             <p>
-              Isso apaga o assunto e
-              {{ deleteLinkCount === 1 ? '1 ligação' : `${deleteLinkCount} ligações` }}
-              para ele. Os itens salvos continuam na biblioteca. Não há como desfazer.
+              This deletes the subject and
+              {{ deleteLinkCount === 1 ? '1 link' : `${deleteLinkCount} links` }}
+              to it. The saved items stay in the library. There is no undo.
             </p>
             <div class="subject-dialog-buttons">
-              <Button variant="secondary" @click="cancelDelete">Cancelar</Button>
+              <Button variant="secondary" @click="cancelDelete">Cancel</Button>
               <Button variant="primary" :disabled="writing.pending.value" @click="confirmDelete">
-                Apagar assunto
+                Delete the subject
               </Button>
             </div>
           </div>

@@ -29,7 +29,7 @@ async function mountAt(path: string) {
 
 async function expandAll(wrapper: VueWrapper) {
   for (const label of ['Library', 'Study', 'Projects', 'Notes']) {
-    await wrapper.find(`button[aria-label="Expandir ${label}"]`).trigger('click')
+    await wrapper.find(`button[aria-label="Expand ${label}"]`).trigger('click')
   }
 }
 
@@ -56,7 +56,7 @@ describe('app shell', () => {
 
       expect(wrapper.find('.app-sidebar').exists()).toBe(true)
       expect(wrapper.find('.app-content main').exists()).toBe(true)
-      expect(wrapper.find('.app-content h1').text()).toBe('Sábado, 3 de outubro')
+      expect(wrapper.find('.app-content h1').text()).toBe('Saturday, 3 October')
     } finally {
       vi.useRealTimers()
     }
@@ -136,7 +136,7 @@ describe('app shell', () => {
 
   it('collapses and expands sidebar sections', async () => {
     const { wrapper } = await mountAt('/')
-    const toggle = wrapper.find('button[aria-label="Expandir Library"]')
+    const toggle = wrapper.find('button[aria-label="Expand Library"]')
 
     expect(wrapper.text()).not.toContain('Archive')
     await toggle.trigger('click')
@@ -151,18 +151,18 @@ describe('app shell', () => {
     const { wrapper } = await mountAt('/')
     const toggle = () => wrapper.find('button.app-collapse')
 
-    expect(toggle().attributes('aria-label')).toBe('Recolher barra lateral')
+    expect(toggle().attributes('aria-label')).toBe('Collapse the sidebar')
     expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(false)
 
     await toggle().trigger('click')
-    expect(toggle().attributes('aria-label')).toBe('Expandir barra lateral')
+    expect(toggle().attributes('aria-label')).toBe('Expand the sidebar')
     expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(true)
-    expect(wrapper.find('nav[aria-label="Principal"]').exists()).toBe(false)
+    expect(wrapper.find('nav[aria-label="Main"]').exists()).toBe(false)
 
     await toggle().trigger('click')
-    expect(toggle().attributes('aria-label')).toBe('Recolher barra lateral')
+    expect(toggle().attributes('aria-label')).toBe('Collapse the sidebar')
     expect(wrapper.find('.app-sidebar.is-collapsed').exists()).toBe(false)
-    expect(wrapper.find('nav[aria-label="Principal"]').exists()).toBe(true)
+    expect(wrapper.find('nav[aria-label="Main"]').exists()).toBe(true)
   })
 
   it('keeps the collapsed state across route changes', async () => {
@@ -179,9 +179,9 @@ describe('app shell', () => {
 
   it('shows the prototype shortcut groups with counts and no Fixados group', async () => {
     const { wrapper } = await mountAt('/')
-    const shortcuts = wrapper.find('nav[aria-label="Atalhos"]')
+    const shortcuts = wrapper.find('nav[aria-label="Shortcuts"]')
 
-    expect(wrapper.find('nav[aria-label="Fixados"]').exists()).toBe(false)
+    expect(wrapper.find('nav[aria-label="Pinned"]').exists()).toBe(false)
     expect(shortcuts.exists()).toBe(true)
     expect(shortcuts.text()).toContain('Library')
     expect(shortcuts.text()).toContain('Study')
@@ -197,7 +197,7 @@ describe('app shell', () => {
 
   it('routes every shortcut entry to its matching target', async () => {
     const { wrapper, router } = await mountAt('/')
-    const shortcuts = wrapper.find('nav[aria-label="Atalhos"]')
+    const shortcuts = wrapper.find('nav[aria-label="Shortcuts"]')
 
     const targets: Record<string, string> = {}
     for (const link of shortcuts.findAll('a.app-item')) {
@@ -223,7 +223,12 @@ describe('app shell', () => {
     // Norte is a client-server app with no sync of its own; the footer used to
     // report one, which is the kind of copy a screenshot turns into a promise.
     expect(wrapper.find('.app-sync').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('Sincronizado há')
+    // Unaccented spellings of the retired sync lines — they themselves are
+    // barred from the source by the shell's forbidden-term check, which is why
+    // the phrases are spelled the way their accents fold.
+    expect(wrapper.text().normalize('NFD').replace(/\p{Mn}/gu, '').toLocaleLowerCase('en')).not.toContain(
+      'sincronizado ha'
+    )
   })
 
   it('renders the sidebar footer buttons with the navigation link typography', async () => {
@@ -255,11 +260,11 @@ describe('app shell', () => {
 
     await wrapper.find('.app-foot .app-button').trigger('click')
     expect(wrapper.findComponent(AppSidebar).emitted('search')).toHaveLength(1)
-    expect(wrapper.find('input[aria-label="Buscar"]').exists()).toBe(true)
+    expect(wrapper.find('input[aria-label="Search"]').exists()).toBe(true)
 
     await wrapper.findAll('.app-foot .app-button')[1].trigger('click')
     expect(wrapper.findComponent(AppSidebar).emitted('preferences')).toHaveLength(1)
-    expect(wrapper.find('#shell-preferences-title').text()).toBe('Preferências')
+    expect(wrapper.find('#shell-preferences-title').text()).toBe('Preferences')
   })
 
   it.each([
@@ -271,24 +276,24 @@ describe('app shell', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ...modifier }))
     await wrapper.vm.$nextTick()
 
-    expect(wrapper.find('input[aria-label="Buscar"]').exists()).toBe(true)
+    expect(wrapper.find('input[aria-label="Search"]').exists()).toBe(true)
   })
 
   it('opens the palette with the text a screen handed over', async () => {
     const { wrapper } = await mountAt('/')
 
-    requestPaletteSearch('memória')
+    requestPaletteSearch('memory')
     await flushReads()
 
-    const search = wrapper.find('input[aria-label="Buscar"]')
+    const search = wrapper.find('input[aria-label="Search"]')
     expect(search.exists()).toBe(true)
-    expect((search.element as HTMLInputElement).value).toBe('memória')
+    expect((search.element as HTMLInputElement).value).toBe('memory')
   })
 
   it('opens the palette empty from the shortcut, whatever a screen handed over before', async () => {
     const { wrapper } = await mountAt('/')
 
-    requestPaletteSearch('memória')
+    requestPaletteSearch('memory')
     await flushReads()
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
     await wrapper.vm.$nextTick()
@@ -296,13 +301,13 @@ describe('app shell', () => {
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', ctrlKey: true }))
     await wrapper.vm.$nextTick()
 
-    expect((wrapper.find('input[aria-label="Buscar"]').element as HTMLInputElement).value).toBe('')
+    expect((wrapper.find('input[aria-label="Search"]').element as HTMLInputElement).value).toBe('')
   })
 
   it('renders the bare reader route without the sidebar', async () => {
     const { wrapper } = await mountAt('/library/lib-post')
 
     expect(wrapper.find('.app-sidebar').exists()).toBe(false)
-    expect(wrapper.find('.app-content h1').text()).toBe('Um texto guardado')
+    expect(wrapper.find('.app-content h1').text()).toBe('A saved article')
   })
 })

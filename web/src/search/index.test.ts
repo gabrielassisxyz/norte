@@ -70,9 +70,9 @@ describe('search index', () => {
     // An `api`-backed module contributes its screens here and nothing else:
     // its rows are found through GET /api/core/search, over everything saved
     // rather than over the first page the shell happened to have read.
-    const fromLibrary = index.filter((entry) => entry.group === 'Biblioteca')
+    const fromLibrary = index.filter((entry) => entry.group === 'Library')
     expect(fromLibrary.map((entry) => entry.title)).toEqual(['Library'])
-    expect(index.find((entry) => entry.title === 'Um texto guardado')).toBeUndefined()
+    expect(index.find((entry) => entry.title === 'A saved article')).toBeUndefined()
   })
 
   it('offers nothing but the shell and the module screens before the reads answer', async () => {
@@ -88,25 +88,25 @@ describe('search index', () => {
 
     // No flush: every module's read is still in flight.
     const index = (captured as unknown as ComputedRef<SearchEntry[]>).value
-    expect(index.every((entry) => entry.kind === 'tela')).toBe(true)
-    expect(index.map((entry) => entry.title)).toContain('Início')
+    expect(index.every((entry) => entry.kind === 'screen')).toBe(true)
+    expect(index.map((entry) => entry.title)).toContain('Home')
   })
 
   it('ranks title matches before metadata matches and caps the result set at nine', () => {
     const index: SearchEntry[] = Array.from({ length: 12 }, (_, position) => ({
-      group: 'Biblioteca',
-      title: position === 11 ? 'Outro título' : `Leitura ${position + 1}`,
-      subtitle: position === 11 ? 'leitura no subtítulo' : 'Material',
-      kind: 'artigo',
-      keywords: 'aprendizado',
+      group: 'Library',
+      title: position === 11 ? 'Another title' : `Reading ${position + 1}`,
+      subtitle: position === 11 ? 'a reading in the subtitle' : 'Material',
+      kind: 'article',
+      keywords: 'learning',
       to: { name: 'library' }
     }))
 
-    const results = filterSearchIndex(index, 'leitura')
+    const results = filterSearchIndex(index, 'reading')
 
     expect(results).toHaveLength(9)
-    expect(results[0].title).toBe('Leitura 1')
-    expect(results.every((result) => result.group === 'Biblioteca')).toBe(true)
+    expect(results[0].title).toBe('Reading 1')
+    expect(results.every((result) => result.group === 'Library')).toBe(true)
   })
 
   it('matches accents across the title, subtitle, kind and keywords', async () => {
@@ -126,7 +126,7 @@ describe('search index', () => {
     // other. Each lands in its own group, and no entry crosses over.
     expect(grouped.map((group) => group.label)).toEqual(['Study', 'Projects'])
     expect(
-      grouped.flatMap((group) => group.items).every((entry) => ['Biblioteca', 'Estudo', 'Study', 'Projects'].includes(entry.group))
+      grouped.flatMap((group) => group.items).every((entry) => ['Library', 'Study', 'Projects'].includes(entry.group))
     ).toBe(true)
   })
 })

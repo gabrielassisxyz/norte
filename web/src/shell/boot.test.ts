@@ -112,10 +112,10 @@ describe('what is on screen while the configuration is unknown', () => {
     await wrapper.vm.$nextTick()
 
     const screen = wrapper.get('.server-unavailable')
-    expect(screen.get('h1').text()).toBe('Servidor indisponível')
+    expect(screen.get('h1').text()).toBe('Server unavailable')
     expect(screen.attributes('role')).toBe('alert')
-    expect(screen.text()).toContain('tentada de novo sozinha')
-    expect(screen.text()).toContain('4 tentativas')
+    expect(screen.text()).toContain('retried on its own')
+    expect(screen.text()).toContain('4 attempts')
     expect(wrapper.find('.app-shell').exists()).toBe(false)
   })
 
@@ -242,6 +242,6 @@ describe('deep-linking into a module the server is not serving', () => {
     expect(bootState.phase).toBe('ready')
     expect(router.currentRoute.value.name).toBe('module-off-notes-0')
     expect(notesCalls).toEqual([])
-    expect(wrapper.text()).toContain('Módulo desligado')
+    expect(wrapper.text()).toContain('Module switched off')
   })
 })

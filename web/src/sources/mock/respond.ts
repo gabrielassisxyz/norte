@@ -29,7 +29,7 @@ export function normalizeSearch(value: string): string {
   return value
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
-    .toLocaleLowerCase('pt-BR')
+    .toLocaleLowerCase('en')
     .trim()
 }
 

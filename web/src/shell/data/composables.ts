@@ -6,7 +6,7 @@ import { useSources } from '@/sources'
 import { coreLinksRevision, subjectsRevision } from './revision'
 import type { CoreFocus, CoreLinkPage, CoreLinkQuery, Subject, SubjectListQuery, SubjectPage } from './source'
 
-/** What a list grown by "carregar mais" adds to the resource that holds its first page. */
+/** What a list grown by "load more" adds to the resource that holds its first page. */
 interface PagedExtras {
   loadingMore: Ref<boolean>
   loadMoreError: Ref<string | null>
@@ -15,7 +15,7 @@ interface PagedExtras {
 }
 
 /**
- * "Carregar mais" over a resource holding the first page: the next page is
+ * "Load more" over a resource holding the first page: the next page is
  * appended to what is held, de-duplicated by id, with `next_cursor` as the
  * frontier. `readNext` reads the page after a cursor under the filters the
  * first page was read with.
@@ -70,7 +70,7 @@ export interface SubjectsResource extends AsyncResource<SubjectPage>, PagedExtra
  * meantime.
  *
  * `data.items` is every page loaded so far, not the last one: a list grown by
- * "carregar mais" has to render as the whole list, with `next_cursor` as the
+ * "load more" has to render as the whole list, with `next_cursor` as the
  * frontier of it.
  */
 export function useSubjects(

@@ -248,7 +248,7 @@ describe('LibraryView over the API', () => {
     expect(wrapper.find('h1').text()).toBe('Books')
     expect(lastQuery(library)).toMatchObject({ kind: 'book' })
     expect(titles(wrapper)).toEqual(['A saved book'])
-    expect(wrapper.findAll('.item-date')[0].text()).toBe('1 out')
+    expect(wrapper.findAll('.item-date')[0].text()).toBe('1 Oct')
   })
 
   it('sends the search term as q and the order as the contract spells it', async () => {

@@ -27,14 +27,13 @@ interface ApiFailure {
 /**
  * The message a failed call reports: the sentence the envelope carries, since
  * it was written for a person. A failure that arrived without one — a proxy, a
- * dropped connection — falls back to the status, which is still more than
- * "erro".
+ * dropped connection — falls back to the status itself.
  */
 function failureMessage(failure: unknown, status: number): string {
   const detail = (failure as ApiFailure | undefined)?.error
   if (detail?.message) return detail.message
   if (detail?.code) return detail.code
-  return `a resposta do servidor foi ${status || 'vazia'}`
+  return `the server answered ${status || 'with an empty body'}`
 }
 
 function failureCode(failure: unknown): string | undefined {

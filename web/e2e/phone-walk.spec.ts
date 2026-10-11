@@ -41,7 +41,7 @@ test.afterAll(async () => {
  */
 async function seed(title: string, options: { fillerParagraphs?: number } = {}): Promise<SeededArticle> {
   article = await seedArticle(server.baseURL, {
-    url: `https://exemplo.invalid/${encodeURIComponent(title)}`,
+    url: `https://example.invalid/${encodeURIComponent(title)}`,
     title,
     html: articleHtml({ title, ...options })
   })
@@ -67,13 +67,13 @@ test.describe('at 390x844, with touch and no mouse', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
 
   test('walks the first delivery with a thumb', async ({ page }) => {
-    await seed('Percurso com o polegar')
+    await seed('Walked with a thumb')
     await boot(page, '/')
 
     // --- the drawer ------------------------------------------------------
     const drawer = page.locator('#app-drawer')
     await expect(drawer).toBeHidden()
-    const menu = page.locator('[data-action="abrir-navegacao"]')
+    const menu = page.locator('[data-action="open-navigation"]')
     await expect(menu).toHaveAttribute('aria-expanded', 'false')
     await tap(menu)
     await expect(drawer).toBeVisible()
@@ -149,7 +149,7 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect(sheet).toBeVisible()
     await expect(sheet.locator('#notes-reader-annotation')).toBeVisible()
 
-    await sheet.locator('#notes-reader-annotation').fill('Vale reler isto.')
+    await sheet.locator('#notes-reader-annotation').fill('Worth reading again.')
     await tap(sheet.locator('[data-action="annotate"]'))
     await expect
       .poll(async () => {
@@ -159,11 +159,11 @@ test.describe('at 390x844, with touch and no mouse', () => {
         )
         return answered.items.map((annotation) => annotation.text)
       })
-      .toEqual(['Vale reler isto.'])
+      .toEqual(['Worth reading again.'])
 
     // --- a question --------------------------------------------------------
     await tap(bar.locator('[data-action="question-open"]'))
-    await sheet.locator('#notes-reader-question').fill('O que isso muda na prática?')
+    await sheet.locator('#notes-reader-question').fill('What does this change in practice?')
     await tap(sheet.locator('[data-action="turn-into-question"]'))
     await expect
       .poll(async () => {
@@ -173,7 +173,7 @@ test.describe('at 390x844, with touch and no mouse', () => {
         )
         return answered.items.map((question) => question.text)
       })
-      .toEqual(['O que isso muda na prática?'])
+      .toEqual(['What does this change in practice?'])
 
     await tap(sheet.locator('[data-action="close-notes"]'))
     await expect(sheet).toBeHidden()
@@ -191,15 +191,15 @@ test.describe('at 390x844, with touch and no mouse', () => {
     })
     await api(server.baseURL, '/api/notes/annotations', {
       method: 'POST',
-      body: JSON.stringify({ item_id: own.id, highlight_id: highlight.id, text: 'Vale reler isto.' })
+      body: JSON.stringify({ item_id: own.id, highlight_id: highlight.id, text: 'Worth reading again.' })
     })
     await api(server.baseURL, '/api/notes/questions', {
       method: 'POST',
-      body: JSON.stringify({ item_id: own.id, text: 'O que isso muda na prática?' })
+      body: JSON.stringify({ item_id: own.id, text: 'What does this change in practice?' })
     })
     await boot(page, '/')
 
-    await tap(page.locator('[data-action="abrir-navegacao"]'))
+    await tap(page.locator('[data-action="open-navigation"]'))
     const drawer = page.locator('#app-drawer')
     await tap(drawer.locator('a.app-line-link', { hasText: 'Notes' }))
     await expect(page).toHaveURL(/\/notes$/)
@@ -208,8 +208,8 @@ test.describe('at 390x844, with touch and no mouse', () => {
     // a highlight, an annotation and a question, so each tab has a row.
     for (const [tab, section, text] of [
       ['Highlights', 'Highlights list', PASSAGE],
-      ['Annotations', 'Annotations list', 'Vale reler isto.'],
-      ['Questions', 'Questions list', 'O que isso muda na prática?']
+      ['Annotations', 'Annotations list', 'Worth reading again.'],
+      ['Questions', 'Questions list', 'What does this change in practice?']
     ] as const) {
       await tap(page.locator('.nt-seg-btn', { hasText: tab }))
       await expect(page.locator(`[aria-label="${section}"]`)).toContainText(text)
@@ -275,7 +275,7 @@ for (const phone of PHONES) {
     test.use(emulate(phone.name))
 
     test('scrolls no route sideways', async ({ page }) => {
-      const own = await seed(`Sem rolagem lateral no ${phone.name}`)
+      const own = await seed(`No sideways scrolling on the ${phone.name}`)
       const routes = ['/', '/library?v=all', `/library/${own.id}`, '/notes', '/notes/sets', '/projects', '/review', '/study']
 
       for (const route of routes) {
@@ -301,13 +301,13 @@ for (const phone of PHONES) {
     })
 
     test('closes the drawer behind the palette it opened, so a result takes the tap', async ({ page }) => {
-      const own = await seed(`Resultado alcançável no ${phone.name}`)
+      const own = await seed(`A reachable result on the ${phone.name}`)
       await boot(page, '/')
 
-      await tap(page.locator('[data-action="abrir-navegacao"]'))
+      await tap(page.locator('[data-action="open-navigation"]'))
       const drawer = page.locator('#app-drawer')
       await expect(drawer).toBeVisible()
-      await tap(drawer.locator('.app-foot button', { hasText: 'Buscar' }))
+      await tap(drawer.locator('.app-foot button', { hasText: 'Search' }))
 
       // The row owns the pixels at its own centre, asserted before the drawer's
       // state: the drawer covered the left 300px of the palette, which is where
@@ -326,18 +326,18 @@ for (const phone of PHONES) {
     test('closes the drawer behind the preferences it opened', async ({ page }) => {
       await boot(page, '/')
 
-      await tap(page.locator('[data-action="abrir-navegacao"]'))
+      await tap(page.locator('[data-action="open-navigation"]'))
       const drawer = page.locator('#app-drawer')
-      await tap(drawer.locator('.app-foot button', { hasText: 'Preferências' }))
+      await tap(drawer.locator('.app-foot button', { hasText: 'Preferences' }))
 
       await expect(drawer).toBeHidden()
-      const option = page.locator('.shell-theme-option', { hasText: 'Escuro' })
+      const option = page.locator('.shell-theme-option', { hasText: 'Dark' })
       await expect(option).toBeVisible()
       expect(await hits(option)).toBe(true)
     })
 
-    test('keeps every Biblioteca control inside the screen', async ({ page }) => {
-      await seed(`Controles da biblioteca no ${phone.name}`)
+    test('keeps every library control inside the screen', async ({ page }) => {
+      await seed(`Library controls on the ${phone.name}`)
       await boot(page, '/library?v=all')
 
       // The list has answered, so the tabs carry their counts and the toolbar
@@ -376,7 +376,7 @@ for (const phone of PHONES) {
     })
 
     test('leaves the whole action bar tappable under the notes sheet', async ({ page }) => {
-      const own = await seed(`Folha de notas no ${phone.name}`)
+      const own = await seed(`The notes sheet on the ${phone.name}`)
       await boot(page, `/library/${own.id}`)
       await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
@@ -406,12 +406,12 @@ for (const phone of PHONES) {
     test('renders no collapse control in the drawer', async ({ page }) => {
       await boot(page, '/')
 
-      await tap(page.locator('[data-action="abrir-navegacao"]'))
+      await tap(page.locator('[data-action="open-navigation"]'))
       const drawer = page.locator('#app-drawer')
       await expect(drawer.locator('button.app-collapse')).toHaveCount(0)
       // The full navigation, not a 52px strip: the panel is as wide as the
       // drawer and its links are there to be tapped.
-      await expect(drawer.locator('nav[aria-label="Principal"]')).toBeVisible()
+      await expect(drawer.locator('nav[aria-label="Main"]')).toBeVisible()
       const width = await drawer.locator('.app-sidebar').evaluate((node) => node.getBoundingClientRect().width)
       expect(width).toBeGreaterThan(200)
       // The drawer slides in, so the link reaches its place a moment after the
@@ -425,8 +425,8 @@ test.describe('at 1440x900, unchanged', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
   test('keeps the sidebar, the header actions and the hover reveal', async ({ page }) => {
-    const own = await seed('Tela larga')
-    // The test below marks it "não lido", which only offers itself once it is read.
+    const own = await seed('A wide screen')
+    // The test below marks it unread, which only offers itself once it is read.
     await api(server.baseURL, `/api/library/items/${own.id}`, {
       method: 'PATCH',
       body: JSON.stringify({ unread: false })
@@ -435,7 +435,7 @@ test.describe('at 1440x900, unchanged', () => {
 
     // The sidebar is the layout, not a drawer over it, and there is no menu.
     await expect(page.locator('.app-sidebar')).toBeVisible()
-    await expect(page.locator('[data-action="abrir-navegacao"]')).toBeHidden()
+    await expect(page.locator('[data-action="open-navigation"]')).toBeHidden()
 
     const row = page.locator('.item', { hasText: article.title })
     // The group is rendered and revealed by the pointer, which is what it did
@@ -469,7 +469,7 @@ test.describe('at 1440x900, on a long article', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
   test('keeps Highlight in view once a passage near the top is selected', async ({ page }) => {
-    const own = await seed('Texto longo na tela larga', { fillerParagraphs: 80 })
+    const own = await seed('A long text on the wide screen', { fillerParagraphs: 80 })
     await boot(page, `/library/${own.id}`)
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
 

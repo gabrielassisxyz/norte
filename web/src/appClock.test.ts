@@ -38,13 +38,14 @@ const ISO_DATE_LITERAL = /['"`]\d{4}-\d{2}-\d{2}/
 const COMPACT_DATE_LITERAL = /(?<![\d.])20\d{6}(?![\d.])/
 
 /**
- * A day written out in Portuguese, which is how the home screen used to title
- * itself. It is a date as surely as `2026-10-03` is, and it reads as copy, so
- * nothing but a scan would ever notice it going stale.
+ * A day written out in English, which is how the home screen titles itself. It
+ * is a date as surely as `2026-10-03` is, and it reads as copy, so nothing but
+ * a scan would ever notice it going stale.
  */
-const WEEKDAYS = 'segunda|terça|quarta|quinta|sexta|sábado|domingo'
-const MONTHS = 'janeiro|fevereiro|março|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro'
-const WRITTEN_DAY_LITERAL = new RegExp(`['"\`](?:${WEEKDAYS})[^'"\`]*\\bde (?:${MONTHS})`, 'i')
+const WEEKDAYS = 'monday|tuesday|wednesday|thursday|friday|saturday|sunday'
+const MONTHS =
+  'january|february|march|april|may|june|july|august|september|october|november|december'
+const WRITTEN_DAY_LITERAL = new RegExp(`['"\`](?:${WEEKDAYS}),? \\d{1,2} (?:${MONTHS})`, 'i')
 
 /**
  * A `testing.ts` is a test-support file (the in-memory fakes), only ever
@@ -133,7 +134,7 @@ describe('the scan itself rejects a planted date', () => {
       '2026-10-03',
       '20261003',
       '2026-10-10',
-      'Sábado, 3 de outubro'
+      'Saturday, 3 October'
     ])
   })
 
@@ -153,7 +154,7 @@ describe('the scan itself rejects a planted date', () => {
 
   it('leaves a format string and a parser alone', () => {
     expect(dateLiteralsIn("const mask = 'YYYY-MM-DD'")).toEqual([])
-    expect(dateLiteralsIn("const weekday = new Intl.DateTimeFormat('pt-BR', { weekday: 'long' })")).toEqual([])
+    expect(dateLiteralsIn("const weekday = new Intl.DateTimeFormat('en', { weekday: 'long' })")).toEqual([])
     expect(dateLiteralsIn('const ISO = /^(\\d{4})-(\\d{2})-(\\d{2})/')).toEqual([])
     expect(dateLiteralsIn('const DAY_IN_MILLISECONDS = 24 * 60 * 60 * 1000')).toEqual([])
   })

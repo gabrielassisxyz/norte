@@ -32,12 +32,12 @@ export interface PaletteGroup {
  * hits under something imperfect, not nothing.
  */
 const GROUP_LABELS: Record<string, string> = {
-  core: 'Assuntos',
-  library: 'Biblioteca',
-  notes: 'Notas',
-  study: 'Estudo',
-  projects: 'Projetos',
-  review: 'Revisão'
+  core: 'Subjects',
+  library: 'Library',
+  notes: 'Notes',
+  study: 'Study',
+  projects: 'Projects',
+  review: 'Review'
 }
 
 /**
@@ -47,9 +47,9 @@ const GROUP_LABELS: Record<string, string> = {
  */
 const KIND_LABELS: Record<string, string> = {
   subject: 'subject',
-  annotation: 'anotação',
-  note: 'nota',
-  question: 'pergunta'
+  annotation: 'annotation',
+  note: 'note',
+  question: 'question'
 }
 
 export function paletteGroupLabel(module: string): string {
@@ -75,9 +75,9 @@ export function mergePaletteResults(screens: SearchResult[], hits: CoreSearchHit
   const groups: PaletteGroup[] = []
   if (screens.length > 0) {
     groups.push({
-      label: 'Telas',
+      label: 'Screens',
       items: screens.map((screen) => ({
-        key: `tela:${screen.title}`,
+        key: `screen:${screen.title}`,
         title: screen.title,
         subtitle: screen.subtitle,
         kind: screen.kind,
@@ -115,7 +115,7 @@ export interface PaletteSearchState {
  * aborted.
  *
  * The abort is the whole point of this composable existing. Someone typing
- * "memória" sends seven queries, and the sixth answer may arrive after the
+ * "memory" sends seven queries, and the sixth answer may arrive after the
  * seventh — so without cancellation the palette settles on results for a word
  * that is no longer in the box. Aborting also frees the connection rather
  * than leaving the browser holding six it will throw away.

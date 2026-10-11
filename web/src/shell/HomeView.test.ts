@@ -114,11 +114,11 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
     const search = wrapper.get('#home-search')
 
-    await search.setValue('memória')
+    await search.setValue('memory')
 
-    expect(paletteRequest().value?.query).toBe('memória')
+    expect(paletteRequest().value?.query).toBe('memory')
     // The box empties itself: the palette owns the query now, and a copy left
-    // here would still be showing the last search the next time Início opens.
+    // here would still be showing the last search the next time the home opens.
     expect((search.element as HTMLInputElement).value).toBe('')
   })
 
@@ -126,9 +126,9 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
     const search = wrapper.get('#home-search')
 
-    await search.setValue('memória')
+    await search.setValue('memory')
     const first = paletteRequest().value?.count
-    await search.setValue('memória')
+    await search.setValue('memory')
 
     expect(paletteRequest().value?.count).not.toBe(first)
   })
@@ -136,8 +136,8 @@ describe('HomeView', () => {
   it('renders its title and the main home regions', async () => {
     const wrapper = await mountHome()
 
-    expect(wrapper.get('h1').text()).toBe('Sábado, 3 de outubro')
-    expect(wrapper.get('#home-search').attributes('placeholder')).toBe('Buscar artigos, notas, cursos…')
+    expect(wrapper.get('h1').text()).toBe('Saturday, 3 October')
+    expect(wrapper.get('#home-search').attributes('placeholder')).toBe('Search articles, notes, courses…')
     expect(wrapper.get('#continue-study').text()).toBe('Continue studying')
     // The block's see-all names the study module's own home.
     expect(wrapper.get('.home-study .home-see-all').attributes('href')).toBe('/study')
@@ -161,12 +161,12 @@ describe('HomeView', () => {
     expect(wrapper.get('.home-reading-card').attributes('href')).toBe('/library/lib-post')
   })
 
-  it('formats saved dates as today, yesterday, and a Portuguese calendar date', async () => {
+  it('formats saved dates as today, yesterday, and a short calendar date', async () => {
     const wrapper = await mountHome()
     const dates = wrapper.findAll('.home-save-date').map((date) => date.text())
 
-    expect(dates).toContain('hoje')
-    expect(dates).toContain('ontem')
+    expect(dates).toContain('today')
+    expect(dates).toContain('yesterday')
     // The oldest of the five recent saves sits four days back.
     expect(dates).toContain(formatShortDate(shiftIsoDate(todayIsoDate(), -4)))
   })
@@ -225,13 +225,13 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     const saves = wrapper.findAll('.home-save')
-    const paperSave = saves.find((node) => node.text().includes('Um paper guardado'))
+    const paperSave = saves.find((node) => node.text().includes('A saved paper'))
     expect(paperSave).toBeDefined()
     const saveMeta = paperSave!.get('.home-save-meta').text()
     expect(saveMeta.match(/papers\.example/g) ?? []).toHaveLength(1)
 
     const cards = wrapper.findAll('.home-reading-card')
-    const paperCard = cards.find((node) => node.text().includes('Um paper guardado'))
+    const paperCard = cards.find((node) => node.text().includes('A saved paper'))
     expect(paperCard).toBeDefined()
     expect(paperCard!.text().match(/papers\.example/g) ?? []).toHaveLength(1)
   })
@@ -240,14 +240,14 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     const cards = wrapper.findAll('.home-reading-card')
-    // 8 minutes at 42% read leaves ceil(8 × 0.58) = 5 minutes, not the whole 8.
-    const started = cards.find((node) => node.text().includes('Um texto guardado'))
+    // 8 minutes at 42% read leaves ceil(8 x 0.58) = 5 minutes, not the whole 8.
+    const started = cards.find((node) => node.text().includes('A saved article'))
     expect(started).toBeDefined()
     expect(started!.get('.home-reading-meta').text()).toContain('5 min left')
     expect(started!.get('.home-reading-meta').text()).not.toContain('8 min left')
 
     // No minutes stored means no invented duration.
-    const unknown = cards.find((node) => node.text().includes('Um vídeo guardado'))
+    const unknown = cards.find((node) => node.text().includes('A saved video'))
     expect(unknown).toBeDefined()
     expect(unknown!.text()).not.toContain('min left')
   })
@@ -294,10 +294,10 @@ describe('HomeView', () => {
   })
 
   it('titles the day from the clock, so the home follows the calendar', async () => {
-    expect((await mountHome()).get('h1').text()).toBe('Sábado, 3 de outubro')
+    expect((await mountHome()).get('h1').text()).toBe('Saturday, 3 October')
 
     vi.setSystemTime(new Date('2026-10-04T12:00:00Z'))
-    expect((await mountHome()).get('h1').text()).toBe('Domingo, 4 de outubro')
+    expect((await mountHome()).get('h1').text()).toBe('Sunday, 4 October')
   })
 })
 
@@ -327,7 +327,7 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
     counts: { curricula: 0, modules: 0, subjects: 0 },
     subjects: [],
     studyDays: [],
-    focus: 'Sem foco desta semana.'
+    focus: 'No focus this week.'
   }
 
   function homeSources(overrides: {

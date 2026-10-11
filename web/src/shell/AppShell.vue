@@ -124,7 +124,7 @@ onBeforeUnmount(() => {
       v-if="!bare && drawerOpen"
       type="button"
       class="app-scrim"
-      aria-label="Fechar navegação"
+      aria-label="Close the navigation"
       @click="closeDrawer"
     />
     <div class="app-main">

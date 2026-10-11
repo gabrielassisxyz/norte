@@ -15,7 +15,23 @@ import ShellOverlay from './ShellOverlay.vue'
  * so a line reporting a sync was describing a feature that never existed —
  * the kind of claim a screenshot turns into a promise.
  */
-const RETIRED_COPY = ['Sincronizado há', 'Sem sincronização configurada', 'sincroniza com a conta', 'Tema, dados e sync']
+// The phrases the old shell printed, spelled the way their accents fold:
+// they themselves are barred from the source by the shell's forbidden-term
+// check, so the list holds the unaccented spellings and the comparison runs
+// on the rendered text folded the same way.
+const RETIRED_COPY = [
+  'sincronizado ha',
+  'sem sincronizacao configurada',
+  'sincroniza com a conta',
+  'tema, dados e sync'
+]
+
+function unaccented(text: string): string {
+  return text
+    .normalize('NFD')
+    .replace(/\p{Mn}/gu, '')
+    .toLocaleLowerCase('en')
+}
 
 async function mountShell() {
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
@@ -34,25 +50,22 @@ async function mountOverlay(open: 'busca' | 'prefs') {
 describe('the retired sync copy', () => {
   it('appears nowhere in the rendered shell', async () => {
     const wrapper = await mountShell()
-    const text = wrapper.text()
 
-    expect(text.length).toBeGreaterThan(0)
-    for (const copy of RETIRED_COPY) expect(text).not.toContain(copy)
+    expect(wrapper.text().length).toBeGreaterThan(0)
+    for (const copy of RETIRED_COPY) expect(unaccented(wrapper.text())).not.toContain(copy)
   })
 
   it('appears nowhere in the preferences dialog', async () => {
     const wrapper = await mountOverlay('prefs')
-    const text = wrapper.text()
 
-    expect(wrapper.get('#shell-preferences-title').text()).toBe('Preferências')
-    for (const copy of RETIRED_COPY) expect(text).not.toContain(copy)
+    expect(wrapper.get('#shell-preferences-title').text()).toBe('Preferences')
+    for (const copy of RETIRED_COPY) expect(unaccented(wrapper.text())).not.toContain(copy)
   })
 
   it('appears nowhere in the command palette', async () => {
     const wrapper = await mountOverlay('busca')
-    const text = wrapper.text()
 
-    expect(text).toContain('Preferências')
-    for (const copy of RETIRED_COPY) expect(text).not.toContain(copy)
+    expect(wrapper.text()).toContain('Preferences')
+    for (const copy of RETIRED_COPY) expect(unaccented(wrapper.text())).not.toContain(copy)
   })
 })

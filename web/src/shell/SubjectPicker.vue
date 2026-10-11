@@ -15,7 +15,7 @@ import type { Subject } from './data/source'
  * vocabulary is still one field away.
  */
 const props = withDefaults(defineProps<{ label?: string; chosen?: readonly string[] }>(), {
-  label: 'Assunto',
+  label: 'Subject',
   chosen: () => []
 })
 
@@ -37,7 +37,7 @@ const options = computed<Subject[]>(() => {
 })
 
 const emptyText = computed(() =>
-  searching.value ? 'Nenhum assunto com esse nome.' : 'Nenhum assunto em foco. Busque pelo nome.'
+  searching.value ? 'No subject by that name.' : 'No subject in focus. Search by name.'
 )
 
 function choose(subject: Subject): void {
@@ -51,7 +51,7 @@ function choose(subject: Subject): void {
     <TextField
       v-model="search"
       :label="label"
-      placeholder="Buscar assunto…"
+      placeholder="Search for a subject…"
       :hide-label="false"
     />
     <p v-if="options.length === 0" class="subject-picker-empty">{{ emptyText }}</p>
@@ -65,7 +65,7 @@ function choose(subject: Subject): void {
           @click="choose(subject)"
         >
           <span class="subject-picker-name">{{ subject.name }}</span>
-          <span v-if="subject.focus && !searching" class="subject-picker-badge">em foco</span>
+          <span v-if="subject.focus && !searching" class="subject-picker-badge">in focus</span>
         </button>
       </li>
     </ul>

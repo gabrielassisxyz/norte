@@ -8,7 +8,7 @@ import { computed } from 'vue'
 const plantedToday = '2026-10-03'
 const plantedSeed = 20261003
 const plantedDue = computed(() => '2026-10-10')
-const plantedTitle = 'Sábado, 3 de outubro'
+const plantedTitle = 'Saturday, 3 October'
 </script>
 
 <template>

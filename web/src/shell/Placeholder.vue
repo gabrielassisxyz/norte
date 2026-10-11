@@ -11,7 +11,7 @@ const title = computed(() => (typeof route.meta.title === 'string' ? route.meta.
 
 <template>
   <main class="placeholder">
-    <PageTitle :title="title" objective="Esta tela ainda está em construção." />
+    <PageTitle :title="title" objective="This screen is still being built." />
   </main>
 </template>
 

@@ -3,7 +3,7 @@ import { shiftIsoDate } from '@/lib/clock'
 /**
  * Mock records are dated relative to the clock, never against a day written
  * into the file: a fixed seed date makes the whole app read as abandoned
- * ("salvo em 3 out") the week after it is written, and makes "hoje" a lie on
+ * ("saved on 3 Oct") the week after it is written, and makes "today" a lie on
  * every screen that compares against it. Each slice says how long ago its
  * record happened, and the clock turns that into a date.
  */

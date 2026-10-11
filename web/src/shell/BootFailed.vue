@@ -13,10 +13,10 @@ defineProps<{ message: string }>()
 -->
 <template>
   <main class="boot-failed" role="alert">
-    <h1>Não foi possível iniciar o aplicativo</h1>
+    <h1>The app could not start</h1>
     <p>
-      O servidor respondeu, mas o aplicativo falhou ao preparar a tela. Recarregar a página não deve resolver sozinho:
-      a mensagem abaixo diz o que falhou.
+      The server answered, but the app failed to prepare the screen. Reloading is unlikely to fix it on its own:
+      the message below says what failed.
     </p>
     <p class="boot-failed-message">{{ message }}</p>
   </main>

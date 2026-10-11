@@ -82,9 +82,9 @@ async function selectInsideParagraph(page: Page, opening: string, skip: number):
 
 test.describe('a highlight whose context crosses a paragraph boundary', () => {
   test('marks a passage selected within the first ten characters of a paragraph', async ({ page }) => {
-    const title = 'Trecho na borda do parágrafo'
+    const title = 'A passage at the edge of the paragraph'
     const article = await seedArticle(server.baseURL, {
-      url: 'https://exemplo.invalid/borda-do-paragrafo',
+      url: 'https://example.invalid/passage-edge',
       title,
       html: articleHtml({ title })
     })

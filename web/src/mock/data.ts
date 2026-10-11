@@ -40,8 +40,8 @@ function ownCopy<T>(value: T): T {
 
 /**
  * Every mock record, dated against one day: the caller passes the day the app
- * is on, so a screen that says "ontem" means yesterday rather than the day this
- * file was written.
+ * is on, so a screen that says "yesterday" means the day before this run,
+ * not the day this file was written.
  */
 export function buildMockData(today: string): MockData {
   return {

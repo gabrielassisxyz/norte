@@ -6,12 +6,12 @@ import { readonly, ref, type Ref } from 'vue'
  *
  * It is module state rather than a prop or an emit because the asker and the
  * palette are nowhere near each other: a search box lives inside a route view
- * — Início's, Estudo's — and the palette lives in `AppShell`, above the router
+ * — the home's, the study's — and the palette lives in `AppShell`, above the router
  * outlet. Threading an event up through whatever view happens to be mounted
  * would make every screen in between know about a palette it does not own.
  *
  * The counter is what makes the same text asked for twice two requests. A box
- * holding "memória" that is submitted again has to reopen the palette, and a
+ * holding "memory" that is submitted again has to reopen the palette, and a
  * watcher on the text alone would see no change and do nothing.
  */
 const requested = ref<{ query: string; count: number } | null>(null)
