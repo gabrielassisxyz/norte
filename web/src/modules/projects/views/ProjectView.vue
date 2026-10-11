@@ -18,10 +18,10 @@ const props = withDefaults(defineProps<{ id: string; tasksExpanded?: boolean }>(
   tasksExpanded: false
 })
 
-type TaskFilter = 'abertas' | 'p1' | 'todas'
+type TaskFilter = 'open' | 'p1' | 'all'
 type Dialog = 'sess' | 'task' | null
 
-const filter = ref<TaskFilter>('abertas')
+const filter = ref<TaskFilter>('open')
 const dialog = ref<Dialog>(null)
 const openTaskIds = ref<string[]>([])
 const sessionNote = ref('')
@@ -40,19 +40,19 @@ const projectBugs = computed(() => project.value?.bugs ?? [])
 const sessionCount = computed(() => detail.value?.sessionCount ?? 0)
 
 const STATUS_LABELS: Record<ProjectStatus, string> = {
-  active: 'Ativo',
-  planning: 'Em planeamento',
-  paused: 'Pausado',
-  completed: 'Concluído'
+  active: 'Active',
+  planning: 'Planning',
+  paused: 'Paused',
+  completed: 'Completed'
 }
 
-// The mock Task has no topical domain field, so the "Domínio" pick in the New
+// The mock Task has no topical domain field, so the "Domain" pick in the New
 // task dialog maps onto the task horizon (bucket) and rows display it back.
 const BUCKET_LABELS: Record<Bucket, string> = {
-  today: 'Hoje',
-  next: 'A seguir',
-  later: 'Mais tarde',
-  someday: 'Algum dia'
+  today: 'Today',
+  next: 'Up next',
+  later: 'Later',
+  someday: 'Someday'
 }
 
 const PRIORITY_ORDER: Record<Priority, number> = { P0: 0, P1: 1, P2: 2, P3: 3 }
@@ -67,14 +67,14 @@ const PRIORITY_TONE: Record<string, string> = {
 // the project priority so every project still groups its bugs by severity.
 const bugSeverity = computed(() => {
   const priority = project.value?.priority
-  if (priority === 'P0' || priority === 'P1') return 'crítico'
-  if (priority === 'P2') return 'médio'
-  return 'menor'
+  if (priority === 'P0' || priority === 'P1') return 'critical'
+  if (priority === 'P2') return 'medium'
+  return 'minor'
 })
 
 const bugSeverityColor = computed(() => {
-  if (bugSeverity.value === 'crítico') return 'var(--danger)'
-  if (bugSeverity.value === 'médio') return 'var(--ink-2)'
+  if (bugSeverity.value === 'critical') return 'var(--danger)'
+  if (bugSeverity.value === 'medium') return 'var(--ink-2)'
   return 'var(--muted)'
 })
 
@@ -82,7 +82,7 @@ const features = computed(
   () =>
     project.value?.features.map((feature) => ({
       ...feature,
-      state: feature.complete ? 'Funciona' : 'Parcial'
+      state: feature.complete ? 'Working' : 'Partial'
     })) ?? []
 )
 
@@ -101,25 +101,25 @@ const priorities = computed(() =>
 
 const openGroups = computed(() => [
   {
-    key: 'tarefas',
-    name: 'Tarefas',
+    key: 'tasks',
+    name: 'Tasks',
     count: openTasks.value.length,
     items: openTasks.value.map((task) => ({
       key: task.id,
-      kind: 'tarefa',
+      kind: 'task',
       title: task.title,
-      to: { name: 'tarefa', params: { id: task.id } }
+      to: { name: 'task', params: { id: task.id } }
     }))
   },
   {
-    key: 'decisoes',
-    name: 'Decisões',
+    key: 'decisions',
+    name: 'Decisions',
     count: pendingDecisions.value.length,
     items: pendingDecisions.value.map((decision) => ({
       key: decision.id,
-      kind: 'decisão',
+      kind: 'decision',
       title: decision.title,
-      to: { name: 'decisao', params: { id: decision.id } }
+      to: { name: 'decision', params: { id: decision.id } }
     }))
   },
   {
@@ -136,17 +136,17 @@ const openCount = computed(
 
 const visibleTasks = computed<Task[]>(() => {
   if (filter.value === 'p1') return p1Tasks.value
-  if (filter.value === 'todas') return projectTasks.value
+  if (filter.value === 'all') return projectTasks.value
   return openTasks.value
 })
 
 const taskFilterOptions = computed(() => [
-  { value: 'abertas', label: 'Abertas', count: openTasks.value.length },
+  { value: 'open', label: 'Open', count: openTasks.value.length },
   { value: 'p1', label: 'P1', count: p1Tasks.value.length },
-  { value: 'todas', label: 'Todas', count: projectTasks.value.length }
+  { value: 'all', label: 'All', count: projectTasks.value.length }
 ])
 
-const nextStep = computed(() => sessionNext.value || priorities.value[0]?.title || 'Nada em aberto')
+const nextStep = computed(() => sessionNext.value || priorities.value[0]?.title || 'Nothing open')
 
 function isTaskOpen(id: string): boolean {
   return props.tasksExpanded || openTaskIds.value.includes(id)
@@ -166,16 +166,16 @@ function blockedTitles(ids: string[]): string {
 }
 
 function stepsProgress(task: Task): string {
-  if (task.steps.length === 0) return 'sem passos'
+  if (task.steps.length === 0) return 'no steps'
   const done = task.steps.filter((step) => step.completed).length
-  return `${done}/${task.steps.length} passos`
+  return `${done}/${task.steps.length} steps`
 }
 
 async function saveSession(payload: { did: string; stuck: string; next: string }): Promise<void> {
   const current = project.value
   if (!current) return
-  const note = `${payload.did}${payload.stuck ? ` Travou: ${payload.stuck}.` : ''}`
-  const summary = `${note} Próximo: ${payload.next}`
+  const note = `${payload.did}${payload.stuck ? ` Stuck: ${payload.stuck}.` : ''}`
+  const summary = `${note} Next: ${payload.next}`
   // No duration input in the design; a new session records one focused block.
   const saved = await writing.run(() =>
     projectsSource.addSession({
@@ -198,8 +198,8 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
   const current = project.value
   if (!current) return
   const description =
-    `${payload.why}${payload.what ? ` O que fazer: ${payload.what}.` : ''}` +
-    ` Pronto quando: ${payload.done}.`
+    `${payload.why}${payload.what ? ` What to do: ${payload.what}.` : ''}` +
+    ` Done when: ${payload.done}.`
   const created = await writing.run(() =>
     projectsSource.addTask({
       projectId: current.id,
@@ -213,25 +213,25 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
 
   applyTask(created)
   openTaskIds.value = [...openTaskIds.value, created.id]
-  if (filter.value !== 'abertas') filter.value = 'abertas'
+  if (filter.value !== 'open') filter.value = 'open'
   dialog.value = null
 }
 </script>
 
 <template>
   <main v-if="firstLoad" class="project project-missing" role="status">
-    <p>Carregando o projeto…</p>
+    <p>Loading the project…</p>
   </main>
 
   <main v-else-if="error" class="project project-missing" role="alert">
-    <p>Não foi possível carregar o projeto: {{ error }}</p>
-    <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+    <p>The project could not be loaded: {{ error }}</p>
+    <Button variant="secondary" @click="refresh()">Try again</Button>
   </main>
 
   <main v-else-if="project" class="project">
     <div class="project-top">
-      <nav class="crumb" aria-label="Navegação estrutural">
-        <RouterLink :to="{ name: 'projetos' }">Projetos</RouterLink>
+      <nav class="crumb" aria-label="Breadcrumb">
+        <RouterLink :to="{ name: 'projects' }">Projects</RouterLink>
         <span aria-hidden="true">/</span>
         <RouterLink v-if="area" :to="{ name: 'area', params: { id: area.id } }">{{
           area.title
@@ -240,13 +240,13 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
         <span class="crumb-current">{{ project.title }}</span>
       </nav>
       <div class="project-actions">
-        <Button variant="secondary" @click="dialog = 'sess'">Registrar sessão</Button>
-        <Button variant="primary" @click="dialog = 'task'">Nova tarefa</Button>
+        <Button variant="secondary" @click="dialog = 'sess'">Log session</Button>
+        <Button variant="primary" @click="dialog = 'task'">New task</Button>
       </div>
     </div>
 
     <p v-if="writing.error.value" class="project-write-error" role="alert">
-      Não foi possível salvar: {{ writing.error.value }}
+      Could not save: {{ writing.error.value }}
     </p>
 
     <div class="project-page">
@@ -261,28 +261,28 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
             {{ STATUS_LABELS[project.status] }}
           </span>
           <span class="mono project-strip-meta">
-            {{ projectTasks.length }} tarefas · {{ projectDecisions.length }} decisões ·
-            {{ projectBugs.length }} bugs · {{ sessionCount }} sessões
+            {{ projectTasks.length }} tasks · {{ projectDecisions.length }} decisions ·
+            {{ projectBugs.length }} bugs · {{ sessionCount }} sessions
           </span>
           <span class="project-next">
-            Próximo passo: <a href="#tarefas">{{ nextStep }}</a>
+            Next step: <a href="#tasks">{{ nextStep }}</a>
           </span>
         </div>
 
         <div v-if="sessionNote" class="project-now">
-          <span class="mono project-now-label">agora</span>
+          <span class="mono project-now-label">now</span>
           <span class="project-now-text">{{ sessionNote }}</span>
         </div>
 
-        <section id="porque" aria-labelledby="h-porque" class="project-section">
-          <h2 id="h-porque" class="sec-title">Por quê</h2>
+        <section id="why" aria-labelledby="h-why" class="project-section">
+          <h2 id="h-why" class="sec-title">Why</h2>
           <p class="body">{{ project.purpose }}</p>
         </section>
 
-        <section id="estado" aria-labelledby="h-estado" class="project-section">
+        <section id="state" aria-labelledby="h-state" class="project-section">
           <div class="sec-head">
-            <h2 id="h-estado" class="sec-title">Estado atual</h2>
-            <span class="sec-hint">O que dá para fazer hoje, em termos de uso</span>
+            <h2 id="h-state" class="sec-title">Current state</h2>
+            <span class="sec-hint">What can be used today</span>
           </div>
           <div class="sec-lines">
             <div v-for="feature in features" :key="feature.id" class="feature-row">
@@ -296,14 +296,14 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
                 {{ feature.state }}
               </span>
             </div>
-            <p v-if="features.length === 0" class="empty">Sem funcionalidades registadas.</p>
+            <p v-if="features.length === 0" class="empty">No features recorded.</p>
           </div>
         </section>
 
-        <section id="aberto" aria-labelledby="h-aberto" class="project-section">
+        <section id="open" aria-labelledby="h-open" class="project-section">
           <div class="sec-head">
-            <h2 id="h-aberto" class="sec-title">Em aberto</h2>
-            <span class="sec-hint">Por tipo de item</span>
+            <h2 id="h-open" class="sec-title">Open</h2>
+            <span class="sec-hint">By item type</span>
           </div>
           <div class="open-grid">
             <div v-for="group in openGroups" :key="group.key" class="open-group">
@@ -320,21 +320,21 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
                 <span class="mono open-kind">{{ item.kind }}</span>
                 <span>{{ item.title }}</span>
               </RouterLink>
-              <p v-if="group.items.length === 0" class="empty">Nada aqui.</p>
+              <p v-if="group.items.length === 0" class="empty">Nothing here.</p>
             </div>
           </div>
         </section>
 
-        <section id="decisoes" aria-labelledby="h-decisoes" class="project-section">
+        <section id="decisions" aria-labelledby="h-decisions" class="project-section">
           <div class="sec-head">
-            <h2 id="h-decisoes" class="sec-title">Decisões</h2>
-            <span class="sec-hint">Enquanto não decido, isto trava o que está à direita</span>
+            <h2 id="h-decisions" class="sec-title">Decisions</h2>
+            <span class="sec-hint">While undecided, this blocks what is on the right</span>
           </div>
           <div class="sec-lines">
             <div v-for="decision in projectDecisions" :key="decision.id" class="decision-row">
               <div class="decision-main">
                 <RouterLink
-                  :to="{ name: 'decisao', params: { id: decision.id } }"
+                  :to="{ name: 'decision', params: { id: decision.id } }"
                   class="sub decision-title"
                 >
                   {{ decision.title }}
@@ -353,40 +353,40 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
               </div>
               <div class="decision-side">
                 <div class="decision-fact">
-                  <span class="mono decision-key">estado</span>
+                  <span class="mono decision-key">state</span>
                   <span>{{
                     decision.status === 'decided'
-                      ? 'Decidida'
+                      ? 'Decided'
                       : decision.status === 'postponed'
-                        ? 'Adiada'
-                        : 'Aberta'
+                        ? 'Postponed'
+                        : 'Open'
                   }}</span>
                 </div>
                 <div class="decision-fact">
-                  <span class="mono decision-key">bloqueia</span>
+                  <span class="mono decision-key">blocks</span>
                   <span>{{ blockedTitles(decision.blockedTaskIds) }}</span>
                 </div>
                 <div v-if="decision.postponedUntil" class="decision-fact">
-                  <span class="mono decision-key">até</span>
+                  <span class="mono decision-key">until</span>
                   <span class="mono">{{ decision.postponedUntil }}</span>
                 </div>
               </div>
             </div>
-            <p v-if="projectDecisions.length === 0" class="empty">Sem decisões registadas.</p>
+            <p v-if="projectDecisions.length === 0" class="empty">No decisions recorded.</p>
           </div>
         </section>
 
         <div class="project-two">
-          <section id="prioridades" aria-labelledby="h-prio">
+          <section id="priorities" aria-labelledby="h-prio">
             <div class="sec-head">
-              <h2 id="h-prio" class="sec-title">Prioridades</h2>
-              <span class="sec-hint">Nesta ordem</span>
+              <h2 id="h-prio" class="sec-title">Priorities</h2>
+              <span class="sec-hint">In this order</span>
             </div>
             <div class="sec-lines">
               <RouterLink
                 v-for="(task, index) in priorities"
                 :key="task.id"
-                :to="{ name: 'tarefa', params: { id: task.id } }"
+                :to="{ name: 'task', params: { id: task.id } }"
                 class="priority-row"
               >
                 <span class="mono priority-num">{{ index + 1 }}</span>
@@ -395,14 +395,14 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
                   <span class="priority-reason">{{ task.description }}</span>
                 </span>
               </RouterLink>
-              <p v-if="priorities.length === 0" class="empty">Nada em aberto.</p>
+              <p v-if="priorities.length === 0" class="empty">Nothing open.</p>
             </div>
           </section>
 
           <section id="bugs" aria-labelledby="h-bugs">
             <div class="sec-head">
               <h2 id="h-bugs" class="sec-title">Bugs</h2>
-              <span class="mono sec-hint">{{ openBugs.length }} abertos</span>
+              <span class="mono sec-hint">{{ openBugs.length }} open</span>
             </div>
             <div class="sec-lines">
               <div v-for="bug in projectBugs" :key="bug.id" class="bug-row">
@@ -412,17 +412,17 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
                   }}</span>
                   <span class="bug-title">{{ bug.title }}</span>
                 </div>
-                <div class="bug-meta">{{ bug.resolved ? 'Resolvido' : 'Aberto' }}</div>
+                <div class="bug-meta">{{ bug.resolved ? 'Resolved' : 'Open' }}</div>
               </div>
-              <p v-if="projectBugs.length === 0" class="empty">Sem bugs registados.</p>
+              <p v-if="projectBugs.length === 0" class="empty">No bugs recorded.</p>
             </div>
           </section>
         </div>
 
-        <section id="tarefas" aria-labelledby="h-tarefas" class="project-section">
+        <section id="tasks" aria-labelledby="h-tasks" class="project-section">
           <div class="sec-head">
-            <h2 id="h-tarefas" class="sec-title">Tarefas</h2>
-            <span class="sec-hint">Cada uma se explica sozinha</span>
+            <h2 id="h-tasks" class="sec-title">Tasks</h2>
+            <span class="sec-hint">Each one explains itself</span>
             <span class="tasks-filter">
               <SegmentedControl
                 :options="taskFilterOptions"
@@ -449,11 +449,11 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
                     <span class="task-title">
                       {{ task.title }}
                       <RouterLink
-                        :to="{ name: 'tarefa', params: { id: task.id } }"
+                        :to="{ name: 'task', params: { id: task.id } }"
                         class="task-open"
                         @click.stop=""
                       >
-                        Abrir
+                        Open
                       </RouterLink>
                     </span>
                     <span class="task-desc">{{ task.description }}</span>
@@ -482,9 +482,9 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
                   </span>
                 </span>
                 <span v-if="isTaskOpen(task.id)" class="task-body">
-                  <span class="mono task-key">descrição</span>
+                  <span class="mono task-key">description</span>
                   <span class="task-text">{{ task.description }}</span>
-                  <span class="mono task-key">passos</span>
+                  <span class="mono task-key">steps</span>
                   <span class="task-steps">
                     <span v-for="step in task.steps" :key="step.id" class="task-step">
                       <span class="task-step-box" :class="{ 'is-done': step.completed }" aria-hidden="true">
@@ -505,25 +505,25 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
                       </span>
                       {{ step.title }}
                     </span>
-                    <span v-if="task.steps.length === 0" class="task-step">Sem passos registados.</span>
+                    <span v-if="task.steps.length === 0" class="task-step">No steps recorded.</span>
                   </span>
                 </span>
               </button>
             </div>
-            <p v-if="visibleTasks.length === 0" class="empty">Nenhuma tarefa aqui.</p>
+            <p v-if="visibleTasks.length === 0" class="empty">No tasks here.</p>
           </div>
         </section>
       </div>
 
-      <nav class="toc" aria-label="Nesta página">
-        <div class="toc-title">Nesta página</div>
-        <a href="#porque">Por quê</a>
-        <a href="#estado">Estado atual <span class="mono">{{ features.length }}</span></a>
-        <a href="#aberto">Em aberto <span class="mono">{{ openCount }}</span></a>
-        <a href="#decisoes">Decisões <span class="mono">{{ projectDecisions.length }}</span></a>
-        <a href="#prioridades">Prioridades <span class="mono">{{ priorities.length }}</span></a>
+      <nav class="toc" aria-label="On this page">
+        <div class="toc-title">On this page</div>
+        <a href="#why">Why</a>
+        <a href="#state">Current state <span class="mono">{{ features.length }}</span></a>
+        <a href="#open">Open <span class="mono">{{ openCount }}</span></a>
+        <a href="#decisions">Decisions <span class="mono">{{ projectDecisions.length }}</span></a>
+        <a href="#priorities">Priorities <span class="mono">{{ priorities.length }}</span></a>
         <a href="#bugs">Bugs <span class="mono">{{ openBugs.length }}</span></a>
-        <a href="#tarefas">Tarefas <span class="mono">{{ openTasks.length }}</span></a>
+        <a href="#tasks">Tasks <span class="mono">{{ openTasks.length }}</span></a>
       </nav>
     </div>
 
@@ -532,8 +532,8 @@ async function saveTask(payload: NewProjectTask): Promise<void> {
   </main>
 
   <main v-else class="project project-missing">
-    <PageTitle title="Projeto não encontrado" objective="Este projeto não existe." />
-    <RouterLink :to="{ name: 'projetos' }" class="missing-link">Voltar para Projetos</RouterLink>
+    <PageTitle title="Project not found" objective="This project does not exist." />
+    <RouterLink :to="{ name: 'projects' }" class="missing-link">Back to Projects</RouterLink>
   </main>
 </template>
 

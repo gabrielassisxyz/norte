@@ -4,7 +4,7 @@ import type { RouteLocationRaw } from 'vue-router'
 import type { NorteModule } from '@/modules/types'
 import { mountedModules } from '@/shell/composition'
 
-export type SearchGroup = 'Biblioteca' | 'Estudo' | 'Projetos'
+export type SearchGroup = 'Biblioteca' | 'Estudo' | 'Projects'
 
 export interface SearchEntry {
   group: SearchGroup

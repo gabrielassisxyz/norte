@@ -36,22 +36,22 @@ const siblingTasks = computed(() => detail.value?.siblingTasks ?? [])
 // The prototype offers three horizons; the fourth mock bucket ("someday")
 // keeps its stored value and simply shows no active pick here.
 const BUCKETS: Array<{ value: Bucket; label: string }> = [
-  { value: 'today', label: 'Hoje' },
-  { value: 'next', label: 'Esta semana' },
-  { value: 'later', label: 'Depois' }
+  { value: 'today', label: 'Today' },
+  { value: 'next', label: 'This week' },
+  { value: 'later', label: 'Later' }
 ]
 
 const BUCKET_LABELS: Record<Bucket, string> = {
-  today: 'Hoje',
-  next: 'Esta semana',
-  later: 'Depois',
-  someday: 'Algum dia'
+  today: 'Today',
+  next: 'This week',
+  later: 'Later',
+  someday: 'Someday'
 }
 
 const DECISION_STATUS: Record<Decision['status'], string> = {
-  open: 'aberta',
-  decided: 'decidida',
-  postponed: 'adiada'
+  open: 'open',
+  decided: 'decided',
+  postponed: 'postponed'
 }
 
 const doneSteps = computed(() => task.value?.steps.filter((step) => step.completed).length ?? 0)
@@ -112,7 +112,7 @@ async function saveSession(payload: { did: string; next: string }): Promise<void
       taskId: current.id,
       startedAt: nowTimestamp(),
       durationMinutes: 25,
-      summary: `${payload.did} Próximo: ${payload.next}`
+      summary: `${payload.did} Next: ${payload.next}`
     })
   )
   // A failed save keeps the dialog open with everything typed into it.
@@ -130,24 +130,24 @@ function sessionDate(startedAt: string): string {
 
 <template>
   <main v-if="firstLoad" class="task task-missing" role="status">
-    <p>Carregando a tarefa…</p>
+    <p>Loading the task…</p>
   </main>
 
   <main v-else-if="error" class="task task-missing" role="alert">
-    <p>Não foi possível carregar a tarefa: {{ error }}</p>
-    <Button variant="secondary" @click="refresh()">Tentar de novo</Button>
+    <p>The task could not be loaded: {{ error }}</p>
+    <Button variant="secondary" @click="refresh()">Try again</Button>
   </main>
 
   <main v-else-if="task && project" class="task">
     <div class="task-top">
-      <nav class="crumb" aria-label="Navegação estrutural">
-        <RouterLink :to="{ name: 'projetos' }">Projetos</RouterLink>
+      <nav class="crumb" aria-label="Breadcrumb">
+        <RouterLink :to="{ name: 'projects' }">Projects</RouterLink>
         <span aria-hidden="true">/</span>
         <RouterLink v-if="area" :to="{ name: 'area', params: { id: area.id } }">{{
           area.title
         }}</RouterLink>
         <span v-if="area" aria-hidden="true">/</span>
-        <RouterLink :to="{ name: 'projeto', params: { id: project.id } }">{{
+        <RouterLink :to="{ name: 'project', params: { id: project.id } }">{{
           project.title
         }}</RouterLink>
         <span aria-hidden="true">/</span>
@@ -155,30 +155,30 @@ function sessionDate(startedAt: string): string {
       </nav>
       <div class="task-actions">
         <button type="button" class="ghost" :aria-pressed="editing" @click="editing ? closeEdit() : openEdit()">
-          {{ editing ? 'Fechar edição' : 'Editar' }}
+          {{ editing ? 'Close editing' : 'Edit' }}
         </button>
-        <Button variant="secondary" icon="note" @click="sessionOpen = true">Registrar sessão</Button>
+        <Button variant="secondary" icon="note" @click="sessionOpen = true">Log session</Button>
         <Button variant="primary" icon="check" @click="toggleDone()">
-          {{ task.completed ? 'Reabrir tarefa' : 'Marcar como feita' }}
+          {{ task.completed ? 'Reopen task' : 'Mark as done' }}
         </Button>
       </div>
     </div>
 
     <p v-if="writing.error.value" class="task-write-error" role="alert">
-      Não foi possível salvar: {{ writing.error.value }}
+      Could not save: {{ writing.error.value }}
     </p>
 
     <div class="task-page">
       <div class="task-main">
         <div class="task-hero">
           <div v-if="editing" class="task-edit">
-            <TextField label="Título" v-model="editTitle" />
-            <TextField label="Descrição" :multiline="true" :rows="2" v-model="editDescription" />
+            <TextField label="Title" v-model="editTitle" />
+            <TextField label="Description" :multiline="true" :rows="2" v-model="editDescription" />
             <div class="task-edit-actions">
               <Button variant="primary" :disabled="editTitle.trim().length === 0" @click="saveEdit">
-                Salvar
+                Save
               </Button>
-              <Button variant="secondary" @click="closeEdit">Cancelar</Button>
+              <Button variant="secondary" @click="closeEdit">Cancel</Button>
             </div>
           </div>
           <PageTitle v-else :title="task.title" :objective="task.description" />
@@ -187,17 +187,17 @@ function sessionDate(startedAt: string): string {
         <div class="task-strip">
           <span class="task-status" :class="{ 'is-done': task.completed }">
             <span class="task-dot" aria-hidden="true" />
-            {{ task.completed ? 'Concluída' : 'Em andamento' }}
+            {{ task.completed ? 'Done' : 'In progress' }}
           </span>
           <span class="mono task-priority">{{ task.priority }}</span>
           <span class="mono task-strip-meta">
-            {{ doneSteps }}/{{ task.steps.length }} passos · {{ taskSessions.length }}
-            {{ taskSessions.length === 1 ? 'sessão' : 'sessões' }}
+            {{ doneSteps }}/{{ task.steps.length }} steps · {{ taskSessions.length }}
+            {{ taskSessions.length === 1 ? 'session' : 'sessions' }}
           </span>
         </div>
 
         <section aria-labelledby="h-what" class="task-section">
-          <h2 id="h-what" class="sec-title">O que fazer</h2>
+          <h2 id="h-what" class="sec-title">What to do</h2>
           <p class="body">{{ task.description }}</p>
           <div class="steps">
             <button
@@ -226,18 +226,18 @@ function sessionDate(startedAt: string): string {
               </span>
               <span class="txt">{{ step.title }}</span>
             </button>
-            <p v-if="task.steps.length === 0" class="empty">Sem passos registados.</p>
+            <p v-if="task.steps.length === 0" class="empty">No steps recorded.</p>
           </div>
         </section>
 
         <section aria-labelledby="h-context" class="task-section">
-          <h2 id="h-context" class="sec-title">Contexto</h2>
+          <h2 id="h-context" class="sec-title">Context</h2>
           <div class="refs">
             <RouterLink
               class="ref"
-              :to="{ name: 'projeto', params: { id: project.id } }"
+              :to="{ name: 'project', params: { id: project.id } }"
             >
-              <span class="mono ref-kind">projeto</span>
+              <span class="mono ref-kind">project</span>
               <span class="ref-title">{{ project.title }}</span>
               <span class="mono ref-meta">{{ area?.title ?? '' }}</span>
             </RouterLink>
@@ -245,9 +245,9 @@ function sessionDate(startedAt: string): string {
               v-for="decision in blockingDecisions"
               :key="decision.id"
               class="ref"
-              :to="{ name: 'decisao', params: { id: decision.id } }"
+              :to="{ name: 'decision', params: { id: decision.id } }"
             >
-              <span class="mono ref-kind">decisão</span>
+              <span class="mono ref-kind">decision</span>
               <span class="ref-title">{{ decision.title }}</span>
               <span class="mono ref-meta">{{ DECISION_STATUS[decision.status] }}</span>
             </RouterLink>
@@ -256,7 +256,7 @@ function sessionDate(startedAt: string): string {
 
         <section aria-labelledby="h-sessions" class="task-section">
           <div class="sec-head">
-            <h2 id="h-sessions" class="sec-title">Sessões nesta tarefa</h2>
+            <h2 id="h-sessions" class="sec-title">Sessions in this task</h2>
             <span class="mono sec-hint">{{ taskSessions.length }}</span>
           </div>
           <div class="sessions">
@@ -264,30 +264,30 @@ function sessionDate(startedAt: string): string {
               <span class="mono sess-date">{{ sessionDate(session.startedAt) }}</span>
               <span class="body-sm sess-note">{{ session.summary }}</span>
             </div>
-            <p v-if="taskSessions.length === 0" class="empty">Sem sessões registadas.</p>
+            <p v-if="taskSessions.length === 0" class="empty">No sessions recorded.</p>
           </div>
         </section>
       </div>
 
       <aside class="aside">
         <div class="meta">
-          <span class="k">projeto</span>
-          <RouterLink :to="{ name: 'projeto', params: { id: project.id } }" class="meta-link">
+          <span class="k">project</span>
+          <RouterLink :to="{ name: 'project', params: { id: project.id } }" class="meta-link">
             {{ project.title }}
           </RouterLink>
-          <span class="k">área</span>
+          <span class="k">area</span>
           <RouterLink v-if="area" :to="{ name: 'area', params: { id: area.id } }" class="meta-plain">
             {{ area.title }}
           </RouterLink>
           <span v-else class="meta-plain">—</span>
-          <span class="k">prioridade</span>
+          <span class="k">priority</span>
           <span class="mono meta-priority">{{ task.priority }}</span>
-          <span class="k">bloqueada por</span>
+          <span class="k">blocked by</span>
           <span v-if="blockingDecisions.length === 0" class="meta-plain">—</span>
           <RouterLink
             v-for="decision in blockingDecisions"
             :key="decision.id"
-            :to="{ name: 'decisao', params: { id: decision.id } }"
+            :to="{ name: 'decision', params: { id: decision.id } }"
             class="meta-plain meta-blocker"
           >
             {{ decision.title }}
@@ -295,7 +295,7 @@ function sessionDate(startedAt: string): string {
         </div>
 
         <div class="aside-block">
-          <span class="aside-label">Mover para</span>
+          <span class="aside-label">Move to</span>
           <div class="bucket-row">
             <Tag
               v-for="bucket in BUCKETS"
@@ -306,20 +306,20 @@ function sessionDate(startedAt: string): string {
               {{ bucket.label }}
             </Tag>
           </div>
-          <span class="aside-hint">Aparece em “{{ BUCKET_LABELS[task.bucket] }}” na home.</span>
+          <span class="aside-hint">Shows under “{{ BUCKET_LABELS[task.bucket] }}” on home.</span>
         </div>
 
         <div class="aside-block">
-          <span class="aside-label">Outras tarefas {{ task.priority }} do projeto</span>
+          <span class="aside-label">Other {{ task.priority }} tasks in the project</span>
           <RouterLink
             v-for="sibling in siblingTasks"
             :key="sibling.id"
-            :to="{ name: 'tarefa', params: { id: sibling.id } }"
+            :to="{ name: 'task', params: { id: sibling.id } }"
             class="sibling"
           >
             {{ sibling.title }}
           </RouterLink>
-          <span v-if="siblingTasks.length === 0" class="aside-hint">Nada aqui.</span>
+          <span v-if="siblingTasks.length === 0" class="aside-hint">Nothing here.</span>
         </div>
       </aside>
     </div>
@@ -328,8 +328,8 @@ function sessionDate(startedAt: string): string {
   </main>
 
   <main v-else class="task task-missing">
-    <PageTitle title="Tarefa não encontrada" objective="Esta tarefa não existe." />
-    <RouterLink :to="{ name: 'projetos' }" class="missing-link">Voltar para Projetos</RouterLink>
+    <PageTitle title="Task not found" objective="This task does not exist." />
+    <RouterLink :to="{ name: 'projects' }" class="missing-link">Back to Projects</RouterLink>
   </main>
 </template>
 

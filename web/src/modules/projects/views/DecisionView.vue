@@ -23,9 +23,9 @@ const props = withDefaults(defineProps<{ id?: string; preselect?: boolean }>(), 
 type Choice = string | null
 interface Tradeoffs {
   software: string
-  uso: string
-  custo: string
-  reversivel: string
+  use: string
+  cost: string
+  reversible: string
 }
 
 const OTHER_CHOICE = 'other'
@@ -48,52 +48,52 @@ const REFERENCE_IDS_BY_DECISION: Record<string, string[]> = {
 
 const OPTION_TRADEOFFS: Record<string, Tradeoffs> = {
   'option-drive': {
-    software: 'Configuração pequena e sem serviço adicional.',
-    uso: 'Permite revisar a cópia fora de casa.',
-    custo: 'Comprar e manter uma mídia extra.',
-    reversivel: 'Sim, a mídia pode ser trocada.'
+    software: 'Small setup with no extra service.',
+    use: 'Lets you review the copy away from home.',
+    cost: 'Buy and keep one extra medium.',
+    reversible: 'Yes, the medium can be swapped.'
   },
   'option-cloud': {
-    software: 'Depende de um provedor e de uma rotina de envio.',
-    uso: 'Acesso disponível em qualquer lugar com conexão.',
-    custo: 'Mensalidade e dependência de rede.',
-    reversivel: 'Sim, exportando a cópia.'
+    software: 'Depends on a provider and an upload routine.',
+    use: 'Access anywhere with a connection.',
+    cost: 'Monthly fee and network dependence.',
+    reversible: 'Yes, by exporting the copy.'
   },
   'option-row': {
-    software: 'Organização simples para automatizar a rega.',
-    uso: 'Deixa o acesso a cada vaso direto.',
-    custo: 'Menos flexibilidade para variar a disposição.',
-    reversivel: 'Sim, movendo os vasos.'
+    software: 'Simple layout for watering by routine.',
+    use: 'Keeps access to each pot direct.',
+    cost: 'Less freedom to rearrange.',
+    reversible: 'Yes, by moving the pots.'
   },
   'option-groups': {
-    software: 'Exige observar a luz antes de fixar os lugares.',
-    uso: 'Agrupa plantas com necessidades parecidas.',
-    custo: 'A disposição pode ocupar mais espaço.',
-    reversivel: 'Sim, sem obra permanente.'
+    software: 'Asks for watching the light before fixing places.',
+    use: 'Groups plants with similar needs.',
+    cost: 'The layout can take more space.',
+    reversible: 'Yes, with no permanent work.'
   },
   'option-objects': {
-    software: 'Tipos explícitos e fáceis de serializar.',
-    uso: 'A leitura da árvore fica uniforme nos exercícios.',
-    custo: 'Comportamento fica fora dos objetos.',
-    reversivel: 'Sim, com uma camada de adaptação.'
+    software: 'Explicit types, easy to serialize.',
+    use: 'Tree reading stays uniform across exercises.',
+    cost: 'Behavior lives outside the objects.',
+    reversible: 'Yes, with an adapter layer.'
   },
   'option-classes': {
-    software: 'Cada nó pode concentrar seus próprios métodos.',
-    uso: 'Operações comuns ficam próximas dos dados.',
-    custo: 'Mais cerimônia para persistir e testar.',
-    reversivel: 'Parcial, exigindo conversão dos nós.'
+    software: 'Each node can hold its own methods.',
+    use: 'Common operations stay close to the data.',
+    cost: 'More ceremony to persist and test.',
+    reversible: 'Partly, by converting the nodes.'
   },
   'option-month': {
-    software: 'Agrupa registros por um período conhecido.',
-    uso: 'Facilita comparar o mês atual com o anterior.',
-    custo: 'Mudanças no dia do pagamento ficam menos visíveis.',
-    reversivel: 'Sim, mantendo os registros.'
+    software: 'Groups records by a known period.',
+    use: 'Makes this month easy to compare with the last.',
+    cost: 'Payday shifts stay less visible.',
+    reversible: 'Yes, by keeping the records.'
   },
   'option-payday': {
-    software: 'Precisa registrar o ciclo de cada entrada.',
-    uso: 'Acompanha melhor o dinheiro disponível.',
-    custo: 'Exige mais contexto em cada lançamento.',
-    reversivel: 'Sim, reagrupando os lançamentos.'
+    software: 'Needs the cycle of each income recorded.',
+    use: 'Tracks the money at hand better.',
+    cost: 'Asks for more context per entry.',
+    reversible: 'Yes, by regrouping the entries.'
   }
 }
 
@@ -132,8 +132,8 @@ const selectedOption = computed(() =>
 )
 const isDecided = computed(() => locallyDecided.value && decision.value?.status === 'decided')
 const selectedLabel = computed(() => {
-  if (selectedChoice.value === OTHER_CHOICE) return 'Outra'
-  return selectedOption.value?.title ?? 'Outra'
+  if (selectedChoice.value === OTHER_CHOICE) return 'Other'
+  return selectedOption.value?.title ?? 'Other'
 })
 const canDecide = computed(
   () =>
@@ -141,17 +141,17 @@ const canDecide = computed(
     (selectedChoice.value !== OTHER_CHOICE || reasoning.value.trim().length > 0)
 )
 const dueDate = computed(() => decision.value?.postponedUntil ?? shiftIsoDate(todayIsoDate(), DEFAULT_DUE_DAYS))
-const dueText = computed(() => `até ${formatShortDate(dueDate.value)} · ${daysRemaining(dueDate.value)} dias`)
-const statusText = computed(() => (isDecided.value ? `Decidida hoje: ${selectedLabel.value}` : 'Pendente'))
-const domain = computed(() => area.value?.title ?? 'Projetos')
-const blockedCountText = computed(() => `${blockedTasks.value.length} ${blockedTasks.value.length === 1 ? 'tarefa' : 'tarefas'}`)
+const dueText = computed(() => `by ${formatShortDate(dueDate.value)} · ${daysRemaining(dueDate.value)} days`)
+const statusText = computed(() => (isDecided.value ? `Decided today: ${selectedLabel.value}` : 'Pending'))
+const domain = computed(() => area.value?.title ?? 'Projects')
+const blockedCountText = computed(() => `${blockedTasks.value.length} ${blockedTasks.value.length === 1 ? 'task' : 'tasks'}`)
 const contextParagraphs = computed(() => {
   const current = decision.value
   if (!current) return []
-  const taskNames = blockedTasks.value.map((task) => task.title).join(' e ')
+  const taskNames = blockedTasks.value.map((task) => task.title).join(' and ')
   const followUp = taskNames
-    ? `Registrar a escolha deixa o próximo passo visível para ${taskNames}.`
-    : 'Registrar a escolha deixa o próximo passo visível para o projeto.'
+    ? `Recording the choice makes the next step visible for ${taskNames}.`
+    : 'Recording the choice makes the next step visible for the project.'
   return [current.context, followUp]
 })
 /** The reading behind a decision is the library's, read only while that crossing is allowed. */
@@ -175,21 +175,21 @@ function daysRemaining(value: string): number {
   return Math.max(0, daysBetweenIsoDates(todayIsoDate(), value) + 1)
 }
 
-function taskTarget(taskId: string): { name: 'tarefa'; params: { id: string } } {
-  return { name: 'tarefa', params: { id: taskId } }
+function taskTarget(taskId: string): { name: 'task'; params: { id: string } } {
+  return { name: 'task', params: { id: taskId } }
 }
 
-function decisionTarget(decisionIdValue: string): { name: 'decisao'; params: { id: string } } {
-  return { name: 'decisao', params: { id: decisionIdValue } }
+function decisionTarget(decisionIdValue: string): { name: 'decision'; params: { id: string } } {
+  return { name: 'decision', params: { id: decisionIdValue } }
 }
 
 function optionTradeoffs(option: DecisionOption): Tradeoffs {
   return (
     OPTION_TRADEOFFS[option.id] ?? {
       software: option.rationale,
-      uso: 'Mantém um próximo passo explícito.',
-      custo: 'Avaliar depois dos primeiros usos.',
-      reversivel: 'Revisável com novos dados.'
+      use: 'Keeps an explicit next step.',
+      cost: 'Review after the first uses.',
+      reversible: 'Revisable with new data.'
     }
   )
 }
@@ -302,37 +302,37 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
 <template>
   <main class="decision-view">
     <div v-if="firstLoad" class="decision-inner decision-missing" role="status">
-      <p>Carregando a decisão…</p>
+      <p>Loading the decision…</p>
     </div>
 
     <div v-else-if="error" class="decision-inner decision-missing" role="alert">
-      <p>Não foi possível carregar a decisão: {{ error }}</p>
-      <button type="button" class="decision-back" @click="refresh()">Tentar de novo</button>
+      <p>The decision could not be loaded: {{ error }}</p>
+      <button type="button" class="decision-back" @click="refresh()">Try again</button>
     </div>
 
     <div v-else-if="!decision" class="decision-inner decision-missing">
-      <PageTitle title="Decisão não encontrada" objective="Nenhuma decisão responde por este endereço." />
-      <RouterLink class="decision-back" to="/projetos">Ver projetos</RouterLink>
+      <PageTitle title="Decision not found" objective="No decision answers this address." />
+      <RouterLink class="decision-back" to="/projects">See projects</RouterLink>
     </div>
 
     <div v-else class="decision-inner">
       <p v-if="writing.error.value" class="decision-write-error" role="alert">
-        Não foi possível salvar: {{ writing.error.value }}
+        Could not save: {{ writing.error.value }}
       </p>
 
       <div class="decision-top">
-        <nav class="decision-crumbs" aria-label="Caminho">
-          <RouterLink class="decision-crumb" to="/projetos">Projetos</RouterLink>
+        <nav class="decision-crumbs" aria-label="Breadcrumb">
+          <RouterLink class="decision-crumb" to="/projects">Projects</RouterLink>
           <span class="decision-separator" aria-hidden="true">/</span>
           <RouterLink v-if="area" class="decision-crumb" :to="{ name: 'area', params: { id: area.id } }">
             {{ area.title }}
           </RouterLink>
           <span v-if="area" class="decision-separator" aria-hidden="true">/</span>
-          <RouterLink v-if="project" class="decision-crumb" :to="{ name: 'projeto', params: { id: project.id } }">
+          <RouterLink v-if="project" class="decision-crumb" :to="{ name: 'project', params: { id: project.id } }">
             {{ project.title }}
           </RouterLink>
           <span v-if="project" class="decision-separator" aria-hidden="true">/</span>
-          <span class="decision-current">Decisão</span>
+          <span class="decision-current">Decision</span>
         </nav>
 
         <div class="decision-actions">
@@ -342,10 +342,10 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
             :aria-pressed="editing"
             @click="editing ? cancelEditing() : startEditing()"
           >
-            {{ editing ? 'Fechar edição' : 'Editar' }}
+            {{ editing ? 'Close editing' : 'Edit' }}
           </button>
           <button type="button" class="decision-action" :disabled="isDecided" @click="postpone">
-            Adiar uma semana
+            Postpone a week
           </button>
           <button
             type="button"
@@ -354,7 +354,7 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
             @click="decide"
           >
             <Icon name="check" :size="14" />
-            {{ isDecided ? 'Decidida' : 'Decidir' }}
+            {{ isDecided ? 'Decided' : 'Decide' }}
           </button>
         </div>
       </div>
@@ -364,10 +364,10 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
           <div class="decision-heading">
             <PageTitle v-if="!editing" :title="decision.title" :objective="project?.purpose ?? decision.context" />
             <div v-else class="decision-editor">
-              <TextField id="decision-title" label="Pergunta" :multiline="true" :rows="2" v-model="editTitle" />
+              <TextField id="decision-title" label="Question" :multiline="true" :rows="2" v-model="editTitle" />
               <TextField
                 id="decision-context"
-                label="Objetivo da decisão"
+                label="Decision goal"
                 :multiline="true"
                 :rows="2"
                 v-model="editContext"
@@ -379,22 +379,22 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
                   :disabled="!editTitle.trim()"
                   @click="saveEditing"
                 >
-                  Salvar
+                  Save
                 </button>
-                <button type="button" class="decision-action" @click="cancelEditing">Cancelar</button>
+                <button type="button" class="decision-action" @click="cancelEditing">Cancel</button>
               </div>
             </div>
           </div>
 
-          <div class="decision-status-row" aria-label="Estado da decisão">
+          <div class="decision-status-row" aria-label="Decision state">
             <span class="decision-status" :class="{ 'is-decided': isDecided }">
               <span class="decision-status-dot" aria-hidden="true" />
               {{ statusText }}
             </span>
             <span class="decision-mono">{{ dueText }}</span>
-            <span class="decision-mono">{{ domain }} · aberta há 23 dias</span>
+            <span class="decision-mono">{{ domain }} · open for 23 days</span>
             <span v-if="blockedTasks.length > 0" class="decision-block-summary">
-              Bloqueia
+              Blocks
               <RouterLink :to="taskTarget(blockedTasks[0].id)">
                 {{ blockedCountText }}
               </RouterLink>
@@ -402,7 +402,7 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
           </div>
 
           <section class="decision-section decision-context" aria-labelledby="decision-context-heading">
-            <h2 id="decision-context-heading" class="decision-section-title">Contexto</h2>
+            <h2 id="decision-context-heading" class="decision-section-title">Context</h2>
             <div class="decision-copy">
               <p v-for="paragraph in contextParagraphs" :key="paragraph">{{ paragraph }}</p>
             </div>
@@ -410,11 +410,11 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
 
           <section class="decision-section" aria-labelledby="decision-options-heading">
             <div class="decision-section-heading">
-              <h2 id="decision-options-heading" class="decision-section-title">Opções</h2>
-              <span class="decision-section-hint">Escolha uma; o campo abaixo é livre em qualquer caso</span>
+              <h2 id="decision-options-heading" class="decision-section-title">Options</h2>
+              <span class="decision-section-hint">Pick one; the field below is free either way</span>
             </div>
 
-            <div class="decision-options" role="radiogroup" aria-label="Opções da decisão">
+            <div class="decision-options" role="radiogroup" aria-label="Decision options">
               <button
                 v-for="option in decision.options"
                 :key="option.id"
@@ -428,18 +428,18 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
                 <span class="decision-option-body">
                   <span class="decision-option-head">
                     <span class="decision-option-title">{{ option.title }}</span>
-                    <span v-if="option.id === leanOptionId" class="decision-lean">tendência atual</span>
+                    <span v-if="option.id === leanOptionId" class="decision-lean">current lean</span>
                   </span>
                   <span class="decision-option-description">{{ option.rationale }}</span>
                   <span class="decision-impacts">
                     <span class="decision-key">software</span>
                     <span>{{ optionTradeoffs(option).software }}</span>
-                    <span class="decision-key">uso</span>
-                    <span>{{ optionTradeoffs(option).uso }}</span>
-                    <span class="decision-key">custo</span>
-                    <span>{{ optionTradeoffs(option).custo }}</span>
-                    <span class="decision-key">reversível</span>
-                    <span>{{ optionTradeoffs(option).reversivel }}</span>
+                    <span class="decision-key">use</span>
+                    <span>{{ optionTradeoffs(option).use }}</span>
+                    <span class="decision-key">cost</span>
+                    <span>{{ optionTradeoffs(option).cost }}</span>
+                    <span class="decision-key">reversible</span>
+                    <span>{{ optionTradeoffs(option).reversible }}</span>
                   </span>
                 </span>
               </button>
@@ -453,26 +453,26 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
               >
                 <span class="decision-radio" aria-hidden="true" />
                 <span class="decision-other-body">
-                  <span class="decision-option-title">Outra</span>
-                  <span class="decision-option-description">Nenhuma das acima. Descreva no campo abaixo.</span>
+                  <span class="decision-option-title">Other</span>
+                  <span class="decision-option-description">None of the above. Describe it in the field below.</span>
                 </span>
               </button>
             </div>
 
             <div class="decision-reasoning">
-              <label for="decision-reasoning-input">{{ selectedChoice === OTHER_CHOICE ? 'Qual é a outra opção, e por quê' : 'Raciocínio (opcional)' }}</label>
+              <label for="decision-reasoning-input">{{ selectedChoice === OTHER_CHOICE ? 'What is the other option, and why' : 'Reasoning (optional)' }}</label>
               <textarea
                 id="decision-reasoning-input"
                 v-model="reasoning"
                 rows="4"
-                placeholder="Por que esta opção, o que me faria mudar de ideia, ou a opção que falta…"
+                placeholder="Why this option, what would change my mind, or the missing option…"
               />
-              <span>Vai para o registro da decisão junto com a opção escolhida e a data.</span>
+              <span>Goes into the decision record with the chosen option and the date.</span>
             </div>
           </section>
 
           <section class="decision-section decision-references" aria-labelledby="decision-references-heading">
-            <h2 id="decision-references-heading" class="decision-section-title">O que li para decidir</h2>
+            <h2 id="decision-references-heading" class="decision-section-title">What I read to decide</h2>
             <div class="decision-reference-list">
               <component
                 :is="canReachLibrary ? RouterLink : 'div'"
@@ -483,7 +483,7 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
               >
                 <span class="decision-reference-kind decision-mono">{{ reference.kind }}</span>
                 <span class="decision-reference-title">{{ reference.title }}</span>
-                <span class="decision-reference-meta decision-mono">{{ reference.unread ? formatShortDate(reference.saved_at) : 'lido' }}</span>
+                <span class="decision-reference-meta decision-mono">{{ reference.unread ? formatShortDate(reference.saved_at) : 'read' }}</span>
               </component>
             </div>
           </section>
@@ -491,23 +491,23 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
 
         <aside class="decision-aside">
           <div class="decision-meta">
-            <span class="decision-key">projeto</span>
-            <RouterLink v-if="project" class="decision-meta-link" :to="{ name: 'projeto', params: { id: project.id } }">
+            <span class="decision-key">project</span>
+            <RouterLink v-if="project" class="decision-meta-link" :to="{ name: 'project', params: { id: project.id } }">
               {{ project.title }}
             </RouterLink>
             <span v-else>—</span>
-            <span class="decision-key">domínio</span>
+            <span class="decision-key">domain</span>
             <span class="decision-meta-value">{{ domain }}</span>
-            <span class="decision-key">prazo</span>
+            <span class="decision-key">due</span>
             <span class="decision-meta-value decision-mono">{{ formatShortDate(dueDate) }}</span>
-            <span class="decision-key">aberta em</span>
+            <span class="decision-key">opened on</span>
             <span class="decision-meta-value decision-mono">{{ decision ? formatShortDate(decision.createdAt) : '—' }}</span>
-            <span class="decision-key">tendência</span>
+            <span class="decision-key">lean</span>
             <span class="decision-meta-value">{{ decision.options.find((option) => option.id === leanOptionId)?.title ?? '—' }}</span>
           </div>
 
           <div class="decision-aside-section">
-            <span class="decision-aside-heading">Bloqueia</span>
+            <span class="decision-aside-heading">Blocks</span>
             <RouterLink
               v-for="task in blockedTasks"
               :key="task.id"
@@ -516,25 +516,25 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
             >
               {{ task.title }}
             </RouterLink>
-            <span v-if="blockedTasks.length === 0" class="decision-aside-empty">Nenhuma tarefa.</span>
+            <span v-if="blockedTasks.length === 0" class="decision-aside-empty">No tasks.</span>
           </div>
 
           <div class="decision-aside-section">
-            <span class="decision-aside-heading">Outras decisões do projeto</span>
+            <span class="decision-aside-heading">Other decisions in the project</span>
             <RouterLink
               v-for="other in relatedDecisions"
               :key="other.id"
               class="decision-related"
               :to="decisionTarget(other.id)"
             >
-              {{ other.title }} <span class="decision-related-due decision-mono">{{ other.postponedUntil ? formatShortDate(other.postponedUntil) : 'sem prazo' }}</span>
+              {{ other.title }} <span class="decision-related-due decision-mono">{{ other.postponedUntil ? formatShortDate(other.postponedUntil) : 'no due date' }}</span>
             </RouterLink>
             <RouterLink
               v-if="project"
               class="decision-related decision-related-muted"
-              :to="{ name: 'projeto', params: { id: project.id }, hash: '#decisoes' }"
+              :to="{ name: 'project', params: { id: project.id }, hash: '#decisions' }"
             >
-              Decididas <span class="decision-mono">{{ decidedCount }}</span>
+              Decided <span class="decision-mono">{{ decidedCount }}</span>
             </RouterLink>
           </div>
         </aside>

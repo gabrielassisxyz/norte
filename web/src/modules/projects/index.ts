@@ -10,43 +10,43 @@ export { manifest }
 
 export const routes = [
   {
-    path: '/projetos',
-    name: 'projetos',
+    path: '/projects',
+    name: 'projects',
     component: () => import('./views/ProjectsView.vue'),
-    meta: { title: 'Projetos' }
+    meta: { title: 'Projects' }
   },
   {
     path: '/areas/:id',
     name: 'area',
     component: () => import('./views/AreaView.vue'),
-    meta: { title: 'Área' },
+    meta: { title: 'Area' },
     props: (route: { params: Record<string, unknown> }) => ({ id: String(route.params.id ?? '') })
   },
   {
-    path: '/projetos/:id',
-    name: 'projeto',
+    path: '/projects/:id',
+    name: 'project',
     component: () => import('./views/ProjectView.vue'),
-    meta: { title: 'Projeto' },
+    meta: { title: 'Project' },
     props: (route: { params: Record<string, unknown>; query: Record<string, unknown> }) => ({
       id: String(route.params.id ?? ''),
       tasksExpanded: route.query.tasksExpanded === '1'
     })
   },
   {
-    path: '/decisoes/:id',
-    name: 'decisao',
+    path: '/decisions/:id',
+    name: 'decision',
     component: () => import('./views/DecisionView.vue'),
-    meta: { title: 'Decisão' },
+    meta: { title: 'Decision' },
     props: (route: { params: Record<string, unknown>; query: Record<string, unknown> }) => ({
       id: String(route.params.id ?? ''),
       preselect: route.query.preselect === '1' || route.query.preselect === 'true'
     })
   },
   {
-    path: '/tarefas/:id',
-    name: 'tarefa',
+    path: '/tasks/:id',
+    name: 'task',
     component: () => import('./views/TaskView.vue'),
-    meta: { title: 'Tarefa' },
+    meta: { title: 'Task' },
     props: (route: { params: Record<string, unknown> }) => ({ id: String(route.params.id ?? '') })
   }
 ]
@@ -63,18 +63,18 @@ export function useSidebar(): ModuleSidebar {
         to: { name: 'area', params: { id: area.id } },
         count: area.projects
       }))
-    rows.push({ id: 'nova-area', label: 'Nova área', to: { name: 'projetos' }, icon: 'plus', trackActive: false })
+    rows.push({ id: 'new-area', label: 'New area', to: { name: 'projects' }, icon: 'plus', trackActive: false })
     return rows
   }
 
   return {
     sections: [
       {
-        id: 'projetos',
-        label: 'Projetos',
-        to: { name: 'projetos' },
+        id: 'projects',
+        label: 'Projects',
+        to: { name: 'projects' },
         order: 30,
-        activeRouteNames: ['projetos', 'projeto', 'area'],
+        activeRouteNames: ['projects', 'project', 'area'],
         count: () => summary.value?.counts.projects ?? 0,
         rows: areaRows
       }
@@ -86,12 +86,12 @@ export function useSidebar(): ModuleSidebar {
 export const homeBlocks = []
 
 const SCREEN_ENTRY: SearchEntry = {
-  group: 'Projetos',
-  title: 'Projetos',
-  subtitle: 'Áreas, decisões e tarefas',
+  group: 'Projects',
+  title: 'Projects',
+  subtitle: 'Areas, decisions and tasks',
   kind: 'tela',
-  keywords: 'areas decisoes tarefas',
-  to: { name: 'projetos' }
+  keywords: 'areas decisions tasks',
+  to: { name: 'projects' }
 }
 
 /** The projects screen plus every area, project, decision and task it holds. */
@@ -104,36 +104,36 @@ export function useSearchEntries(): ComputedRef<SearchEntry[]> {
     return [
       SCREEN_ENTRY,
       ...current.areas.map<SearchEntry>((area) => ({
-        group: 'Projetos',
+        group: 'Projects',
         title: area.title,
         subtitle: area.intention,
-        kind: 'área',
-        keywords: area.archived ? 'arquivada' : 'ativa',
+        kind: 'area',
+        keywords: area.archived ? 'archived' : 'active',
         to: { name: 'area', params: { id: area.id } }
       })),
       ...current.projects.map<SearchEntry>((project) => ({
-        group: 'Projetos',
+        group: 'Projects',
         title: project.title,
         subtitle: project.purpose,
-        kind: 'projeto',
+        kind: 'project',
         keywords: `${project.status} ${project.priority}`,
-        to: { name: 'projeto', params: { id: project.id } }
+        to: { name: 'project', params: { id: project.id } }
       })),
       ...current.decisions.map<SearchEntry>((decision) => ({
-        group: 'Projetos',
+        group: 'Projects',
         title: decision.title,
         subtitle: decision.context,
-        kind: 'decisão',
+        kind: 'decision',
         keywords: decision.status,
-        to: { name: 'decisao', params: { id: decision.id } }
+        to: { name: 'decision', params: { id: decision.id } }
       })),
       ...current.tasks.map<SearchEntry>((task) => ({
-        group: 'Projetos',
+        group: 'Projects',
         title: task.title,
         subtitle: task.description,
-        kind: 'tarefa',
+        kind: 'task',
         keywords: `${task.bucket} ${task.priority}`,
-        to: { name: 'tarefa', params: { id: task.id } }
+        to: { name: 'task', params: { id: task.id } }
       }))
     ]
   })

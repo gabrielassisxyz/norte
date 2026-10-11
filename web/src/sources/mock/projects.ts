@@ -27,8 +27,8 @@ export function createMockProjectsSource(store: MockStore): ProjectsSource {
     const open = tasks.filter((task) => !task.completed)
     return {
       ...project,
-      areaTitle: areaOf(project.areaId)?.title ?? 'Área sem nome',
-      nextStep: open[0]?.title ?? 'Definir o próximo passo',
+      areaTitle: areaOf(project.areaId)?.title ?? 'Unnamed area',
+      nextStep: open[0]?.title ?? 'Set the next step',
       openTasks: open.length,
       pendingDecisions: store.decisions.filter(
         (decision) => decision.projectId === project.id && decision.status !== 'decided'

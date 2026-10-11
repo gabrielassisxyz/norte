@@ -24,18 +24,18 @@ function save(): void {
   <div class="dlg-backdrop" @mousedown.self="emit('close')">
     <div role="dialog" aria-labelledby="task-session-title" class="dlg" @mousedown.stop="">
       <div class="dlg-head">
-        <h2 id="task-session-title" class="dlg-title">Registrar sessão</h2>
-        <p class="dlg-sub">Nesta tarefa. A última linha vira o próximo passo do projeto.</p>
+        <h2 id="task-session-title" class="dlg-title">Log session</h2>
+        <p class="dlg-sub">In this task. The last line becomes the next step of the project.</p>
       </div>
-      <TextField label="O que fiz" placeholder="Uma linha" v-model="did" />
+      <TextField label="What I did" placeholder="One line" v-model="did" />
       <TextField
-        label="Próximo passo"
-        placeholder="A primeira coisa da próxima sessão"
+        label="Next step"
+        placeholder="The first thing of the next session"
         v-model="next"
       />
       <div class="dlg-actions">
-        <Button variant="secondary" @click="emit('close')">Cancelar</Button>
-        <Button variant="primary" :disabled="!canSave" @click="save">Registrar</Button>
+        <Button variant="secondary" @click="emit('close')">Cancel</Button>
+        <Button variant="primary" :disabled="!canSave" @click="save">Log</Button>
       </div>
     </div>
   </div>
