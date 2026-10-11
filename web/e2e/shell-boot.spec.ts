@@ -69,7 +69,7 @@ test.describe('deep-linking into a module the server is not serving', () => {
     const errors = recordConsoleErrors(page)
 
     await page.goto(`${server.baseURL}/notes`)
-    await expect(page.getByRole('heading', { name: 'Módulo desligado' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Module switched off' })).toBeVisible()
     // The screen's own reads would be the next thing to happen, so settling
     // here is what makes their absence below mean something.
     await page.waitForTimeout(1000)
@@ -106,11 +106,11 @@ test.describe('the browser tab and the addresses nothing claims', () => {
   })
 
   test('answers an unknown address with a page that says so', async ({ page }) => {
-    await page.goto(`${server.baseURL}/nao-existe`)
+    await page.goto(`${server.baseURL}/no-such-screen`)
 
-    await expect(page.getByRole('heading', { name: 'Página não encontrada' })).toBeVisible()
-    await expect(page.getByRole('link', { name: 'Voltar ao início' })).toBeVisible()
-    await expect(page).toHaveTitle('Página não encontrada · Norte')
+    await expect(page.getByRole('heading', { name: 'Page not found' })).toBeVisible()
+    await expect(page.getByRole('link', { name: 'Back to home' })).toBeVisible()
+    await expect(page).toHaveTitle('Page not found · Norte')
   })
 })
 
@@ -123,13 +123,13 @@ test.describe('a navigation whose screen never arrives', () => {
     // is a dynamic import nobody has fetched yet, so the click below is a
     // network request and the click is all the person did.
     await page.route('**/*', (route) => route.abort())
-    await page.getByRole('link', { name: 'Início' }).click()
+    await page.getByRole('link', { name: 'Home' }).click()
 
     // One second is the promise the shell makes about a click: not a figure
     // this asserts, a deadline it has to beat.
     const message = page.locator('.navigation-failed')
     await expect(message).toBeVisible({ timeout: 1000 })
-    await expect(message).toContainText('Não foi possível abrir esta tela')
-    await expect(message.getByRole('button', { name: 'Tentar de novo' })).toBeVisible()
+    await expect(message).toContainText('This screen could not be opened')
+    await expect(message.getByRole('button', { name: 'Try again' })).toBeVisible()
   })
 })

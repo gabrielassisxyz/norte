@@ -26,8 +26,8 @@ test.beforeAll(async () => {
   server = await startNorte()
   images = await startTlsImage()
   article = await seedArticle(server.baseURL, {
-    url: 'https://exemplo.invalid/com-imagem',
-    title: 'Com imagem',
+    url: 'https://example.invalid/with-image',
+    title: 'With image',
     html: articleHtml({ imageSrc: images.imageURL })
   })
 })

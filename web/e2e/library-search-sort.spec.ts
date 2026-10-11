@@ -4,7 +4,7 @@ import { articleHtml } from './helpers/article'
 import { seedArticle, startNorte, type NorteServer } from './helpers/norteServer'
 
 /**
- * The Biblioteca's header against a real `norte serve` (norte-jk8, norte-v8g).
+ * The library's header against a real `norte serve` (norte-jk8, norte-v8g).
  *
  * Two things live here that a component test cannot reach. The first is the
  * list endpoint's refusals: it answers 400 to an explicit sort together with a
@@ -28,9 +28,9 @@ const sortTrigger = '.library-sort button.nt-menu-trigger'
 
 test('typing a word lists the saved item that holds it, with no error', async ({ page }) => {
   const seeded = await seedArticle(server.baseURL, {
-    url: 'https://exemplo.invalid/girassol-na-varanda',
-    title: 'Girassol na varanda',
-    html: articleHtml({ title: 'Girassol na varanda' })
+    url: 'https://example.invalid/sunflower-on-the-balcony',
+    title: 'Sunflower on the balcony',
+    html: articleHtml({ title: 'Sunflower on the balcony' })
   })
 
   await page.goto(`${server.baseURL}/library?v=all`)
@@ -40,15 +40,15 @@ test('typing a word lists the saved item that holds it, with no error', async ({
   const searched = page.waitForResponse(
     (response) =>
       response.url().includes('/api/library/items') &&
-      new URL(response.url()).searchParams.get('q') === 'girassol'
+      new URL(response.url()).searchParams.get('q') === 'sunflower'
   )
-  await page.locator('#library-search').fill('girassol')
+  await page.locator('#library-search').fill('sunflower')
   const answered = await searched
 
   // The search went out ranked: q set, accepted, and carrying no sort.
   expect(answered.ok()).toBe(true)
   const sent = new URL(answered.url()).searchParams
-  expect(sent.get('q')).toBe('girassol')
+  expect(sent.get('q')).toBe('sunflower')
   expect(sent.has('sort')).toBe(false)
 
   // The ranked match is listed and the sort-and-q refusal never appears.
@@ -67,9 +67,9 @@ test('typing a word lists the saved item that holds it, with no error', async ({
 
 test('choosing an order from the menu sends it, and the server accepts it', async ({ page }) => {
   await seedArticle(server.baseURL, {
-    url: 'https://exemplo.invalid/abacate-no-vaso',
-    title: 'Abacate no vaso',
-    html: articleHtml({ title: 'Abacate no vaso' })
+    url: 'https://example.invalid/avocado-in-the-pot',
+    title: 'Avocado in the pot',
+    html: articleHtml({ title: 'Avocado in the pot' })
   })
 
   await page.goto(`${server.baseURL}/library?v=all`)
@@ -112,9 +112,9 @@ test('choosing an order from the menu sends it, and the server accepts it', asyn
 
 test('the filter menu asks for unread only, and the server accepts that too', async ({ page }) => {
   await seedArticle(server.baseURL, {
-    url: 'https://exemplo.invalid/cerca-de-bambu',
-    title: 'Cerca de bambu',
-    html: articleHtml({ title: 'Cerca de bambu' })
+    url: 'https://example.invalid/bamboo-fence',
+    title: 'Bamboo fence',
+    html: articleHtml({ title: 'Bamboo fence' })
   })
 
   await page.goto(`${server.baseURL}/library?v=all`)
@@ -144,15 +144,15 @@ test('the filter menu asks for unread only, and the server accepts that too', as
  * flex-wrap on `.library-head` is for.
  *
  * What is still worth holding, and is what this asserts: the title, the tab
- * strip and Surpresa share one line; the tab strip does not wrap its own
+ * strip and Surprise share one line; the tab strip does not wrap its own
  * options at that width; the tools group stays whole on the line below rather
  * than breaking up; and nothing drags the page sideways.
  */
 test('the header keeps the tabs on one row and the tools on the next at 1280px', async ({ page }) => {
   await seedArticle(server.baseURL, {
-    url: 'https://exemplo.invalid/telhado-verde',
-    title: 'Telhado verde',
-    html: articleHtml({ title: 'Telhado verde' })
+    url: 'https://example.invalid/green-roof',
+    title: 'Green roof',
+    html: articleHtml({ title: 'Green roof' })
   })
 
   await page.setViewportSize({ width: 1280, height: 900 })
@@ -182,7 +182,7 @@ test('the header keeps the tabs on one row and the tools on the next at 1280px',
   const titleBottom = title + ((await page.locator('.library-head h1').boundingBox())?.height ?? 0)
   for (const [what, top] of [
     ['the tabs', tabs],
-    ['Surpresa', surprise]
+    ['Surprise', surprise]
   ] as const) {
     expect(top, `${what} starts at ${top}, the title at ${title}`).toBeGreaterThan(title - 40)
     expect(top, `${what} starts at ${top}, the title ends at ${titleBottom}`).toBeLessThan(titleBottom)

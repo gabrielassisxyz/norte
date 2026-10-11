@@ -40,7 +40,7 @@ test.afterAll(async () => {
  */
 async function seedLongArticle(title: string): Promise<SeededArticle> {
   return seedArticle(server.baseURL, {
-    url: `https://exemplo.invalid/${encodeURIComponent(title)}`,
+    url: `https://example.invalid/${encodeURIComponent(title)}`,
     title,
     html: articleHtml({ title, fillerParagraphs: 60 })
   })
@@ -77,7 +77,7 @@ test.describe('reopening a long article', () => {
 
   for (const fraction of [0.3, 0.45, 0.9]) {
     test(`comes back within 2% of ${fraction * 100}% where reading stopped`, async ({ page }) => {
-      const article = await seedLongArticle(`Posição de leitura ${fraction}`)
+      const article = await seedLongArticle(`Reading position ${fraction}`)
       await openReader(page, article.id)
 
       await scrollToFraction(page, fraction)
@@ -102,7 +102,7 @@ test.describe('reopening a long article', () => {
   }
 
   test('keeps the last scroll when the reader is left straight after it', async ({ page }) => {
-    const article = await seedLongArticle('Saída logo depois de rolar')
+    const article = await seedLongArticle('Leaving right after the scroll')
     await openReader(page, article.id)
 
     // A first position, written on the reader's own cadence, so the second one
