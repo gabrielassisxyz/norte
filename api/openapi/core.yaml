@@ -558,7 +558,7 @@ components:
           description: One line of context, absent when the module has none.
         path:
           type: string
-          description: The frontend route that opens it, for example /library/<id>.
+          description: The frontend route that opens it, for example /subjects/<slug>.
         score:
           type: number
           description: |
