@@ -562,6 +562,83 @@ func TestLibraryConcurrentSavesDedupe(t *testing.T) {
 	}
 }
 
+// TestLibraryPatchTakesEveryLocationOverHTTP is the contract's own half of the
+// five-value location: the enum in `api/openapi/library.yaml` is what the
+// request validator refuses a value against, before any handler runs, so a
+// value missing from it is a 400 the service never sees.
+func TestLibraryPatchTakesEveryLocationOverHTTP(t *testing.T) {
+	clock := libraryTestClock()
+	database, dataDir := newLibraryTestDB(t, clock)
+	handler := newLibraryTestRouter(t, database, dataDir, clock)
+	service := newLibraryTestService(t, database, dataDir, clock)
+	outcome := librarySaveOne(t, service, "https://example.org/placed", "")
+
+	for _, location := range []string{"inbox", "up_next", "later", "archive", "stash"} {
+		response := doLibraryRequest(t, handler, http.MethodPatch, "/api/library/items/"+outcome.ID,
+			map[string]any{"location": location})
+		if response.Code != http.StatusOK {
+			t.Fatalf("PATCH location=%s = %d (%q)", location, response.Code, response.Body.String())
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal(response.Body.Bytes(), &decoded); err != nil {
+			t.Fatalf("the patched item is not JSON: %v", err)
+		}
+		if decoded["location"] != location {
+			t.Errorf("the item came back in %v, want %s", decoded["location"], location)
+		}
+	}
+
+	// The three values the rename replaced are refused by the same enum, which
+	// is what makes the old client stop rather than silently store a value no
+	// view reads.
+	for _, old := range []string{"depois", "arquivo", "tudo"} {
+		refused := doLibraryRequest(t, handler, http.MethodPatch, "/api/library/items/"+outcome.ID,
+			map[string]any{"location": old})
+		if refused.Code != http.StatusBadRequest {
+			t.Errorf("PATCH location=%s = %d, want 400 (%q)", old, refused.Code, refused.Body.String())
+		}
+	}
+}
+
+// TestLibraryCountsAnswerEveryLocationOverHTTP is the counts endpoint through
+// the router: six view counts and the seven English kinds, named as the
+// contract names them.
+func TestLibraryCountsAnswerEveryLocationOverHTTP(t *testing.T) {
+	clock := libraryTestClock()
+	database, dataDir := newLibraryTestDB(t, clock)
+	handler := newLibraryTestRouter(t, database, dataDir, clock)
+	service := newLibraryTestService(t, database, dataDir, clock)
+	librarySaveOne(t, service, "https://example.org/counted", "")
+
+	response := doLibraryRequest(t, handler, http.MethodGet, "/api/library/counts", nil)
+	if response.Code != http.StatusOK {
+		t.Fatalf("GET counts = %d (%q)", response.Code, response.Body.String())
+	}
+	var counts struct {
+		Views map[string]any `json:"views"`
+		Kinds map[string]any `json:"kinds"`
+	}
+	if err := json.Unmarshal(response.Body.Bytes(), &counts); err != nil {
+		t.Fatalf("the counts are not JSON: %v", err)
+	}
+	for _, view := range []string{"inbox", "up_next", "later", "archive", "stash", "all"} {
+		if _, ok := counts.Views[view]; !ok {
+			t.Errorf("counts.views has no %s (%v)", view, counts.Views)
+		}
+	}
+	if len(counts.Views) != 6 {
+		t.Errorf("counts.views holds %d entries, want 6 (%v)", len(counts.Views), counts.Views)
+	}
+	for _, kind := range []string{"article", "book", "paper", "video", "podcast", "newsletter", "course"} {
+		if _, ok := counts.Kinds[kind]; !ok {
+			t.Errorf("counts.kinds has no %s (%v)", kind, counts.Kinds)
+		}
+	}
+	if len(counts.Kinds) != 7 {
+		t.Errorf("counts.kinds holds %d entries, want 7 (%v)", len(counts.Kinds), counts.Kinds)
+	}
+}
+
 // TestLibraryWhyUpdateIsSearchable proves patching the note rewrites the
 // index: found by the new word, gone by the old one.
 func TestLibraryWhyUpdateIsSearchable(t *testing.T) {

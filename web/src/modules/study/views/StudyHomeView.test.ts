@@ -137,6 +137,11 @@ describe('StudyHomeView', () => {
     const stats = wrapper.findAll('.nt-stat')
     expect(stats[0].text()).toContain(String(currentStreak(store.studyDays)))
     expect(stats[0].text()).toContain('Streak atual')
+    // The hours are rendered through a locale, and the locale decides the
+    // separator: 1.5 in English, 1,5 in Portuguese. A number is not copy, so
+    // this is a value assertion and not a label one -- and it is what catches
+    // a locale literal left behind in a file the model owns.
+    expect(stats[1].text()).toMatch(/\d\.\d\s*h/)
     expect(stats[2].text()).toContain('Para revisar hoje')
     expect(stats[3].text()).toContain(`Concluídos em`)
     expect(stats[3].text()).toContain(String(completedThisMonth(store.studyDays).total))

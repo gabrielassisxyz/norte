@@ -117,7 +117,7 @@ func TestAWordFromAnArticlesTextFindsTheItem(t *testing.T) {
 		t.Fatalf("the path is %q, want /library/item-a", entry.Path)
 	}
 	if entry.Module != ModuleName || entry.Type != "article" {
-		t.Fatalf("the hit came back as %s/%s, want %s/post", entry.Module, entry.Type, ModuleName)
+		t.Fatalf("the hit came back as %s/%s, want %s/article", entry.Module, entry.Type, ModuleName)
 	}
 	if entry.Title != "Sobre hábitos" || entry.Subtitle != "Uma autora" {
 		t.Fatalf("the hit renders as %q / %q, want the title and the author",
