@@ -8,6 +8,12 @@ import (
 	"database/sql"
 )
 
+type LibraryDomainRule struct {
+	Domain    string
+	Location  string
+	CreatedAt string
+}
+
 type LibraryFt struct {
 	ID              string
 	Title           string
@@ -49,6 +55,7 @@ type LibraryItem struct {
 	Meta              string
 	CreatedAt         string
 	UpdatedAt         string
+	LocationSource    string
 }
 
 type LibraryItemRemovedTag struct {

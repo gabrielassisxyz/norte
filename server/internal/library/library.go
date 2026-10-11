@@ -51,14 +51,15 @@ func (*LibraryModule) Commands() []*cobra.Command {
 
 // JobHandlers returns the kinds this module owns: the background extraction
 // every save enqueues, the classification that follows it, the tagging that
-// follows them both, and -- while a Telegram bot is configured -- the reply a
-// terminal extraction asks for.
+// follows them both, the routing that places the extracted item, and --
+// while a Telegram bot is configured -- the reply a terminal extraction asks
+// for.
 //
-// The classify and tag handlers are registered whether or not an LLM is
-// configured. It is the handler, not the registry, that knows what an absent
-// endpoint means: a job queued while one was configured can be claimed after
-// it is gone, and leaving that job unhandled would park it in the queue for
-// ever instead of failing it with a reason.
+// The classify, tag and route handlers are registered whether or not their
+// endpoint is configured. It is the handler, not the registry, that knows
+// what an absent endpoint means: a job queued while one was configured can be
+// claimed after it is gone, and leaving that job unhandled would park it in
+// the queue for ever instead of failing it with a reason.
 //
 // A configuration error is swallowed here and reported by Start, which is the
 // one of the two that can fail the process. With no handler registered the
@@ -70,6 +71,7 @@ func (*LibraryModule) JobHandlers(deps app.Deps) map[string]core.JobHandler {
 		LibraryExtractJobKind:  newLibraryExtractionFromDeps(deps).Handle,
 		LibraryClassifyJobKind: newLibraryClassifyFromDeps(deps).Handle,
 		LibraryTagJobKind:      newLibraryTaggerFromDeps(deps).Handle,
+		LibraryRouteJobKind:    newLibraryRouterFromDeps(deps).Handle,
 	}
 	if notifier, err := newLibraryTelegramNotifier(deps); err == nil && notifier != nil {
 		handlers[LibraryNotifyTelegramJobKind] = notifier.Handle
@@ -152,6 +154,11 @@ func newLibraryExtractionFromDeps(deps app.Deps) *LibraryExtraction {
 		Logger:        deps.Logger,
 		Fetcher:       newLibraryFetcher(LibraryFetchOptions{MaxBytes: deps.FetchMaxBytes}),
 		LLMConfigured: deps.LLM.Configured(),
+		// Asked of a client built here and thrown away: what the extraction
+		// needs is the one bit, and building the client is the only honest
+		// way to answer it -- a URL of whitespace is not a decider, and the
+		// client is where that is decided.
+		DeciderConfigured: newLibraryDecider(deps.DeciderURL).Configured(),
 	})
 }
 
@@ -175,5 +182,18 @@ func newLibraryTaggerFromDeps(deps app.Deps) *LibraryTagger {
 		Clock:    deps.Clock,
 		Logger:   deps.Logger,
 		LLM:      deps.LLM,
+	})
+}
+
+// newLibraryRouterFromDeps wires the routing handler over a client for the
+// Laya sidecar. The URL is the registry's because it is configuration, and a
+// module reads configuration from what it was handed rather than from the
+// environment.
+func newLibraryRouterFromDeps(deps app.Deps) *LibraryRouter {
+	return NewLibraryRouter(LibraryRouterOptions{
+		Database: deps.Database,
+		Clock:    deps.Clock,
+		Logger:   deps.Logger,
+		Decider:  newLibraryDecider(deps.DeciderURL),
 	})
 }

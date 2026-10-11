@@ -78,8 +78,13 @@ func (s *LibraryService) Patch(ctx context.Context, id string, in PatchInput) (d
 	args := []any{stamp}
 	newTitle, newKind := existing.Title, existing.Kind
 	if in.Location != nil {
-		set = append(set, "location = ?")
-		args = append(args, *in.Location)
+		// The person naming a location is the one placement nothing
+		// automatic may undo, so the move and the record of who made it are
+		// one write. It is recorded even when the location they named is the
+		// one the item already has: they have said where it belongs, and the
+		// decider asking again would be asking a question already answered.
+		set = append(set, "location = ?", "location_source = ?")
+		args = append(args, *in.Location, libraryLocationSourceUser)
 	}
 	if in.Unread != nil {
 		if *in.Unread {

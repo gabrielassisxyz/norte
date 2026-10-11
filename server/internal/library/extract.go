@@ -22,15 +22,17 @@ import (
 // has just changed; the library knows nothing about that and must not.
 const LibraryItemExtractedEvent = "library.item_extracted"
 
-// The three follow-up job kinds extraction enqueues: the Telegram reply, the
-// classification that follows extraction, and the tagging that follows it
-// too. The handlers live in classify.go and tag.go; until a handler is
-// registered the jobs sit queued, untouched, which is exactly what an
-// unregistered kind is meant to do.
+// The four follow-up job kinds extraction enqueues: the Telegram reply, the
+// classification that follows extraction, the tagging that follows it too,
+// and the routing that asks the decider where the item belongs now that there
+// is text to decide on. The handlers live in classify.go, tag.go and
+// router.go; until a handler is registered the jobs sit queued, untouched,
+// which is exactly what an unregistered kind is meant to do.
 const (
 	LibraryNotifyTelegramJobKind = "notify_telegram"
 	LibraryClassifyJobKind       = "classify"
 	LibraryTagJobKind            = "library.tag"
+	LibraryRouteJobKind          = "library.route"
 )
 
 // libraryExtractPayload is what a save or a retry puts in the job.
@@ -55,6 +57,10 @@ type LibraryExtractionOptions struct {
 	// classify job has nothing to call, so a successful extraction does not
 	// enqueue one.
 	LLMConfigured bool
+	// DeciderConfigured reports whether NORTE_DECIDER_URL is set, and plays
+	// the same part for the routing job: with no sidecar to ask, the item
+	// stays where the save put it and no job is queued to say so.
+	DeciderConfigured bool
 }
 
 // LibraryExtraction drains the library.extract jobs: it resolves the page's
@@ -65,14 +71,15 @@ type LibraryExtractionOptions struct {
 // effect and the job's status write, so re-running overwrites the same columns
 // from the same snapshot and the follow-up jobs collapse on their dedupe keys.
 type LibraryExtraction struct {
-	database      *core.Database
-	files         *core.Files
-	jobs          *core.Jobs
-	clock         core.Clock
-	events        *core.Events
-	logger        *slog.Logger
-	fetcher       *libraryFetcher
-	llmConfigured bool
+	database          *core.Database
+	files             *core.Files
+	jobs              *core.Jobs
+	clock             core.Clock
+	events            *core.Events
+	logger            *slog.Logger
+	fetcher           *libraryFetcher
+	llmConfigured     bool
+	deciderConfigured bool
 
 	// afterSnapshot and afterCommit are test seams, nil in production.
 	//
@@ -93,14 +100,15 @@ func NewLibraryExtraction(opts LibraryExtractionOptions) *LibraryExtraction {
 		logger = slog.New(slog.NewTextHandler(io.Discard, nil))
 	}
 	return &LibraryExtraction{
-		database:      opts.Database,
-		files:         opts.Files,
-		jobs:          opts.Jobs,
-		clock:         opts.Clock,
-		events:        opts.Events,
-		logger:        logger,
-		fetcher:       opts.Fetcher,
-		llmConfigured: opts.LLMConfigured,
+		database:          opts.Database,
+		files:             opts.Files,
+		jobs:              opts.Jobs,
+		clock:             opts.Clock,
+		events:            opts.Events,
+		logger:            logger,
+		fetcher:           opts.Fetcher,
+		llmConfigured:     opts.LLMConfigured,
+		deciderConfigured: opts.DeciderConfigured,
 	}
 }
 
@@ -377,6 +385,9 @@ func (e *LibraryExtraction) writeExtraction(
 	if err := e.enqueueTagging(ctx, tx, item.ID); err != nil {
 		return false, err
 	}
+	if err := e.enqueueRouting(ctx, tx, item.ID); err != nil {
+		return false, err
+	}
 	if err := tx.Commit(); err != nil {
 		return false, fmt.Errorf("committing the extraction of %s: %w", item.ID, err)
 	}
@@ -628,6 +639,33 @@ func (e *LibraryExtraction) enqueueTagging(ctx context.Context, tx *sql.Tx, item
 	if _, err := e.jobs.Enqueue(ctx, tx, LibraryTagJobKind, string(payload),
 		fmt.Sprintf("tag:%s", itemID)); err != nil {
 		return fmt.Errorf("enqueueing the tag job of %s: %w", itemID, err)
+	}
+	return nil
+}
+
+// enqueueRouting queues the decider's look at where the item belongs, when
+// there is a decider to ask. It runs as a job and not inside this
+// transaction because the call is an HTTP request to a sidecar holding a
+// model in memory: waiting for it here would hold the single writer
+// connection open for as long as the model took, and a decider that is down
+// would then be a decider that stops extractions from committing.
+//
+// Whether the item may be moved at all is the handler's question, read from
+// the row it is about to write: a job is queued for an item a rule already
+// placed, finds the location_source it cannot override, and does nothing.
+// Deciding it here would mean reading a state that can change between this
+// transaction and the call.
+func (e *LibraryExtraction) enqueueRouting(ctx context.Context, tx *sql.Tx, itemID string) error {
+	if !e.deciderConfigured {
+		return nil
+	}
+	payload, err := json.Marshal(map[string]string{"item_id": itemID})
+	if err != nil {
+		return fmt.Errorf("encoding the route job of %s: %w", itemID, err)
+	}
+	if _, err := e.jobs.Enqueue(ctx, tx, LibraryRouteJobKind, string(payload),
+		fmt.Sprintf("route:%s", itemID)); err != nil {
+		return fmt.Errorf("enqueueing the route job of %s: %w", itemID, err)
 	}
 	return nil
 }
