@@ -411,7 +411,7 @@ for (const phone of PHONES) {
       await expect(drawer.locator('button.app-collapse')).toHaveCount(0)
       // The full navigation, not a 52px strip: the panel is as wide as the
       // drawer and its links are there to be tapped.
-      await expect(drawer.locator('nav[aria-label="Principal"]')).toBeVisible()
+      await expect(drawer.locator('nav[aria-label="Main"]')).toBeVisible()
       const width = await drawer.locator('.app-sidebar').evaluate((node) => node.getBoundingClientRect().width)
       expect(width).toBeGreaterThan(200)
       // The drawer slides in, so the link reaches its place a moment after the
