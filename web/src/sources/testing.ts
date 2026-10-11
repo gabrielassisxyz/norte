@@ -90,7 +90,7 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
       read_position: { v: 1, percent: 0.42 }
     }),
     libraryRecord({
-      id: 'lib-livro',
+      id: 'lib-book',
       kind: 'book',
       title: 'A saved book',
       author: 'Marina Costa',
@@ -112,7 +112,7 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
       last_opened_at: '2026-10-03T16:00:00Z'
     }),
     libraryRecord({
-      id: 'lib-depois',
+      id: 'lib-later',
       kind: 'article',
       title: 'Saved for later',
       site: 'later.example',
@@ -133,7 +133,7 @@ export function shellLibraryRecords(): LibraryItemRecord[] {
       last_opened_at: '2026-10-03T14:00:00Z'
     }),
     libraryRecord({
-      id: 'lib-curso',
+      id: 'lib-course',
       kind: 'course',
       title: 'A saved course',
       site: 'course.example',

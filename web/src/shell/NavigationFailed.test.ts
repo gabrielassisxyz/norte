@@ -13,26 +13,26 @@ describe('the message a failed navigation leaves on screen', () => {
   it('says what happened and offers the address again', async () => {
     const assign = vi.fn()
     vi.spyOn(window, 'location', 'get').mockReturnValue({ ...window.location, assign } as Location)
-    reportShellNavigationFailure('/notas')
+    reportShellNavigationFailure('/notes')
 
-    const wrapper = mount(NavigationFailed, { props: { path: '/notas' } })
+    const wrapper = mount(NavigationFailed, { props: { path: '/notes' } })
 
     expect(wrapper.get('.navigation-failed').attributes('role')).toBe('alert')
-    expect(wrapper.text()).toContain('Não foi possível abrir esta tela')
+    expect(wrapper.text()).toContain('This screen could not be opened')
 
-    const retry = wrapper.findAll('button').find((button) => button.text() === 'Tentar de novo')
+    const retry = wrapper.findAll('button').find((button) => button.text() === 'Try again')
     expect(retry).toBeDefined()
     await retry?.trigger('click')
 
-    expect(assign).toHaveBeenCalledWith('/notas')
+    expect(assign).toHaveBeenCalledWith('/notes')
     expect(shellNavigationFailure.path).toBeNull()
   })
 
   it('can be dismissed without leaving the screen that is showing', async () => {
-    reportShellNavigationFailure('/notas')
-    const wrapper = mount(NavigationFailed, { props: { path: '/notas' } })
+    reportShellNavigationFailure('/notes')
+    const wrapper = mount(NavigationFailed, { props: { path: '/notes' } })
 
-    const close = wrapper.findAll('button').find((button) => button.text() === 'Fechar')
+    const close = wrapper.findAll('button').find((button) => button.text() === 'Close')
     await close?.trigger('click')
 
     expect(shellNavigationFailure.path).toBeNull()

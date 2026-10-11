@@ -22,9 +22,9 @@ function retry(): void {
 
 <template>
   <div class="navigation-failed" role="alert">
-    <p class="navigation-failed-copy">Não foi possível abrir esta tela. Verifique a conexão com o servidor.</p>
-    <Button variant="primary" size="sm" @click="retry">Tentar de novo</Button>
-    <Button variant="ghost" size="sm" @click="clearShellNavigationFailure()">Fechar</Button>
+    <p class="navigation-failed-copy">This screen could not be opened. Check the connection to the server.</p>
+    <Button variant="primary" size="sm" @click="retry">Try again</Button>
+    <Button variant="ghost" size="sm" @click="clearShellNavigationFailure()">Close</Button>
   </div>
 </template>
 

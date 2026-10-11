@@ -30,7 +30,7 @@ async function mountAt(path: string): Promise<{ wrapper: VueWrapper; router: Rou
   return { wrapper, router }
 }
 
-const MENU = 'button[aria-label="Abrir navegação"]'
+const MENU = 'button[aria-label="Open the navigation"]'
 
 describe('the navigation drawer', () => {
   it('starts closed and opens from the menu button', async () => {
@@ -43,7 +43,7 @@ describe('the navigation drawer', () => {
 
     expect(wrapper.find('.app-drawer').classes()).toContain('is-open')
     expect(wrapper.find(MENU).attributes('aria-expanded')).toBe('true')
-    expect(wrapper.find('.app-drawer nav[aria-label="Principal"]').exists()).toBe(true)
+    expect(wrapper.find('.app-drawer nav[aria-label="Main"]').exists()).toBe(true)
   })
 
   it('closes on a tap outside it', async () => {
@@ -99,7 +99,7 @@ describe('the navigation drawer', () => {
     await wrapper.find(MENU).trigger('click')
 
     const buttons = wrapper.findAll('.app-drawer .app-foot button')
-    expect(buttons.map((button) => button.text())).toEqual(['Buscar⌘K', 'Preferências'])
+    expect(buttons.map((button) => button.text())).toEqual(['Search⌘K', 'Preferences'])
     await buttons[1].trigger('click')
 
     expect(wrapper.find('.shell-preferences').exists()).toBe(true)

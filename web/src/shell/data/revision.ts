@@ -5,7 +5,7 @@ import { reactive } from 'vue'
  *
  * `subjects` moves when the vocabulary itself changed — a subject created,
  * renamed, deleted, or flagged as a focus. Every list of subjects on screen is
- * then stale: the sidebar holds one, the Estudo home another, the picker a
+ * then stale: the sidebar holds one, the study home another, the picker a
  * third, and none can tell the others anything.
  *
  * `links` moves when something was linked or unlinked. It is kept apart so

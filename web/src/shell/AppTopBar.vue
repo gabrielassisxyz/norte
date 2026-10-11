@@ -19,8 +19,8 @@ defineEmits<{ menu: [] }>()
     <button
       type="button"
       class="app-menu"
-      data-action="abrir-navegacao"
-      aria-label="Abrir navegação"
+      data-action="open-navigation"
+      aria-label="Open the navigation"
       aria-controls="app-drawer"
       :aria-expanded="open"
       @click="$emit('menu')"

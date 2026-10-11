@@ -17,7 +17,7 @@ import type {
  * A core source a test drives, holding its subjects and links in memory.
  *
  * It is here rather than in a test file because several suites need it — the
- * subject screen, the panel, the picker, the sidebar, the Estudo home — and
+ * subject screen, the panel, the picker, the sidebar, the study home — and
  * because the search ranking, the ordering and the cursor have to behave the
  * way the server does for a pagination or a search test to mean anything. The
  * application never constructs it: `main.ts` installs the API source, and this
@@ -27,7 +27,7 @@ const DEFAULT_LIMIT = 50
 
 /** One subject, with everything the contract requires already filled in. */
 export function subjectRecord(overrides: Partial<Subject> = {}): Subject {
-  const name = overrides.name ?? 'Um assunto'
+  const name = overrides.name ?? 'A subject'
   const slug = overrides.slug ?? slugify(name)
   return {
     id: overrides.id ?? `subject-${slug}`,
@@ -48,7 +48,7 @@ export function registryItem(overrides: Partial<RegistryItem> = {}): RegistryIte
     id,
     module: 'library',
     type: 'article',
-    title: `Texto ${id}`,
+    title: `Text ${id}`,
     url: `/library/${id}`,
     ...overrides
   }
@@ -63,7 +63,7 @@ export function coreLink(overrides: Partial<CoreLink> = {}): CoreLink {
     status: 'confirmed',
     created_at: '2026-10-07T12:00:00.000Z',
     src: registryItem(),
-    dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject', title: 'Um assunto' }),
+    dst: registryItem({ id: 'subject-1', module: 'core', type: 'subject', title: 'A subject' }),
     ...overrides
   }
 }
@@ -114,7 +114,7 @@ export function coreSearchHit(overrides: Partial<CoreSearchHit> = {}): CoreSearc
     id,
     module: 'library',
     type: 'article',
-    title: `Texto ${id}`,
+    title: `Text ${id}`,
     path: `/library/${id}`,
     score: 1,
     ...overrides

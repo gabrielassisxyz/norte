@@ -41,7 +41,7 @@ async function mountSubject(slug = 'kubernetes', core?: FakeCoreSource) {
       links: [
         coreLink({
           id: 'link-1',
-          src: registryItem({ id: 'item-1', title: 'Pods explicados' }),
+          src: registryItem({ id: 'item-1', title: 'Pods explained' }),
           dst: registryItem({ id: 'subject-k8s', module: 'core', type: 'subject', title: 'Kubernetes' })
         })
       ]
@@ -63,7 +63,7 @@ describe('the subject screen', () => {
 
     expect(core.calls.getSubjectBySlug).toEqual(['kubernetes'])
     expect(wrapper.get('h1').text()).toBe('Kubernetes')
-    expect(wrapper.text()).toContain('3 itens salvos')
+    expect(wrapper.text()).toContain('3 saved items')
   })
 
   it('shows one count per item type and the panel of what is linked', async () => {
@@ -71,14 +71,14 @@ describe('the subject screen', () => {
 
     const counts = wrapper.findAll('.subject-count').map((entry) => entry.text().replace(/\s+/g, ' '))
     expect(counts).toEqual(['1course', '2article'])
-    expect(wrapper.text()).toContain('Salvos sobre isso')
-    expect(wrapper.text()).toContain('Pods explicados')
+    expect(wrapper.text()).toContain('Saved about this')
+    expect(wrapper.text()).toContain('Pods explained')
   })
 
   it('says so when no subject answers to that address', async () => {
     const { wrapper } = await mountSubject('nao-existe')
 
-    expect(wrapper.text()).toContain('Nenhum assunto com o endereço')
+    expect(wrapper.text()).toContain('No subject at the address')
     expect(wrapper.find('h1').exists()).toBe(false)
   })
 
@@ -106,7 +106,7 @@ describe('the subject screen', () => {
       { subjects: [kubernetes()] },
       {
         patchSubject: async () => {
-          throw new Error('rede indisponível')
+          throw new Error('network down')
         }
       }
     )
@@ -116,7 +116,7 @@ describe('the subject screen', () => {
     await flushReads()
 
     expect(wrapper.get('[role="switch"]').attributes('aria-checked')).toBe('false')
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível mudar o foco: rede indisponível')
+    expect(wrapper.get('[role="alert"]').text()).toContain('The focus could not be changed: network down')
   })
 
   it('names the number of links before deleting, and sends nothing when cancelled', async () => {
@@ -124,8 +124,8 @@ describe('the subject screen', () => {
 
     await wrapper.get('.subject-actions button:last-child').trigger('click')
     const dialog = wrapper.get('[role="dialog"]')
-    expect(dialog.text()).toContain('Apagar “Kubernetes”?')
-    expect(dialog.text()).toContain('4 ligações')
+    expect(dialog.text()).toContain('Delete “Kubernetes”?')
+    expect(dialog.text()).toContain('4 links')
 
     await dialog.get('button').trigger('click')
     await flushReads()
@@ -157,8 +157,8 @@ describe('the subject screen', () => {
 
     expect(reads).toEqual(['subject-k8s'])
     const dialog = wrapper.get('[role="dialog"]')
-    expect(dialog.text()).toContain('7 ligações')
-    expect(dialog.text()).not.toContain('4 ligações')
+    expect(dialog.text()).toContain('7 links')
+    expect(dialog.text()).not.toContain('4 links')
   })
 
   it('does not open the dialog when the count cannot be read, and says why', async () => {
@@ -166,7 +166,7 @@ describe('the subject screen', () => {
       { subjects: [kubernetes()] },
       {
         getSubject: async () => {
-          throw new Error('rede indisponível')
+          throw new Error('network down')
         }
       }
     )
@@ -176,7 +176,7 @@ describe('the subject screen', () => {
     await flushReads()
 
     expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
-    expect(wrapper.get('[role="alert"]').text()).toContain('Não foi possível contar as ligações: rede indisponível')
+    expect(wrapper.get('[role="alert"]').text()).toContain('The links could not be counted: network down')
   })
 
   it('deletes only once the dialog is confirmed', async () => {

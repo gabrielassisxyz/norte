@@ -114,11 +114,11 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
     const search = wrapper.get('#home-search')
 
-    await search.setValue('memória')
+    await search.setValue('memory')
 
-    expect(paletteRequest().value?.query).toBe('memória')
+    expect(paletteRequest().value?.query).toBe('memory')
     // The box empties itself: the palette owns the query now, and a copy left
-    // here would still be showing the last search the next time Início opens.
+    // here would still be showing the last search the next time the home opens.
     expect((search.element as HTMLInputElement).value).toBe('')
   })
 
@@ -126,9 +126,9 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
     const search = wrapper.get('#home-search')
 
-    await search.setValue('memória')
+    await search.setValue('memory')
     const first = paletteRequest().value?.count
-    await search.setValue('memória')
+    await search.setValue('memory')
 
     expect(paletteRequest().value?.count).not.toBe(first)
   })
@@ -137,7 +137,7 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     expect(wrapper.get('h1').text()).toBe('Saturday, 3 October')
-    expect(wrapper.get('#home-search').attributes('placeholder')).toBe('Buscar artigos, notas, cursos…')
+    expect(wrapper.get('#home-search').attributes('placeholder')).toBe('Search articles, notes, courses…')
     expect(wrapper.get('#continue-study').text()).toBe('Continue studying')
     // The block's see-all names the study module's own home.
     expect(wrapper.get('.home-study .home-see-all').attributes('href')).toBe('/study')
@@ -240,7 +240,7 @@ describe('HomeView', () => {
     const wrapper = await mountHome()
 
     const cards = wrapper.findAll('.home-reading-card')
-    // 8 minutes at 42% read leaves ceil(8 × 0.58) = 5 minutes, not the whole 8.
+    // 8 minutes at 42% read leaves ceil(8 x 0.58) = 5 minutes, not the whole 8.
     const started = cards.find((node) => node.text().includes('A saved article'))
     expect(started).toBeDefined()
     expect(started!.get('.home-reading-meta').text()).toContain('5 min left')
@@ -327,7 +327,7 @@ describe('HomeView while its bands wait, find nothing, or fail', () => {
     counts: { curricula: 0, modules: 0, subjects: 0 },
     subjects: [],
     studyDays: [],
-    focus: 'Sem foco desta semana.'
+    focus: 'No focus this week.'
   }
 
   function homeSources(overrides: {

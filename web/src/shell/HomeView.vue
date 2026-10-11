@@ -22,8 +22,8 @@ const searchQuery = ref('')
  * the event rather than off `searchQuery`, because both this listener and
  * `v-model`'s are `input` listeners and nothing promises which runs first.
  * The box is then emptied: the palette owns the query from here, and a copy
- * left behind would still be showing the last search the next time Início is
- * opened.
+ * left behind would still be showing the last search the next time the home
+ * screen is opened.
  */
 function openPaletteWith(typed: string): void {
   requestPaletteSearch(typed)
@@ -40,13 +40,13 @@ const mainBlocks = computed(() => homeBlocks('main'))
   <main class="home-view">
     <div class="home-inner">
       <div class="home-actions">
-        <label class="home-search-label" for="home-search">Buscar</label>
+        <label class="home-search-label" for="home-search">Search</label>
         <input
           id="home-search"
           v-model="searchQuery"
           class="home-search"
           type="search"
-          placeholder="Buscar artigos, notas, cursos…"
+          placeholder="Search articles, notes, courses…"
           @input="openPaletteWith(($event.target as HTMLInputElement).value)"
           @keydown.enter.prevent="openPaletteWith(searchQuery)"
         />
@@ -56,7 +56,7 @@ const mainBlocks = computed(() => homeBlocks('main'))
       <PageTitle
         class="home-title"
         :title="title"
-        objective="Escolha uma coisa importante para estudar e reserve um espaço para continuar lendo."
+        objective="Pick one important thing to study and set aside a slot to keep reading."
       />
 
       <component :is="block.component" v-for="block in mainBlocks" :key="block.id" />

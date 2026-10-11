@@ -17,12 +17,12 @@ afterEach(() => {
 
 /** What the server would answer for the fixtures the palette tests search. */
 const SAVED_ITEM = coreSearchHit({
-  id: 'lib-livro',
+  id: 'lib-book',
   module: 'library',
   type: 'book',
   title: 'A saved book',
   subtitle: 'An author',
-  path: '/library/lib-livro',
+  path: '/library/lib-book',
   score: 1
 })
 
@@ -63,17 +63,17 @@ describe('shell overlay', () => {
   it('renders the search dialog and its primary regions', async () => {
     const { wrapper } = await mountOverlay('busca')
 
-    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('Buscar')
-    expect(wrapper.get('input[aria-label="Buscar"]').attributes('placeholder')).toBe(
-      'Buscar telas, artigos, notas, assuntos…'
+    expect(wrapper.get('[role="dialog"]').attributes('aria-label')).toBe('Search')
+    expect(wrapper.get('input[aria-label="Search"]').attributes('placeholder')).toBe(
+      'Search screens, articles, notes, subjects…'
     )
-    expect(wrapper.text()).toContain('Ir para')
-    expect(wrapper.text()).toContain('Ações')
+    expect(wrapper.text()).toContain('Go to')
+    expect(wrapper.text()).toContain('Actions')
   })
 
   it('finds a saved item by a word of its content, which only the server knows', async () => {
     const { wrapper } = await mountOverlay('busca')
-    const search = wrapper.get('input[aria-label="Buscar"]')
+    const search = wrapper.get('input[aria-label="Search"]')
 
     // "saved" is in no screen's title: the only way this row can appear is
     // the server's answer, which is the point of the whole endpoint.
@@ -96,7 +96,7 @@ describe('shell overlay', () => {
   it('shows the screens it owns above the hits it had to ask for', async () => {
     const { wrapper } = await mountOverlay('busca')
 
-    await wrapper.get('input[aria-label="Buscar"]').setValue('library')
+    await wrapper.get('input[aria-label="Search"]').setValue('library')
     await flushReads()
 
     const groups = wrapper.findAll('[role="group"]').map((group) => group.attributes('aria-label'))
@@ -105,7 +105,7 @@ describe('shell overlay', () => {
 
   it('is a combobox: the roles, the ids and the active option are all named', async () => {
     const { wrapper } = await mountOverlay('busca')
-    const search = wrapper.get('input[aria-label="Buscar"]')
+    const search = wrapper.get('input[aria-label="Search"]')
 
     expect(search.attributes('role')).toBe('combobox')
     expect(search.attributes('aria-autocomplete')).toBe('list')
@@ -127,7 +127,7 @@ describe('shell overlay', () => {
 
   it('moves the active option with the arrow keys and reports it on the input', async () => {
     const { wrapper } = await mountOverlay('busca')
-    const search = wrapper.get('input[aria-label="Buscar"]')
+    const search = wrapper.get('input[aria-label="Search"]')
 
     await search.setValue('saved')
     await flushReads()
@@ -142,7 +142,7 @@ describe('shell overlay', () => {
 
   it('opens the highlighted hit with Enter, at the path the server gave it', async () => {
     const { wrapper, router } = await mountOverlay('busca')
-    const search = wrapper.get('input[aria-label="Buscar"]')
+    const search = wrapper.get('input[aria-label="Search"]')
 
     await search.setValue('saved')
     await flushReads()
@@ -164,7 +164,7 @@ describe('shell overlay', () => {
     await flushPromises()
 
     expect(router.currentRoute.value.name).toBe('reader')
-    expect(router.currentRoute.value.params).toMatchObject({ id: 'lib-livro' })
+    expect(router.currentRoute.value.params).toMatchObject({ id: 'lib-book' })
     expect(wrapper.emitted('close')).toHaveLength(1)
   })
 
@@ -174,7 +174,7 @@ describe('shell overlay', () => {
     })
     const { wrapper } = await mountOverlay('busca', core)
 
-    await wrapper.get('input[aria-label="Buscar"]').setValue('memory')
+    await wrapper.get('input[aria-label="Search"]').setValue('memory')
     await flushReads()
 
     const titles = wrapper.findAll('.shell-palette-row').map((row) => row.get('.shell-palette-title').text())
@@ -186,11 +186,11 @@ describe('shell overlay', () => {
 
   it('says so when the server found nothing, and shows the server sentence when it refused', async () => {
     const { wrapper } = await mountOverlay('busca')
-    const search = wrapper.get('input[aria-label="Buscar"]')
+    const search = wrapper.get('input[aria-label="Search"]')
 
     await search.setValue('xyzzy')
     await flushReads()
-    expect(wrapper.get('.shell-palette-empty').text()).toContain('Nada encontrado')
+    expect(wrapper.get('.shell-palette-empty').text()).toContain('Nothing found')
 
     const refusing = fakeCoreSource({}, {
       async search(): Promise<CoreSearchHit[]> {
@@ -198,7 +198,7 @@ describe('shell overlay', () => {
       }
     })
     const refused = await mountOverlay('busca', refusing)
-    await refused.wrapper.get('input[aria-label="Buscar"]').setValue('...')
+    await refused.wrapper.get('input[aria-label="Search"]').setValue('...')
     await flushReads()
     expect(refused.wrapper.get('.shell-palette-empty').text()).toBe('the search has no word at all')
   })
@@ -216,7 +216,7 @@ describe('shell overlay', () => {
       }
     })
     const { wrapper } = await mountOverlay('busca', core)
-    const search = wrapper.get('input[aria-label="Buscar"]')
+    const search = wrapper.get('input[aria-label="Search"]')
 
     await search.setValue('mem')
     await search.setValue('memory')
@@ -253,7 +253,7 @@ describe('shell overlay', () => {
       }
     })
     const { wrapper } = await mountOverlay('busca', core)
-    const search = wrapper.get('input[aria-label="Buscar"]')
+    const search = wrapper.get('input[aria-label="Search"]')
 
     await search.setValue('mem')
     await search.setValue('memory')
@@ -285,7 +285,7 @@ describe('shell overlay', () => {
     await flushReads()
 
     expect(searched).toHaveBeenCalledWith('saved', expect.anything())
-    expect(wrapper.get('input[aria-label="Buscar"]').element).toHaveProperty('value', 'saved')
+    expect(wrapper.get('input[aria-label="Search"]').element).toHaveProperty('value', 'saved')
     expect(wrapper.text()).toContain('A saved book')
   })
 
@@ -302,8 +302,8 @@ describe('shell overlay', () => {
     setTheme('light')
     const { wrapper } = await mountOverlay('busca')
     const buttons = wrapper.findAll('.shell-palette-row')
-    const toggle = buttons.find((button) => button.text().includes('Alternar tema'))
-    const preferences = buttons.find((button) => button.text().includes('Preferências'))
+    const toggle = buttons.find((button) => button.text().includes('Toggle the theme'))
+    const preferences = buttons.find((button) => button.text().includes('Preferences'))
 
     await toggle!.trigger('click')
     expect(document.documentElement.dataset.theme).toBe('dark')
@@ -317,13 +317,13 @@ describe('shell overlay', () => {
     setTheme('light')
     const { wrapper } = await mountOverlay('prefs')
 
-    expect(wrapper.get('#shell-preferences-title').text()).toBe('Preferências')
+    expect(wrapper.get('#shell-preferences-title').text()).toBe('Preferences')
     await wrapper.get('button[role="radio"][aria-checked="false"]').trigger('click')
 
     expect(document.documentElement.dataset.theme).toBe('dark')
     expect(window.localStorage.getItem('norte-theme')).toBe('dark')
-    expect(wrapper.text()).toContain('dados')
-    expect(wrapper.text()).toContain('servidor')
-    expect(wrapper.text()).toContain('atalho')
+    expect(wrapper.text()).toContain('data')
+    expect(wrapper.text()).toContain('server')
+    expect(wrapper.text()).toContain('shortcut')
   })
 })

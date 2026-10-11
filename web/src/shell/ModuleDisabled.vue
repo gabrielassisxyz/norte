@@ -4,12 +4,12 @@ import PageTitle from '@/components/ds/PageTitle.vue'
 
 <template>
   <main class="module-disabled">
-    <PageTitle title="Módulo desligado" objective="Este endereço pertence a um módulo que o servidor não está servindo." />
+    <PageTitle title="Module switched off" objective="This address belongs to a module the server is not serving." />
     <p class="module-disabled-copy">
-      Ligue o módulo na configuração do servidor e recarregue a página. Até lá, as outras partes do aplicativo continuam
-      funcionando normalmente.
+      Switch the module on in the server's configuration and reload the page. Until then the rest of the app keeps
+      working normally.
     </p>
-    <RouterLink :to="{ name: 'home' }" class="module-disabled-link">Voltar ao início</RouterLink>
+    <RouterLink :to="{ name: 'home' }" class="module-disabled-link">Back to home</RouterLink>
   </main>
 </template>
 

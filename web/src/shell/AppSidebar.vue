@@ -88,15 +88,15 @@ const isHome = computed(() => route.name === 'home')
 </script>
 
 <template>
-  <aside class="app-sidebar" :class="{ 'is-collapsed': collapsed }" aria-label="Navegação principal">
+  <aside class="app-sidebar" :class="{ 'is-collapsed': collapsed }" aria-label="Main navigation">
     <div class="app-brand">
       <RouterLink v-if="!collapsed" :to="{ name: 'home' }" class="app-brand-link">Norte</RouterLink>
       <button
         v-if="!drawer"
         type="button"
         class="app-collapse"
-        :aria-label="collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'"
-        :title="collapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'"
+        :aria-label="collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'"
+        :title="collapsed ? 'Expand the sidebar' : 'Collapse the sidebar'"
         :aria-expanded="!collapsed"
         @click="$emit('toggle-collapse')"
       >
@@ -117,8 +117,8 @@ const isHome = computed(() => route.name === 'home')
       </button>
     </div>
 
-    <nav v-if="!collapsed" aria-label="Principal" class="app-nav">
-      <RouterLink :to="{ name: 'home' }" class="app-item" :class="{ 'is-active': isHome }">Início</RouterLink>
+    <nav v-if="!collapsed" aria-label="Main" class="app-nav">
+      <RouterLink :to="{ name: 'home' }" class="app-item" :class="{ 'is-active': isHome }">Home</RouterLink>
 
       <template v-for="section in shellSections" :key="section.id">
         <div class="app-line">
@@ -131,7 +131,7 @@ const isHome = computed(() => route.name === 'home')
             class="app-chevron"
             :class="{ 'is-open': expanded[section.id] }"
             :aria-expanded="Boolean(expanded[section.id])"
-            :aria-label="`Expandir ${section.label}`"
+            :aria-label="`Expand ${section.label}`"
             @click="toggleSection(section.id)"
           >
             <Icon name="chevronDown" :size="14" />
@@ -145,7 +145,7 @@ const isHome = computed(() => route.name === 'home')
               <span v-if="row.count !== undefined" class="app-count">{{ row.count }}</span>
             </RouterLink>
           </template>
-          <div v-if="section.rows().length === 0" class="app-empty">Nenhum assunto ainda</div>
+          <div v-if="section.rows().length === 0" class="app-empty">No subject yet</div>
           <button
             v-if="section.hasMore()"
             type="button"
@@ -153,7 +153,7 @@ const isHome = computed(() => route.name === 'home')
             :disabled="section.loadingMore()"
             @click="section.loadMore()"
           >
-            <span class="app-label">{{ section.loadingMore() ? 'Carregando…' : 'Carregar mais' }}</span>
+            <span class="app-label">{{ section.loadingMore() ? 'Loading…' : 'Load more' }}</span>
           </button>
         </div>
       </template>
@@ -170,7 +170,7 @@ const isHome = computed(() => route.name === 'home')
             class="app-chevron"
             :class="{ 'is-open': expanded[tree.section.id] }"
             :aria-expanded="Boolean(expanded[tree.section.id])"
-            :aria-label="`Expandir ${tree.section.label}`"
+            :aria-label="`Expand ${tree.section.label}`"
             @click="toggleSection(tree.section.id)"
           >
             <Icon name="chevronDown" :size="14" />
@@ -194,7 +194,7 @@ const isHome = computed(() => route.name === 'home')
       </template>
     </nav>
 
-    <nav v-if="!collapsed && shortcutGroups.length > 0" aria-label="Atalhos" class="app-nav">
+    <nav v-if="!collapsed && shortcutGroups.length > 0" aria-label="Shortcuts" class="app-nav">
       <template v-for="group in shortcutGroups" :key="group.label">
         <div class="app-head">{{ group.label }}</div>
         <RouterLink
@@ -212,11 +212,11 @@ const isHome = computed(() => route.name === 'home')
 
     <div v-if="!collapsed" class="app-foot">
       <button type="button" class="app-item app-button" @click="$emit('search')">
-        <span class="app-label">Buscar</span>
+        <span class="app-label">Search</span>
         <span class="app-count app-kbd">⌘K</span>
       </button>
       <button type="button" class="app-item app-button" @click="$emit('preferences')">
-        <span class="app-label">Preferências</span>
+        <span class="app-label">Preferences</span>
       </button>
     </div>
   </aside>
@@ -404,7 +404,7 @@ const isHome = computed(() => route.name === 'home')
   color: var(--muted);
 }
 
-.app-nav[aria-label='Atalhos'] .app-head {
+.app-nav[aria-label='Shortcuts'] .app-head {
   padding-left: 10px;
 }
 
