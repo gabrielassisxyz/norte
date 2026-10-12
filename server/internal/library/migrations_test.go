@@ -38,6 +38,12 @@ const (
 	libraryRouterVersion = 6
 )
 
+// libraryDismissalsVersion is the dismissed-suggestions migration, which adds
+// only its own table: library_item_tags and library_item_removed_tags
+// reference library_items ON DELETE CASCADE, so no migration here rebuilds
+// that table.
+const libraryDismissalsVersion = 7
+
 // newLibraryMigrationHarness opens a database, migrates the core in full and
 // the library only as far as the migration before this one.
 func newLibraryMigrationHarness(t *testing.T) *libraryMigrationHarness {
@@ -581,5 +587,74 @@ func TestTheRouterMigrationKeepsTheTagsItArrivesOver(t *testing.T) {
 	}
 	if got := harness.queryInt(`SELECT COUNT(*) FROM library_item_tags`); got != 1 {
 		t.Errorf("%d item tag rows survived the down step, want 1", got)
+	}
+}
+
+// TestTheDismissalsMigrationAddsOnlyItsOwnTable is the up step over a database
+// that already holds items, tags and rules: the dismissals table arrives, one
+// domain is dismissed once, and nothing else moves. The down step drops only
+// that table, and up again brings it back empty.
+func TestTheDismissalsMigrationAddsOnlyItsOwnTable(t *testing.T) {
+	harness := newLibraryMigrationHarness(t)
+	harness.writePortugueseItem("row-inbox", "post", "inbox", "zarabatana")
+	harness.upTo(libraryTagVersion)
+	if err := harness.writeEnglishItem("row-stash", "article", "stash", "kept"); err != nil {
+		t.Fatalf("inserting a stash row: %v", err)
+	}
+
+	stamp := core.FormatTime(libraryFixedInstant)
+	harness.exec(`INSERT INTO library_tags (name, created_at) VALUES ('llm', ?)`, stamp)
+	harness.exec(`INSERT INTO library_item_tags (item_id, tag_name, origin, created_at)
+	              VALUES ('row-inbox', 'llm', 'auto', ?)`, stamp)
+
+	harness.upTo(libraryRouterVersion)
+	harness.exec(`INSERT INTO library_domain_rules (domain, location, created_at)
+	              VALUES ('pinterest.com', 'stash', ?)`, stamp)
+
+	harness.upTo(libraryDismissalsVersion)
+
+	if got := harness.queryInt(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'library_domain_rule_dismissals'`); got != 1 {
+		t.Fatalf("library_domain_rule_dismissals is missing after the up step")
+	}
+	harness.exec(`INSERT INTO library_domain_rule_dismissals (domain, dismissed_at)
+	              VALUES ('example.org', ?)`, stamp)
+	if got := harness.queryString(
+		`SELECT dismissed_at FROM library_domain_rule_dismissals WHERE domain = ?`, "example.org"); got != stamp {
+		t.Errorf("the dismissal reads back as %q, want %q", got, stamp)
+	}
+	// One dismissal per domain.
+	if err := harness.execErr(`INSERT INTO library_domain_rule_dismissals (domain, dismissed_at)
+	           VALUES ('example.org', ?)`, stamp); err == nil {
+		t.Error("a second dismissal for one domain was accepted")
+	}
+
+	// Everything the step arrived over is still there.
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_items`); got != 2 {
+		t.Errorf("%d items survived the step, want 2", got)
+	}
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_item_tags`); got != 1 {
+		t.Errorf("%d item tag rows survived the step, want 1", got)
+	}
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_domain_rules`); got != 1 {
+		t.Errorf("%d rules survived the step, want 1", got)
+	}
+
+	harness.down()
+	if got := harness.queryInt(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'library_domain_rule_dismissals'`); got != 0 {
+		t.Errorf("library_domain_rule_dismissals survived the down step")
+	}
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_domain_rules`); got != 1 {
+		t.Errorf("%d rules survived the down step, want the step to touch only its own table", got)
+	}
+
+	harness.upTo(libraryDismissalsVersion)
+	if got := harness.queryInt(
+		`SELECT COUNT(*) FROM sqlite_master WHERE type = 'table' AND name = 'library_domain_rule_dismissals'`); got != 1 {
+		t.Error("library_domain_rule_dismissals is missing after up again")
+	}
+	if got := harness.queryInt(`SELECT COUNT(*) FROM library_domain_rule_dismissals`); got != 0 {
+		t.Errorf("%d dismissals survived down and up again, want an empty table", got)
 	}
 }

@@ -278,6 +278,104 @@ export interface paths {
         patch: operations["patchLibraryTag"];
         trace?: never;
     };
+    "/api/library/domain-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the domain rules
+         * @description Every domain rule the person set, ordered by domain. A rule sends a
+         *     host and its subdomains to one location, and the longest matching rule
+         *     wins when several match.
+         */
+        get: operations["listLibraryDomainRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/domain-rules/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Create or replace a domain rule
+         * @description Stores the rule for the normalized domain and answers it. The domain
+         *     is normalized before storing -- trimmed, lowercased, scheme, port,
+         *     path, query and fragment removed, one leading www. removed -- so a
+         *     rule typed as a URL lands on its host. Creating or replacing a rule
+         *     never moves an existing item: it applies to the next save.
+         */
+        put: operations["setLibraryDomainRule"];
+        post?: never;
+        /**
+         * Remove a domain rule
+         * @description Forgets the rule for the normalized domain. Removing a rule never
+         *     moves an existing item. A domain with no rule answers 404.
+         */
+        delete: operations["deleteLibraryDomainRule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/domain-rule-suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the suggested domain rules
+         * @description The rules Norte would suggest from the links the person keeps moving
+         *     by hand: a domain is suggested for a location when at least three
+         *     items from that domain sit in that location with the move recorded as
+         *     the person's own, nothing from the same domain sits in the other of
+         *     inbox and stash, no existing rule matches the domain, and the domain
+         *     has not been dismissed. Most moves first, then domain.
+         */
+        get: operations["listLibraryDomainRuleSuggestions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/library/domain-rule-suggestions/{domain}/dismiss": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Dismiss a suggested domain rule
+         * @description Records that the person said no to a suggestion, so the domain is
+         *     never suggested again. Setting a rule for the domain afterwards still
+         *     works.
+         */
+        post: operations["dismissLibraryDomainRuleSuggestion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -518,6 +616,40 @@ export interface components {
         LibraryTagList: {
             /** @description Every tag in use, most used first. */
             tags: components["schemas"]["LibraryTag"][];
+        };
+        /**
+         * @description Which location a domain rule may send a host to.
+         * @enum {string}
+         */
+        DomainRuleLocation: "inbox" | "stash";
+        DomainRule: {
+            /** @description The rule's normalized domain. */
+            domain: string;
+            location: components["schemas"]["DomainRuleLocation"];
+            /** @description When the rule was stored. */
+            created_at: string;
+        };
+        SetDomainRuleRequest: {
+            /**
+             * @description Where the domain goes. Only inbox and stash are accepted; anything
+             *     else is refused on this field.
+             */
+            location: string;
+        };
+        DomainRuleList: {
+            /** @description Every domain rule, ordered by domain. */
+            rules: components["schemas"]["DomainRule"][];
+        };
+        DomainRuleSuggestion: {
+            /** @description The domain the person keeps moving by hand. */
+            domain: string;
+            location: components["schemas"]["DomainRuleLocation"];
+            /** @description How many items from the domain sit in the location. */
+            moves: number;
+        };
+        DomainRuleSuggestionList: {
+            /** @description The suggested rules, most moves first, then domain. */
+            suggestions: components["schemas"]["DomainRuleSuggestion"][];
         };
         Error: {
             error: components["schemas"]["ErrorDetail"];
@@ -906,6 +1038,120 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["LibraryTag"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listLibraryDomainRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rules. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainRuleList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    setLibraryDomainRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The domain in whatever spelling the caller typed. */
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SetDomainRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description The stored rule. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainRule"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteLibraryDomainRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The domain in whatever spelling the caller typed. */
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rule is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    listLibraryDomainRuleSuggestions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The suggestions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DomainRuleSuggestionList"];
+                };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    dismissLibraryDomainRuleSuggestion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description The domain in whatever spelling the caller typed. */
+                domain: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The dismissal is recorded. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

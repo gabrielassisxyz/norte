@@ -14,6 +14,11 @@ type LibraryDomainRule struct {
 	CreatedAt string
 }
 
+type LibraryDomainRuleDismissal struct {
+	Domain      string
+	DismissedAt string
+}
+
 type LibraryFt struct {
 	ID              string
 	Title           string
