@@ -435,6 +435,113 @@ paths:
                 $ref: "#/components/schemas/LibraryTag"
         default:
           $ref: "#/components/responses/Error"
+  /api/library/domain-rules:
+    get:
+      operationId: listLibraryDomainRules
+      summary: List the domain rules
+      description: |
+        Every domain rule the person set, ordered by domain. A rule sends a
+        host and its subdomains to one location, and the longest matching rule
+        wins when several match.
+      responses:
+        "200":
+          description: The rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainRuleList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/domain-rules/{domain}:
+    put:
+      operationId: setLibraryDomainRule
+      summary: Create or replace a domain rule
+      description: |
+        Stores the rule for the normalized domain and answers it. The domain
+        is normalized before storing -- trimmed, lowercased, scheme, port,
+        path, query and fragment removed, one leading www. removed -- so a
+        rule typed as a URL lands on its host. Creating or replacing a rule
+        never moves an existing item: it applies to the next save.
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: The domain in whatever spelling the caller typed.
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetDomainRuleRequest"
+      responses:
+        "200":
+          description: The stored rule.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainRule"
+        default:
+          $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteLibraryDomainRule
+      summary: Remove a domain rule
+      description: |
+        Forgets the rule for the normalized domain. Removing a rule never
+        moves an existing item. A domain with no rule answers 404.
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: The domain in whatever spelling the caller typed.
+          schema:
+            type: string
+      responses:
+        "204":
+          description: The rule is gone.
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/domain-rule-suggestions:
+    get:
+      operationId: listLibraryDomainRuleSuggestions
+      summary: List the suggested domain rules
+      description: |
+        The rules Norte would suggest from the links the person keeps moving
+        by hand: a domain is suggested for a location when at least three
+        items from that domain sit in that location with the move recorded as
+        the person's own, nothing from the same domain sits in the other of
+        inbox and stash, no existing rule matches the domain, and the domain
+        has not been dismissed. Most moves first, then domain.
+      responses:
+        "200":
+          description: The suggestions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DomainRuleSuggestionList"
+        default:
+          $ref: "#/components/responses/Error"
+  /api/library/domain-rule-suggestions/{domain}/dismiss:
+    post:
+      operationId: dismissLibraryDomainRuleSuggestion
+      summary: Dismiss a suggested domain rule
+      description: |
+        Records that the person said no to a suggestion, so the domain is
+        never suggested again. Setting a rule for the domain afterwards still
+        works.
+      parameters:
+        - name: domain
+          in: path
+          required: true
+          description: The domain in whatever spelling the caller typed.
+          schema:
+            type: string
+      responses:
+        "204":
+          description: The dismissal is recorded.
+        default:
+          $ref: "#/components/responses/Error"
 components:
   responses:
     Error:
@@ -937,6 +1044,78 @@ components:
           description: Every tag in use, most used first.
           items:
             $ref: "#/components/schemas/LibraryTag"
+    DomainRuleLocation:
+      type: string
+      description: Which location a domain rule may send a host to.
+      enum:
+        - inbox
+        - stash
+    DomainRule:
+      type: object
+      additionalProperties: false
+      required:
+        - domain
+        - location
+        - created_at
+      properties:
+        domain:
+          type: string
+          description: The rule's normalized domain.
+        location:
+          $ref: "#/components/schemas/DomainRuleLocation"
+        created_at:
+          type: string
+          description: When the rule was stored.
+    SetDomainRuleRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - location
+      properties:
+        location:
+          type: string
+          description: |
+            Where the domain goes. Only inbox and stash are accepted; anything
+            else is refused on this field.
+    DomainRuleList:
+      type: object
+      additionalProperties: false
+      required:
+        - rules
+      properties:
+        rules:
+          type: array
+          description: Every domain rule, ordered by domain.
+          items:
+            $ref: "#/components/schemas/DomainRule"
+    DomainRuleSuggestion:
+      type: object
+      additionalProperties: false
+      required:
+        - domain
+        - location
+        - moves
+      properties:
+        domain:
+          type: string
+          description: The domain the person keeps moving by hand.
+        location:
+          $ref: "#/components/schemas/DomainRuleLocation"
+        moves:
+          type: integer
+          minimum: 0
+          description: How many items from the domain sit in the location.
+    DomainRuleSuggestionList:
+      type: object
+      additionalProperties: false
+      required:
+        - suggestions
+      properties:
+        suggestions:
+          type: array
+          description: The suggested rules, most moves first, then domain.
+          items:
+            $ref: "#/components/schemas/DomainRuleSuggestion"
     Error:
       type: object
       additionalProperties: false
