@@ -146,6 +146,19 @@ func (q *Queries) CountLibraryItemsByTag(ctx context.Context, tagName string) (C
 	return i, err
 }
 
+const deleteLibraryDomainRule = `-- name: DeleteLibraryDomainRule :execrows
+DELETE FROM library_domain_rules WHERE domain = ?
+`
+
+// Forgetting a rule: the rows it would have placed stay where they are.
+func (q *Queries) DeleteLibraryDomainRule(ctx context.Context, domain string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, deleteLibraryDomainRule, domain)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const deleteLibraryItemTag = `-- name: DeleteLibraryItemTag :exec
 DELETE FROM library_item_tags WHERE item_id = ? AND tag_name = ?
 `
@@ -193,6 +206,18 @@ type DropLibraryRemovedItemTagParams struct {
 func (q *Queries) DropLibraryRemovedItemTag(ctx context.Context, arg DropLibraryRemovedItemTagParams) error {
 	_, err := q.db.ExecContext(ctx, dropLibraryRemovedItemTag, arg.ItemID, arg.TagName)
 	return err
+}
+
+const getLibraryDomainRule = `-- name: GetLibraryDomainRule :one
+SELECT domain, location, created_at FROM library_domain_rules WHERE domain = ?
+`
+
+// One domain rule, or nothing: what the set and the delete check against.
+func (q *Queries) GetLibraryDomainRule(ctx context.Context, domain string) (LibraryDomainRule, error) {
+	row := q.db.QueryRowContext(ctx, getLibraryDomainRule, domain)
+	var i LibraryDomainRule
+	err := row.Scan(&i.Domain, &i.Location, &i.CreatedAt)
+	return i, err
 }
 
 const getLibraryExtractGeneration = `-- name: GetLibraryExtractGeneration :one
@@ -461,6 +486,34 @@ func (q *Queries) InsertLibraryTag(ctx context.Context, arg InsertLibraryTagPara
 	return err
 }
 
+const listLibraryDomainRuleDismissals = `-- name: ListLibraryDomainRuleDismissals :many
+SELECT domain FROM library_domain_rule_dismissals
+`
+
+// Every dismissed suggestion, which is what the suggestion list reads past.
+func (q *Queries) ListLibraryDomainRuleDismissals(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryDomainRuleDismissals)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []string{}
+	for rows.Next() {
+		var domain string
+		if err := rows.Scan(&domain); err != nil {
+			return nil, err
+		}
+		items = append(items, domain)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLibraryDomainRules = `-- name: ListLibraryDomainRules :many
 
 SELECT domain, location FROM library_domain_rules ORDER BY domain ASC
@@ -486,6 +539,36 @@ func (q *Queries) ListLibraryDomainRules(ctx context.Context) ([]ListLibraryDoma
 	for rows.Next() {
 		var i ListLibraryDomainRulesRow
 		if err := rows.Scan(&i.Domain, &i.Location); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraryDomainRulesWithMeta = `-- name: ListLibraryDomainRulesWithMeta :many
+SELECT domain, location, created_at FROM library_domain_rules ORDER BY domain ASC
+`
+
+// The same rows with when each was stored, which is what the list endpoint
+// answers. Kept apart from the router's read so the matcher keeps the shape
+// it matches on.
+func (q *Queries) ListLibraryDomainRulesWithMeta(ctx context.Context) ([]LibraryDomainRule, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryDomainRulesWithMeta)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []LibraryDomainRule{}
+	for rows.Next() {
+		var i LibraryDomainRule
+		if err := rows.Scan(&i.Domain, &i.Location, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -620,6 +703,43 @@ func (q *Queries) ListLibraryTags(ctx context.Context) ([]ListLibraryTagsRow, er
 	for rows.Next() {
 		var i ListLibraryTagsRow
 		if err := rows.Scan(&i.Name, &i.ItemCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listLibraryUserMovedItems = `-- name: ListLibraryUserMovedItems :many
+SELECT url, canonical_url, location FROM library_items
+WHERE location_source = 'user' AND location IN ('inbox', 'stash')
+`
+
+type ListLibraryUserMovedItemsRow struct {
+	Url          string
+	CanonicalUrl string
+	Location     string
+}
+
+// The moves the suggestions are computed from: items the person placed by
+// hand in one of the two locations the router chooses between. Items anywhere
+// else, and items placed by anything automatic, are not suggestions.
+func (q *Queries) ListLibraryUserMovedItems(ctx context.Context) ([]ListLibraryUserMovedItemsRow, error) {
+	rows, err := q.db.QueryContext(ctx, listLibraryUserMovedItems)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	items := []ListLibraryUserMovedItemsRow{}
+	for rows.Next() {
+		var i ListLibraryUserMovedItemsRow
+		if err := rows.Scan(&i.Url, &i.CanonicalUrl, &i.Location); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -969,6 +1089,43 @@ func (q *Queries) UpdateLibraryItemNote(ctx context.Context, arg UpdateLibraryIt
 		arg.UpdatedAt,
 		arg.ID,
 	)
+	return err
+}
+
+const upsertLibraryDomainRule = `-- name: UpsertLibraryDomainRule :exec
+INSERT INTO library_domain_rules (domain, location, created_at)
+VALUES (?, ?, ?)
+ON CONFLICT (domain) DO UPDATE SET location = excluded.location
+`
+
+type UpsertLibraryDomainRuleParams struct {
+	Domain    string
+	Location  string
+	CreatedAt string
+}
+
+// A rule written by the person: one answer per normalized domain, created or
+// replaced without moving any existing item.
+func (q *Queries) UpsertLibraryDomainRule(ctx context.Context, arg UpsertLibraryDomainRuleParams) error {
+	_, err := q.db.ExecContext(ctx, upsertLibraryDomainRule, arg.Domain, arg.Location, arg.CreatedAt)
+	return err
+}
+
+const upsertLibraryDomainRuleDismissal = `-- name: UpsertLibraryDomainRuleDismissal :exec
+INSERT INTO library_domain_rule_dismissals (domain, dismissed_at)
+VALUES (?, ?)
+ON CONFLICT (domain) DO UPDATE SET dismissed_at = excluded.dismissed_at
+`
+
+type UpsertLibraryDomainRuleDismissalParams struct {
+	Domain      string
+	DismissedAt string
+}
+
+// A dismissal the person made by hand: recorded once per normalized domain,
+// updated when they dismiss again.
+func (q *Queries) UpsertLibraryDomainRuleDismissal(ctx context.Context, arg UpsertLibraryDomainRuleDismissalParams) error {
+	_, err := q.db.ExecContext(ctx, upsertLibraryDomainRuleDismissal, arg.Domain, arg.DismissedAt)
 	return err
 }
 

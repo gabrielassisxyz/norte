@@ -23,6 +23,24 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for DomainRuleLocation.
+const (
+	DomainRuleLocationInbox DomainRuleLocation = "inbox"
+	DomainRuleLocationStash DomainRuleLocation = "stash"
+)
+
+// Valid indicates whether the value is a known member of the DomainRuleLocation enum.
+func (e DomainRuleLocation) Valid() bool {
+	switch e {
+	case DomainRuleLocationInbox:
+		return true
+	case DomainRuleLocationStash:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ExtractStatus.
 const (
 	Done    ExtractStatus = "done"
@@ -208,6 +226,45 @@ type AddItemTagRequest struct {
 	// Name The tag in whatever spelling the caller typed; the server
 	// normalizes it, and a name that normalizes to nothing is refused.
 	Name string `json:"name"`
+}
+
+// DomainRule defines model for DomainRule.
+type DomainRule struct {
+	// CreatedAt When the rule was stored.
+	CreatedAt string `json:"created_at"`
+
+	// Domain The rule's normalized domain.
+	Domain string `json:"domain"`
+
+	// Location Which location a domain rule may send a host to.
+	Location DomainRuleLocation `json:"location"`
+}
+
+// DomainRuleList defines model for DomainRuleList.
+type DomainRuleList struct {
+	// Rules Every domain rule, ordered by domain.
+	Rules []DomainRule `json:"rules"`
+}
+
+// DomainRuleLocation Which location a domain rule may send a host to.
+type DomainRuleLocation string
+
+// DomainRuleSuggestion defines model for DomainRuleSuggestion.
+type DomainRuleSuggestion struct {
+	// Domain The domain the person keeps moving by hand.
+	Domain string `json:"domain"`
+
+	// Location Which location a domain rule may send a host to.
+	Location DomainRuleLocation `json:"location"`
+
+	// Moves How many items from the domain sit in the location.
+	Moves int `json:"moves"`
+}
+
+// DomainRuleSuggestionList defines model for DomainRuleSuggestionList.
+type DomainRuleSuggestionList struct {
+	// Suggestions The suggested rules, most moves first, then domain.
+	Suggestions []DomainRuleSuggestion `json:"suggestions"`
 }
 
 // Error defines model for Error.
@@ -520,6 +577,13 @@ type SaveItemResponse struct {
 	Id string `json:"id"`
 }
 
+// SetDomainRuleRequest defines model for SetDomainRuleRequest.
+type SetDomainRuleRequest struct {
+	// Location Where the domain goes. Only inbox and stash are accepted; anything
+	// else is refused on this field.
+	Location string `json:"location"`
+}
+
 // TextSelection The passage selected when the link was saved, if any.
 type TextSelection struct {
 	Exact  *string `json:"exact,omitempty"`
@@ -582,6 +646,9 @@ type DrawLibraryItemsParams struct {
 	Seed *int64 `form:"seed,omitempty" json:"seed,omitempty"`
 }
 
+// SetLibraryDomainRuleJSONRequestBody defines body for SetLibraryDomainRule for application/json ContentType.
+type SetLibraryDomainRuleJSONRequestBody = SetDomainRuleRequest
+
 // SaveLibraryItemJSONRequestBody defines body for SaveLibraryItem for application/json ContentType.
 type SaveLibraryItemJSONRequestBody = SaveItemRequest
 
@@ -602,6 +669,21 @@ type ServerInterface interface {
 	// GetLibraryCounts Count the library by view, kind and unread state
 	// (GET /api/library/counts)
 	GetLibraryCounts(w http.ResponseWriter, r *http.Request, params GetLibraryCountsParams)
+	// ListLibraryDomainRuleSuggestions List the suggested domain rules
+	// (GET /api/library/domain-rule-suggestions)
+	ListLibraryDomainRuleSuggestions(w http.ResponseWriter, r *http.Request)
+	// DismissLibraryDomainRuleSuggestion Dismiss a suggested domain rule
+	// (POST /api/library/domain-rule-suggestions/{domain}/dismiss)
+	DismissLibraryDomainRuleSuggestion(w http.ResponseWriter, r *http.Request, domain string)
+	// ListLibraryDomainRules List the domain rules
+	// (GET /api/library/domain-rules)
+	ListLibraryDomainRules(w http.ResponseWriter, r *http.Request)
+	// DeleteLibraryDomainRule Remove a domain rule
+	// (DELETE /api/library/domain-rules/{domain})
+	DeleteLibraryDomainRule(w http.ResponseWriter, r *http.Request, domain string)
+	// SetLibraryDomainRule Create or replace a domain rule
+	// (PUT /api/library/domain-rules/{domain})
+	SetLibraryDomainRule(w http.ResponseWriter, r *http.Request, domain string)
 	// ListLibraryItems List saved links
 	// (GET /api/library/items)
 	ListLibraryItems(w http.ResponseWriter, r *http.Request, params ListLibraryItemsParams)
@@ -670,6 +752,112 @@ func (siw *ServerInterfaceWrapper) GetLibraryCounts(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetLibraryCounts(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListLibraryDomainRuleSuggestions operation middleware
+func (siw *ServerInterfaceWrapper) ListLibraryDomainRuleSuggestions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListLibraryDomainRuleSuggestions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DismissLibraryDomainRuleSuggestion operation middleware
+func (siw *ServerInterfaceWrapper) DismissLibraryDomainRuleSuggestion(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "domain" -------------
+	var domain string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "domain", r.PathValue("domain"), &domain, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "domain", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DismissLibraryDomainRuleSuggestion(w, r, domain)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListLibraryDomainRules operation middleware
+func (siw *ServerInterfaceWrapper) ListLibraryDomainRules(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListLibraryDomainRules(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteLibraryDomainRule operation middleware
+func (siw *ServerInterfaceWrapper) DeleteLibraryDomainRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "domain" -------------
+	var domain string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "domain", r.PathValue("domain"), &domain, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "domain", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteLibraryDomainRule(w, r, domain)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetLibraryDomainRule operation middleware
+func (siw *ServerInterfaceWrapper) SetLibraryDomainRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "domain" -------------
+	var domain string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "domain", r.PathValue("domain"), &domain, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "domain", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetLibraryDomainRule(w, r, domain)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1213,6 +1401,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/library/items/{id}/tags/{name}", wrapper.RemoveLibraryItemTag)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/library/tags", wrapper.ListLibraryTags)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/library/tags/{name}", wrapper.PatchLibraryTag)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/library/domain-rules", wrapper.ListLibraryDomainRules)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/library/domain-rules/{domain}", wrapper.DeleteLibraryDomainRule)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/library/domain-rules/{domain}", wrapper.SetLibraryDomainRule)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/library/domain-rule-suggestions", wrapper.ListLibraryDomainRuleSuggestions)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/library/domain-rule-suggestions/{domain}/dismiss", wrapper.DismissLibraryDomainRuleSuggestion)
 
 	return m
 }
@@ -1247,6 +1440,188 @@ type GetLibraryCountsdefaultJSONResponse struct {
 }
 
 func (response GetLibraryCountsdefaultJSONResponse) VisitGetLibraryCountsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLibraryDomainRuleSuggestionsRequestObject struct {
+}
+
+type ListLibraryDomainRuleSuggestionsResponseObject interface {
+	VisitListLibraryDomainRuleSuggestionsResponse(w http.ResponseWriter) error
+}
+
+type ListLibraryDomainRuleSuggestions200JSONResponse DomainRuleSuggestionList
+
+func (response ListLibraryDomainRuleSuggestions200JSONResponse) VisitListLibraryDomainRuleSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLibraryDomainRuleSuggestionsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListLibraryDomainRuleSuggestionsdefaultJSONResponse) VisitListLibraryDomainRuleSuggestionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DismissLibraryDomainRuleSuggestionRequestObject struct {
+	Domain string `json:"domain"`
+}
+
+type DismissLibraryDomainRuleSuggestionResponseObject interface {
+	VisitDismissLibraryDomainRuleSuggestionResponse(w http.ResponseWriter) error
+}
+
+type DismissLibraryDomainRuleSuggestion204Response struct {
+}
+
+func (response DismissLibraryDomainRuleSuggestion204Response) VisitDismissLibraryDomainRuleSuggestionResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DismissLibraryDomainRuleSuggestiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DismissLibraryDomainRuleSuggestiondefaultJSONResponse) VisitDismissLibraryDomainRuleSuggestionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLibraryDomainRulesRequestObject struct {
+}
+
+type ListLibraryDomainRulesResponseObject interface {
+	VisitListLibraryDomainRulesResponse(w http.ResponseWriter) error
+}
+
+type ListLibraryDomainRules200JSONResponse DomainRuleList
+
+func (response ListLibraryDomainRules200JSONResponse) VisitListLibraryDomainRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListLibraryDomainRulesdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListLibraryDomainRulesdefaultJSONResponse) VisitListLibraryDomainRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteLibraryDomainRuleRequestObject struct {
+	Domain string `json:"domain"`
+}
+
+type DeleteLibraryDomainRuleResponseObject interface {
+	VisitDeleteLibraryDomainRuleResponse(w http.ResponseWriter) error
+}
+
+type DeleteLibraryDomainRule204Response struct {
+}
+
+func (response DeleteLibraryDomainRule204Response) VisitDeleteLibraryDomainRuleResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteLibraryDomainRuledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DeleteLibraryDomainRuledefaultJSONResponse) VisitDeleteLibraryDomainRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLibraryDomainRuleRequestObject struct {
+	Domain string `json:"domain"`
+	Body   *SetLibraryDomainRuleJSONRequestBody
+}
+
+type SetLibraryDomainRuleResponseObject interface {
+	VisitSetLibraryDomainRuleResponse(w http.ResponseWriter) error
+}
+
+type SetLibraryDomainRule200JSONResponse DomainRule
+
+func (response SetLibraryDomainRule200JSONResponse) VisitSetLibraryDomainRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetLibraryDomainRuledefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response SetLibraryDomainRuledefaultJSONResponse) VisitSetLibraryDomainRuleResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1710,6 +2085,21 @@ type StrictServerInterface interface {
 	// GetLibraryCounts Count the library by view, kind and unread state
 	// (GET /api/library/counts)
 	GetLibraryCounts(ctx context.Context, request GetLibraryCountsRequestObject) (GetLibraryCountsResponseObject, error)
+	// ListLibraryDomainRuleSuggestions List the suggested domain rules
+	// (GET /api/library/domain-rule-suggestions)
+	ListLibraryDomainRuleSuggestions(ctx context.Context, request ListLibraryDomainRuleSuggestionsRequestObject) (ListLibraryDomainRuleSuggestionsResponseObject, error)
+	// DismissLibraryDomainRuleSuggestion Dismiss a suggested domain rule
+	// (POST /api/library/domain-rule-suggestions/{domain}/dismiss)
+	DismissLibraryDomainRuleSuggestion(ctx context.Context, request DismissLibraryDomainRuleSuggestionRequestObject) (DismissLibraryDomainRuleSuggestionResponseObject, error)
+	// ListLibraryDomainRules List the domain rules
+	// (GET /api/library/domain-rules)
+	ListLibraryDomainRules(ctx context.Context, request ListLibraryDomainRulesRequestObject) (ListLibraryDomainRulesResponseObject, error)
+	// DeleteLibraryDomainRule Remove a domain rule
+	// (DELETE /api/library/domain-rules/{domain})
+	DeleteLibraryDomainRule(ctx context.Context, request DeleteLibraryDomainRuleRequestObject) (DeleteLibraryDomainRuleResponseObject, error)
+	// SetLibraryDomainRule Create or replace a domain rule
+	// (PUT /api/library/domain-rules/{domain})
+	SetLibraryDomainRule(ctx context.Context, request SetLibraryDomainRuleRequestObject) (SetLibraryDomainRuleResponseObject, error)
 	// ListLibraryItems List saved links
 	// (GET /api/library/items)
 	ListLibraryItems(ctx context.Context, request ListLibraryItemsRequestObject) (ListLibraryItemsResponseObject, error)
@@ -1803,6 +2193,139 @@ func (sh *strictHandler) GetLibraryCounts(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetLibraryCountsResponseObject); ok {
 		if err := validResponse.VisitGetLibraryCountsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListLibraryDomainRuleSuggestions operation middleware
+func (sh *strictHandler) ListLibraryDomainRuleSuggestions(w http.ResponseWriter, r *http.Request) {
+	var request ListLibraryDomainRuleSuggestionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListLibraryDomainRuleSuggestions(ctx, request.(ListLibraryDomainRuleSuggestionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListLibraryDomainRuleSuggestions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListLibraryDomainRuleSuggestionsResponseObject); ok {
+		if err := validResponse.VisitListLibraryDomainRuleSuggestionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DismissLibraryDomainRuleSuggestion operation middleware
+func (sh *strictHandler) DismissLibraryDomainRuleSuggestion(w http.ResponseWriter, r *http.Request, domain string) {
+	var request DismissLibraryDomainRuleSuggestionRequestObject
+
+	request.Domain = domain
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DismissLibraryDomainRuleSuggestion(ctx, request.(DismissLibraryDomainRuleSuggestionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DismissLibraryDomainRuleSuggestion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DismissLibraryDomainRuleSuggestionResponseObject); ok {
+		if err := validResponse.VisitDismissLibraryDomainRuleSuggestionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListLibraryDomainRules operation middleware
+func (sh *strictHandler) ListLibraryDomainRules(w http.ResponseWriter, r *http.Request) {
+	var request ListLibraryDomainRulesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListLibraryDomainRules(ctx, request.(ListLibraryDomainRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListLibraryDomainRules")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListLibraryDomainRulesResponseObject); ok {
+		if err := validResponse.VisitListLibraryDomainRulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteLibraryDomainRule operation middleware
+func (sh *strictHandler) DeleteLibraryDomainRule(w http.ResponseWriter, r *http.Request, domain string) {
+	var request DeleteLibraryDomainRuleRequestObject
+
+	request.Domain = domain
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteLibraryDomainRule(ctx, request.(DeleteLibraryDomainRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteLibraryDomainRule")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteLibraryDomainRuleResponseObject); ok {
+		if err := validResponse.VisitDeleteLibraryDomainRuleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetLibraryDomainRule operation middleware
+func (sh *strictHandler) SetLibraryDomainRule(w http.ResponseWriter, r *http.Request, domain string) {
+	var request SetLibraryDomainRuleRequestObject
+
+	request.Domain = domain
+
+	var body SetLibraryDomainRuleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetLibraryDomainRule(ctx, request.(SetLibraryDomainRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetLibraryDomainRule")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetLibraryDomainRuleResponseObject); ok {
+		if err := validResponse.VisitSetLibraryDomainRuleResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2136,103 +2659,118 @@ func (sh *strictHandler) PatchLibraryTag(w http.ResponseWriter, r *http.Request,
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
+	"tJVRhkjmX8Ka8kujVykLZ73fS/0/PPxfAAAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

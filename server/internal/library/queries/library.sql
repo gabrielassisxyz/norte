@@ -274,6 +274,45 @@ SELECT
 -- name: ListLibraryDomainRules :many
 SELECT domain, location FROM library_domain_rules ORDER BY domain ASC;
 
+-- The same rows with when each was stored, which is what the list endpoint
+-- answers. Kept apart from the router's read so the matcher keeps the shape
+-- it matches on.
+-- name: ListLibraryDomainRulesWithMeta :many
+SELECT domain, location, created_at FROM library_domain_rules ORDER BY domain ASC;
+
+-- One domain rule, or nothing: what the set and the delete check against.
+-- name: GetLibraryDomainRule :one
+SELECT domain, location, created_at FROM library_domain_rules WHERE domain = ?;
+
+-- A rule written by the person: one answer per normalized domain, created or
+-- replaced without moving any existing item.
+-- name: UpsertLibraryDomainRule :exec
+INSERT INTO library_domain_rules (domain, location, created_at)
+VALUES (?, ?, ?)
+ON CONFLICT (domain) DO UPDATE SET location = excluded.location;
+
+-- Forgetting a rule: the rows it would have placed stay where they are.
+-- name: DeleteLibraryDomainRule :execrows
+DELETE FROM library_domain_rules WHERE domain = ?;
+
+-- Every dismissed suggestion, which is what the suggestion list reads past.
+-- name: ListLibraryDomainRuleDismissals :many
+SELECT domain FROM library_domain_rule_dismissals;
+
+-- A dismissal the person made by hand: recorded once per normalized domain,
+-- updated when they dismiss again.
+-- name: UpsertLibraryDomainRuleDismissal :exec
+INSERT INTO library_domain_rule_dismissals (domain, dismissed_at)
+VALUES (?, ?)
+ON CONFLICT (domain) DO UPDATE SET dismissed_at = excluded.dismissed_at;
+
+-- The moves the suggestions are computed from: items the person placed by
+-- hand in one of the two locations the router chooses between. Items anywhere
+-- else, and items placed by anything automatic, are not suggestions.
+-- name: ListLibraryUserMovedItems :many
+SELECT url, canonical_url, location FROM library_items
+WHERE location_source = 'user' AND location IN ('inbox', 'stash');
+
 -- The decider's move, guarded by both halves of "nobody has touched this":
 -- the source is still the default the save wrote, and the location is still
 -- the one the save left. A row failing either predicate belongs to the person
