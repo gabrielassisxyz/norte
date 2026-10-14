@@ -362,7 +362,10 @@ func (s *NotesService) CreateQuestion(ctx context.Context, in NewQuestionInput) 
 // read its row and are refused. The update path cannot bypass the rule: it
 // cannot change kind or set_id.
 func (s *NotesService) createSetKindQuestion(ctx context.Context, in NewQuestionInput) (NotesQuestionRecord, error) {
-	prepared, err := s.prepareSetKindQuestionRow(ctx, in)
+	// prepareQuestion runs every validation a question owes, including a first
+	// read of the kind rule on the reader pool; the transaction below re-reads
+	// the rule through itself, which is the read that concurrent saves cannot race.
+	prepared, err := s.prepareQuestion(ctx, in)
 	if err != nil {
 		return NotesQuestionRecord{}, err
 	}
@@ -393,54 +396,6 @@ func (s *NotesService) createSetKindQuestion(ctx context.Context, in NewQuestion
 		return NotesQuestionRecord{}, fmt.Errorf("committing the question: %w", err)
 	}
 	return s.question(ctx, prepared.ID)
-}
-
-// prepareSetKindQuestionRow validates a question written from one of a set's
-// prompts and renders it as the row to insert, leaving the set's own rules --
-// the set exists, and the set holds no question of this kind yet -- to the
-// transaction, which reads them through itself rather than through the reader
-// pool.
-func (s *NotesService) prepareSetKindQuestionRow(ctx context.Context, in NewQuestionInput) (db.InsertNotesQuestionParams, error) {
-	text := strings.TrimSpace(in.Text)
-	if text == "" {
-		return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request", "a question needs text", "text")
-	}
-	if !notesValidQuestionKind(in.Kind) {
-		return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
-			fmt.Sprintf("unknown question kind %q", in.Kind), "kind")
-	}
-	if in.ItemID != "" {
-		if _, err := s.requireSource(ctx, in.ItemID); err != nil {
-			return db.InsertNotesQuestionParams{}, err
-		}
-	}
-	if in.AnnotationID != "" {
-		annotation, err := db.New(s.database.Reader()).GetNotesAnnotationByID(ctx, in.AnnotationID)
-		if err != nil {
-			if errors.Is(err, sql.ErrNoRows) {
-				return db.InsertNotesQuestionParams{}, notesNotFound("annotation", in.AnnotationID)
-			}
-			return db.InsertNotesQuestionParams{}, fmt.Errorf("reading the annotation %s: %w", in.AnnotationID, err)
-		}
-		// A question that cites a margin note from another text would show,
-		// beside one article, a note the person wrote about a different one.
-		if in.ItemID != "" && annotation.ItemID != in.ItemID {
-			return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
-				"the annotation belongs to another item", "annotation_id")
-		}
-	}
-	stamp := core.FormatTime(s.clock.Now())
-	return db.InsertNotesQuestionParams{
-		ID:           core.NewID(),
-		ItemID:       notesNullableText(in.ItemID),
-		AnnotationID: notesNullableText(in.AnnotationID),
-		SetID:        notesNullableText(in.SetID),
-		Kind:         notesNullableText(in.Kind),
-		Text:         text,
-		Status:       "open",
-		CreatedAt:    stamp,
-		UpdatedAt:    stamp,
-	}, nil
 }
 
 // prepareQuestion validates one question and renders it as the row to insert,
