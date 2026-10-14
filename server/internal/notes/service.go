@@ -334,7 +334,16 @@ type NewQuestionInput struct {
 }
 
 // CreateQuestion stores one question.
+//
+// A question written from one of a set's prompts goes through
+// createSetKindQuestion, which checks the kind rule and inserts the row inside
+// one writer transaction: the check and the insert on two pools let concurrent
+// saves all read zero before any of them inserts. Every other question keeps
+// the read-then-insert path below, which no second request races with.
 func (s *NotesService) CreateQuestion(ctx context.Context, in NewQuestionInput) (NotesQuestionRecord, error) {
+	if in.SetID != "" && in.Kind != "" {
+		return s.createSetKindQuestion(ctx, in)
+	}
 	prepared, err := s.prepareQuestion(ctx, in)
 	if err != nil {
 		return NotesQuestionRecord{}, err
@@ -343,6 +352,95 @@ func (s *NotesService) CreateQuestion(ctx context.Context, in NewQuestionInput) 
 		return NotesQuestionRecord{}, fmt.Errorf("storing the question: %w", err)
 	}
 	return s.question(ctx, prepared.ID)
+}
+
+// createSetKindQuestion stores a question written from one of a set's prompts,
+// checking "the set already holds this kind" and inserting the row inside one
+// writer transaction. The writer pool holds one connection opened with an
+// immediate lock, so the check on the transaction is serialized with every
+// other write: of concurrent saves of one kind, the first commits and the rest
+// read its row and are refused. The update path cannot bypass the rule: it
+// cannot change kind or set_id.
+func (s *NotesService) createSetKindQuestion(ctx context.Context, in NewQuestionInput) (NotesQuestionRecord, error) {
+	prepared, err := s.prepareSetKindQuestionRow(ctx, in)
+	if err != nil {
+		return NotesQuestionRecord{}, err
+	}
+	tx, err := s.database.Writer().BeginTx(ctx, nil)
+	if err != nil {
+		return NotesQuestionRecord{}, fmt.Errorf("beginning the question transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	queries := db.New(s.database.Writer()).WithTx(tx)
+	if _, err := queries.GetNotesQuestionSetByID(ctx, in.SetID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NotesQuestionRecord{}, notesNotFound("question set", in.SetID)
+		}
+		return NotesQuestionRecord{}, fmt.Errorf("reading the question set %s: %w", in.SetID, err)
+	}
+	taken, err := s.setHoldsQuestionKindTx(ctx, tx, in.SetID, in.Kind)
+	if err != nil {
+		return NotesQuestionRecord{}, err
+	}
+	if taken {
+		return NotesQuestionRecord{}, notesConflict("kind_taken",
+			fmt.Sprintf("the set already holds a question of the kind %q", in.Kind), "kind")
+	}
+	if err := queries.InsertNotesQuestion(ctx, prepared); err != nil {
+		return NotesQuestionRecord{}, fmt.Errorf("storing the question: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return NotesQuestionRecord{}, fmt.Errorf("committing the question: %w", err)
+	}
+	return s.question(ctx, prepared.ID)
+}
+
+// prepareSetKindQuestionRow validates a question written from one of a set's
+// prompts and renders it as the row to insert, leaving the set's own rules --
+// the set exists, and the set holds no question of this kind yet -- to the
+// transaction, which reads them through itself rather than through the reader
+// pool.
+func (s *NotesService) prepareSetKindQuestionRow(ctx context.Context, in NewQuestionInput) (db.InsertNotesQuestionParams, error) {
+	text := strings.TrimSpace(in.Text)
+	if text == "" {
+		return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request", "a question needs text", "text")
+	}
+	if !notesValidQuestionKind(in.Kind) {
+		return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
+			fmt.Sprintf("unknown question kind %q", in.Kind), "kind")
+	}
+	if in.ItemID != "" {
+		if _, err := s.requireSource(ctx, in.ItemID); err != nil {
+			return db.InsertNotesQuestionParams{}, err
+		}
+	}
+	if in.AnnotationID != "" {
+		annotation, err := db.New(s.database.Reader()).GetNotesAnnotationByID(ctx, in.AnnotationID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return db.InsertNotesQuestionParams{}, notesNotFound("annotation", in.AnnotationID)
+			}
+			return db.InsertNotesQuestionParams{}, fmt.Errorf("reading the annotation %s: %w", in.AnnotationID, err)
+		}
+		// A question that cites a margin note from another text would show,
+		// beside one article, a note the person wrote about a different one.
+		if in.ItemID != "" && annotation.ItemID != in.ItemID {
+			return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
+				"the annotation belongs to another item", "annotation_id")
+		}
+	}
+	stamp := core.FormatTime(s.clock.Now())
+	return db.InsertNotesQuestionParams{
+		ID:           core.NewID(),
+		ItemID:       notesNullableText(in.ItemID),
+		AnnotationID: notesNullableText(in.AnnotationID),
+		SetID:        notesNullableText(in.SetID),
+		Kind:         notesNullableText(in.Kind),
+		Text:         text,
+		Status:       "open",
+		CreatedAt:    stamp,
+		UpdatedAt:    stamp,
+	}, nil
 }
 
 // prepareQuestion validates one question and renders it as the row to insert,
@@ -703,6 +801,19 @@ func (s *NotesService) source(ctx context.Context, itemID string) (NotesSourceRe
 func (s *NotesService) setHoldsQuestionKind(ctx context.Context, setID, kind string) (bool, error) {
 	var count int
 	if err := s.database.Reader().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM notes_questions WHERE set_id = ? AND kind = ?`,
+		setID, kind).Scan(&count); err != nil {
+		return false, fmt.Errorf("counting the %q questions of the set %s: %w", kind, setID, err)
+	}
+	return count > 0, nil
+}
+
+// setHoldsQuestionKindTx is setHoldsQuestionKind read through the write
+// transaction rather than through the reader pool, so the check is serialized
+// with every other write by the writer's immediate lock.
+func (s *NotesService) setHoldsQuestionKindTx(ctx context.Context, tx *sql.Tx, setID, kind string) (bool, error) {
+	var count int
+	if err := tx.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM notes_questions WHERE set_id = ? AND kind = ?`,
 		setID, kind).Scan(&count); err != nil {
 		return false, fmt.Errorf("counting the %q questions of the set %s: %w", kind, setID, err)
