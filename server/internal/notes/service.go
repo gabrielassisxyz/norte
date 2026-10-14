@@ -334,13 +334,66 @@ type NewQuestionInput struct {
 }
 
 // CreateQuestion stores one question.
+//
+// A question written from one of a set's prompts goes through
+// createSetKindQuestion, which checks the kind rule and inserts the row inside
+// one writer transaction: the check and the insert on two pools let concurrent
+// saves all read zero before any of them inserts. Every other question keeps
+// the read-then-insert path below, which no second request races with.
 func (s *NotesService) CreateQuestion(ctx context.Context, in NewQuestionInput) (NotesQuestionRecord, error) {
+	if in.SetID != "" && in.Kind != "" {
+		return s.createSetKindQuestion(ctx, in)
+	}
 	prepared, err := s.prepareQuestion(ctx, in)
 	if err != nil {
 		return NotesQuestionRecord{}, err
 	}
 	if err := db.New(s.database.Writer()).InsertNotesQuestion(ctx, prepared); err != nil {
 		return NotesQuestionRecord{}, fmt.Errorf("storing the question: %w", err)
+	}
+	return s.question(ctx, prepared.ID)
+}
+
+// createSetKindQuestion stores a question written from one of a set's prompts,
+// checking "the set already holds this kind" and inserting the row inside one
+// writer transaction. The writer pool holds one connection opened with an
+// immediate lock, so the check on the transaction is serialized with every
+// other write: of concurrent saves of one kind, the first commits and the rest
+// read its row and are refused. The update path cannot bypass the rule: it
+// cannot change kind or set_id.
+func (s *NotesService) createSetKindQuestion(ctx context.Context, in NewQuestionInput) (NotesQuestionRecord, error) {
+	// prepareQuestion runs every validation a question owes, including a first
+	// read of the kind rule on the reader pool; the transaction below re-reads
+	// the rule through itself, which is the read that concurrent saves cannot race.
+	prepared, err := s.prepareQuestion(ctx, in)
+	if err != nil {
+		return NotesQuestionRecord{}, err
+	}
+	tx, err := s.database.Writer().BeginTx(ctx, nil)
+	if err != nil {
+		return NotesQuestionRecord{}, fmt.Errorf("beginning the question transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	queries := db.New(s.database.Writer()).WithTx(tx)
+	if _, err := queries.GetNotesQuestionSetByID(ctx, in.SetID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NotesQuestionRecord{}, notesNotFound("question set", in.SetID)
+		}
+		return NotesQuestionRecord{}, fmt.Errorf("reading the question set %s: %w", in.SetID, err)
+	}
+	taken, err := s.setHoldsQuestionKindTx(ctx, tx, in.SetID, in.Kind)
+	if err != nil {
+		return NotesQuestionRecord{}, err
+	}
+	if taken {
+		return NotesQuestionRecord{}, notesConflict("kind_taken",
+			fmt.Sprintf("the set already holds a question of the kind %q", in.Kind), "kind")
+	}
+	if err := queries.InsertNotesQuestion(ctx, prepared); err != nil {
+		return NotesQuestionRecord{}, fmt.Errorf("storing the question: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return NotesQuestionRecord{}, fmt.Errorf("committing the question: %w", err)
 	}
 	return s.question(ctx, prepared.ID)
 }
@@ -703,6 +756,19 @@ func (s *NotesService) source(ctx context.Context, itemID string) (NotesSourceRe
 func (s *NotesService) setHoldsQuestionKind(ctx context.Context, setID, kind string) (bool, error) {
 	var count int
 	if err := s.database.Reader().QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM notes_questions WHERE set_id = ? AND kind = ?`,
+		setID, kind).Scan(&count); err != nil {
+		return false, fmt.Errorf("counting the %q questions of the set %s: %w", kind, setID, err)
+	}
+	return count > 0, nil
+}
+
+// setHoldsQuestionKindTx is setHoldsQuestionKind read through the write
+// transaction rather than through the reader pool, so the check is serialized
+// with every other write by the writer's immediate lock.
+func (s *NotesService) setHoldsQuestionKindTx(ctx context.Context, tx *sql.Tx, setID, kind string) (bool, error) {
+	var count int
+	if err := tx.QueryRowContext(ctx,
 		`SELECT COUNT(*) FROM notes_questions WHERE set_id = ? AND kind = ?`,
 		setID, kind).Scan(&count); err != nil {
 		return false, fmt.Errorf("counting the %q questions of the set %s: %w", kind, setID, err)

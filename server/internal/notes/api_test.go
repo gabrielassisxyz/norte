@@ -1,10 +1,13 @@
 package notes
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
 
 	"github.com/gabrielassisxyz/norte/server/internal/core"
@@ -756,6 +759,78 @@ func TestASecondQuestionOfTheSameKindInASetIsRefused(t *testing.T) {
 		map[string]any{"text": "Why does it matter?", "set_id": set.ID, "kind": "why"}), http.StatusCreated)
 	if free.Kind == nil || *free.Kind != "why" {
 		t.Fatalf("the second prompt came back as %+v", free)
+	}
+}
+
+// TestConcurrentQuestionsOfTheSameKindInASetKeepExactlyOne is the race the
+// sequential refusal above cannot see: thirty saves of one kind fired at once
+// into an empty set must store exactly one question, because the kind check
+// and the insert run inside one writer transaction. The loop runs five fresh
+// sets so one lucky schedule cannot pass it.
+func TestConcurrentQuestionsOfTheSameKindInASetKeepExactlyOne(t *testing.T) {
+	harness := newNotesHarness(t)
+	for round := range 5 {
+		set := notesDecode[notesQuestionSetBody](t, harness.request(http.MethodPost, "/api/notes/question-sets",
+			map[string]any{"topic": fmt.Sprintf("Memory %d", round)}), http.StatusCreated)
+		withSet, err := json.Marshal(map[string]any{
+			"text": "What is it?", "set_id": set.ID, "kind": "what",
+		})
+		if err != nil {
+			t.Fatalf("encoding the round %d body: %v", round, err)
+		}
+
+		const attempts = 30
+		recorders := make([]*httptest.ResponseRecorder, attempts)
+		start := make(chan struct{})
+		var pending sync.WaitGroup
+		for index := range attempts {
+			pending.Add(1)
+			go func() {
+				defer pending.Done()
+				<-start
+				request := httptest.NewRequest(http.MethodPost, "/api/notes/questions",
+					bytes.NewReader(withSet))
+				request.Host = "localhost:8080"
+				request.Header.Set("Content-Type", "application/json")
+				recorder := httptest.NewRecorder()
+				harness.router.ServeHTTP(recorder, request)
+				recorders[index] = recorder
+			}()
+		}
+		close(start)
+		pending.Wait()
+
+		created := 0
+		for index, recorder := range recorders {
+			if recorder == nil {
+				t.Fatalf("round %d: request %d left no answer", round, index)
+			}
+			switch recorder.Code {
+			case http.StatusCreated:
+				created++
+			case http.StatusConflict:
+				var refusal notesRefusalBody
+				if err := json.Unmarshal(recorder.Body.Bytes(), &refusal); err != nil {
+					t.Fatalf("round %d: decoding the refusal %d: %v: %s",
+						round, index, err, recorder.Body.String())
+				}
+				if refusal.Error.Field != "kind" {
+					t.Fatalf("round %d: the refusal %d named the field %q, want kind: %s",
+						round, index, refusal.Error.Field, recorder.Body.String())
+				}
+			default:
+				t.Fatalf("round %d: request %d answered %d, want 201 or 409: %s",
+					round, index, recorder.Code, recorder.Body.String())
+			}
+		}
+		if created != 1 {
+			t.Fatalf("round %d: %d of %d saves were kept, want exactly 1", round, created, attempts)
+		}
+		if count := notesCount(t, harness,
+			`SELECT COUNT(*) FROM notes_questions WHERE set_id = ? AND kind = 'what'`,
+			set.ID); count != 1 {
+			t.Fatalf("round %d: the set holds %d questions of the kind what, want 1", round, count)
+		}
 	}
 }
 
