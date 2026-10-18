@@ -156,6 +156,94 @@ func (s *NotesService) CreateHighlight(ctx context.Context, in NewHighlightInput
 	return NotesHighlightRecord{Row: row, Ambiguous: result.Ambiguous, Source: source}, nil
 }
 
+// NotesHighlightPassage is the passage a highlight is moved to: the words, the
+// context the client read off its own rendering, and where the search for them
+// starts.
+type NotesHighlightPassage struct {
+	Exact        string
+	Prefix       string
+	Suffix       string
+	PositionHint int
+}
+
+// ReplaceHighlightPassage moves a highlight onto another passage of the same
+// item, keeping its id.
+//
+// The id is the whole point: an annotation references the highlight by
+// `highlight_id`, so a mark that caught a few words too many is corrected here
+// rather than deleted and made again, which would take the notes written on it
+// with it. The item is not part of the input for the same reason -- a passage
+// moves inside the text it was marked in.
+//
+// The status comes out anchored, which is what makes this the way an orphaned
+// passage is placed again by hand: the person re-selecting it is looking at the
+// words in the article, and that is better evidence than a search. The offset
+// stored is still a search result wherever the search places the passage,
+// because a code-point offset into the item's text is the only thing the next
+// re-anchoring and the margin's reading order can use -- the hint a client
+// sends is measured against its own rendering and only orders the search.
+func (s *NotesService) ReplaceHighlightPassage(
+	ctx context.Context, id string, in NotesHighlightPassage,
+) (NotesHighlightRecord, error) {
+	exact := notesNormalizeText(in.Exact)
+	if exact == "" {
+		return NotesHighlightRecord{}, notesBadRequest("invalid_request", "a highlight needs a passage", "exact")
+	}
+	queries := db.New(s.database.Reader())
+	row, err := queries.GetNotesHighlightByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return NotesHighlightRecord{}, notesNotFound("highlight", id)
+		}
+		return NotesHighlightRecord{}, fmt.Errorf("reading the highlight %s: %w", id, err)
+	}
+	source, err := s.source(ctx, row.ItemID)
+	if err != nil {
+		return NotesHighlightRecord{}, err
+	}
+	prefix := notesTrimContext(in.Prefix, true)
+	suffix := notesTrimContext(in.Suffix, false)
+
+	hint := in.PositionHint
+	if hint < 0 {
+		hint = 0
+	}
+	text, textErr := s.texts.Text(ctx, row.ItemID)
+	switch {
+	case textErr == nil:
+		if found := notesAnchor(text, exact, prefix, suffix, hint); found.Status == NotesAnchored {
+			hint = found.Hint
+		}
+	case errors.Is(textErr, core.ErrNoText):
+	default:
+		return NotesHighlightRecord{}, fmt.Errorf("reading the text of %s: %w", row.ItemID, textErr)
+	}
+
+	row.Exact = exact
+	row.Prefix = prefix
+	row.Suffix = suffix
+	row.PositionHint = int64(hint)
+	row.Status = NotesAnchored
+	updated, err := db.New(s.database.Writer()).UpdateNotesHighlightPassage(ctx,
+		db.UpdateNotesHighlightPassageParams{
+			Exact:        row.Exact,
+			Prefix:       row.Prefix,
+			Suffix:       row.Suffix,
+			PositionHint: row.PositionHint,
+			Status:       row.Status,
+			ID:           id,
+		})
+	if err != nil {
+		return NotesHighlightRecord{}, fmt.Errorf("moving the highlight %s: %w", id, err)
+	}
+	// Deleted between the read and the write: the row the answer would
+	// describe is not there, so this is the same 404 the read would have given.
+	if err := notesRequireOneRow(updated, "highlight", id); err != nil {
+		return NotesHighlightRecord{}, err
+	}
+	return NotesHighlightRecord{Row: row, Source: source}, nil
+}
+
 // DeleteHighlight removes a passage, and with it the annotations hanging on it.
 func (s *NotesService) DeleteHighlight(ctx context.Context, id string) error {
 	deleted, err := db.New(s.database.Writer()).DeleteNotesHighlight(ctx, id)

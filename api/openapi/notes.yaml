@@ -76,6 +76,40 @@ paths:
         default:
           $ref: "#/components/responses/Error"
   /api/notes/highlights/{id}:
+    patch:
+      operationId: updateNoteHighlight
+      summary: Re-select a highlight's passage
+      description: |
+        The passage is replaced and the highlight keeps its id, which is what
+        keeps the notes written on it: an annotation references the highlight by
+        `highlight_id`, so a correction that deleted and re-created the passage
+        would take them with it.
+
+        The item is not part of the request: a passage moves inside the text it
+        was marked in, and a highlight that changed item would be a different
+        mark.
+
+        `exact` is not given a `minLength` here on purpose. The emptiness that
+        matters is emptiness after the server normalises the whitespace, which
+        the contract cannot express, so the refusal comes from the module and
+        names the field.
+      parameters:
+        - $ref: "#/components/parameters/PathID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/HighlightPassage"
+      responses:
+        "200":
+          description: The highlight on its new passage.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Highlight"
+        default:
+          $ref: "#/components/responses/Error"
     delete:
       operationId: deleteNoteHighlight
       summary: Delete a highlight
@@ -469,6 +503,40 @@ components:
         suffix:
           type: string
           description: The 32 code points after the passage, as the client saw them.
+    HighlightPassage:
+      type: object
+      additionalProperties: false
+      description: |
+        The passage a highlight is moved to, as the reader read it off the
+        rendered article: the words, the context around them, and where in the
+        text the search for them starts.
+
+        Every field is required rather than optional, because this is a
+        replacement and not a patch: a context left out would keep the one
+        stored for the words the person has just stopped marking, which is the
+        one thing that tells two occurrences of a sentence apart.
+      required:
+        - exact
+        - prefix
+        - suffix
+        - position_hint
+      properties:
+        exact:
+          type: string
+          description: The corrected passage.
+        prefix:
+          type: string
+          description: The 32 code points before the passage, as the client saw them.
+        suffix:
+          type: string
+          description: The 32 code points after the passage, as the client saw them.
+        position_hint:
+          type: integer
+          description: |
+            Where to start looking for the passage in the item's text. It only
+            orders the search, as it does on a re-anchoring: the offset stored
+            is the one the passage was found at, and a client with nothing
+            better to say sends 0.
     Highlight:
       type: object
       additionalProperties: false

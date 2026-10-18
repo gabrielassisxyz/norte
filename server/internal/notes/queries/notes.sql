@@ -31,6 +31,15 @@ SELECT DISTINCT item_id FROM notes_highlights ORDER BY item_id;
 -- name: SetNotesHighlightAnchor :exec
 UPDATE notes_highlights SET status = ?, position_hint = ? WHERE id = ?;
 
+-- Re-selecting the passage of a highlight that keeps its id, which is what
+-- keeps the annotations hanging on it. The status goes with the four columns
+-- for the reason the anchor statement above writes two at once: a passage and
+-- a status describing the passage it replaced are a row nothing can read.
+-- name: UpdateNotesHighlightPassage :execresult
+UPDATE notes_highlights
+SET exact = ?, prefix = ?, suffix = ?, position_hint = ?, status = ?
+WHERE id = ?;
+
 -- name: DeleteNotesHighlight :execresult
 DELETE FROM notes_highlights WHERE id = ?;
 
