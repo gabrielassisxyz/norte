@@ -49,6 +49,7 @@ type NotesQuestion struct {
 	Status       string
 	CreatedAt    string
 	UpdatedAt    string
+	HighlightID  sql.NullString
 }
 
 type NotesQuestionSet struct {

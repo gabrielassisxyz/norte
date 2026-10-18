@@ -53,6 +53,7 @@ func notesMapQuestion(record NotesQuestionRecord) notesapi.Question {
 		Id:           record.Row.ID,
 		ItemId:       notesNullString(record.Row.ItemID),
 		AnnotationId: notesNullString(record.Row.AnnotationID),
+		HighlightId:  notesNullString(record.Row.HighlightID),
 		SetId:        notesNullString(record.Row.SetID),
 		Text:         record.Row.Text,
 		Answer:       notesNullString(record.Row.Answer),
