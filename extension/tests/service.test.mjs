@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSaveService, loadTargets, CANNOT_READ, SERVER_ERROR, CONFIGURE, INTERRUPTED, resultKey,
   saveTimeoutMs, settleStale, clearOrphanedSaving, createReasonWriter, createSubjectNamed, deleteSavedItem,
-  linkItemToSubject, patchItemReason, REASON_DEBOUNCE_MS } from '../src/service.js';
+  linkItemToSubject, patchItemReason, REASON_DEBOUNCE_MS, VERSION_HINT } from '../src/service.js';
 
 const tab = { id: 17, url: 'https://example.test/article' };
 function saveAPI({ permission = true, injection = true } = {}) {
@@ -43,6 +43,34 @@ test('413 is visible and never falls back to URL only', async () => {
   assert.equal(result.message, 'the page is too large to save');
   assert.equal(posts, 1);
   assert.equal(api.stored[resultKey(tab.url)].state, 'error');
+});
+
+test('a refused save shows the reason the server gave, with the rebuild hint only for invalid_request', async () => {
+  const refusal = (status, body) => createSaveService(saveAPI(), async () => ({
+    ok: false, status, json: async () => body,
+  }))(tab);
+
+  const unsupported = await refusal(400, { error: { code: 'invalid_request', field: 'why',
+    message: 'property "why" is unsupported', request_id: 'r1' } });
+  assert.equal(unsupported.state, 'error');
+  assert.ok(unsupported.message.includes('property "why" is unsupported'), unsupported.message);
+  assert.ok(unsupported.message.includes(VERSION_HINT), unsupported.message);
+
+  const internal = await refusal(500, { error: { code: 'internal', message: 'the database is locked' } });
+  assert.equal(internal.message, 'Could not save: the database is locked');
+  assert.ok(!internal.message.includes(VERSION_HINT));
+});
+
+test('a refusal whose body is not an error envelope keeps the status sentence', async () => {
+  const notJSON = await createSaveService(saveAPI(), async () => ({
+    ok: false, status: 502, json: async () => { throw new SyntaxError('Unexpected token <'); },
+  }))(tab);
+  assert.equal(notJSON.message, 'Could not save (HTTP 502). Try again.');
+
+  const noEnvelope = await createSaveService(saveAPI(), async () => ({
+    ok: false, status: 404, json: async () => ({ detail: 'not found' }),
+  }))(tab);
+  assert.equal(noEnvelope.message, 'Could not save (HTTP 404). Try again.');
 });
 
 test('missing grant requires configuration without attempting server or page access', async () => {
