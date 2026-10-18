@@ -239,6 +239,19 @@ describe('the notes API source: the writes', () => {
     expect(updated).toMatchObject({ text: 'rewritten' })
   })
 
+  it('attaches a passage to an annotation with PATCH and only the passage in the body', async () => {
+    fetchStub.mockResolvedValue(json({ id: 'a-1', text: 'written earlier', highlight_id: 'h-1' }))
+
+    const updated = await createApiNotesSource().attachAnnotationPassage('a-1', 'h-1')
+
+    expect(lastRequest().method).toBe('PATCH')
+    expect(lastUrl().pathname).toBe('/api/notes/annotations/a-1')
+    // The text is not sent: this call anchors a note, and a body carrying the
+    // text as well would rewrite it to whatever the screen was holding.
+    expect(await lastRequest().clone().json()).toEqual({ highlight_id: 'h-1' })
+    expect(updated).toMatchObject({ highlight_id: 'h-1' })
+  })
+
   it('deletes an annotation by its id and reports a failure to delete', async () => {
     fetchStub.mockResolvedValueOnce(new Response(null, { status: 204 }))
     await createApiNotesSource().deleteAnnotation('a-1')

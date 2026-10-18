@@ -39,6 +39,11 @@ beforeEach(() => {
   // jsdom has no scrollIntoView, and the sheet uses it to bring the question
   // form into view when the bar asks for it.
   HTMLElement.prototype.scrollIntoView = () => {}
+  // It computes no layout either, so a Range answers neither of the two calls
+  // the selection toolbar is placed with. Where it lands is the Playwright
+  // walk's claim; that it is on the page is this file's.
+  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0)
 })
 
 afterEach(() => {
@@ -103,7 +108,8 @@ describe('the reader on a phone', () => {
       expect(bar.find(`[data-action="${action}"]`).exists()).toBe(true)
     }
     // The notes module's own controls arrive through the bottom-actions slot.
-    expect(bar.find('[data-action="highlight"]').exists()).toBe(true)
+    // Highlighting is not one of them any more: a selection highlights itself.
+    expect(bar.find('[data-action="highlight"]').exists()).toBe(false)
     expect(bar.find('[data-action="annotate-open"]').exists()).toBe(true)
     expect(bar.find('[data-action="question-open"]').exists()).toBe(true)
   })
@@ -126,38 +132,34 @@ describe('the reader on a phone', () => {
     expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { location: 'later' } }])
   })
 
-  it('reads a selection that fired no mouseup, and highlights it from the bar', async () => {
+  it('highlights a selection that fired no mouseup, and opens the toolbar over it', async () => {
     const { wrapper, notes } = await mountReader()
 
     // A long press and the handles that follow it produce neither a mouseup nor
     // a keyup, which is all the reader used to listen to. This is that case.
-    expect(wrapper.get('[data-action="highlight"]').attributes('disabled')).toBeDefined()
-
     selectInArticle('The marked passage.')
     document.dispatchEvent(new Event('selectionchange'))
     await settleSelection()
 
-    expect(wrapper.get('[data-action="highlight"]').attributes('disabled')).toBeUndefined()
-    await wrapper.get('[data-action="highlight"]').trigger('click')
-    await flushReads()
-
     expect(notes.calls.addedHighlights).toHaveLength(1)
     expect(notes.calls.addedHighlights[0].exact).toBe('The marked passage.')
     expect(notes.calls.addedHighlights[0].prefix).toContain('Before the passage.')
+    expect(wrapper.find('.notes-seltool').exists()).toBe(true)
   })
 
   it('reads the selection once per burst of selectionchange, not once per event', async () => {
-    const { wrapper } = await mountReader()
+    const { wrapper, notes } = await mountReader()
 
     selectInArticle('The marked passage.')
     for (let i = 0; i < 5; i += 1) document.dispatchEvent(new Event('selectionchange'))
-    // Nothing yet: the debounce is what keeps the control from flickering
-    // through every passage a dragged handle passes over.
+    // Nothing yet: the debounce is what keeps a dragged handle from highlighting
+    // every passage the finger passes over.
     await flushReads()
-    expect(wrapper.get('[data-action="highlight"]').attributes('disabled')).toBeDefined()
+    expect(notes.calls.addedHighlights).toEqual([])
 
     await settleSelection()
-    expect(wrapper.get('[data-action="highlight"]').attributes('disabled')).toBeUndefined()
+    expect(notes.calls.addedHighlights).toHaveLength(1)
+    expect(wrapper.find('.notes-seltool').exists()).toBe(true)
   })
 
   it('opens the annotations sheet from the bar and closes it again', async () => {

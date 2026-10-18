@@ -99,6 +99,7 @@ export interface FakeNotesCalls {
   deletedHighlights: string[]
   addedAnnotations: NewAnnotation[]
   updatedAnnotations: Array<{ id: string; text: string }>
+  attachedPassages: Array<{ id: string; highlight_id: string }>
   deletedAnnotations: string[]
   addedQuestions: NewQuestion[]
   updatedQuestions: Array<{ id: string; patch: QuestionPatch }>
@@ -169,6 +170,7 @@ export function fakeNotesSource(
     deletedHighlights: [],
     addedAnnotations: [],
     updatedAnnotations: [],
+    attachedPassages: [],
     deletedAnnotations: [],
     addedQuestions: [],
     updatedQuestions: [],
@@ -301,6 +303,20 @@ export function fakeNotesSource(
       const index = held.annotations.findIndex((row) => row.id === id)
       if (index < 0) throw new Error('no annotation')
       const updated = { ...held.annotations[index], text: text.trim(), updated_at: '2026-10-09T12:00:00Z' }
+      held.annotations.splice(index, 1, updated)
+      return updated
+    },
+
+    async attachAnnotationPassage(id, highlightId) {
+      calls.attachedPassages.push({ id, highlight_id: highlightId })
+      const index = held.annotations.findIndex((row) => row.id === id)
+      if (index < 0) throw new Error('no annotation')
+      // The server refuses a note that already hangs on a passage, so the fake
+      // has to as well: a caller that got a 200 here would be testing a request
+      // the real one rejects.
+      const annotation = held.annotations[index]
+      if (annotation.highlight_id) throw new Error('the note already hangs on a passage')
+      const updated = { ...annotation, highlight_id: highlightId, updated_at: '2026-10-09T12:00:00Z' }
       held.annotations.splice(index, 1, updated)
       return updated
     },

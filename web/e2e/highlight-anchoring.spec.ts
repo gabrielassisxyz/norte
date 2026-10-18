@@ -114,9 +114,9 @@ test.describe('a highlight whose context crosses a paragraph boundary', () => {
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
     await selectInsideParagraph(page, PASSAGE, skip)
-    const highlight = page.locator('.notes-selection-bar [data-action="highlight"]')
-    await expect(highlight).toBeEnabled()
-    await highlight.click()
+    // Nothing is clicked: releasing the selection is what highlights it, and
+    // the toolbar over the passage is how that is visible.
+    await expect(page.locator('.notes-seltool')).toBeVisible()
 
     // The server's half: the passage was placed, at the offset counted above.
     await expect
@@ -137,5 +137,29 @@ test.describe('a highlight whose context crosses a paragraph boundary', () => {
       (await marked.allTextContents()).join('')
     ).toBe(selected)
     await expect(page.locator('.notes-reader-orphans')).toHaveCount(0)
+
+    // A note written in the toolbar, against the highlight it just made.
+    await page.locator('[data-action="toolbar-annotate"]').click()
+    await page.locator('.notes-seltool-field').fill('Worth coming back to.')
+    await page.locator('[data-action="toolbar-save-annotation"]').click()
+    await expect
+      .poll(async () => {
+        const stored = await api<NotesPage<{ text: string; highlight_id?: string }>>(
+          server.baseURL,
+          `/api/notes/annotations?item_id=${article.id}`
+        )
+        return stored.items.map((annotation) => [annotation.text, annotation.highlight_id !== undefined])
+      })
+      .toEqual([['Worth coming back to.', true]])
+
+    // And after a reload the note is in the margin under its own passage,
+    // which is the half a request cannot show: the note is placed by the
+    // passage it hangs on, not by the order it was written in.
+    await page.reload()
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+    const row = page.locator('[data-entry="annotation"]')
+    await expect(row).toHaveCount(1)
+    await expect(row).toContainText('Worth coming back to.')
+    await expect(row).toContainText(selected)
   })
 })
