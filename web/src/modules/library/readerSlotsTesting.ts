@@ -20,6 +20,7 @@ export function readerSlotProps(overrides: Partial<ReaderSlotProps> = {}): Reade
     scrollToPassage: () => {},
     phone: false,
     openNotes: () => {},
+    closeNotes: () => {},
     notesSection: null,
     ...overrides
   }

@@ -554,6 +554,7 @@ const slotProps = computed(() => ({
   scrollToPassage,
   phone: phone.value,
   openNotes,
+  closeNotes,
   notesSection: notesSection.value
 }))
 

@@ -7,6 +7,7 @@ import { useAsyncAction } from '@/lib/asyncResource'
 import { useSources } from '@/sources'
 
 import { useItemNotes } from '../data/composables'
+import { annotationAwaitingPassage } from '../data/passageAttach'
 import { notesGainedNote } from '../data/revision'
 import type { AnnotationRecord, HighlightRecord } from '../data/source'
 import { markPassage } from './passageMarking'
@@ -187,6 +188,10 @@ watch(
   () => props.liveSelection,
   (selected) => {
     if (!allowed.value || !selected) return
+    // A selection made to attach a loose note is the panel's: it makes the
+    // highlight itself and links the note to it, and a second highlight from
+    // here would be the same words stored twice with a toolbar over them.
+    if (annotationAwaitingPassage()) return
     void highlightSelection(selected)
   }
 )
