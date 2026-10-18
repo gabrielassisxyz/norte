@@ -7,6 +7,11 @@ export const CONFIGURE = 'configure the server';
 export const INTERRUPTED = 'The save was interrupted. Try again.';
 export const resultKey = (url) => `save:${url}`;
 
+// The popup's own edits are small requests against an item that already exists.
+const EDIT_TIMEOUT_MS = 15000;
+const JSON_HEADERS = { 'Content-Type': 'application/json' };
+export const REASON_DEBOUNCE_MS = 800;
+
 const BASE_TIMEOUT_MS = 25000;
 const MAX_TIMEOUT_MS = 300000;
 const BYTES_PER_EXTRA_SECOND = 512 * 1024;
@@ -100,8 +105,10 @@ export async function loadTargets(origin, query, fetcher = fetch) {
   if (!focusResponse.ok) throw new Error(SERVER_ERROR);
   const focus = await focusResponse.json();
   const subjects = [];
+  // An empty field offers the focus, the way the web picker does; asking for
+  // every page of the whole vocabulary would be a read nothing renders.
   let cursor;
-  do {
+  while (query.trim()) {
     const params = new URLSearchParams({ q: query, limit: '100' });
     if (cursor) params.set('cursor', cursor);
     const response = await fetcher(`${origin}/api/core/subjects?${params}`, { signal: AbortSignal.timeout(10000) });
@@ -109,8 +116,95 @@ export async function loadTargets(origin, query, fetcher = fetch) {
     const page = await response.json();
     subjects.push(...page.items);
     cursor = page.next_cursor;
-  } while (cursor);
+    if (!cursor) break;
+  }
   return [...focus.targets, ...focus.subjects.map((subject) => ({ ...subject, title: subject.name, type: 'subject' })),
     ...subjects.map((subject) => ({ ...subject, title: subject.name, type: 'subject' }))]
     .filter((target, index, all) => all.findIndex((other) => other.id === target.id) === index);
+}
+
+async function editRequest(url, options, fetcher, failure) {
+  let response;
+  try {
+    response = await fetcher(url, { ...options, signal: AbortSignal.timeout(EDIT_TIMEOUT_MS), redirect: 'error' });
+  } catch { throw new Error(SERVER_ERROR); }
+  if (!response.ok) throw new Error(`${failure} (HTTP ${response.status})`);
+  return response.status === 204 ? null : await response.json();
+}
+
+export function patchItemReason(origin, id, reason, fetcher = fetch) {
+  return editRequest(`${origin}/api/library/items/${id}`,
+    { method: 'PATCH', headers: JSON_HEADERS, body: JSON.stringify({ reason }) },
+    fetcher, 'The note could not be saved');
+}
+
+export function createSubjectNamed(origin, name, fetcher = fetch) {
+  return editRequest(`${origin}/api/core/subjects`,
+    { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ name }) },
+    fetcher, 'The subject could not be created');
+}
+
+export function linkItemToSubject(origin, itemId, subjectId, fetcher = fetch) {
+  return editRequest(`${origin}/api/core/links`,
+    { method: 'POST', headers: JSON_HEADERS, body: JSON.stringify({ src_id: itemId, dst_id: subjectId, kind: 'about' }) },
+    fetcher, 'The subject could not be linked');
+}
+
+// A deleted item leaves no stored result behind, so the next click on the
+// extension saves the page again instead of showing something that is gone.
+export async function deleteSavedItem(browserAPI, url, origin, id, fetcher = fetch) {
+  let response;
+  try {
+    response = await fetcher(`${origin}/api/library/items/${id}`,
+      { method: 'DELETE', signal: AbortSignal.timeout(EDIT_TIMEOUT_MS), redirect: 'error' });
+  } catch { throw new Error(SERVER_ERROR); }
+  // A 404 means somebody else already deleted it, which is the outcome asked for.
+  if (!response.ok && response.status !== 404) throw new Error(`The item could not be deleted (HTTP ${response.status})`);
+  await browserAPI.storage.local.remove(resultKey(url));
+  return { state: 'deleted' };
+}
+
+/**
+ * Collects reason keystrokes and writes them once the typing stops.
+ *
+ * The id is attached separately because the popup starts saving the page and
+ * accepting a reason at the same moment: text typed before the POST answers is
+ * held here and written as soon as there is an item to write it to.
+ */
+export function createReasonWriter({ write, delay = REASON_DEBOUNCE_MS, schedule = setTimeout, cancel = clearTimeout, onState = () => {} }) {
+  let timer, id = null, latest = '', sent = null, sending = false, touched = false;
+
+  async function flush() {
+    cancel(timer);
+    if (id === null || sending || latest === sent) return;
+    const text = latest;
+    sending = true;
+    onState('saving');
+    let written = false;
+    try {
+      await write(id, text);
+      sent = text;
+      written = true;
+      onState('saved');
+    } catch { onState('error'); }
+    sending = false;
+    // Only a successful write may chase a newer keystroke; a failed one would spin.
+    if (written && latest !== sent) await flush();
+  }
+
+  return {
+    type(text) {
+      touched = true;
+      latest = text;
+      cancel(timer);
+      timer = schedule(() => { flush(); }, delay);
+    },
+    blur() { return flush(); },
+    attach(itemId, savedReason = '') {
+      id = itemId;
+      sent = savedReason;
+      if (!touched) latest = savedReason;
+      return flush();
+    },
+  };
 }
