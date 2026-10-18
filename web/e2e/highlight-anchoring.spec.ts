@@ -221,3 +221,133 @@ test.describe('a loose note attached to a passage chosen afterwards', () => {
     await expect(page.locator(`mark[data-notes-passage="${PASSAGE}"]`).first()).toBeVisible()
   })
 })
+
+/**
+ * Select from the start of `from` to the end of `to`, across however many text
+ * nodes lie between them.
+ *
+ * It is a second helper rather than a parameter on the one above because the
+ * range a correction needs crosses the mark the first highlight left in the
+ * text: a passage already marked sits inside a `mark` element, so its words and
+ * the words after it are in different text nodes, and a Range over both is the
+ * only way to select what the person drags over.
+ */
+async function selectAcrossNodes(page: Page, from: string, to: string): Promise<void> {
+  await page.evaluate(
+    ({ from, to }) => {
+      const article = document.querySelector('.article-content')
+      if (!article) throw new Error('the article is not on the page')
+      const nodes: Text[] = []
+      const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT)
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text)
+      const start = nodes
+        .map((node) => ({ node, at: (node.textContent ?? '').indexOf(from) }))
+        .find((candidate) => candidate.at >= 0)
+      const end = nodes
+        .map((node) => ({ node, at: (node.textContent ?? '').indexOf(to) }))
+        .find((candidate) => candidate.at >= 0)
+      if (!start || !end) throw new Error(`the article does not hold ${from} and ${to}`)
+      const range = document.createRange()
+      range.setStart(start.node, start.at)
+      range.setEnd(end.node, end.at + to.length)
+      const selection = document.getSelection()
+      selection?.removeAllRanges()
+      selection?.addRange(range)
+      document.dispatchEvent(new Event('selectionchange'))
+    },
+    { from, to }
+  )
+}
+
+/**
+ * A mark that caught too few words, corrected without losing the note on it.
+ *
+ * It belongs with a real server for the reason the two cases above do: what the
+ * highlight ends up holding is a passage the browser produced from its own
+ * Range over the marked text, and the half only a reload can show — the note
+ * still in the margin, quoting the corrected words — is read back from storage.
+ */
+test.describe("a highlight's passage re-selected after a note was written on it", () => {
+  test('moves the passage, keeps the note, and quotes the new words after a reload', async ({ page }) => {
+    const title = 'A mark that caught too few words'
+    const article = await seedArticle(server.baseURL, {
+      url: 'https://example.invalid/reselect-passage',
+      title,
+      html: articleHtml({ title })
+    })
+    const CONTINUES = 'Depois dela o texto continua,'
+    const corrected = collapse(`${PASSAGE} ${CONTINUES}`)
+
+    await page.goto(`${server.baseURL}/library/${article.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    await selectInsideParagraph(page, PASSAGE, 0)
+    await expect(page.locator('.notes-seltool')).toBeVisible()
+    await page.locator('[data-action="toolbar-annotate"]').click()
+    await page.locator('.notes-seltool-field').fill('The point, with the words it was about.')
+    await page.locator('[data-action="toolbar-save-annotation"]').click()
+    await expect
+      .poll(async () => {
+        const stored = await api<NotesPage<{ highlight_id?: string }>>(
+          server.baseURL,
+          `/api/notes/annotations?item_id=${article.id}`
+        )
+        return stored.items.map((annotation) => annotation.highlight_id !== undefined)
+      })
+      .toEqual([true])
+    const before = await api<NotesPage<StoredHighlight & { id: string }>>(
+      server.baseURL,
+      `/api/notes/highlights?item_id=${article.id}`
+    )
+    const highlightId = before.items[0].id
+
+    // The correction itself: the toolbar for the marked passage, its More menu,
+    // and then the longer passage dragged over in the article.
+    await page.locator('mark[data-notes-passage]').first().click()
+    await page.locator('[aria-label="More"]').click()
+    await page.locator('[data-action="toolbar-reselect"]').click()
+    await expect(page.locator('[data-notes-reselect]')).toContainText('Select the new passage')
+
+    await selectAcrossNodes(page, PASSAGE, CONTINUES)
+
+    // The same highlight, on the new words, placed in the server's own text.
+    await expect
+      .poll(async () => {
+        const stored = await api<NotesPage<StoredHighlight & { id: string }>>(
+          server.baseURL,
+          `/api/notes/highlights?item_id=${article.id}`
+        )
+        return stored.items.map((highlight) => [highlight.id, highlight.exact, highlight.status])
+      })
+      .toEqual([[highlightId, corrected, 'anchored']])
+    const item = await api<{ content_text: string }>(server.baseURL, `/api/library/items/${article.id}`)
+    const text = collapse(item.content_text)
+    expect([...text]).toHaveLength(text.length)
+    const stored = await api<NotesPage<StoredHighlight>>(
+      server.baseURL,
+      `/api/notes/highlights?item_id=${article.id}`
+    )
+    expect(stored.items[0].position_hint).toBe(text.indexOf(corrected))
+    // The note is still the same note, on the same highlight.
+    await expect
+      .poll(async () => {
+        const kept = await api<NotesPage<{ text: string; highlight_id?: string }>>(
+          server.baseURL,
+          `/api/notes/annotations?item_id=${article.id}`
+        )
+        return kept.items.map((annotation) => [annotation.text, annotation.highlight_id])
+      })
+      .toEqual([['The point, with the words it was about.', highlightId]])
+    await expect(page.locator('[data-notes-reselect]')).toHaveCount(0)
+
+    await page.reload()
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+    const row = page.locator('[data-entry="annotation"]')
+    await expect(row).toHaveCount(1)
+    await expect(row).toContainText('The point, with the words it was about.')
+    await expect(row).toContainText(corrected)
+    await expect(page.locator('.notes-reader-orphans')).toHaveCount(0)
+    const marked = page.locator('mark[data-notes-passage]')
+    expect(collapse((await marked.allTextContents()).join(''))).toBe(corrected)
+  })
+})

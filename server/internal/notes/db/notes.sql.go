@@ -508,6 +508,36 @@ func (q *Queries) UpdateNotesAnnotationText(ctx context.Context, arg UpdateNotes
 	return q.db.ExecContext(ctx, updateNotesAnnotationText, arg.Text, arg.UpdatedAt, arg.ID)
 }
 
+const updateNotesHighlightPassage = `-- name: UpdateNotesHighlightPassage :execresult
+UPDATE notes_highlights
+SET exact = ?, prefix = ?, suffix = ?, position_hint = ?, status = ?
+WHERE id = ?
+`
+
+type UpdateNotesHighlightPassageParams struct {
+	Exact        string
+	Prefix       string
+	Suffix       string
+	PositionHint int64
+	Status       string
+	ID           string
+}
+
+// Re-selecting the passage of a highlight that keeps its id, which is what
+// keeps the annotations hanging on it. The status goes with the four columns
+// for the reason the anchor statement above writes two at once: a passage and
+// a status describing the passage it replaced are a row nothing can read.
+func (q *Queries) UpdateNotesHighlightPassage(ctx context.Context, arg UpdateNotesHighlightPassageParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, updateNotesHighlightPassage,
+		arg.Exact,
+		arg.Prefix,
+		arg.Suffix,
+		arg.PositionHint,
+		arg.Status,
+		arg.ID,
+	)
+}
+
 const updateNotesQuestion = `-- name: UpdateNotesQuestion :execresult
 UPDATE notes_questions SET text = ?, answer = ?, status = ?, updated_at = ? WHERE id = ?
 `

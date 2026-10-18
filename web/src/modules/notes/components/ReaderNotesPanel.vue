@@ -10,7 +10,13 @@ import { crossModuleActionAllowed } from '@/modules/mounting'
 import { useSources } from '@/sources'
 
 import { useItemNote, useItemNotes, useItemQuestions } from '../data/composables'
-import { annotationAwaitingPassage, beginPassageAttach, endPassageAttach } from '../data/passageAttach'
+import {
+  annotationAwaitingPassage,
+  beginPassageAttach,
+  beginPassageReselect,
+  endPassageAttach,
+  highlightAwaitingPassage
+} from '../data/passageAttach'
 import { noteChanged, notesGainedNote } from '../data/revision'
 import type { AnnotationRecord, HighlightRecord, QuestionRecord } from '../data/source'
 
@@ -356,6 +362,25 @@ function cancelAttach(): void {
   endPassageAttach()
 }
 
+/* ----------------------------------------- correcting a passage's words */
+
+/**
+ * The passage whose words are being re-selected, or null when none is.
+ *
+ * This panel only asks for the correction: the request and the mark in the text
+ * belong to the passage layer over the article, which is the one holding the
+ * marks. What is left here is saying which row the banner over the article is
+ * about, and getting the sheet out of the way on a phone.
+ */
+const reselecting = computed(() => highlightAwaitingPassage())
+
+function startReselect(highlight: HighlightRecord): void {
+  beginPassageReselect(highlight.id)
+  // On a phone the panel is the sheet, and the sheet covers the article the
+  // new passage has to be selected in.
+  if (props.phone) props.closeNotes()
+}
+
 function onAttachKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Escape' || !attaching.value) return
   cancelAttach()
@@ -478,7 +503,8 @@ async function retry(): Promise<void> {
         class="notes-reader-entry"
         :class="{
           'is-continued': entry.kind === 'annotation' && entry.continued,
-          'is-attaching': entry.kind === 'annotation' && entry.annotation.id === attaching
+          'is-attaching': entry.kind === 'annotation' && entry.annotation.id === attaching,
+          'is-reselecting': !!entry.highlight && entry.highlight.id === reselecting
         }"
         :data-entry="entry.kind"
         :data-key="entry.key"
@@ -564,6 +590,14 @@ async function retry(): Promise<void> {
             >
               Attach to passage
             </button>
+            <button
+              v-if="entry.highlight && entry.kind !== 'question'"
+              type="button"
+              data-action="reselect-passage"
+              @click="startReselect(entry.highlight)"
+            >
+              Re-select passage
+            </button>
             <button type="button" data-action="delete" :disabled="writing.pending.value" @click="removeEntry(entry)">
               Delete
             </button>
@@ -597,9 +631,17 @@ async function retry(): Promise<void> {
       <p class="notes-reader-empty">
         They may be repeated in the text or no longer in it. They are still kept.
       </p>
-      <blockquote v-for="highlight in orphaned" :key="highlight.id" class="notes-reader-orphan">
-        {{ highlight.exact }}
-      </blockquote>
+      <div v-for="highlight in orphaned" :key="highlight.id" class="notes-reader-orphan-row">
+        <blockquote class="notes-reader-orphan">{{ highlight.exact }}</blockquote>
+        <!--
+          Re-selecting is how one of these is anchored again by hand: the words
+          are somewhere in the text and the person can see where, which is more
+          than the search that failed could tell.
+        -->
+        <button type="button" data-action="reselect-passage" @click="startReselect(highlight)">
+          Re-select passage
+        </button>
+      </div>
     </section>
 
     <form class="notes-reader-form" @submit.prevent="turnIntoQuestion">
@@ -697,6 +739,10 @@ async function retry(): Promise<void> {
 .notes-reader-empty { margin: 0; color: var(--muted); font-size: 14px; line-height: 22px; }
 .notes-reader-orphans { display: grid; gap: var(--space-2); }
 .notes-reader-orphans h3 { margin: 0; color: var(--ink); font-family: var(--font-display); font-size: 15px; font-weight: 600; }
+.notes-reader-orphan-row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); }
+.notes-reader-orphan-row button { flex: none; padding: 0; border: 0; background: none; color: var(--muted); cursor: pointer; font-family: var(--font-display); font-size: 12px; font-weight: 550; }
+.notes-reader-orphan-row button:hover { color: var(--ink); }
+.notes-reader-orphan-row button:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
 .notes-reader-orphan { margin: 0; padding: 2px 0 2px 12px; border-left: 2px solid var(--line-strong); color: var(--ink-2); font-size: 14px; line-height: 22px; }
 .notes-reader-error { margin: 0; color: var(--danger); font-size: 13px; line-height: 20px; }
 /* Over the article, at the top of the window, clear of the text being picked. */
@@ -737,6 +783,7 @@ async function retry(): Promise<void> {
 .notes-reader-attach button:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
 
 /* The row whose passage is being picked, so a wide screen says which note the banner is about. */
-.notes-reader-entry.is-attaching { background: var(--norte-soft); }
+.notes-reader-entry.is-attaching,
+.notes-reader-entry.is-reselecting { background: var(--norte-soft); }
 .notes-reader-retry { margin-left: var(--space-2); border: 0; background: none; color: var(--norte); cursor: pointer; font-family: var(--font-display); font-size: 12px; font-weight: 550; }
 </style>

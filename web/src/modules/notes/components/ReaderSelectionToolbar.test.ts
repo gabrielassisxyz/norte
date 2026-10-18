@@ -9,6 +9,7 @@ import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { routes } from '@/router'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
+import { endPassageReselect } from '../data/passageAttach'
 import ReaderSelectionToolbar, { type ToolbarAnchor } from './ReaderSelectionToolbar.vue'
 import { annotationRecord, fakeNotesSource, highlightRecord, type FakeNotesRecords } from '../data/testing'
 
@@ -96,6 +97,9 @@ beforeEach(() => {
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount()
   resetModuleMounting()
+  // What the next selection is for is module state: a case that failed while
+  // a passage was waiting to be re-selected would hand that wait to the next.
+  endPassageReselect()
   document.body.innerHTML = ''
   vi.restoreAllMocks()
 })
@@ -370,5 +374,138 @@ describe('where the toolbar puts itself', () => {
     window.dispatchEvent(new Event('scroll'))
 
     expect(wrapper.emitted('close')).toHaveLength(1)
+  })
+})
+
+/**
+ * Correcting a mark that caught the wrong words, which is the whole gesture:
+ * the passage is picked in the article, so what proves it is the reader rather
+ * than a component on its own — the toolbar that asks, the banner while the
+ * person picks, the one request, and the mark that ends up on the new words.
+ */
+describe("re-selecting a highlight's passage", () => {
+  const CORRECTED = 'After the passage.'
+
+  /** The banner over the article, which is teleported out of the passage layer. */
+  function banner(): HTMLElement | null {
+    return document.querySelector('[data-notes-reselect]')
+  }
+
+  function markedPassages(wrapper: Awaited<ReturnType<typeof mountReader>>['wrapper']): string[] {
+    return wrapper.findAll('mark[data-notes-passage]').map((mark) => mark.attributes('data-notes-passage') ?? '')
+  }
+
+  it('moves the mark onto the new words with one request, keeping the highlight', async () => {
+    const { wrapper, notes } = await mountReader()
+    await releaseSelection(wrapper)
+    const created = notes.held.highlights[0].id
+
+    await wrapper.get('[aria-label="More"]').trigger('click')
+    await wrapper.get('[data-action="toolbar-reselect"]').trigger('click')
+    await flushReads()
+
+    // The toolbar is out of the way and the banner says what the next
+    // selection is for.
+    expect(wrapper.find('.notes-seltool').exists()).toBe(false)
+    expect(banner()?.textContent).toContain('Select the new passage')
+
+    await releaseSelection(wrapper, CORRECTED)
+
+    expect(notes.calls.reselectedPassages).toHaveLength(1)
+    const sent = notes.calls.reselectedPassages[0]
+    expect(sent.id).toBe(created)
+    expect(sent.passage.exact).toBe(CORRECTED)
+    // The context travels for the reason it does on a creation: it is what
+    // tells two occurrences of one sentence apart.
+    expect(sent.passage.prefix).toContain('marked passage')
+    // An offset measured in the browser's DOM says nothing about the server's
+    // text, so the hint is 0 and the server searches.
+    expect(sent.passage.position_hint).toBe(0)
+
+    // Moved, not made again: the id is the one the notes on it reference.
+    expect(notes.calls.addedHighlights).toHaveLength(1)
+    expect(notes.held.highlights.map((highlight) => [highlight.id, highlight.exact])).toEqual([[created, CORRECTED]])
+    expect(markedPassages(wrapper)).toEqual([CORRECTED])
+    expect(banner()).toBeNull()
+  })
+
+  it('keeps the notes written on the passage, which is what the correction is for', async () => {
+    const { wrapper, notes } = await mountReader({
+      notes: {
+        highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: PASSAGE })],
+        annotations: [annotationRecord({ id: 'a-1', item_id: 'item-1', highlight_id: 'h-1', text: 'Worth keeping.' })]
+      }
+    })
+
+    await wrapper.get('mark[data-notes-passage]').trigger('click')
+    await wrapper.get('[aria-label="More"]').trigger('click')
+    await wrapper.get('[data-action="toolbar-reselect"]').trigger('click')
+    await releaseSelection(wrapper, CORRECTED)
+
+    expect(notes.held.annotations.map((annotation) => [annotation.text, annotation.highlight_id])).toEqual([
+      ['Worth keeping.', 'h-1']
+    ])
+    // And the margin beside the text quotes the corrected words under that note.
+    const row = wrapper.get('.notes-reader-entry[data-key="annotation-a-1"]')
+    expect(row.text()).toContain('Worth keeping.')
+    expect(row.text()).toContain(CORRECTED)
+  })
+
+  it('anchors a passage the text no longer holds, from the list beside the text', async () => {
+    const { wrapper, notes } = await mountReader({
+      notes: {
+        highlights: [
+          highlightRecord({
+            id: 'h-gone',
+            item_id: 'item-1',
+            exact: 'A sentence this text never held.',
+            status: 'orphaned'
+          })
+        ]
+      }
+    })
+    expect(wrapper.find('.notes-reader-orphans').exists()).toBe(true)
+
+    await wrapper.get('.notes-reader-orphan-row [data-action="reselect-passage"]').trigger('click')
+    await releaseSelection(wrapper)
+    await flushReads()
+
+    expect(notes.calls.reselectedPassages.map((call) => [call.id, call.passage.exact])).toEqual([['h-gone', PASSAGE]])
+    expect(notes.held.highlights[0].status).toBe('anchored')
+    // Out of the section it was listed in, and marked in the text instead.
+    expect(wrapper.find('.notes-reader-orphans').exists()).toBe(false)
+    expect(markedPassages(wrapper)).toEqual([PASSAGE])
+  })
+
+  it('goes back to highlighting after Cancel, rather than correcting the next selection', async () => {
+    const { wrapper, notes } = await mountReader()
+    await releaseSelection(wrapper)
+
+    await wrapper.get('[aria-label="More"]').trigger('click')
+    await wrapper.get('[data-action="toolbar-reselect"]').trigger('click')
+    await flushReads()
+    ;(banner()?.querySelector('[data-action="cancel-reselect"]') as HTMLButtonElement).click()
+    await flushReads()
+    expect(banner()).toBeNull()
+
+    await releaseSelection(wrapper, CORRECTED)
+
+    expect(notes.calls.reselectedPassages).toEqual([])
+    expect(notes.calls.addedHighlights).toHaveLength(2)
+  })
+
+  it('sends nothing for a selection made after Escape', async () => {
+    const { wrapper, notes } = await mountReader()
+    await releaseSelection(wrapper)
+
+    await wrapper.get('[aria-label="More"]').trigger('click')
+    await wrapper.get('[data-action="toolbar-reselect"]').trigger('click')
+    await flushReads()
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushReads()
+
+    expect(banner()).toBeNull()
+    await releaseSelection(wrapper, CORRECTED)
+    expect(notes.calls.reselectedPassages).toEqual([])
   })
 })

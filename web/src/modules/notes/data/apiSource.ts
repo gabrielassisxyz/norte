@@ -8,6 +8,7 @@ import type {
   HighlightRecord,
   ItemNoteRecord,
   ItemNotes,
+  HighlightPassage,
   NewAnnotation,
   NewHighlight,
   NewQuestion,
@@ -190,6 +191,14 @@ export function createApiNotesSource(): NotesSource {
 
     async addHighlight(highlight: NewHighlight) {
       const answered = await notesClient.POST('/api/notes/highlights', { body: highlight })
+      return unwrap(answered as Answered<HighlightRecord>)
+    },
+
+    async reselectHighlightPassage(id: string, passage: HighlightPassage) {
+      const answered = await notesClient.PATCH('/api/notes/highlights/{id}', {
+        params: { path: { id } },
+        body: passage
+      })
       return unwrap(answered as Answered<HighlightRecord>)
     },
 
