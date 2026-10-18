@@ -1,15 +1,16 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import AnnotationItem from '@/components/ds/AnnotationItem.vue'
 import Button from '@/components/ds/Button.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
-import { useAsyncAction } from '@/lib/asyncResource'
-import type { ReaderSlotProps } from '@/modules/library/readerSlots'
+import { describeFailure, useAsyncAction } from '@/lib/asyncResource'
+import type { ReaderLiveSelection, ReaderSlotProps } from '@/modules/library/readerSlots'
 import { crossModuleActionAllowed } from '@/modules/mounting'
 import { useSources } from '@/sources'
 
 import { useItemNote, useItemNotes, useItemQuestions } from '../data/composables'
+import { annotationAwaitingPassage, beginPassageAttach, endPassageAttach } from '../data/passageAttach'
 import { noteChanged, notesGainedNote } from '../data/revision'
 import type { AnnotationRecord, HighlightRecord, QuestionRecord } from '../data/source'
 
@@ -68,6 +69,7 @@ const writing = useAsyncAction()
 
 const {
   data: itemNotes,
+  applyHighlight,
   applyAnnotation,
   replaceAnnotation,
   dropAnnotation,
@@ -328,6 +330,94 @@ async function removeEntry(entry: MarginEntry): Promise<void> {
   notesGainedNote()
 }
 
+/* --------------------------------------------- attaching a note to a passage */
+
+/**
+ * The note whose passage is being picked, and what went wrong picking it.
+ *
+ * Which note is waiting is shared state rather than a ref here, because the
+ * passage layer over the article has to read it too — see `passageAttach`.
+ * The error is this panel's alone: it is the one that made the requests.
+ */
+const attaching = computed(() => annotationAwaitingPassage())
+const attachError = ref('')
+/** True from the selection being taken until both of its requests have answered. */
+const attachingNow = ref(false)
+
+function startAttach(annotation: AnnotationRecord): void {
+  attachError.value = ''
+  beginPassageAttach(annotation.id)
+  // On a phone the panel is the sheet, and the sheet covers the article the
+  // passage has to be selected in.
+  if (props.phone) props.closeNotes()
+}
+
+function cancelAttach(): void {
+  endPassageAttach()
+}
+
+function onAttachKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape' || !attaching.value) return
+  cancelAttach()
+}
+
+onMounted(() => window.addEventListener('keydown', onAttachKeydown))
+onBeforeUnmount(() => window.removeEventListener('keydown', onAttachKeydown))
+
+/**
+ * Highlight what was selected and hang the waiting note on it.
+ *
+ * The highlight is made first because the note can only point at one that
+ * exists; that ordering is also what makes the failure interesting. A note the
+ * server refuses to attach — it was attached from another window meanwhile, and
+ * the contract allows the move only once — would otherwise leave a passage
+ * marked in the text that the person never asked to highlight, so the create is
+ * undone before the error is shown.
+ */
+async function attachToSelection(annotationId: string, selected: ReaderLiveSelection): Promise<void> {
+  attachingNow.value = true
+  attachError.value = ''
+  try {
+    const created = await writing.run(() =>
+      notes.addHighlight({
+        item_id: props.itemId,
+        exact: selected.exact,
+        prefix: selected.prefix,
+        suffix: selected.suffix
+      })
+    )
+    // Still waiting: the passage was not stored, so the next selection is
+    // still this note's to attach.
+    if (!created) return
+    applyHighlight(created)
+    try {
+      const updated = await notes.attachAnnotationPassage(annotationId, created.id)
+      replaceAnnotation(updated)
+    } catch (cause) {
+      attachError.value = describeFailure(cause)
+      await notes.deleteHighlight(created.id)
+      dropHighlight(created.id)
+      return
+    } finally {
+      endPassageAttach()
+    }
+    notesGainedNote()
+    window.getSelection()?.removeAllRanges()
+    props.clearSelection()
+  } finally {
+    attachingNow.value = false
+  }
+}
+
+watch(
+  () => props.liveSelection,
+  (selected) => {
+    const annotationId = attaching.value
+    if (!allowed.value || !selected || !annotationId || attachingNow.value) return
+    void attachToSelection(annotationId, selected)
+  }
+)
+
 async function retry(): Promise<void> {
   writing.clear()
   await refreshItemNotes()
@@ -338,6 +428,22 @@ async function retry(): Promise<void> {
   <section v-if="allowed" class="notes-reader" aria-labelledby="notes-reader-title">
     <h2 id="notes-reader-title" class="notes-reader-title">What this reading left behind</h2>
     <SegmentedControl :model-value="tab" :options="tabs" label="Notes for this reading" @change="selectTab" />
+
+    <!--
+      Teleported because on a phone this panel is the bottom sheet, and the
+      sheet is hidden with `v-show` the moment attaching starts: a banner left
+      inside it would be display:none exactly when it has something to say.
+    -->
+    <Teleport to="body">
+      <div v-if="attaching" class="notes-reader-attach" role="status" data-notes-attach>
+        <span>Select the passage for this note</span>
+        <button type="button" data-action="cancel-attach" @click="cancelAttach">Cancel</button>
+      </div>
+    </Teleport>
+
+    <p v-if="attachError" class="notes-reader-error" role="alert" data-notes-attach-error>
+      Could not attach: {{ attachError }}
+    </p>
 
     <div v-if="tab === 'margin'" class="notes-reader-margin">
       <form class="notes-reader-form" @submit.prevent="saveAnnotation">
@@ -370,7 +476,10 @@ async function retry(): Promise<void> {
         v-for="entry in marginEntries"
         :key="entry.key"
         class="notes-reader-entry"
-        :class="{ 'is-continued': entry.kind === 'annotation' && entry.continued }"
+        :class="{
+          'is-continued': entry.kind === 'annotation' && entry.continued,
+          'is-attaching': entry.kind === 'annotation' && entry.annotation.id === attaching
+        }"
         :data-entry="entry.kind"
         :data-key="entry.key"
       >
@@ -445,6 +554,15 @@ async function retry(): Promise<void> {
             </button>
             <button v-if="entry.kind === 'annotation'" type="button" data-action="ask" @click="askAbout(entry.annotation)">
               Turn into question
+            </button>
+            <button
+              v-if="entry.kind === 'annotation' && !entry.annotation.highlight_id"
+              type="button"
+              data-action="attach-passage"
+              :disabled="attachingNow"
+              @click="startAttach(entry.annotation)"
+            >
+              Attach to passage
             </button>
             <button type="button" data-action="delete" :disabled="writing.pending.value" @click="removeEntry(entry)">
               Delete
@@ -581,5 +699,44 @@ async function retry(): Promise<void> {
 .notes-reader-orphans h3 { margin: 0; color: var(--ink); font-family: var(--font-display); font-size: 15px; font-weight: 600; }
 .notes-reader-orphan { margin: 0; padding: 2px 0 2px 12px; border-left: 2px solid var(--line-strong); color: var(--ink-2); font-size: 14px; line-height: 22px; }
 .notes-reader-error { margin: 0; color: var(--danger); font-size: 13px; line-height: 20px; }
+/* Over the article, at the top of the window, clear of the text being picked. */
+.notes-reader-attach {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100vw - 24px);
+  padding: 8px 10px 8px 14px;
+  transform: translateX(-50%);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.notes-reader-attach button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--sunken);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.notes-reader-attach button:hover { color: var(--ink); }
+.notes-reader-attach button:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
+
+/* The row whose passage is being picked, so a wide screen says which note the banner is about. */
+.notes-reader-entry.is-attaching { background: var(--norte-soft); }
 .notes-reader-retry { margin-left: var(--space-2); border: 0; background: none; color: var(--norte); cursor: pointer; font-family: var(--font-display); font-size: 12px; font-weight: 550; }
 </style>
