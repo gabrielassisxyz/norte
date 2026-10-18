@@ -135,7 +135,10 @@ func (h NotesHandlers) UpdateNoteAnnotation(ctx context.Context, request notesap
 			StatusCode: http.StatusBadRequest,
 		}, nil
 	}
-	record, err := h.service.UpdateAnnotation(ctx, request.Id, request.Body.Text)
+	record, err := h.service.UpdateAnnotation(ctx, request.Id, NotesAnnotationPatch{
+		Text:        request.Body.Text,
+		HighlightID: request.Body.HighlightId,
+	})
 	if err != nil {
 		var domain *NotesError
 		if errors.As(err, &domain) {
@@ -219,6 +222,7 @@ func (h NotesHandlers) CreateNoteQuestion(ctx context.Context, request notesapi.
 	record, err := h.service.CreateQuestion(ctx, NewQuestionInput{
 		ItemID:       notesOptional(request.Body.ItemId),
 		AnnotationID: notesOptional(request.Body.AnnotationId),
+		HighlightID:  notesOptional(request.Body.HighlightId),
 		SetID:        notesOptional(request.Body.SetId),
 		Kind:         kind,
 		Text:         request.Body.Text,

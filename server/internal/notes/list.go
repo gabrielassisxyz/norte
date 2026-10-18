@@ -400,8 +400,8 @@ func (s *NotesService) ListQuestions(ctx context.Context, in NotesListInput) (No
 		`notes_questions.id, notes_questions.item_id, notes_questions.annotation_id,
 		 notes_questions.set_id, notes_questions.kind, notes_questions.text,
 		 notes_questions.answer, notes_questions.status, notes_questions.created_at,
-		 notes_questions.updated_at, core_items.module, core_items.type,
-		 core_items.title, core_items.url`,
+		 notes_questions.updated_at, notes_questions.highlight_id,
+		 core_items.module, core_items.type, core_items.title, core_items.url`,
 		"notes_questions LEFT JOIN core_items ON core_items.id = notes_questions.item_id",
 		page, "notes_questions.created_at DESC, notes_questions.id DESC")
 
@@ -414,8 +414,9 @@ func (s *NotesService) ListQuestions(ctx context.Context, in NotesListInput) (No
 	for rows.Next() {
 		var row db.NotesQuestion
 		var module, itemType, title, url sql.NullString
-		if err := rows.Scan(&row.ID, &row.ItemID, &row.AnnotationID, &row.SetID, &row.Kind,
-			&row.Text, &row.Answer, &row.Status, &row.CreatedAt, &row.UpdatedAt,
+		if err := rows.Scan(&row.ID, &row.ItemID, &row.AnnotationID, &row.SetID,
+			&row.Kind, &row.Text, &row.Answer, &row.Status, &row.CreatedAt,
+			&row.UpdatedAt, &row.HighlightID,
 			&module, &itemType, &title, &url); err != nil {
 			return NotesQuestionPage{}, fmt.Errorf("scanning a question: %w", err)
 		}

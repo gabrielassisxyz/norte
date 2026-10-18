@@ -56,6 +56,14 @@ FROM notes_annotations WHERE id = ?;
 -- name: UpdateNotesAnnotationText :execresult
 UPDATE notes_annotations SET text = ?, updated_at = ? WHERE id = ?;
 
+-- Attaching a passage to a note written without one. The IS NULL in the WHERE
+-- is the rule rather than a convenience: it makes "this note already hangs on
+-- a passage" a row this statement does not touch, so the service answers 409
+-- instead of silently moving the note to another passage.
+-- name: AttachNotesAnnotationHighlight :execresult
+UPDATE notes_annotations SET highlight_id = ?, updated_at = ?
+WHERE id = ? AND highlight_id IS NULL;
+
 -- name: DeleteNotesAnnotation :execresult
 DELETE FROM notes_annotations WHERE id = ?;
 
@@ -78,13 +86,19 @@ ON CONFLICT (item_id) DO UPDATE SET text = excluded.text, updated_at = excluded.
 -- name: DeleteNotesItemNote :execresult
 DELETE FROM notes_notes WHERE item_id = ?;
 
+-- The column order of every notes_questions projection below follows the
+-- table's own, highlight_id last where 00002 appended it: a projection in any
+-- other order makes sqlc generate a second row struct per statement instead of
+-- reusing the model.
 -- name: InsertNotesQuestion :exec
 INSERT INTO notes_questions (
-    id, item_id, annotation_id, set_id, kind, text, answer, status, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+    id, item_id, annotation_id, set_id, kind, text, answer, status,
+    created_at, updated_at, highlight_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
 
 -- name: GetNotesQuestionByID :one
-SELECT id, item_id, annotation_id, set_id, kind, text, answer, status, created_at, updated_at
+SELECT id, item_id, annotation_id, set_id, kind, text, answer, status,
+       created_at, updated_at, highlight_id
 FROM notes_questions WHERE id = ?;
 
 -- name: UpdateNotesQuestion :execresult
@@ -106,7 +120,8 @@ INSERT INTO notes_question_sets (id, topic, created_at) VALUES (?, ?, ?);
 SELECT id, topic, created_at FROM notes_question_sets WHERE id = ?;
 
 -- name: ListNotesQuestionsForSet :many
-SELECT id, item_id, annotation_id, set_id, kind, text, answer, status, created_at, updated_at
+SELECT id, item_id, annotation_id, set_id, kind, text, answer, status,
+       created_at, updated_at, highlight_id
 FROM notes_questions WHERE set_id = ? ORDER BY created_at, id;
 
 -- name: CountNotesQuestionsInSet :one
