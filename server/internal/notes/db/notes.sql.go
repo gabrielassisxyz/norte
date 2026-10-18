@@ -10,6 +10,25 @@ import (
 	"database/sql"
 )
 
+const attachNotesAnnotationHighlight = `-- name: AttachNotesAnnotationHighlight :execresult
+UPDATE notes_annotations SET highlight_id = ?, updated_at = ?
+WHERE id = ? AND highlight_id IS NULL
+`
+
+type AttachNotesAnnotationHighlightParams struct {
+	HighlightID sql.NullString
+	UpdatedAt   string
+	ID          string
+}
+
+// Attaching a passage to a note written without one. The IS NULL in the WHERE
+// is the rule rather than a convenience: it makes "this note already hangs on
+// a passage" a row this statement does not touch, so the service answers 409
+// instead of silently moving the note to another passage.
+func (q *Queries) AttachNotesAnnotationHighlight(ctx context.Context, arg AttachNotesAnnotationHighlightParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, attachNotesAnnotationHighlight, arg.HighlightID, arg.UpdatedAt, arg.ID)
+}
+
 const clearNotesQuestionItem = `-- name: ClearNotesQuestionItem :execresult
 UPDATE notes_questions SET item_id = NULL, updated_at = ? WHERE item_id = ?
 `
@@ -187,7 +206,8 @@ func (q *Queries) GetNotesItemNote(ctx context.Context, itemID string) (NotesNot
 }
 
 const getNotesQuestionByID = `-- name: GetNotesQuestionByID :one
-SELECT id, item_id, annotation_id, set_id, kind, text, answer, status, created_at, updated_at
+SELECT id, item_id, annotation_id, set_id, kind, text, answer, status,
+       created_at, updated_at, highlight_id
 FROM notes_questions WHERE id = ?
 `
 
@@ -205,6 +225,7 @@ func (q *Queries) GetNotesQuestionByID(ctx context.Context, id string) (NotesQue
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.HighlightID,
 	)
 	return i, err
 }
@@ -293,8 +314,9 @@ func (q *Queries) InsertNotesHighlight(ctx context.Context, arg InsertNotesHighl
 
 const insertNotesQuestion = `-- name: InsertNotesQuestion :exec
 INSERT INTO notes_questions (
-    id, item_id, annotation_id, set_id, kind, text, answer, status, created_at, updated_at
-) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    id, item_id, annotation_id, set_id, kind, text, answer, status,
+    created_at, updated_at, highlight_id
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `
 
 type InsertNotesQuestionParams struct {
@@ -308,8 +330,13 @@ type InsertNotesQuestionParams struct {
 	Status       string
 	CreatedAt    string
 	UpdatedAt    string
+	HighlightID  sql.NullString
 }
 
+// The column order of every notes_questions projection below follows the
+// table's own, highlight_id last where 00002 appended it: a projection in any
+// other order makes sqlc generate a second row struct per statement instead of
+// reusing the model.
 func (q *Queries) InsertNotesQuestion(ctx context.Context, arg InsertNotesQuestionParams) error {
 	_, err := q.db.ExecContext(ctx, insertNotesQuestion,
 		arg.ID,
@@ -322,6 +349,7 @@ func (q *Queries) InsertNotesQuestion(ctx context.Context, arg InsertNotesQuesti
 		arg.Status,
 		arg.CreatedAt,
 		arg.UpdatedAt,
+		arg.HighlightID,
 	)
 	return err
 }
@@ -409,7 +437,8 @@ func (q *Queries) ListNotesItemIDsWithHighlights(ctx context.Context) ([]string,
 }
 
 const listNotesQuestionsForSet = `-- name: ListNotesQuestionsForSet :many
-SELECT id, item_id, annotation_id, set_id, kind, text, answer, status, created_at, updated_at
+SELECT id, item_id, annotation_id, set_id, kind, text, answer, status,
+       created_at, updated_at, highlight_id
 FROM notes_questions WHERE set_id = ? ORDER BY created_at, id
 `
 
@@ -433,6 +462,7 @@ func (q *Queries) ListNotesQuestionsForSet(ctx context.Context, setID sql.NullSt
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.HighlightID,
 		); err != nil {
 			return nil, err
 		}

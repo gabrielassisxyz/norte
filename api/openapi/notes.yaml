@@ -545,11 +545,24 @@ components:
     AnnotationPatch:
       type: object
       additionalProperties: false
-      required:
-        - text
+      description: |
+        What a margin note can be changed to. Both fields are optional and at
+        least one has to be sent: a patch carrying neither is a request that
+        asks for nothing, which the server refuses rather than answering 200
+        over an untouched row.
+
+        highlight_id attaches a passage to a note written without one, which is
+        how a note typed in the margin is anchored to a passage selected later.
+        It cannot change or clear a link the note already has: moving a note
+        between passages is a different operation, and silently doing it here
+        would lose the passage the note was written about.
+      minProperties: 1
       properties:
         text:
           type: string
+        highlight_id:
+          type: string
+          description: The passage to attach this note to, when it hangs on none yet.
     Annotation:
       type: object
       additionalProperties: false
@@ -627,6 +640,13 @@ components:
         annotation_id:
           type: string
           description: The margin note the question was turned into, when it was.
+        highlight_id:
+          type: string
+          description: |
+            The passage the question was asked about, when it was asked about
+            one. It has to belong to item_id; when item_id is absent it is taken
+            from the highlight, so a question created from the reader's toolbar
+            needs only this.
         set_id:
           type: string
           description: The set this question belongs to.
@@ -659,6 +679,8 @@ components:
         item_id:
           type: string
         annotation_id:
+          type: string
+        highlight_id:
           type: string
         set_id:
           type: string

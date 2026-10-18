@@ -222,25 +222,122 @@ func (s *NotesService) CreateAnnotation(ctx context.Context, in NewAnnotationInp
 	return NotesAnnotationRecord{Row: row, Quote: quote, Source: source}, nil
 }
 
-// UpdateAnnotation rewrites a margin note.
-func (s *NotesService) UpdateAnnotation(ctx context.Context, id, text string) (NotesAnnotationRecord, error) {
-	trimmed := strings.TrimSpace(text)
-	if trimmed == "" {
-		return NotesAnnotationRecord{}, notesBadRequest("invalid_request", "an annotation needs text", "text")
+// NotesAnnotationPatch is what a margin note can be changed to. A nil field is
+// a field the request did not carry.
+type NotesAnnotationPatch struct {
+	Text        *string
+	HighlightID *string
+}
+
+// UpdateAnnotation rewrites a margin note, attaches a passage to one written
+// without a passage, or both.
+//
+// Attaching is only ever an empty-to-set move: a note already hanging on a
+// passage is refused with a conflict rather than moved, because the passage a
+// note was written about is part of what the note means, and a patch that
+// replaced it would discard that silently. Both changes go in one transaction
+// so a request carrying both leaves no half-applied row behind.
+func (s *NotesService) UpdateAnnotation(ctx context.Context, id string, patch NotesAnnotationPatch) (NotesAnnotationRecord, error) {
+	if patch.Text == nil && patch.HighlightID == nil {
+		return NotesAnnotationRecord{}, notesBadRequest("invalid_request",
+			"the change carries neither text nor a highlight", "body")
+	}
+	text := ""
+	if patch.Text != nil {
+		text = strings.TrimSpace(*patch.Text)
+		if text == "" {
+			return NotesAnnotationRecord{}, notesBadRequest("invalid_request", "an annotation needs text", "text")
+		}
 	}
 	queries := db.New(s.database.Writer())
-	updated, err := queries.UpdateNotesAnnotationText(ctx, db.UpdateNotesAnnotationTextParams{
-		Text:      trimmed,
-		UpdatedAt: core.FormatTime(s.clock.Now()),
-		ID:        id,
-	})
+	row, err := queries.GetNotesAnnotationByID(ctx, id)
 	if err != nil {
-		return NotesAnnotationRecord{}, fmt.Errorf("rewriting the annotation %s: %w", id, err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return NotesAnnotationRecord{}, notesNotFound("annotation", id)
+		}
+		return NotesAnnotationRecord{}, fmt.Errorf("reading the annotation %s: %w", id, err)
 	}
-	if err := notesRequireOneRow(updated, "annotation", id); err != nil {
-		return NotesAnnotationRecord{}, err
+	if patch.HighlightID != nil {
+		if err := s.checkAnnotationHighlightAttachable(ctx, row, *patch.HighlightID); err != nil {
+			return NotesAnnotationRecord{}, err
+		}
+	}
+
+	stamp := core.FormatTime(s.clock.Now())
+	tx, err := s.database.Writer().BeginTx(ctx, nil)
+	if err != nil {
+		return NotesAnnotationRecord{}, fmt.Errorf("beginning the annotation transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	inTx := queries.WithTx(tx)
+	if patch.Text != nil {
+		updated, err := inTx.UpdateNotesAnnotationText(ctx, db.UpdateNotesAnnotationTextParams{
+			Text: text, UpdatedAt: stamp, ID: id,
+		})
+		if err != nil {
+			return NotesAnnotationRecord{}, fmt.Errorf("rewriting the annotation %s: %w", id, err)
+		}
+		if err := notesRequireOneRow(updated, "annotation", id); err != nil {
+			return NotesAnnotationRecord{}, err
+		}
+	}
+	if patch.HighlightID != nil {
+		// The statement's own `highlight_id IS NULL` is what makes this safe
+		// against a second attach that read the same empty row: the loser
+		// touches no row and is refused here rather than overwriting.
+		attached, err := inTx.AttachNotesAnnotationHighlight(ctx, db.AttachNotesAnnotationHighlightParams{
+			HighlightID: sql.NullString{String: *patch.HighlightID, Valid: true},
+			UpdatedAt:   stamp,
+			ID:          id,
+		})
+		if err != nil {
+			return NotesAnnotationRecord{}, fmt.Errorf("attaching a highlight to the annotation %s: %w", id, err)
+		}
+		changed, err := attached.RowsAffected()
+		if err != nil {
+			return NotesAnnotationRecord{}, fmt.Errorf("attaching a highlight to the annotation %s: %w", id, err)
+		}
+		if changed == 0 {
+			return NotesAnnotationRecord{}, notesAnnotationAlreadyAnchored()
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		return NotesAnnotationRecord{}, fmt.Errorf("committing the annotation %s: %w", id, err)
 	}
 	return s.annotation(ctx, id)
+}
+
+// checkAnnotationHighlightAttachable answers whether this note may be given
+// this passage, without writing anything: the note must hang on no passage
+// yet, and the passage must be one of the same item.
+func (s *NotesService) checkAnnotationHighlightAttachable(
+	ctx context.Context, row db.NotesAnnotation, highlightID string,
+) error {
+	if row.HighlightID.Valid && row.HighlightID.String != "" {
+		return notesAnnotationAlreadyAnchored()
+	}
+	if strings.TrimSpace(highlightID) == "" {
+		return notesBadRequest("invalid_request", "a highlight id cannot be empty", "highlight_id")
+	}
+	highlight, err := db.New(s.database.Reader()).GetNotesHighlightByID(ctx, highlightID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return notesNotFound("highlight", highlightID)
+		}
+		return fmt.Errorf("reading the highlight %s: %w", highlightID, err)
+	}
+	if highlight.ItemID != row.ItemID {
+		return notesBadRequest("invalid_request", "the highlight belongs to another item", "highlight_id")
+	}
+	return nil
+}
+
+// notesAnnotationAlreadyAnchored is the one refusal of a note that already
+// hangs on a passage, raised both by the pre-check and by the write that lost
+// a race with another attach.
+func notesAnnotationAlreadyAnchored() *NotesError {
+	return notesConflict("conflict",
+		"this annotation already hangs on a highlight", "highlight_id")
 }
 
 // DeleteAnnotation removes a margin note. A question written from it keeps its
@@ -328,6 +425,7 @@ func (s *NotesService) PutItemNote(ctx context.Context, itemID, text string) (db
 type NewQuestionInput struct {
 	ItemID       string
 	AnnotationID string
+	HighlightID  string
 	SetID        string
 	Kind         string
 	Text         string
@@ -417,10 +515,30 @@ func (s *NotesService) prepareQuestion(ctx context.Context, in NewQuestionInput)
 		return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
 			"a kind belongs to a question written from one of a set's prompts", "kind")
 	}
-	if in.ItemID != "" {
-		if _, err := s.requireSource(ctx, in.ItemID); err != nil {
+	itemID := strings.TrimSpace(in.ItemID)
+	if itemID != "" {
+		if _, err := s.requireSource(ctx, itemID); err != nil {
 			return db.InsertNotesQuestionParams{}, err
 		}
+	}
+	if in.HighlightID != "" {
+		highlight, err := db.New(s.database.Reader()).GetNotesHighlightByID(ctx, in.HighlightID)
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return db.InsertNotesQuestionParams{}, notesNotFound("highlight", in.HighlightID)
+			}
+			return db.InsertNotesQuestionParams{}, fmt.Errorf("reading the highlight %s: %w", in.HighlightID, err)
+		}
+		// A question beside one article pointing at a passage of another would
+		// render a quote the question was never asked about.
+		if itemID != "" && highlight.ItemID != itemID {
+			return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
+				"the highlight belongs to another item", "highlight_id")
+		}
+		// The reader's toolbar knows the passage and nothing else, so the item
+		// comes from the passage rather than from a second field the client
+		// would have to keep in step with it.
+		itemID = highlight.ItemID
 	}
 	if in.AnnotationID != "" {
 		annotation, err := db.New(s.database.Reader()).GetNotesAnnotationByID(ctx, in.AnnotationID)
@@ -432,7 +550,7 @@ func (s *NotesService) prepareQuestion(ctx context.Context, in NewQuestionInput)
 		}
 		// A question that cites a margin note from another text would show,
 		// beside one article, a note the person wrote about a different one.
-		if in.ItemID != "" && annotation.ItemID != in.ItemID {
+		if itemID != "" && annotation.ItemID != itemID {
 			return db.InsertNotesQuestionParams{}, notesBadRequest("invalid_request",
 				"the annotation belongs to another item", "annotation_id")
 		}
@@ -458,8 +576,9 @@ func (s *NotesService) prepareQuestion(ctx context.Context, in NewQuestionInput)
 	stamp := core.FormatTime(s.clock.Now())
 	return db.InsertNotesQuestionParams{
 		ID:           core.NewID(),
-		ItemID:       notesNullableText(in.ItemID),
+		ItemID:       notesNullableText(itemID),
 		AnnotationID: notesNullableText(in.AnnotationID),
+		HighlightID:  notesNullableText(in.HighlightID),
 		SetID:        notesNullableText(in.SetID),
 		Kind:         notesNullableText(in.Kind),
 		Text:         text,

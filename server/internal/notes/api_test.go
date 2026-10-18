@@ -38,6 +38,7 @@ type notesQuestionBody struct {
 	ID           string  `json:"id"`
 	ItemID       string  `json:"item_id"`
 	AnnotationID string  `json:"annotation_id"`
+	HighlightID  string  `json:"highlight_id"`
 	SetID        string  `json:"set_id"`
 	Kind         *string `json:"kind"`
 	Text         string  `json:"text"`

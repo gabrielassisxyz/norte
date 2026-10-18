@@ -309,8 +309,22 @@ export interface components {
             highlight_id?: string;
             text: string;
         };
+        /**
+         * @description What a margin note can be changed to. Both fields are optional and at
+         *     least one has to be sent: a patch carrying neither is a request that
+         *     asks for nothing, which the server refuses rather than answering 200
+         *     over an untouched row.
+         *
+         *     highlight_id attaches a passage to a note written without one, which is
+         *     how a note typed in the margin is anchored to a passage selected later.
+         *     It cannot change or clear a link the note already has: moving a note
+         *     between passages is a different operation, and silently doing it here
+         *     would lose the passage the note was written about.
+         */
         AnnotationPatch: {
-            text: string;
+            text?: string;
+            /** @description The passage to attach this note to, when it hangs on none yet. */
+            highlight_id?: string;
         };
         Annotation: {
             id: string;
@@ -343,6 +357,13 @@ export interface components {
             item_id?: string;
             /** @description The margin note the question was turned into, when it was. */
             annotation_id?: string;
+            /**
+             * @description The passage the question was asked about, when it was asked about
+             *     one. It has to belong to item_id; when item_id is absent it is taken
+             *     from the highlight, so a question created from the reader's toolbar
+             *     needs only this.
+             */
+            highlight_id?: string;
             /** @description The set this question belongs to. */
             set_id?: string;
             kind?: components["schemas"]["QuestionKind"];
@@ -357,6 +378,7 @@ export interface components {
             id: string;
             item_id?: string;
             annotation_id?: string;
+            highlight_id?: string;
             set_id?: string;
             kind?: components["schemas"]["QuestionKind"];
             text: string;
