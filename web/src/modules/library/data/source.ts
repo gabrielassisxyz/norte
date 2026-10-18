@@ -118,6 +118,12 @@ export interface LibrarySource {
   /** Answers with the saved record, new or already there, and whether it was already there. */
   saveLink(link: NewSavedLink): Promise<LibrarySaveOutcome>
   patchItem(id: string, patch: LibraryPatch): Promise<LibraryItemRecord>
+  /**
+   * Delete an item and everything written on it. There is no undo and no
+   * record to show afterwards, which is why this is the one mutation that
+   * answers with nothing: the caller already knows which id is gone.
+   */
+  deleteItem(id: string): Promise<void>
   openItem(id: string): Promise<LibraryItemRecord>
   extractItem(id: string): Promise<ExtractAck>
   /**

@@ -143,7 +143,11 @@ func (t *LibraryTagger) Handle(ctx context.Context, job core.Job) error {
 	item, err := db.New(t.database.Reader()).GetLibraryItemByID(ctx, payload.ItemID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return core.Permanent(fmt.Errorf("no library item %s to tag", payload.ItemID))
+			// Deleted while the job waited: nothing to tag, and nothing wrong
+			// either. See the same guard in extract.go.
+			t.logger.Info("the item of a tag job is gone",
+				"item_id", payload.ItemID, "kind", LibraryTagJobKind)
+			return nil
 		}
 		return fmt.Errorf("reading the library item to tag: %w", err)
 	}

@@ -121,8 +121,24 @@ func libraryWithService(ctx context.Context, cfg *app.Config, fn func(*LibrarySe
 		return err
 	}
 	clock := core.SystemClock()
-	return fn(NewLibraryService(database, core.NewFiles(cfg.Data, database.Writer(), clock),
-		core.NewJobs(database.Writer(), clock, nil), clock))
+	// The bus and the other enabled modules' reactions are wired here too:
+	// `norte rm` publishes a delete the notes module reacts to, and in a
+	// process with no server there is no Start to have installed that
+	// reaction. A module NORTE_MODULES leaves out never subscribes, so the
+	// command reacts with exactly the products that are switched on.
+	queue := core.NewJobs(database.Writer(), clock, nil)
+	texts := core.NewTexts(database.Reader(), nil)
+	deps := app.Deps{
+		Database: database,
+		Jobs:     queue,
+		Files:    core.NewFiles(cfg.Data, database.Writer(), clock),
+		Clock:    clock,
+		Events:   core.NewEvents(),
+		Texts:    texts,
+	}
+	texts.SetProviders(app.NorteTextProviders(modules, deps))
+	app.RegisterNorteEventSubscribers(modules, deps)
+	return fn(NewLibraryService(database, deps.Files, queue, clock).WithEvents(deps.Events))
 }
 
 // libraryRequireModuleEnabled refuses a command whose module is switched off,

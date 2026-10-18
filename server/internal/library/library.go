@@ -43,11 +43,12 @@ func (*LibraryModule) Register(router *app.Router, deps app.Deps) {
 	mountLibraryAPI(router, deps.Logger, LibraryHandlers{service: newLibraryServiceFromDeps(deps)})
 }
 
-// Commands returns the module's subcommands: saving a link, asking for its
-// text to be extracted again, and managing the domain rules saves are placed
-// by.
+// Commands returns the module's subcommands: saving a link, deleting one,
+// asking for its text to be extracted again, and managing the domain rules
+// saves are placed by.
 func (*LibraryModule) Commands() []*cobra.Command {
-	return []*cobra.Command{newLibrarySaveCommand(), newLibraryExtractCommand(), newLibraryRulesCommand()}
+	return []*cobra.Command{newLibrarySaveCommand(), newLibraryRemoveCommand(),
+		newLibraryExtractCommand(), newLibraryRulesCommand()}
 }
 
 // JobHandlers returns the kinds this module owns: the background extraction
@@ -140,6 +141,7 @@ func newLibraryServiceFromDeps(deps app.Deps) *LibraryService {
 	if deps.Focus != nil {
 		service = service.WithFocus(deps.Focus)
 	}
+	service = service.WithEvents(deps.Events)
 	return service
 }
 

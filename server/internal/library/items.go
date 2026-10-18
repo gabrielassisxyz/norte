@@ -132,6 +132,68 @@ func (s *LibraryService) Patch(ctx context.Context, id string, in PatchInput) (d
 	return updated, nil
 }
 
+// LibraryItemDeletedEvent is published after a delete commits. The notes
+// module subscribes to it to take the highlights, margin notes and note of
+// the item with it; the library knows nothing about those tables and must not.
+const LibraryItemDeletedEvent = "library.item_deleted"
+
+// Delete removes an item and everything that belongs only to it, then tells
+// the rest of the process it is gone.
+//
+// One transaction carries the row, the registry entry and the shared tag
+// vocabulary: the item's own tag rows follow the row by cascade and the
+// full-text row by trigger, but the vocabulary does not, and the tag
+// migration's header requires every path that deletes item-tag rows to retire
+// the tags no item carries any more. The registry row has no foreign key to
+// this table, so UnregisterItem is what takes the cross-module links, the
+// suggestions and the snapshot's file reference with it; the blob itself stays
+// on disk until `norte files gc` runs, which is the only thing that deletes a
+// blob.
+//
+// The event is published after the commit rather than inside it, because a
+// subscriber writes its own tables and a reaction to a delete that was rolled
+// back would delete what is still there. The error comes back to the caller:
+// a failed reaction leaves rows pointing at an item that is gone, and the
+// person has to be told rather than shown a quiet success.
+func (s *LibraryService) Delete(ctx context.Context, id string) error {
+	tx, err := s.database.Writer().BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning the delete transaction: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	queries := db.New(tx)
+	result, err := queries.DeleteLibraryItem(ctx, id)
+	if err != nil {
+		return fmt.Errorf("deleting the library item %s: %w", id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("reading the deleted rows of %s: %w", id, err)
+	}
+	if affected == 0 {
+		return libraryNotFound(id)
+	}
+	if err := queries.PruneUnusedLibraryTags(ctx); err != nil {
+		return fmt.Errorf("retiring the tags of %s: %w", id, err)
+	}
+	if err := core.UnregisterItem(ctx, tx, id); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing the delete of %s: %w", id, err)
+	}
+	if s.events == nil {
+		return nil
+	}
+	if err := s.events.Publish(ctx, core.Event{
+		Name:    LibraryItemDeletedEvent,
+		Payload: map[string]string{"item_id": id},
+	}); err != nil {
+		return fmt.Errorf("publishing %s for %s: %w", LibraryItemDeletedEvent, id, err)
+	}
+	return nil
+}
+
 // Open records that an item was opened. Opening is not reading: unread and
 // read_at are left exactly as they were.
 func (s *LibraryService) Open(ctx context.Context, id string) (db.LibraryItem, error) {

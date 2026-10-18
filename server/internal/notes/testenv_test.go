@@ -102,11 +102,11 @@ func newNotesHarness(t *testing.T, names ...string) *notesHarness {
 	}
 	texts.SetProviders(app.NorteTextProviders(modules, deps))
 	app.RegisterNorteJobHandlers(queue, modules, deps)
-	// The same subscription Start installs, without an adapter the test would
-	// then have to shut down. TestStartSubscribesToTheExtractionEvent is what
-	// proves Start installs this one.
+	// The same subscriptions Start installs, without an adapter the test
+	// would then have to shut down. TestStartSubscribesToTheExtractionEvent
+	// is what proves Start installs them.
 	if notesEnabled(names) {
-		notesSubscribeToExtractions(deps)
+		(&NotesModule{}).Subscribe(deps)
 	}
 
 	handler, err := app.NewRouter(app.RouterOptions{

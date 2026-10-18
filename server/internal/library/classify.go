@@ -145,7 +145,11 @@ func (c *LibraryClassify) Handle(ctx context.Context, job core.Job) error {
 	item, err := db.New(c.database.Reader()).GetLibraryItemByID(ctx, payload.ItemID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return core.Permanent(fmt.Errorf("no library item %s to classify", payload.ItemID))
+			// Deleted while the job waited: nothing to classify, and nothing
+			// wrong either. See the same guard in extract.go.
+			c.logger.Info("the item of a classify job is gone",
+				"item_id", payload.ItemID, "kind", LibraryClassifyJobKind)
+			return nil
 		}
 		return fmt.Errorf("reading the library item to classify: %w", err)
 	}

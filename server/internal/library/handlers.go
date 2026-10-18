@@ -227,6 +227,23 @@ func (h LibraryHandlers) PatchLibraryItem(ctx context.Context, request libraryap
 	return libraryapi.PatchLibraryItem200JSONResponse(libraryMapItem(row, tags)), nil
 }
 
+// DeleteLibraryItem removes an item and everything written on it, answering
+// 204 with no body. An unknown id is a 404 in the standard envelope, so a
+// second confirmation of a row somebody already deleted says why.
+func (h LibraryHandlers) DeleteLibraryItem(ctx context.Context, request libraryapi.DeleteLibraryItemRequestObject) (libraryapi.DeleteLibraryItemResponseObject, error) {
+	if err := h.service.Delete(ctx, request.Id); err != nil {
+		var domain *LibraryError
+		if errors.As(err, &domain) {
+			return libraryapi.DeleteLibraryItemdefaultJSONResponse{
+				Body:       libraryErrorBody(domain, ctx),
+				StatusCode: domain.Status,
+			}, nil
+		}
+		return nil, err
+	}
+	return libraryapi.DeleteLibraryItem204Response{}, nil
+}
+
 // ExtractLibraryItem puts an item back to pending and enqueues the extraction,
 // answering 202 as soon as the job is queued. The answer never waits for the
 // text: that is the whole reason extraction is a job.
