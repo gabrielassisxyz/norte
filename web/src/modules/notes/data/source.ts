@@ -88,6 +88,15 @@ export interface NotesSource {
   deleteHighlight(id: string): Promise<void>
   addAnnotation(annotation: NewAnnotation): Promise<AnnotationRecord>
   updateAnnotation(id: string, text: string): Promise<AnnotationRecord>
+  /**
+   * Point a note that hangs on nothing at a passage.
+   *
+   * It is its own call rather than a field of `updateAnnotation`, because the
+   * contract refuses to move a note between passages: the only change this can
+   * make is from no passage to one, and a caller that could send a text and a
+   * passage in one patch would read as if it could also move it.
+   */
+  attachAnnotationPassage(id: string, highlightId: string): Promise<AnnotationRecord>
   deleteAnnotation(id: string): Promise<void>
   addQuestion(question: NewQuestion): Promise<QuestionRecord>
   /** Only the fields present are applied; there is no delete, and `dropped` is how a question is let go. */

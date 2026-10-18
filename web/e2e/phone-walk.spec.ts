@@ -120,17 +120,12 @@ test.describe('at 390x844, with touch and no mouse', () => {
     // and the bar is the only place they live, so neither is a duplicate.
     await expect(page.locator('.reader-top-actions')).toHaveCount(0)
 
-    // --- a touch selection, highlighted from the bar -----------------------
-    const highlight = bar.locator('[data-action="highlight"]')
-    await expect(highlight).toBeDisabled()
-    // The bar's cell brings no frame of its own on a phone.
-    const cell = bar.locator('.notes-selection-bar')
-    await expect(cell).toHaveCSS('border-top-width', '0px')
-    await expect(cell).toHaveCSS('padding-top', '0px')
-    await expect(cell).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+    // --- a touch selection, highlighted by the release itself --------------
+    const toolbar = page.locator('.notes-seltool')
+    await expect(toolbar).toHaveCount(0)
     await selectPassage(page, PASSAGE)
-    await expect(highlight).toBeEnabled()
-    await tap(highlight)
+    // No tap: the selection is the gesture, and the toolbar is what it opens.
+    await expect(toolbar).toBeVisible()
 
     await expect
       .poll(async () => {
@@ -141,6 +136,23 @@ test.describe('at 390x844, with touch and no mouse', () => {
         return page_.items.map((highlight) => highlight.exact)
       })
       .toEqual([PASSAGE])
+
+    // --- a note written in the toolbar, with a thumb ------------------------
+    await tap(toolbar.locator('[data-action="toolbar-annotate"]'))
+    await toolbar.locator('.notes-seltool-field').fill('Read this part again.')
+    await tap(toolbar.locator('[data-action="toolbar-save-annotation"]'))
+    await expect
+      .poll(async () => {
+        const answered = await api<NotesPage<{ text: string; highlight_id?: string }>>(
+          server.baseURL,
+          `/api/notes/annotations?item_id=${article.id}`
+        )
+        return answered.items.map((annotation) => [annotation.text, annotation.highlight_id !== undefined])
+      })
+      .toEqual([['Read this part again.', true]])
+    // The toolbar is gone with the note saved, and the bar is still the bar.
+    await expect(toolbar).toHaveCount(0)
+    await expect(bar).toBeVisible()
 
     // --- the annotations sheet --------------------------------------------
     const sheet = page.locator('[data-reader-sheet]')
@@ -157,9 +169,11 @@ test.describe('at 390x844, with touch and no mouse', () => {
           server.baseURL,
           `/api/notes/annotations?item_id=${article.id}`
         )
-        return answered.items.map((annotation) => annotation.text)
+        // Sorted, because what is claimed is that both notes are stored and not
+        // the order the list returns them in.
+        return answered.items.map((annotation) => annotation.text).sort()
       })
-      .toEqual(['Worth reading again.'])
+      .toEqual(['Read this part again.', 'Worth reading again.'])
 
     // --- a question --------------------------------------------------------
     await tap(bar.locator('[data-action="question-open"]'))
@@ -468,7 +482,7 @@ test.describe('at 1440x900, unchanged', () => {
 test.describe('at 1440x900, on a long article', () => {
   test.use({ viewport: { width: 1440, height: 900 } })
 
-  test('keeps Highlight in view once a passage near the top is selected', async ({ page }) => {
+  test('keeps the toolbar in view once a passage near the top is selected', async ({ page }) => {
     const own = await seed('A long text on the wide screen', { fillerParagraphs: 80 })
     await boot(page, `/library/${own.id}`)
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
@@ -479,11 +493,12 @@ test.describe('at 1440x900, on a long article', () => {
     expect(overflow).toBeGreaterThan(2000)
 
     await selectPassage(page, PASSAGE)
-    const highlight = page.locator('.notes-selection-bar [data-action="highlight"]')
-    await expect(highlight).toBeEnabled()
-    await expect(highlight).toBeInViewport({ ratio: 1 })
+    const toolbar = page.locator('.notes-seltool')
+    await expect(toolbar).toBeVisible()
+    // Whole, not merely on the page: a toolbar placed above a passage near the
+    // top of the window is drawn where nothing can be tapped unless it flips.
+    await expect(toolbar).toBeInViewport({ ratio: 1 })
 
-    await highlight.click()
     await expect
       .poll(async () => {
         const page_ = await api<NotesPage<{ exact: string }>>(

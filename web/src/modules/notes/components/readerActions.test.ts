@@ -95,6 +95,11 @@ function selectInArticle(needle: string): void {
 }
 
 beforeEach(() => {
+  // jsdom computes no layout and gives a Range neither `getClientRects` nor
+  // `getBoundingClientRect`, which is how the toolbar is placed over the
+  // selection. Nothing here claims where it lands.
+  Range.prototype.getClientRects = () => [] as unknown as DOMRectList
+  Range.prototype.getBoundingClientRect = () => new DOMRect(0, 0, 0, 0)
   window.getSelection()?.removeAllRanges()
 })
 
@@ -177,9 +182,6 @@ describe("the reader's notes actions", () => {
     await wrapper.get('.reader-scroll').trigger('mouseup')
     await flushReads()
 
-    await wrapper.get('[data-action="highlight"]').trigger('click')
-    await flushReads()
-
     expect(notes.calls.addedHighlights).toHaveLength(1)
     const sent = notes.calls.addedHighlights[0]
     expect(sent.item_id).toBe('item-1')
@@ -203,8 +205,6 @@ describe("the reader's notes actions", () => {
 
     selectInArticle('The marked passage.')
     await mounted.wrapper.get('.reader-scroll').trigger('mouseup')
-    await flushReads()
-    await mounted.wrapper.get('[data-action="highlight"]').trigger('click')
     await flushReads()
     return mounted
   }
@@ -432,14 +432,12 @@ describe("the reader's notes actions", () => {
     expect(wrapper.get('.notes-selection-done').text()).toBe('Passage kept in the highlights.')
   })
 
-  it('puts a passage highlighted with Highlight in the margin list, with no reload', async () => {
+  it('puts a passage highlighted by selecting it in the margin list, with no reload', async () => {
     const { wrapper } = await mountReader()
     expect(wrapper.findAll('.nt-ann')).toHaveLength(0)
 
     selectInArticle('The marked passage.')
     await wrapper.get('.reader-scroll').trigger('mouseup')
-    await flushReads()
-    await wrapper.get('[data-action="highlight"]').trigger('click')
     await flushReads()
 
     // The panel under the article holds its own copy of the item's notes, so
@@ -449,7 +447,7 @@ describe("the reader's notes actions", () => {
     expect(rows[0].text()).toContain('The marked passage.')
   })
 
-  it('renders none of the five actions when the server lists only the library', async () => {
+  it('renders none of the notes actions when the server lists only the library', async () => {
     const { wrapper } = await mountReader({
       item: record({ selection: SELECTION }),
       notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'The marked passage.' })] },
@@ -462,7 +460,7 @@ describe("the reader's notes actions", () => {
     expect(wrapper.get('.reader-selection').text()).toContain('The marked passage.')
 
     expect(wrapper.find('[data-action="turn-into-highlight"]').exists()).toBe(false)
-    expect(wrapper.find('[data-action="highlight"]').exists()).toBe(false)
+    expect(wrapper.find('.notes-highlight-action').exists()).toBe(false)
     expect(wrapper.find('[data-action="annotate"]').exists()).toBe(false)
     expect(wrapper.find('[data-action="save-note"]').exists()).toBe(false)
     expect(wrapper.find('[data-action="turn-into-question"]').exists()).toBe(false)
