@@ -195,7 +195,6 @@ const baseDone = props.kind === 'book' ? 0 : 1
   margin-top: 14px;
   padding: 10px 12px;
   box-sizing: border-box;
-  resize: vertical;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius-sm);
   background: var(--ground);

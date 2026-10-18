@@ -21,6 +21,10 @@ a {
   color: var(--link);
 }
 
+textarea {
+  resize: none;
+}
+
 :focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
