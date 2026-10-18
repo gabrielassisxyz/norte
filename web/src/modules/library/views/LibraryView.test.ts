@@ -2,12 +2,12 @@ import { mount, type VueWrapper } from '@vue/test-utils'
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
+import { overrideModuleBacking, resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { createRouteTable, routes } from '@/router'
 import type { AppSources } from '@/sources'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
-import { coreLink, fakeCoreSource, registryItem } from '@/shell/data/testing'
+import { coreLink, fakeCoreSource, registryItem, subjectRecord } from '@/shell/data/testing'
 
 import { libraryGainedItem } from '../data/revision'
 import type { LibraryItemList, LibraryItemRecord, LibrarySource } from '../data/source'
@@ -1101,5 +1101,80 @@ describe('LibraryView filtering from the header', () => {
     expect(
       wrapper.findAll('.library-unread').some((banner) => banner.text().includes('Showing unread only'))
     ).toBe(false)
+  })
+})
+
+describe('LibraryView keeping clicks inside a row action menu', () => {
+  /** One row, with a subject in focus so the picker has an option to offer. */
+  async function mountRow() {
+    const library = fakeLibrarySource(shelf().slice(0, 1))
+    const core = fakeCoreSource({
+      subjects: [subjectRecord({ id: 'subject-career', name: 'Career', focus: true })]
+    })
+    const mounted = await mountAt('/library', library, core)
+    // Asserted on the call, as the draw is: the reader's route loads lazily.
+    const pushed = vi.spyOn(mounted.router, 'push')
+    return { ...mounted, core, pushed }
+  }
+
+  async function openSubjectMenu(wrapper: VueWrapper) {
+    await wrapper.get('.item button[aria-label="Link to a subject"]').trigger('click')
+    await flushReads()
+    return wrapper.get('.item .act-menu')
+  }
+
+  it('does not open the reader when the subject search box is clicked', async () => {
+    const { wrapper, pushed } = await mountRow()
+    const menu = await openSubjectMenu(wrapper)
+
+    await menu.get('input').trigger('click')
+    await flushReads()
+
+    expect(pushed).not.toHaveBeenCalled()
+    expect(wrapper.find('.item .act-menu').exists()).toBe(true)
+  })
+
+  it('does not open the reader when the menu padding is clicked', async () => {
+    const { wrapper, pushed } = await mountRow()
+    const menu = await openSubjectMenu(wrapper)
+
+    await menu.trigger('click')
+    await flushReads()
+
+    expect(pushed).not.toHaveBeenCalled()
+  })
+
+  it('links the chosen subject and closes the menu without opening the reader', async () => {
+    const { wrapper, core, pushed } = await mountRow()
+    const menu = await openSubjectMenu(wrapper)
+
+    await menu.get('[role="option"]').trigger('click')
+    await flushReads()
+
+    expect(core.calls.createLink).toEqual([{ srcId: 'post-um', dstId: 'subject-career', kind: 'about' }])
+    expect(wrapper.find('.item .act-menu').exists()).toBe(false)
+    expect(pushed).not.toHaveBeenCalled()
+  })
+
+  it('does not open the reader when the task menu is clicked outside its rows', async () => {
+    overrideModuleBacking('projects', 'api')
+    setEnabledModules(['library', 'projects'])
+    const { wrapper, pushed } = await mountRow()
+
+    await wrapper.get('.item button[aria-label="Create a task"]').trigger('click')
+    await flushReads()
+    await wrapper.get('.item .act-menu[role="menu"]').trigger('click')
+    await flushReads()
+
+    expect(pushed).not.toHaveBeenCalled()
+  })
+
+  it('still opens the reader from the row body', async () => {
+    const { wrapper, pushed } = await mountRow()
+
+    await wrapper.get('.item .item-meta').trigger('click')
+    await flushReads()
+
+    expect(pushed).toHaveBeenCalledWith({ name: 'reader', params: { id: 'post-um' } })
   })
 })

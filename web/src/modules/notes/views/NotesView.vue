@@ -235,7 +235,7 @@ async function addQuestion(): Promise<void> {
           <textarea
             id="new-question"
             v-model="questionText"
-            rows="2"
+            rows="3"
             placeholder="Ends with “?”. E.g.: Why is the forgetting curve exponential?"
             aria-describedby="question-error"
             @input="questionError = ''"
@@ -318,7 +318,6 @@ async function addQuestion(): Promise<void> {
   font-size: 15px;
   line-height: 24px;
 }
-.notes-question-form textarea { resize: vertical; }
 .notes-question-error { margin: 0; color: var(--danger); font-size: 13px; line-height: 20px; }
 .notes-submit { display: flex; justify-content: flex-end; }
 .notes-question-list { margin-top: var(--space-6); }

@@ -105,7 +105,6 @@ function handleInput(event: Event): void {
   min-height: 96px;
   height: auto;
   padding: 10px 12px;
-  resize: vertical;
 }
 
 .nt-input-mono {

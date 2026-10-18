@@ -347,7 +347,7 @@ async function retry(): Promise<void> {
         <textarea
           id="notes-reader-annotation"
           v-model="annotationDraft"
-          rows="2"
+          rows="3"
           placeholder="What does this passage change?"
         />
         <div class="notes-reader-submit">
@@ -496,7 +496,7 @@ async function retry(): Promise<void> {
         id="notes-reader-question"
         ref="questionField"
         v-model="questionDraft"
-        rows="2"
+        rows="3"
         placeholder="Ends with “?”."
         aria-describedby="notes-reader-question-error"
         @input="questionError = ''"
@@ -572,7 +572,6 @@ async function retry(): Promise<void> {
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 24px;
-  resize: vertical;
 }
 .notes-reader-form textarea:focus-visible,
 .notes-reader-form select:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
