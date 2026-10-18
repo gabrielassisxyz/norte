@@ -215,6 +215,14 @@ export function createApiNotesSource(): NotesSource {
       return unwrap(answered as Answered<AnnotationRecord>)
     },
 
+    async attachAnnotationPassage(id: string, highlightId: string) {
+      const answered = await notesClient.PATCH('/api/notes/annotations/{id}', {
+        params: { path: { id } },
+        body: { highlight_id: highlightId }
+      })
+      return unwrap(answered as Answered<AnnotationRecord>)
+    },
+
     async deleteAnnotation(id: string) {
       const answered = await notesClient.DELETE('/api/notes/annotations/{id}', {
         params: { path: { id } }
