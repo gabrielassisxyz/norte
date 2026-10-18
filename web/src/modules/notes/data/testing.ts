@@ -1,5 +1,6 @@
 import type {
   AnnotationRecord,
+  HighlightPassage,
   HighlightRecord,
   ItemNoteRecord,
   ItemNotes,
@@ -96,6 +97,7 @@ export interface FakeNotesCalls {
   counts: number
   itemNotes: string[]
   addedHighlights: NewHighlight[]
+  reselectedPassages: Array<{ id: string; passage: HighlightPassage }>
   deletedHighlights: string[]
   addedAnnotations: NewAnnotation[]
   updatedAnnotations: Array<{ id: string; text: string }>
@@ -167,6 +169,7 @@ export function fakeNotesSource(
     counts: 0,
     itemNotes: [],
     addedHighlights: [],
+    reselectedPassages: [],
     deletedHighlights: [],
     addedAnnotations: [],
     updatedAnnotations: [],
@@ -278,6 +281,24 @@ export function fakeNotesSource(
       })
       held.highlights.unshift(created)
       return created
+    },
+
+    async reselectHighlightPassage(id, passage) {
+      calls.reselectedPassages.push({ id, passage: { ...passage } })
+      const index = held.highlights.findIndex((row) => row.id === id)
+      if (index < 0) throw new Error('no highlight')
+      // Anchored whatever the passage was before, which is the server's own
+      // answer: a test of the orphaned section relies on it.
+      const updated: HighlightRecord = {
+        ...held.highlights[index],
+        exact: passage.exact,
+        prefix: passage.prefix,
+        suffix: passage.suffix,
+        position_hint: passage.position_hint,
+        status: 'anchored'
+      }
+      held.highlights.splice(index, 1, updated)
+      return updated
     },
 
     async deleteHighlight(id) {

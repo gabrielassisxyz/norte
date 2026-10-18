@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import type { ReaderLiveSelection, ReaderSlotProps } from '@/modules/library/readerSlots'
 import { crossModuleActionAllowed } from '@/modules/mounting'
@@ -7,7 +7,12 @@ import { useAsyncAction } from '@/lib/asyncResource'
 import { useSources } from '@/sources'
 
 import { useItemNotes } from '../data/composables'
-import { annotationAwaitingPassage } from '../data/passageAttach'
+import {
+  annotationAwaitingPassage,
+  beginPassageReselect,
+  endPassageReselect,
+  highlightAwaitingPassage
+} from '../data/passageAttach'
 import { notesGainedNote } from '../data/revision'
 import type { AnnotationRecord, HighlightRecord } from '../data/source'
 import { markPassage } from './passageMarking'
@@ -36,10 +41,15 @@ const props = defineProps<ReaderSlotProps>()
 const { notes } = useSources()
 const allowed = computed(() => crossModuleActionAllowed('library', 'notes'))
 const writing = useAsyncAction()
+// The correction of a passage has its own action because its failure reads
+// differently: nothing was created, so "could not highlight" would name the
+// wrong gesture, and both messages would show at once off one action.
+const moving = useAsyncAction()
 
 const {
   data: notesOfItem,
   applyHighlight,
+  replaceHighlight,
   applyAnnotation,
   replaceAnnotation,
   dropHighlight
@@ -184,10 +194,78 @@ async function highlightSelection(selected: ReaderLiveSelection): Promise<void> 
   open.value = { highlight: created, rect: rect ?? { top: 0, bottom: 0, left: 0, width: 0 } }
 }
 
+/* ------------------------------------------- re-selecting a passage */
+
+/**
+ * The passage being corrected, as a banner over the article and nothing else.
+ *
+ * Which highlight is waiting is shared state rather than a ref here, because
+ * the two places that offer the correction are this layer's own toolbar and the
+ * panel's rows, and the panel is a sibling slot with no parent between them.
+ * Running the correction is this layer's, wherever it was asked for: it is the
+ * one that holds the marks in the text and has to move one.
+ */
+const reselecting = computed(() => highlightAwaitingPassage())
+
+function startReselect(id: string): void {
+  moving.clear()
+  open.value = null
+  handled.value = null
+  beginPassageReselect(id)
+}
+
+function cancelReselect(): void {
+  endPassageReselect()
+}
+
+/**
+ * Move the waiting highlight onto what was just selected.
+ *
+ * `position_hint` is 0 rather than an offset measured here: what the browser
+ * can count is an offset into its own DOM, which has no relation to the text
+ * the server anchors against — the same reason a selection travels as words
+ * and context. The server searches for the passage and stores where it found
+ * it.
+ *
+ * A failure leaves the wait in place, because the passage was not moved and
+ * the next selection is still the correction the person asked for.
+ */
+async function reselectPassage(id: string, selected: ReaderLiveSelection): Promise<void> {
+  if (moving.pending.value) return
+  const moved = await moving.run(() =>
+    notes.reselectHighlightPassage(id, {
+      exact: selected.exact,
+      prefix: selected.prefix,
+      suffix: selected.suffix,
+      position_hint: 0
+    })
+  )
+  if (!moved) return
+  replaceHighlight(moved)
+  endPassageReselect()
+  // The margin beside the text is another copy of this item's notes, and the
+  // quote on every note hanging on this passage has just changed.
+  notesGainedNote()
+  window.getSelection()?.removeAllRanges()
+  props.clearSelection()
+}
+
+function onReselectKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'Escape' || !reselecting.value) return
+  cancelReselect()
+}
+
+onMounted(() => window.addEventListener('keydown', onReselectKeydown))
+
 watch(
   () => props.liveSelection,
   (selected) => {
     if (!allowed.value || !selected) return
+    const correcting = reselecting.value
+    if (correcting) {
+      void reselectPassage(correcting, selected)
+      return
+    }
     // A selection made to attach a loose note is the panel's: it makes the
     // highlight itself and links the note to it, and a second highlight from
     // here would be the same words stored twice with a toolbar over them.
@@ -225,7 +303,10 @@ watch(
   { immediate: true }
 )
 
-onBeforeUnmount(() => props.articleRoot?.removeEventListener('click', handleArticleClick))
+onBeforeUnmount(() => {
+  props.articleRoot?.removeEventListener('click', handleArticleClick)
+  window.removeEventListener('keydown', onReselectKeydown)
+})
 
 /**
  * Wrap each anchored passage where it appears in the rendered article.
@@ -292,7 +373,23 @@ function onQuestioned(): void {
       @annotated="onAnnotated"
       @attached="onAttached"
       @questioned="onQuestioned"
+      @reselect="startReselect"
     />
+    <!--
+      Teleported for the reason the panel's own banner is: on a phone the notes
+      panel is a sheet that hides itself the moment a passage is being picked,
+      and this layer renders inside the reader's bottom bar, which the sheet
+      covers too.
+    -->
+    <Teleport to="body">
+      <div v-if="reselecting" class="notes-reselect-banner" role="status" data-notes-reselect>
+        <span>Select the new passage</span>
+        <button type="button" data-action="cancel-reselect" @click="cancelReselect">Cancel</button>
+      </div>
+    </Teleport>
+    <p v-if="moving.error.value" class="notes-highlight-error" role="alert" data-notes-reselect-error>
+      Could not move the passage: {{ moving.error.value }}
+    </p>
     <p
       v-if="unplacedReason"
       class="notes-highlight-notice"
@@ -311,6 +408,47 @@ function onQuestioned(): void {
 .notes-highlight-action:not(:empty) { margin-top: var(--space-4); }
 .notes-highlight-notice { margin: var(--space-2) 0 0; color: var(--ink-2); font-size: 13px; line-height: 20px; }
 .notes-highlight-error { margin: var(--space-2) 0 0; color: var(--danger); font-size: 13px; line-height: 20px; }
+
+/*
+  The same pill the panel's attach banner is, in the same place: the two are one
+  gesture asked for in two ways, and a correction that announced itself
+  differently would read as a different mode.
+*/
+.notes-reselect-banner {
+  position: fixed;
+  top: 12px;
+  left: 50%;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  max-width: calc(100vw - 24px);
+  padding: 8px 10px 8px 14px;
+  transform: translateX(-50%);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+  color: var(--ink);
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.notes-reselect-banner button {
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--sunken);
+  color: var(--ink-2);
+  cursor: pointer;
+  font-family: var(--font-display);
+  font-size: 12px;
+  font-weight: 550;
+}
+
+.notes-reselect-banner button:hover { color: var(--ink); }
+.notes-reselect-banner button:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
 
 /* Inside the reader's bar the notices are the bar's own cell, with no frame. */
 @media (max-width: 900px) {
