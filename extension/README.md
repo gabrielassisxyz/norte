@@ -1,8 +1,9 @@
 # Norte browser extension
 
 Save the current page's rendered HTML to a Norte server, including text available only
-in a logged-in browser. Saving does not wait for extraction. The popup reports success
-as soon as the server returns an item ID, and offers a link to `/library/<id>`.
+in a logged-in browser. Clicking the toolbar action is the save: the popup posts the page
+at once and then edits the item it created. Saving does not wait for extraction. The popup
+reports success as soon as the server returns an item ID, and offers Open and Delete.
 
 ## Build and install
 
@@ -20,10 +21,16 @@ asks for permission to that origin; settings persist only after `/api/health` re
 No host access is granted by the release manifest at installation. No CORS configuration
 is needed on the server.
 
-Click the toolbar action while viewing an article. Save receives initial focus; Enter
-submits. The reason and one subject or focus target are optional. Subject search loads
-all result pages. Closing the popup leaves the background request running; reopening it
-on the same URL shows the stored result. Results for other URLs are not displayed.
+Click the toolbar action while viewing an article and the page is saved with no further
+gesture. The popup then shows Open, which opens `/library/<id>` in a new tab, and Delete,
+which asks first and undoes a click made by mistake. Below them, the note box writes its
+text with a PATCH 800 ms after the last keystroke and on blur -- text typed while the page
+is still uploading is written as soon as the item exists -- and the subject field links a
+subject, or creates one, as soon as one is chosen. An empty subject field offers the
+subjects in focus; typing searches the whole vocabulary, loading all result pages.
+Closing the popup leaves the background request running; reopening it on the same URL
+edits the stored item instead of saving a second copy. Results for other URLs are not
+displayed.
 
 The content script captures `document.documentElement.outerHTML` and a selection quote
 with up to 32 Unicode code points on each side. It does not capture iframe documents,
@@ -59,9 +66,11 @@ must already be installed; the check does not install machine packages.
 
 The fixture requires a cookie; an unauthenticated fetch gets 401. A local proxy records
 save requests and forwards them to the real server. Tests assert the rendered HTML,
-selection, reason, focus link, source, single POST, extraction result and reader text.
-They also cover a closed popup, URL-specific results, a missing server permission, 413,
-restricted pages and an unavailable server. All child servers and browsers are owned
+selection, source, the single POST sent on open, the reason written afterwards, an
+existing and a newly created subject link, Open's target, Delete leaving a 404 and no
+stored result, the extraction result and the reader text. They also cover a closed popup,
+URL-specific results, a missing server permission, 413 with its Retry, restricted pages
+and an unavailable server. All child servers and browsers are owned
 and stopped by the foreground test process.
 
 `node build.mjs --test-origin http://127.0.0.1:12345` emits `dist/test/` and
@@ -91,12 +100,15 @@ to exercise the interactive Firefox popup or POST.
 These steps require an interactive browser and a real account; automated fixture tests
 do not replace them. Record their results in the delivery review.
 
-1. In Chromium, open a real Substack post behind login, open the extension, optionally
-   enter a reason, and save. Verify the post's actual text appears in Norte's reader.
+1. In Chromium, open a real Substack post behind login and open the extension. Verify it
+   says Saved with no further click, write a reason, link a subject, and check that the
+   post's actual text and that reason appear in Norte's reader.
 2. In Firefox, load `dist/chromium/manifest.json` through `about:debugging`, configure the
    server with its permission prompt, open an article, and use the popup to save it.
    Verify one POST and the article text in the reader.
-3. Repeat Save while closing the popup, reopen it on the same page, and check the result.
+3. Close the popup while the save is still running, reopen it on the same page, and check
+   that it shows the same item rather than saving again. Then delete it from the popup and
+   confirm the next click on the extension saves the page afresh.
 
 Neither real-account acceptance nor the interactive Firefox walk is part of CI: launching
 Firefox through `web-ext` gives the test no channel to assert the POST, and Chromium's
