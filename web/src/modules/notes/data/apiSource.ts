@@ -16,6 +16,7 @@ import type {
   NotesListQuery,
   NotesPage,
   NotesSource,
+  QuestionPatch,
   QuestionRecord,
   QuestionSetRecord,
   QuestionSetSummary
@@ -167,6 +168,10 @@ export function createApiNotesSource(): NotesSource {
       return { highlights, annotations }
     },
 
+    async itemQuestions(itemId, signal) {
+      return allPages((cursor) => this.listQuestions({ item_id: itemId, limit: 200, cursor }, signal))
+    },
+
     async itemNote(itemId, signal) {
       const answered = await notesClient.GET('/api/notes/items/{item_id}/note', {
         params: { path: { item_id: itemId } },
@@ -202,8 +207,33 @@ export function createApiNotesSource(): NotesSource {
       return unwrap(answered as Answered<AnnotationRecord>)
     },
 
+    async updateAnnotation(id: string, text: string) {
+      const answered = await notesClient.PATCH('/api/notes/annotations/{id}', {
+        params: { path: { id } },
+        body: { text }
+      })
+      return unwrap(answered as Answered<AnnotationRecord>)
+    },
+
+    async deleteAnnotation(id: string) {
+      const answered = await notesClient.DELETE('/api/notes/annotations/{id}', {
+        params: { path: { id } }
+      })
+      if (answered.error !== undefined) {
+        throw new Error(failureMessage(answered.error, answered.response?.status ?? 0))
+      }
+    },
+
     async addQuestion(question: NewQuestion) {
       const answered = await notesClient.POST('/api/notes/questions', { body: question })
+      return unwrap(answered as Answered<QuestionRecord>)
+    },
+
+    async updateQuestion(id: string, patch: QuestionPatch) {
+      const answered = await notesClient.PATCH('/api/notes/questions/{id}', {
+        params: { path: { id } },
+        body: patch
+      })
       return unwrap(answered as Answered<QuestionRecord>)
     },
 

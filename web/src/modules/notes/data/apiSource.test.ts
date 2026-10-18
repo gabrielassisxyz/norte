@@ -121,6 +121,25 @@ describe('the notes API source: a reader needs both lists of one item', () => {
   })
 })
 
+describe('the notes API source: the questions one item raised', () => {
+  it('reads them narrowed to the item, following next_cursor to the end', async () => {
+    fetchStub.mockImplementation(async (request) => {
+      const cursor = new URL(request.url, 'http://norte.test').searchParams.get('cursor')
+      if (cursor === null) return json({ items: [{ id: 'q-1' }], next_cursor: 'page-2' })
+      return json({ items: [{ id: 'q-2' }] })
+    })
+
+    const questions = await createApiNotesSource().itemQuestions('item-1', signal)
+
+    const urls = fetchStub.mock.calls.map(([request]) => new URL(request.url, 'http://norte.test'))
+    for (const url of urls) {
+      expect(url.pathname).toBe('/api/notes/questions')
+      expect(url.searchParams.get('item_id')).toBe('item-1')
+    }
+    expect(questions.map((row) => row.id)).toEqual(['q-1', 'q-2'])
+  })
+})
+
 describe('the notes API source: an item with more than one page of notes', () => {
   it('follows next_cursor until it is gone, for both lists', async () => {
     fetchStub.mockImplementation(async (request) => {
@@ -207,6 +226,39 @@ describe('the notes API source: the writes', () => {
       text: 'annotate',
       highlight_id: 'h-1'
     })
+  })
+
+  it('rewrites an annotation with PATCH and the text in the body', async () => {
+    fetchStub.mockResolvedValue(json({ id: 'a-1', text: 'rewritten' }))
+
+    const updated = await createApiNotesSource().updateAnnotation('a-1', 'rewritten')
+
+    expect(lastRequest().method).toBe('PATCH')
+    expect(lastUrl().pathname).toBe('/api/notes/annotations/a-1')
+    expect(await lastRequest().clone().json()).toEqual({ text: 'rewritten' })
+    expect(updated).toMatchObject({ text: 'rewritten' })
+  })
+
+  it('deletes an annotation by its id and reports a failure to delete', async () => {
+    fetchStub.mockResolvedValueOnce(new Response(null, { status: 204 }))
+    await createApiNotesSource().deleteAnnotation('a-1')
+
+    expect(lastRequest().method).toBe('DELETE')
+    expect(lastUrl().pathname).toBe('/api/notes/annotations/a-1')
+
+    fetchStub.mockResolvedValueOnce(json({ error: { code: 'not_found', message: 'no annotation' } }, 404))
+    await expect(createApiNotesSource().deleteAnnotation('a-2')).rejects.toThrow('no annotation')
+  })
+
+  it('patches a question with only the fields it was given', async () => {
+    fetchStub.mockResolvedValue(json({ id: 'q-1', status: 'dropped' }))
+
+    const updated = await createApiNotesSource().updateQuestion('q-1', { status: 'dropped' })
+
+    expect(lastRequest().method).toBe('PATCH')
+    expect(lastUrl().pathname).toBe('/api/notes/questions/q-1')
+    expect(await lastRequest().clone().json()).toEqual({ status: 'dropped' })
+    expect(updated).toMatchObject({ status: 'dropped' })
   })
 
   it('posts a question with only the fields it was given', async () => {
