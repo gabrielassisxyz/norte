@@ -383,7 +383,7 @@ async function retry(): Promise<void> {
             id="notes-reader-edit"
             v-model="editing.draft"
             :aria-label="entry.kind === 'question' ? 'Rewrite the question' : 'Rewrite the annotation'"
-            rows="2"
+            rows="3"
             @input="editing.error = ''"
             @keydown.esc="editing = null"
           />
