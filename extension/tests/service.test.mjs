@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { createSaveService, loadTargets, CANNOT_READ, SERVER_ERROR, CONFIGURE, INTERRUPTED, resultKey,
-  saveTimeoutMs, settleStale, clearOrphanedSaving } from '../src/service.js';
+  saveTimeoutMs, settleStale, clearOrphanedSaving, createReasonWriter, createSubjectNamed, deleteSavedItem,
+  linkItemToSubject, patchItemReason, REASON_DEBOUNCE_MS } from '../src/service.js';
 
 const tab = { id: 17, url: 'https://example.test/article' };
 function saveAPI({ permission = true, injection = true } = {}) {
@@ -125,4 +126,106 @@ test('worker startup turns orphaned saving entries into errors and leaves the re
   assert.deepEqual(store['save:a'], { state: 'error', message: INTERRUPTED });
   assert.deepEqual(store['save:b'], { state: 'saved', id: 'b' });
   assert.equal(store.serverOrigin, 'http://host');
+});
+
+test('an empty subject field reads only the focus, and a query reads every page', async () => {
+  const urls = [];
+  const fetcher = async (url) => {
+    urls.push(url);
+    const body = url.includes('/focus') ? { subjects: [{ id: 's1', name: 'Science' }], targets: [] }
+      : url.includes('cursor=') ? { items: [{ id: 's3', name: 'Art' }] }
+      : { items: [{ id: 's2', name: 'Astronomy' }], next_cursor: 'token' };
+    return { ok: true, json: async () => body };
+  };
+  const focusOnly = await loadTargets('http://host', '', fetcher);
+  assert.deepEqual(urls, ['http://host/api/core/focus']);
+  assert.deepEqual(focusOnly.map((target) => target.id), ['s1']);
+  urls.length = 0;
+  const searched = await loadTargets('http://host', 'a', fetcher);
+  assert.equal(urls.length, 3, 'focus, the first page and the page the cursor named');
+  assert.deepEqual(searched.map((target) => target.id), ['s1', 's2', 's3']);
+});
+
+test('the reason is written with the whole text once the typing stops, and never before', async () => {
+  const written = [], scheduled = [], states = [];
+  const writer = createReasonWriter({
+    write: async (id, text) => { written.push({ id, text }); },
+    schedule: (run, delay) => { scheduled.push({ run, delay }); return scheduled.length; },
+    cancel: (timer) => { if (timer) scheduled[timer - 1].run = () => {}; },
+    onState: (state) => states.push(state),
+  });
+  await writer.attach('item-1', '');
+  writer.type('Com');
+  writer.type('Compare');
+  assert.deepEqual(written, [], 'nothing is sent while the keystrokes are still coming');
+  assert.deepEqual(scheduled.map((entry) => entry.delay), [REASON_DEBOUNCE_MS, REASON_DEBOUNCE_MS]);
+  scheduled.forEach((entry) => entry.run());
+  await new Promise((done) => setImmediate(done));
+  assert.deepEqual(written, [{ id: 'item-1', text: 'Compare' }], 'one write, carrying the full text');
+  assert.deepEqual(states, ['saving', 'saved']);
+  writer.type('Compare observations');
+  await writer.blur();
+  assert.deepEqual(written.at(-1), { id: 'item-1', text: 'Compare observations' }, 'blur writes a changed text');
+  await writer.blur();
+  assert.equal(written.length, 2, 'an unchanged text is not written again');
+});
+
+test('a reason typed before the save answers is written as soon as the id arrives', async () => {
+  const written = [];
+  const writer = createReasonWriter({ write: async (id, text) => { written.push({ id, text }); },
+    schedule: () => 0, cancel: () => {} });
+  writer.type('Queued while uploading');
+  assert.deepEqual(written, [], 'there is no item to write to yet');
+  await writer.attach('item-7', '');
+  assert.deepEqual(written, [{ id: 'item-7', text: 'Queued while uploading' }]);
+});
+
+test('a stored reason is not written back, and a failed write does not spin', async () => {
+  const written = [], states = [];
+  const failing = createReasonWriter({ write: async () => { throw new Error('offline'); },
+    schedule: () => 0, cancel: () => {}, onState: (state) => states.push(state) });
+  await failing.attach('item-8', '');
+  failing.type('text');
+  await failing.blur();
+  assert.deepEqual(states, ['saving', 'error']);
+  const loaded = createReasonWriter({ write: async (id, text) => { written.push(text); }, schedule: () => 0, cancel: () => {} });
+  await loaded.attach('item-9', 'Written earlier');
+  assert.deepEqual(written, [], 'what the item already says is not sent back to it');
+});
+
+test('the reason, the subject and the link are sent on their own routes', async () => {
+  const calls = [];
+  const fetcher = async (url, options) => {
+    calls.push({ url, method: options.method, body: JSON.parse(options.body) });
+    return { ok: true, status: 200, json: async () => ({ id: 'subject-1', name: 'Astronomy' }) };
+  };
+  await patchItemReason('http://host', 'item-1', 'Read it twice', fetcher);
+  const subject = await createSubjectNamed('http://host', 'Astronomy', fetcher);
+  await linkItemToSubject('http://host', 'item-1', subject.id, fetcher);
+  assert.deepEqual(calls[0], { url: 'http://host/api/library/items/item-1', method: 'PATCH', body: { reason: 'Read it twice' } });
+  assert.deepEqual(calls[1], { url: 'http://host/api/core/subjects', method: 'POST', body: { name: 'Astronomy' } });
+  assert.deepEqual(calls[2], { url: 'http://host/api/core/links', method: 'POST',
+    body: { src_id: 'item-1', dst_id: 'subject-1', kind: 'about' } });
+  await assert.rejects(patchItemReason('http://host', 'i', '', async () => ({ ok: false, status: 500 })), /HTTP 500/);
+  await assert.rejects(linkItemToSubject('http://host', 'i', 'd', async () => { throw new Error('down'); }), /did not answer/);
+});
+
+test('deleting an item removes it on the server and drops its stored result', async () => {
+  const store = { [resultKey(tab.url)]: { state: 'saved', id: 'item-1' }, 'save:other': { state: 'saved', id: 'o' } };
+  const api = { storage: { local: { remove: async (key) => { delete store[key]; } } } };
+  const calls = [];
+  const result = await deleteSavedItem(api, tab.url, 'http://host', 'item-1', async (url, options) => {
+    calls.push({ url, method: options.method });
+    return { ok: true, status: 204 };
+  });
+  assert.deepEqual(calls, [{ url: 'http://host/api/library/items/item-1', method: 'DELETE' }]);
+  assert.equal(result.state, 'deleted');
+  assert.equal(store[resultKey(tab.url)], undefined);
+  assert.deepEqual(store['save:other'], { state: 'saved', id: 'o' });
+  const gone = { [resultKey(tab.url)]: { state: 'saved', id: 'item-2' } };
+  await deleteSavedItem({ storage: { local: { remove: async (key) => { delete gone[key]; } } } },
+    tab.url, 'http://host', 'item-2', async () => ({ ok: false, status: 404 }));
+  assert.equal(gone[resultKey(tab.url)], undefined, 'an item somebody else deleted still leaves no stored result');
+  await assert.rejects(deleteSavedItem({ storage: { local: { remove: async () => assert.fail('must not clear') } } },
+    tab.url, 'http://host', 'item-3', async () => ({ ok: false, status: 500 })), /HTTP 500/);
 });
