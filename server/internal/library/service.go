@@ -68,6 +68,10 @@ type LibraryService struct {
 	// libraryExtractKind is the job kind saves enqueue. A test sets it empty
 	// to prove the save rolls back when the enqueue fails.
 	libraryExtractKind string
+	// events is the bus a delete publishes on, or nil in a process assembled
+	// without one -- a one-shot command with no other module in it, where
+	// there is nothing to react.
+	events *core.Events
 	// focus is what the focus-ranked view and the weighted draw rank by, or
 	// nil in a process assembled without it -- both then refuse rather than
 	// answering an unranked list under a ranked name.
@@ -81,6 +85,15 @@ type LibraryService struct {
 // each of them has to pass.
 func (s *LibraryService) WithFocus(focus libraryFocusReader) *LibraryService {
 	s.focus = focus
+	return s
+}
+
+// WithEvents hands the service the bus a delete publishes on. It is set apart
+// from the constructor for the same reason the focus is: the save path and the
+// extraction worker have no use for it, and a constructor argument none of
+// them can fill is a nil each of them has to pass.
+func (s *LibraryService) WithEvents(events *core.Events) *LibraryService {
+	s.events = events
 	return s
 }
 

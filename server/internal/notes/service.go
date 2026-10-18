@@ -807,3 +807,48 @@ func notesRequireOneRow(result sql.Result, what, id string) error {
 	}
 	return nil
 }
+
+/* ------------------------------------------------- a deleted source item */
+
+// ForgetItem takes everything written on an item that no longer exists, in one
+// transaction: its highlights (and, by the cascade on highlight_id, the
+// annotations hanging off them), any annotation written on the item without a
+// highlight, and its one freeform note.
+//
+// Its questions are kept and lose their item instead. A question is the
+// person's own sentence, which is the same reason the schema keeps one when
+// the annotation it was turned from is deleted; item_id is nullable precisely
+// so a question can outlive what prompted it.
+//
+// An item with nothing written on it is not an error: the reaction runs for
+// every delete, and most saved links carry no notes at all.
+func (s *NotesService) ForgetItem(ctx context.Context, itemID string) error {
+	if itemID == "" {
+		return fmt.Errorf("forgetting the notes of an item with no id")
+	}
+	tx, err := s.database.Writer().BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning the forget transaction of %s: %w", itemID, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	queries := db.New(tx)
+	if _, err := queries.ClearNotesQuestionItem(ctx, db.ClearNotesQuestionItemParams{
+		UpdatedAt: core.FormatTime(s.clock.Now()),
+		ItemID:    sql.NullString{String: itemID, Valid: true},
+	}); err != nil {
+		return fmt.Errorf("clearing the item of the questions of %s: %w", itemID, err)
+	}
+	if _, err := queries.DeleteNotesHighlightsForItem(ctx, itemID); err != nil {
+		return fmt.Errorf("deleting the highlights of %s: %w", itemID, err)
+	}
+	if _, err := queries.DeleteNotesAnnotationsForItem(ctx, itemID); err != nil {
+		return fmt.Errorf("deleting the annotations of %s: %w", itemID, err)
+	}
+	if _, err := queries.DeleteNotesItemNote(ctx, itemID); err != nil {
+		return fmt.Errorf("deleting the note of %s: %w", itemID, err)
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing the forget of %s: %w", itemID, err)
+	}
+	return nil
+}

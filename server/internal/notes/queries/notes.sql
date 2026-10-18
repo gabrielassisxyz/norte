@@ -34,6 +34,14 @@ UPDATE notes_highlights SET status = ?, position_hint = ? WHERE id = ?;
 -- name: DeleteNotesHighlight :execresult
 DELETE FROM notes_highlights WHERE id = ?;
 
+-- What a deleted item takes with it. The annotations of each highlight go by
+-- the cascade on highlight_id; the three statements below take what the
+-- cascade does not reach: a highlight has no owner to cascade from, an
+-- annotation written on the item without a highlight has none either, and the
+-- note is one row keyed by the item.
+-- name: DeleteNotesHighlightsForItem :execresult
+DELETE FROM notes_highlights WHERE item_id = ?;
+
 -- name: CountNotesHighlights :one
 SELECT COUNT(*) FROM notes_highlights;
 
@@ -50,6 +58,9 @@ UPDATE notes_annotations SET text = ?, updated_at = ? WHERE id = ?;
 
 -- name: DeleteNotesAnnotation :execresult
 DELETE FROM notes_annotations WHERE id = ?;
+
+-- name: DeleteNotesAnnotationsForItem :execresult
+DELETE FROM notes_annotations WHERE item_id = ?;
 
 -- name: CountNotesAnnotations :one
 SELECT COUNT(*) FROM notes_annotations;
@@ -78,6 +89,12 @@ FROM notes_questions WHERE id = ?;
 
 -- name: UpdateNotesQuestion :execresult
 UPDATE notes_questions SET text = ?, answer = ?, status = ?, updated_at = ? WHERE id = ?;
+
+-- A deleted item leaves its questions behind, pointing at no item: the
+-- question is the person's own sentence, which is the same reason the schema
+-- keeps one when the annotation it came from is deleted.
+-- name: ClearNotesQuestionItem :execresult
+UPDATE notes_questions SET item_id = NULL, updated_at = ? WHERE item_id = ?;
 
 -- name: CountNotesQuestions :one
 SELECT COUNT(*) FROM notes_questions;

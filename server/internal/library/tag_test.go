@@ -484,10 +484,10 @@ func TestTheTaggerRefusesAJobItCannotServe(t *testing.T) {
 		t.Fatalf("reading the fixture: %v", err)
 	}
 	id := harness.save("https://haldonsoftware.example/marker", page)
-	if err := runTagger(t, tagger, id+"-gone"); err == nil {
-		t.Error("a job for an item that does not exist was accepted")
-	} else if !core.IsPermanent(err) {
-		t.Errorf("a job for a vanished item failed retryably (%v), want permanent", err)
+	// A vanished item is not one of them: the link was deleted on purpose, so
+	// there is nothing to tag and the job finishes done.
+	if err := runTagger(t, tagger, id+"-gone"); err != nil {
+		t.Errorf("a job for a deleted item failed (%v), want done", err)
 	}
 
 	gone := NewLibraryTagger(LibraryTagOptions{

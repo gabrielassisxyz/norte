@@ -259,6 +259,30 @@ func RegisterNorteJobHandlers(queue *core.Jobs, modules []Module, deps Deps) {
 	}
 }
 
+// NorteEventSubscriberModule is the optional half of Module for a module that
+// reacts to another module's events. It is an assertion rather than a method on
+// Module because most modules publish and never subscribe, and a method every
+// one of them has to declare empty says nothing about which ones do.
+type NorteEventSubscriberModule interface {
+	Subscribe(deps Deps)
+}
+
+// RegisterNorteEventSubscribers installs the reactions of every enabled module
+// that has any, for a process with no Start to run.
+//
+// serve has one: each module's Start installs its own subscriptions and then
+// blocks, which is where the server's reactions come from. A one-shot command
+// never calls Start, so a command that publishes an event -- deleting a
+// library item, which the notes module reacts to -- calls this instead, and
+// gets exactly the reactions of the modules NORTE_MODULES names.
+func RegisterNorteEventSubscribers(modules []Module, deps Deps) {
+	for _, module := range modules {
+		if subscriber, ok := module.(NorteEventSubscriberModule); ok {
+			subscriber.Subscribe(deps)
+		}
+	}
+}
+
 // NorteTextProviders hands the enabled modules to the core as text providers
 // keyed by module name, so core.Text can route by core_items.module.
 //

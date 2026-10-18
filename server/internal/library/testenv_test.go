@@ -56,7 +56,11 @@ func newLibraryTestService(t *testing.T, database *core.Database, dataDir string
 		core.NewFiles(dataDir, database.Writer(), clock),
 		core.NewJobs(database.Writer(), clock, nil),
 		clock).
-		WithFocus(core.NewFocusAPI(core.NewSubjects(database, clock), nil))
+		WithFocus(core.NewFocusAPI(core.NewSubjects(database, clock), nil)).
+		// A bus with nothing subscribed to it, which is what the library alone
+		// is: the reaction to a delete lives in notes, and its own suite is
+		// where that half is proved.
+		WithEvents(core.NewEvents())
 }
 
 // newLibraryTestRouter builds the real router with the library enabled, so
@@ -91,6 +95,7 @@ func newLibraryTestRouter(t *testing.T, database *core.Database, dataDir string,
 			Jobs:     core.NewJobs(database.Writer(), clock, nil),
 			Files:    core.NewFiles(dataDir, database.Writer(), clock),
 			Clock:    clock,
+			Events:   core.NewEvents(),
 			// The focus-ranked view answers 503 without this, so leaving it
 			// out would make every list test pass against a server that
 			// cannot serve one of its views.

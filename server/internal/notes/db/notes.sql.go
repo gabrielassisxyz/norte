@@ -10,6 +10,22 @@ import (
 	"database/sql"
 )
 
+const clearNotesQuestionItem = `-- name: ClearNotesQuestionItem :execresult
+UPDATE notes_questions SET item_id = NULL, updated_at = ? WHERE item_id = ?
+`
+
+type ClearNotesQuestionItemParams struct {
+	UpdatedAt string
+	ItemID    sql.NullString
+}
+
+// A deleted item leaves its questions behind, pointing at no item: the
+// question is the person's own sentence, which is the same reason the schema
+// keeps one when the annotation it came from is deleted.
+func (q *Queries) ClearNotesQuestionItem(ctx context.Context, arg ClearNotesQuestionItemParams) (sql.Result, error) {
+	return q.db.ExecContext(ctx, clearNotesQuestionItem, arg.UpdatedAt, arg.ItemID)
+}
+
 const countNotesAnnotations = `-- name: CountNotesAnnotations :one
 SELECT COUNT(*) FROM notes_annotations
 `
@@ -73,12 +89,33 @@ func (q *Queries) DeleteNotesAnnotation(ctx context.Context, id string) (sql.Res
 	return q.db.ExecContext(ctx, deleteNotesAnnotation, id)
 }
 
+const deleteNotesAnnotationsForItem = `-- name: DeleteNotesAnnotationsForItem :execresult
+DELETE FROM notes_annotations WHERE item_id = ?
+`
+
+func (q *Queries) DeleteNotesAnnotationsForItem(ctx context.Context, itemID string) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteNotesAnnotationsForItem, itemID)
+}
+
 const deleteNotesHighlight = `-- name: DeleteNotesHighlight :execresult
 DELETE FROM notes_highlights WHERE id = ?
 `
 
 func (q *Queries) DeleteNotesHighlight(ctx context.Context, id string) (sql.Result, error) {
 	return q.db.ExecContext(ctx, deleteNotesHighlight, id)
+}
+
+const deleteNotesHighlightsForItem = `-- name: DeleteNotesHighlightsForItem :execresult
+DELETE FROM notes_highlights WHERE item_id = ?
+`
+
+// What a deleted item takes with it. The annotations of each highlight go by
+// the cascade on highlight_id; the three statements below take what the
+// cascade does not reach: a highlight has no owner to cascade from, an
+// annotation written on the item without a highlight has none either, and the
+// note is one row keyed by the item.
+func (q *Queries) DeleteNotesHighlightsForItem(ctx context.Context, itemID string) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteNotesHighlightsForItem, itemID)
 }
 
 const deleteNotesItemNote = `-- name: DeleteNotesItemNote :execresult

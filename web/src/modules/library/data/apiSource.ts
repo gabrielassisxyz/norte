@@ -150,6 +150,17 @@ export function createApiLibrarySource(): LibrarySource {
       return unwrap(answered as Answered<LibraryItemRecord>)
     },
 
+    async deleteItem(id: string): Promise<void> {
+      const answered = await libraryClient.DELETE('/api/library/items/{id}', {
+        params: { path: { id } }
+      })
+      // A 204 carries no body, so there is nothing to unwrap: only a failure
+      // has to be turned into a thrown error here.
+      if (answered.error !== undefined) {
+        throw new Error(failureMessage(answered.error, answered.response?.status ?? 0))
+      }
+    },
+
     async openItem(id: string): Promise<LibraryItemRecord> {
       const answered = await libraryClient.POST('/api/library/items/{id}/open', {
         params: { path: { id } }

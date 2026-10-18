@@ -572,6 +572,70 @@ describe('LibraryView writing to the API', () => {
   })
 })
 
+describe('LibraryView deleting an item', () => {
+  it('asks before deleting, and sends nothing while the question is open', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/library?v=all', library)
+
+    await wrapper.get('button[aria-label="Delete A saved text"]').trigger('click')
+
+    const dialog = wrapper.get('[role="dialog"]')
+    expect(dialog.text()).toContain('A saved text')
+    expect(dialog.text()).toContain('There is no undo')
+    expect(library.calls.delete).toEqual([])
+    expect(titles(wrapper)).toContain('A saved text')
+  })
+
+  it('sends nothing and keeps the row when the question is cancelled', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/library?v=all', library)
+
+    await wrapper.get('button[aria-label="Delete A saved text"]').trigger('click')
+    await wrapper.get('[role="dialog"] .nt-btn-secondary').trigger('click')
+    await flushReads()
+
+    expect(library.calls.delete).toEqual([])
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(titles(wrapper)).toContain('A saved text')
+  })
+
+  it('removes the row and asks for the counts again once it is confirmed', async () => {
+    const library = fakeLibrarySource(shelf())
+    const { wrapper } = await mountAt('/library?v=all', library)
+
+    expect(library.calls.counts).toBe(1)
+    await wrapper.get('button[aria-label="Delete A saved text"]').trigger('click')
+    await wrapper.get('[role="dialog"] .nt-btn-primary').trigger('click')
+    await flushReads()
+
+    expect(library.calls.delete).toEqual(['post-um'])
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(false)
+    expect(titles(wrapper)).not.toContain('A saved text')
+    // The counts are the whole library's, and the delete answered with no
+    // body, so the only way to the new totals is to ask again.
+    expect(library.calls.counts).toBe(2)
+    expect(segCounts(wrapper)).toMatchObject({ Inbox: 0, All: 2 })
+  })
+
+  it('keeps the row and says why when the delete fails', async () => {
+    const library = fakeLibrarySource(shelf(), {
+      deleteItem: async () => {
+        throw new Error('server conflict')
+      }
+    })
+    const { wrapper } = await mountAt('/library?v=all', library)
+
+    await wrapper.get('button[aria-label="Delete A saved text"]').trigger('click')
+    await wrapper.get('[role="dialog"] .nt-btn-primary').trigger('click')
+    await flushReads()
+
+    expect(wrapper.get('.library-write-error').text()).toContain('Could not save: server conflict')
+    expect(titles(wrapper)).toContain('A saved text')
+    // The question stays open: the person asked for this and it did not happen.
+    expect(wrapper.find('[role="dialog"]').exists()).toBe(true)
+  })
+})
+
 describe('LibraryView adding links', () => {
   it('puts the URL action immediately before the title', async () => {
     const { wrapper } = await mountAt('/library', fakeLibrarySource(shelf()))
