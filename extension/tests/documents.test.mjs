@@ -9,7 +9,7 @@ test('manifest describes the extension and its action in English', async () => {
   assert.equal(manifest.action.default_title, 'Save to Norte');
 });
 
-test('popup.html is English, with lang and the reason-labelled note input', async () => {
+test('popup.html is English, with lang, a roomy note box and one subject combobox', async () => {
   const dom = new JSDOM(await readFile(new URL('../src/popup.html', import.meta.url), 'utf8'));
   const document = dom.window.document;
   assert.equal(document.documentElement.lang, 'en');
@@ -17,16 +17,29 @@ test('popup.html is English, with lang and the reason-labelled note input', asyn
   assert.equal(document.querySelector('header a').textContent, 'Settings');
   assert.equal(document.getElementById('title').textContent, 'Save the page');
   const reason = document.getElementById('reason');
-  assert.ok(reason, 'the note input keeps its reason id');
+  assert.equal(reason.tagName, 'TEXTAREA', 'the note is a textarea, not a one-line input');
+  assert.ok(Number(reason.getAttribute('rows')) >= 5, 'the note box is at least five lines tall');
   assert.equal(reason.placeholder, 'Why am I saving this?');
   assert.equal(document.querySelector('label[for="reason"]').textContent, 'Why am I saving this? (optional)');
-  assert.equal(document.querySelector('label[for="search"]').textContent, 'Link to a subject or focus (optional)');
-  assert.equal(document.getElementById('search').placeholder, 'Search for a subject');
-  assert.equal(document.getElementById('link').getAttribute('aria-label'), 'Subject or focus');
-  assert.equal(document.querySelector('#link option').textContent, 'No link');
-  assert.equal(document.getElementById('save').textContent, 'Save');
+  const subject = document.getElementById('subject');
+  assert.equal(subject.getAttribute('role'), 'combobox');
+  assert.equal(subject.getAttribute('aria-controls'), 'subject-options');
+  assert.equal(subject.getAttribute('aria-label'), 'Link to a subject');
+  assert.equal(subject.placeholder, 'Search for a subject');
+  assert.equal(document.querySelector('label[for="subject"]').textContent, 'Link to a subject (optional)');
+  assert.equal(document.getElementById('subject-options').getAttribute('role'), 'listbox');
+  assert.equal(document.getElementById('open').tagName, 'BUTTON');
+  assert.equal(document.getElementById('open').textContent.trim(), 'Open');
+  assert.equal(document.getElementById('delete').textContent, 'Delete');
+  assert.equal(document.getElementById('confirm-question').textContent, 'Delete this item?');
+  assert.equal(document.getElementById('cancel-delete').textContent, 'Keep');
+  assert.equal(document.getElementById('retry').textContent, 'Retry');
   assert.equal(document.getElementById('configure').textContent, 'configure the server');
-  assert.equal(document.getElementById('reader').textContent, 'Open in the library');
+});
+
+test('the note box cannot be dragged into another shape', async () => {
+  const css = await readFile(new URL('../src/style.css', import.meta.url), 'utf8');
+  assert.match(css, /textarea\s*\{[^}]*resize:\s*none/, 'the reason box is not resizable');
 });
 
 test('settings.html is English, with lang and the connect form', async () => {

@@ -4,17 +4,33 @@ body { width: 360px; margin: 0; background: var(--ground); color: var(--ink); fo
 header { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); }
 header strong { font: 650 20px var(--font-display); letter-spacing: -.03em; }
 main { padding: 20px; }
-h1 { font: 600 18px/1.4 var(--font-display); margin: 0 0 20px; overflow-wrap: anywhere; }
+h1 { font: 600 18px/1.4 var(--font-display); margin: 0 0 12px; overflow-wrap: anywhere; }
 a { color: var(--link); }
 label { display: block; font-weight: 550; margin: 16px 0 6px; }
 label span, .muted { color: var(--muted); font-weight: 400; font-size: 12px; }
-input, select, button { width: 100%; font: inherit; border-radius: var(--radius-sm); padding: 10px; }
-textarea { resize: none; }
-input, select { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); }
+input, select, textarea, button { width: 100%; font: inherit; border-radius: var(--radius-sm); padding: 10px; }
+textarea { resize: none; min-height: 7.5em; }
+input, select, textarea { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); }
 select { margin-top: 8px; }
-button { margin-top: 16px; border: 0; font-weight: 600; background: var(--norte); color: var(--on-norte); cursor: pointer; }
+button { margin-top: 16px; border: 0; font-weight: 600; background: var(--norte); color: var(--on-norte); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
 button:hover { background: var(--norte-hover); }
 button:disabled { opacity: .55; cursor: default; }
+button.danger { background: transparent; color: var(--danger); border: 1px solid var(--danger); }
+button.danger:hover { background: var(--danger); color: var(--on-norte); }
+button.quiet { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
+button.quiet:hover { background: var(--sunken); }
+.row { display: flex; gap: 8px; }
+#status { margin: 0; font-weight: 550; overflow-wrap: anywhere; }
+#confirm p { margin: 16px 0 0; }
+#reason-state, #subject-state { margin: 6px 0 0; min-height: 1.5em; }
+/* The options sit directly under the field rather than floating: the popup is
+   its own window, so there is nothing for an overlay to cover. */
+#subject-options { margin: 6px 0 0; padding: 0; list-style: none; max-height: 180px; overflow: auto;
+  border: 1px solid var(--line); border-radius: var(--radius-sm); background: var(--surface); }
+.option { padding: 8px 10px; cursor: pointer; font-weight: 550; }
+.option.active, .option:hover { background: var(--sunken); }
+#chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 0; padding: 0; list-style: none; }
+.chip { padding: 4px 10px; border-radius: 999px; background: var(--sunken); color: var(--ink); font-size: 12px; font-weight: 550; }
 :focus-visible { outline: none; box-shadow: var(--focus-ring); }
-#status { overflow-wrap: anywhere; }
 [hidden] { display: none; }
