@@ -81,7 +81,7 @@ async function createSet(): Promise<void> {
 
         <div v-for="kind in QUESTION_KINDS" :key="kind" class="sets-prompt">
           <label :for="`set-prompt-${kind}`">{{ QUESTION_KIND_LABELS[kind] }}</label>
-          <textarea :id="`set-prompt-${kind}`" v-model="drafts[kind]" rows="2" />
+          <textarea :id="`set-prompt-${kind}`" v-model="drafts[kind]" rows="3" />
         </div>
 
         <p v-if="formError" class="sets-error" role="alert">{{ formError }}</p>
@@ -141,7 +141,6 @@ async function createSet(): Promise<void> {
   font-size: 15px;
   line-height: 24px;
 }
-.sets-form textarea { resize: vertical; }
 .sets-form input:focus-visible, .sets-form textarea:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
 .sets-hint { margin: 0; color: var(--muted); font-size: 13px; line-height: 20px; }
 .sets-prompt { display: grid; gap: var(--space-1); }

@@ -183,6 +183,14 @@ describe('design-system components', () => {
     expect(wrapper.get('label').attributes('for')).toBe(wrapper.get('textarea').attributes('id'))
   })
 
+  it('TextField multiline starts at least three lines tall', () => {
+    const wrapper = mount(TextField, { props: { label: 'Reason', multiline: true } })
+    const textarea = wrapper.get('textarea')
+
+    expect(Number(textarea.attributes('rows'))).toBeGreaterThanOrEqual(3)
+    expect(textarea.classes()).toContain('nt-input-multi')
+  })
+
   it('Icon renders each supported name with its requested size', () => {
     const wrapper = mount(Icon, { props: { name: 'arrowLeft', size: 20 } })
 

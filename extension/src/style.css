@@ -9,6 +9,7 @@ a { color: var(--link); }
 label { display: block; font-weight: 550; margin: 16px 0 6px; }
 label span, .muted { color: var(--muted); font-weight: 400; font-size: 12px; }
 input, select, button { width: 100%; font: inherit; border-radius: var(--radius-sm); padding: 10px; }
+textarea { resize: none; }
 input, select { border: 1px solid var(--line-strong); background: var(--surface); color: var(--ink); }
 select { margin-top: 8px; }
 button { margin-top: 16px; border: 0; font-weight: 600; background: var(--norte); color: var(--on-norte); cursor: pointer; }

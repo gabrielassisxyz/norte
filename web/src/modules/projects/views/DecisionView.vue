@@ -930,7 +930,6 @@ watch([decision, decisionId, () => props.preselect], resetState, { immediate: tr
   font-family: var(--font-sans);
   font-size: 15px;
   line-height: 24px;
-  resize: vertical;
 }
 
 .decision-reasoning textarea::placeholder {
