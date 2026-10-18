@@ -21,6 +21,7 @@ export type NotesCounts = components['schemas']['NoteCounts']
 export type NewHighlight = components['schemas']['NewHighlight']
 export type NewAnnotation = components['schemas']['NewAnnotation']
 export type NewQuestion = components['schemas']['NewQuestion']
+export type QuestionPatch = components['schemas']['QuestionPatch']
 export type NewQuestionSet = components['schemas']['NewQuestionSet']
 
 /** The six prompts a question set offers, in the order its screen shows them. */
@@ -79,12 +80,18 @@ export interface NotesSource {
   counts(signal: AbortSignal): Promise<NotesCounts>
   /** The highlights and annotations of one item, which is what a reader needs at once. */
   itemNotes(itemId: string, signal: AbortSignal): Promise<ItemNotes>
+  /** Every question one item raised, whatever its state: the reader filters, not the source. */
+  itemQuestions(itemId: string, signal: AbortSignal): Promise<QuestionRecord[]>
   itemNote(itemId: string, signal: AbortSignal): Promise<ItemNoteRecord>
   putItemNote(itemId: string, text: string): Promise<ItemNoteRecord>
   addHighlight(highlight: NewHighlight): Promise<HighlightRecord>
   deleteHighlight(id: string): Promise<void>
   addAnnotation(annotation: NewAnnotation): Promise<AnnotationRecord>
+  updateAnnotation(id: string, text: string): Promise<AnnotationRecord>
+  deleteAnnotation(id: string): Promise<void>
   addQuestion(question: NewQuestion): Promise<QuestionRecord>
+  /** Only the fields present are applied; there is no delete, and `dropped` is how a question is let go. */
+  updateQuestion(id: string, patch: QuestionPatch): Promise<QuestionRecord>
   addQuestionSet(set: NewQuestionSet): Promise<QuestionSetRecord>
 }
 

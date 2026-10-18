@@ -18,7 +18,8 @@ describe('AnnotationItem', () => {
   it('offers to annotate a passage that has no note yet', async () => {
     const wrapper = mount(AnnotationItem, { props: { quote: 'a passage' } })
 
-    expect(wrapper.find('.nt-ann-meta').text()).toContain('Highlight only')
+    // The quote and the action say it already; a label repeating it was noise.
+    expect(wrapper.text()).not.toContain('Highlight only')
 
     await wrapper.find('.nt-ann-add').trigger('click')
 

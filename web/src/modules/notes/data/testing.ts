@@ -12,6 +12,7 @@ import type {
   NotesListQuery,
   NotesPage,
   NotesSource,
+  QuestionPatch,
   QuestionRecord,
   QuestionSetRecord,
   QuestionSetSummary
@@ -97,7 +98,10 @@ export interface FakeNotesCalls {
   addedHighlights: NewHighlight[]
   deletedHighlights: string[]
   addedAnnotations: NewAnnotation[]
+  updatedAnnotations: Array<{ id: string; text: string }>
+  deletedAnnotations: string[]
   addedQuestions: NewQuestion[]
+  updatedQuestions: Array<{ id: string; patch: QuestionPatch }>
   addedSets: NewQuestionSet[]
   writtenNotes: Array<{ itemId: string; text: string }>
 }
@@ -164,7 +168,10 @@ export function fakeNotesSource(
     addedHighlights: [],
     deletedHighlights: [],
     addedAnnotations: [],
+    updatedAnnotations: [],
+    deletedAnnotations: [],
     addedQuestions: [],
+    updatedQuestions: [],
     addedSets: [],
     writtenNotes: []
   }
@@ -237,6 +244,10 @@ export function fakeNotesSource(
       }
     },
 
+    async itemQuestions(itemId, signal): Promise<QuestionRecord[]> {
+      return (await this.listQuestions({ item_id: itemId, limit: 200 }, signal)).items
+    },
+
     async itemNote(itemId): Promise<ItemNoteRecord> {
       const text = held.itemNotes.get(itemId)
       if (text === undefined) return { item_id: itemId, text: '' }
@@ -285,6 +296,27 @@ export function fakeNotesSource(
       return created
     },
 
+    async updateAnnotation(id, text) {
+      calls.updatedAnnotations.push({ id, text })
+      const index = held.annotations.findIndex((row) => row.id === id)
+      if (index < 0) throw new Error('no annotation')
+      const updated = { ...held.annotations[index], text: text.trim(), updated_at: '2026-10-09T12:00:00Z' }
+      held.annotations.splice(index, 1, updated)
+      return updated
+    },
+
+    async deleteAnnotation(id) {
+      calls.deletedAnnotations.push(id)
+      held.annotations = held.annotations.filter((row) => row.id !== id)
+      // The schema's ON DELETE SET NULL: the question outlives the note it came from.
+      held.questions = held.questions.map((row) => {
+        if (row.annotation_id !== id) return row
+        const loose = { ...row }
+        delete loose.annotation_id
+        return loose
+      })
+    },
+
     async addQuestion(question) {
       calls.addedQuestions.push({ ...question })
       const created = questionRecord({
@@ -297,6 +329,15 @@ export function fakeNotesSource(
       })
       held.questions.unshift(created)
       return created
+    },
+
+    async updateQuestion(id, patch) {
+      calls.updatedQuestions.push({ id, patch: { ...patch } })
+      const index = held.questions.findIndex((row) => row.id === id)
+      if (index < 0) throw new Error('no question')
+      const updated = { ...held.questions[index], ...patch, updated_at: '2026-10-09T12:00:00Z' }
+      held.questions.splice(index, 1, updated)
+      return updated
     },
 
     async addQuestionSet(set) {

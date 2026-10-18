@@ -35,7 +35,6 @@ const badge = computed(() => {
     <p v-if="note" class="nt-ann-note">{{ note }}</p>
     <div class="nt-ann-meta">
       <span v-if="n != null" class="nt-ann-n">{{ n }}</span>
-      <span v-if="resolvedKind === 'highlight'">Highlight only</span>
       <span v-if="location">{{ location }}</span>
       <span v-if="time" class="nt-mono">{{ time }}</span>
     </div>

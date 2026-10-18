@@ -171,6 +171,8 @@ export function useNotesQuestionSet(id: MaybeRefOrGetter<string>): NotesQuestion
 export interface ItemNotesResource extends AsyncResource<ItemNotes> {
   applyHighlight: (highlight: HighlightRecord) => void
   applyAnnotation: (annotation: AnnotationRecord) => void
+  replaceAnnotation: (annotation: AnnotationRecord) => void
+  dropAnnotation: (id: string) => void
   dropHighlight: (id: string) => void
 }
 
@@ -213,6 +215,21 @@ export function useItemNotes(
     resource.data.value = { ...current, annotations: [...current.annotations, annotation] }
   }
 
+  function replaceAnnotation(annotation: AnnotationRecord): void {
+    const current = resource.data.value
+    if (!current) return
+    resource.data.value = {
+      ...current,
+      annotations: current.annotations.map((held) => (held.id === annotation.id ? annotation : held))
+    }
+  }
+
+  function dropAnnotation(id: string): void {
+    const current = resource.data.value
+    if (!current) return
+    resource.data.value = { ...current, annotations: current.annotations.filter((held) => held.id !== id) }
+  }
+
   /** A deleted highlight takes the annotations that hung on it, as the schema does. */
   function dropHighlight(id: string): void {
     const current = resource.data.value
@@ -223,7 +240,43 @@ export function useItemNotes(
     }
   }
 
-  return { ...resource, applyHighlight, applyAnnotation, dropHighlight }
+  return { ...resource, applyHighlight, applyAnnotation, replaceAnnotation, dropAnnotation, dropHighlight }
+}
+
+export interface ItemQuestionsResource extends AsyncResource<QuestionRecord[]> {
+  /** Put a question the screen wrote in place: replaced when it is held, appended when it is new. */
+  applyQuestion: (question: QuestionRecord) => void
+}
+
+/**
+ * The questions one item raised, every state included, for the reader's margin.
+ *
+ * It re-reads on `notesRevision` for the reason `useItemNotes` does: another
+ * part of the reader may write a question this copy is not holding.
+ */
+export function useItemQuestions(
+  itemId: MaybeRefOrGetter<string>,
+  enabled: MaybeRefOrGetter<boolean> = true
+): ItemQuestionsResource {
+  const { notes } = useSources()
+  const resource = useAsyncResource((signal) => notes.itemQuestions(toValue(itemId), signal), {
+    immediate: toValue(enabled)
+  })
+
+  watch([() => toValue(itemId), () => toValue(enabled), notesRevision], () => {
+    if (toValue(enabled)) void resource.refresh()
+  })
+
+  function applyQuestion(question: QuestionRecord): void {
+    const current = resource.data.value
+    if (!current) return
+    const held = current.some((candidate) => candidate.id === question.id)
+    resource.data.value = held
+      ? current.map((candidate) => (candidate.id === question.id ? question : candidate))
+      : [...current, question]
+  }
+
+  return { ...resource, applyQuestion }
 }
 
 export interface ItemNoteResource extends AsyncResource<ItemNoteRecord | null> {
