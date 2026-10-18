@@ -118,18 +118,41 @@ describe('selecting a passage in the reader', () => {
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(1)
   })
 
-  it('sends one request for one gesture, however often the selection is reported', async () => {
+  it('sends one request for one gesture, even while the first is still in flight', async () => {
     const { wrapper, notes } = await mountReader()
+
+    /*
+      The window between the request going out and the selection being dropped
+      is the one that matters, and it is the only one a test can hold open: the
+      reader reports a selection from a mouse, from a key and from
+      `selectionchange`, and until the answer arrives the browser's selection is
+      still there to be reported again. Each report used to be another
+      highlight, and nothing before this held that window open long enough to
+      show it.
+    */
+    const sent: Array<{ exact: string }> = []
+    let answer = (highlight: ReturnType<typeof highlightRecord>): void => void highlight
+    const inFlight = new Promise<ReturnType<typeof highlightRecord>>((resolve) => {
+      answer = resolve
+    })
+    notes.addHighlight = async (highlight) => {
+      sent.push({ exact: highlight.exact })
+      return inFlight
+    }
 
     selectText('.article-content', PASSAGE)
     await wrapper.get('.reader-scroll').trigger('mouseup')
-    await wrapper.get('.reader-scroll').trigger('mouseup')
+    expect(sent).toHaveLength(1)
+
+    // The same selection, reported again while the first request is unanswered.
     await wrapper.get('.reader-scroll').trigger('keyup')
+    document.dispatchEvent(new Event('selectionchange'))
     await flushReads()
 
-    // The marking rewrites the text under the selection, which reports it
-    // again; each report used to be another highlight.
-    expect(notes.calls.addedHighlights).toHaveLength(1)
+    answer(highlightRecord({ id: 'h-new', item_id: 'item-1', exact: PASSAGE }))
+    await flushReads()
+
+    expect(sent).toEqual([{ exact: PASSAGE }])
   })
 
   it('sends nothing for a selection outside the article', async () => {
