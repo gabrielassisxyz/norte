@@ -156,6 +156,19 @@ describe('selecting a passage in the reader', () => {
     expect(labels).toEqual(['Remove highlight', 'Annotate', 'Ask a question', 'More'])
   })
 
+  it('offers no Highlight and no Cancel button anywhere in the reader', async () => {
+    const { wrapper } = await mountReader()
+
+    // The release is the highlight, so there is nothing left to confirm; a
+    // button that still offered to do it would highlight the passage twice.
+    expect(wrapper.find('[data-action="highlight"]').exists()).toBe(false)
+    expect(wrapper.findAll('button').map((button) => button.text())).not.toContain('Cancel')
+
+    await releaseSelection(wrapper)
+
+    expect(wrapper.find('[data-action="highlight"]').exists()).toBe(false)
+  })
+
   it('opens the toolbar for a passage already in the text when it is clicked', async () => {
     const { wrapper } = await mountReader({
       notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: PASSAGE })] }

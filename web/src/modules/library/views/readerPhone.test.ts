@@ -108,6 +108,8 @@ describe('the reader on a phone', () => {
       expect(bar.find(`[data-action="${action}"]`).exists()).toBe(true)
     }
     // The notes module's own controls arrive through the bottom-actions slot.
+    // Highlighting is not one of them any more: a selection highlights itself.
+    expect(bar.find('[data-action="highlight"]').exists()).toBe(false)
     expect(bar.find('[data-action="annotate-open"]').exists()).toBe(true)
     expect(bar.find('[data-action="question-open"]').exists()).toBe(true)
   })
