@@ -657,16 +657,17 @@ func TestNoCandidatesMeansNoCallAndNoSuggestion(t *testing.T) {
 	}
 }
 
-// TestAClassifyJobForADeletedItemFailsAtOnce: the item was deleted while the
-// job waited, and no retry will bring it back.
-func TestAClassifyJobForADeletedItemFailsAtOnce(t *testing.T) {
+// TestAClassifyJobForADeletedItemFinishesDone: the item was deleted while the
+// job waited, so there is nothing to classify and nothing wrong -- the person
+// removed the link on purpose. A failure here would fill the queue with red
+// rows for links that were deliberately deleted.
+func TestAClassifyJobForADeletedItemFinishesDone(t *testing.T) {
 	harness := newLibraryClassifyHarness(t, `{"suggestions":[]}`, "Um")
-	err := harness.run(core.NewID())
-	if err == nil {
-		t.Fatal("classifying a missing item succeeded")
+	if err := harness.run(core.NewID()); err != nil {
+		t.Fatalf("classifying a deleted item: %v", err)
 	}
-	if !core.IsPermanent(err) {
-		t.Errorf("the failure is retryable (%v), want permanent", err)
+	if got := len(harness.stub.Requests()); got != 0 {
+		t.Errorf("%d completions were sent for a deleted item, want none", got)
 	}
 }
 

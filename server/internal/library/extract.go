@@ -152,8 +152,12 @@ func (e *LibraryExtraction) Handle(ctx context.Context, job core.Job) error {
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			// The item was deleted while the job waited. There is nothing to
-			// extract and nothing a retry would find.
-			return core.Permanent(fmt.Errorf("no library item %s", payload.ItemID))
+			// extract, nothing a retry would find, and nothing wrong: the job
+			// finishes done, because a queue full of failures for links the
+			// person deliberately removed says nothing about the server.
+			e.logger.Info("the item of an extract job is gone",
+				"item_id", payload.ItemID, "kind", LibraryExtractJobKind)
+			return nil
 		}
 		return fmt.Errorf("reading the library item: %w", err)
 	}

@@ -200,7 +200,11 @@ func (r *LibraryRouter) Handle(ctx context.Context, job core.Job) error {
 	item, err := db.New(r.database.Reader()).GetLibraryItemByID(ctx, payload.ItemID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return core.Permanent(fmt.Errorf("no library item %s to route", payload.ItemID))
+			// Deleted while the job waited: nowhere to route it to, and
+			// nothing wrong either. See the same guard in extract.go.
+			r.logger.Info("the item of a route job is gone",
+				"item_id", payload.ItemID, "kind", LibraryRouteJobKind)
+			return nil
 		}
 		return fmt.Errorf("reading the library item to route: %w", err)
 	}

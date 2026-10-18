@@ -260,6 +260,27 @@ paths:
                 $ref: "#/components/schemas/LibraryItem"
         default:
           $ref: "#/components/responses/Error"
+    delete:
+      operationId: deleteLibraryItem
+      summary: Delete a saved link and everything written on it
+      description: |
+        Removes the item, its tags, its registry row and, with it, every link
+        and file reference the registry held, and the highlights, margin notes
+        and freeform note written on it. Questions written from it are kept,
+        with no item: a question is the person's own sentence. The snapshot
+        blob stays on disk until `norte files gc` runs. There is no undo,
+        which is why the screen asks first.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: The item is gone.
+        default:
+          $ref: "#/components/responses/Error"
   /api/library/items/{id}/extract:
     post:
       operationId: extractLibraryItem

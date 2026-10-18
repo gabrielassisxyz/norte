@@ -116,7 +116,16 @@ export interface paths {
         get: operations["getLibraryItem"];
         put?: never;
         post?: never;
-        delete?: never;
+        /**
+         * Delete a saved link and everything written on it
+         * @description Removes the item, its tags, its registry row and, with it, every link
+         *     and file reference the registry held, and the highlights, margin notes
+         *     and freeform note written on it. Questions written from it are kept,
+         *     with no item: a question is the person's own sentence. The snapshot
+         *     blob stays on disk until `norte files gc` runs. There is no undo,
+         *     which is why the screen asks first.
+         */
+        delete: operations["deleteLibraryItem"];
         options?: never;
         head?: never;
         /**
@@ -860,6 +869,27 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["LibraryItem"];
                 };
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    deleteLibraryItem: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The item is gone. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             default: components["responses"]["Error"];
         };

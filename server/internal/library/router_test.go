@@ -661,16 +661,14 @@ func (h *libraryRouterHarness) assertLogged(id, detail string) {
 	}
 }
 
-// TestARouteJobForADeletedItemFailsAtOnce: the item was deleted while the job
-// waited, and no retry will bring it back.
-func TestARouteJobForADeletedItemFailsAtOnce(t *testing.T) {
+// TestARouteJobForADeletedItemFinishesDone: the item was deleted while the job
+// waited, so there is nowhere to route it to and nothing wrong. The same
+// reasoning as the classify and extract handlers: a deliberate delete is not
+// a failure of the server.
+func TestARouteJobForADeletedItemFinishesDone(t *testing.T) {
 	harness := newLibraryRouterHarness(t)
-	err := harness.route(core.NewID())
-	if err == nil {
-		t.Fatal("routing a missing item succeeded")
-	}
-	if !core.IsPermanent(err) {
-		t.Errorf("the failure is retryable (%v), want permanent", err)
+	if err := harness.route(core.NewID()); err != nil {
+		t.Fatalf("routing a deleted item: %v", err)
 	}
 }
 

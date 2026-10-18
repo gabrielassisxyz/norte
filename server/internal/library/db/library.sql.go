@@ -159,6 +159,18 @@ func (q *Queries) DeleteLibraryDomainRule(ctx context.Context, domain string) (i
 	return result.RowsAffected()
 }
 
+const deleteLibraryItem = `-- name: DeleteLibraryItem :execresult
+DELETE FROM library_items WHERE id = ?
+`
+
+// Deleting an item takes its tag rows and its full-text row with it: the tag
+// tables cascade on the foreign key and the index row goes by trigger. What
+// does not follow from the row is the registry entry and the shared tag
+// vocabulary, which the caller handles in the same transaction.
+func (q *Queries) DeleteLibraryItem(ctx context.Context, id string) (sql.Result, error) {
+	return q.db.ExecContext(ctx, deleteLibraryItem, id)
+}
+
 const deleteLibraryItemTag = `-- name: DeleteLibraryItemTag :exec
 DELETE FROM library_item_tags WHERE item_id = ? AND tag_name = ?
 `

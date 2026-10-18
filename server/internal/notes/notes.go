@@ -2,6 +2,7 @@ package notes
 
 import (
 	"context"
+	"fmt"
 	"io/fs"
 
 	"github.com/spf13/cobra"
@@ -53,17 +54,42 @@ func (*NotesModule) JobHandlers(deps app.Deps) map[string]core.JobHandler {
 	}
 }
 
-// Start subscribes to the extraction event and then blocks until ctx ends.
+// notesLibraryItemDeletedEvent is the event the library publishes after a
+// delete commits.
 //
-// The subscription is the whole reaction: the callback enqueues a job and
-// returns, so what survives a crash is the queue's row rather than this
-// process's memory. Nothing is replayed for a subscriber that was not
+// It is a literal rather than an import of the library's constant for the same
+// reason the extraction event is: a module that imported another module's
+// package would be compiled against a product that can be switched off, and
+// the name of an event is the whole contract between the two. A rename on the
+// publishing side is caught by TestDeletingALibraryItemTakesItsNotesWithIt,
+// which deletes through the library's own HTTP route and so publishes with
+// whatever name the library holds.
+const notesLibraryItemDeletedEvent = "library.item_deleted"
+
+// Start installs the module's subscriptions and then blocks until ctx ends.
+//
+// The extraction subscription is the whole reaction: the callback enqueues a
+// job and returns, so what survives a crash is the queue's row rather than
+// this process's memory. Nothing is replayed for a subscriber that was not
 // registered, which is why an item re-extracted while notes is switched off
 // keeps the passage it had -- a deliberate gap, written down in the bead.
+//
+// The delete subscription does its work inside the callback instead, because
+// the item is already gone: a job would describe work against a row nothing
+// can read any more, and the publisher returns the error either way.
 func (*NotesModule) Start(ctx context.Context, deps app.Deps) error {
-	notesSubscribeToExtractions(deps)
+	(&NotesModule{}).Subscribe(deps)
 	<-ctx.Done()
 	return nil
+}
+
+// Subscribe installs this module's reactions on the bus. It is separate from
+// Start because a one-shot command -- `norte rm`, which deletes a library item
+// in a process with no server in it -- has no Start to run and still has to
+// react to what it publishes.
+func (*NotesModule) Subscribe(deps app.Deps) {
+	notesSubscribeToExtractions(deps)
+	notesSubscribeToDeletions(deps)
 }
 
 // notesSubscribeToExtractions is the subscription itself, separate from the
@@ -75,6 +101,26 @@ func notesSubscribeToExtractions(deps app.Deps) {
 	}
 	deps.Events.Subscribe(notesLibraryItemExtractedEvent,
 		newNotesReanchorFromDeps(deps).OnItemExtracted)
+}
+
+// notesSubscribeToDeletions takes the notes of a deleted library item with it.
+//
+// The reaction runs inside the callback rather than through a job: the item is
+// already gone, so there is nothing a later run could read, and an error comes
+// back to the publisher, which reports it rather than answering a delete that
+// left the notes behind.
+func notesSubscribeToDeletions(deps app.Deps) {
+	if deps.Events == nil {
+		return
+	}
+	service := newNotesServiceFromDeps(deps)
+	deps.Events.Subscribe(notesLibraryItemDeletedEvent, func(ctx context.Context, event core.Event) error {
+		itemID := event.Payload["item_id"]
+		if itemID == "" {
+			return fmt.Errorf("%s carries no item_id", event.Name)
+		}
+		return service.ForgetItem(ctx, itemID)
+	})
 }
 
 // Text reports no readable text: the items this module owns are question sets,
