@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import Button from '@/components/ds/Button.vue'
 import Menu from '@/components/ds/Menu.vue'
 import SegmentedControl from '@/components/ds/SegmentedControl.vue'
 import Icon from '@/components/ds/Icon.vue'
@@ -286,8 +287,18 @@ const query = computed<LibraryListQuery>(() => {
 // The list is not read while the pending-connections queue is on screen: it is
 // not rendered then, and asking for a page nothing displays is a request paid
 // for twice over -- once on the way out and again when the person comes back.
-const { data: page, loading, error, refresh, hasMore, loadingMore, loadMoreError, loadMore, applyItem } =
-  useLibraryItems(query, () => !showPendingConnections.value)
+const {
+  data: page,
+  loading,
+  error,
+  refresh,
+  hasMore,
+  loadingMore,
+  loadMoreError,
+  loadMore,
+  applyItem,
+  removeItem
+} = useLibraryItems(query, () => !showPendingConnections.value)
 const { data: counts } = useLibraryCounts()
 const writing = useAsyncAction()
 
@@ -524,6 +535,47 @@ async function linkToSubject(item: LibraryItemSummary, subject: Subject): Promis
   // Nothing on this screen holds the subject counts, and no write response
   // carries them, so every list of subjects asks again.
   coreLinksChanged()
+}
+
+/**
+ * The item a confirmation is open for, or null.
+ *
+ * Deleting is permanent and there is no undo, so the confirmation is the whole
+ * safeguard -- which is why the row the dialog names is held here rather than
+ * the dialog being a flag over whichever row was last hovered.
+ */
+const pendingDeletion = ref<LibraryItemSummary | null>(null)
+
+function askToDelete(item: LibraryItemSummary): void {
+  writing.clear()
+  pendingDeletion.value = item
+}
+
+function cancelDeletion(): void {
+  pendingDeletion.value = null
+}
+
+/**
+ * Delete the item the dialog names.
+ *
+ * The row is taken out of the list by id rather than by applying a record,
+ * because there is no record left; the counts are asked for again, as they are
+ * after every write, since they are totals over the whole library and this
+ * answer carries no body at all. A failure leaves the row where it is and says
+ * so above the list, the same way a failed move does.
+ */
+async function confirmDeletion(): Promise<void> {
+  const item = pendingDeletion.value
+  if (!item) return
+  const done = await writing.run(async () => {
+    await library.deleteItem(item.id)
+    return true
+  })
+  if (!done) return
+  pendingDeletion.value = null
+  openRowMenu.value = null
+  removeItem(item.id)
+  libraryItemChanged()
 }
 
 /**
@@ -847,6 +899,28 @@ function toggleRowMenu(item: LibraryItemSummary): void {
               <SubjectPicker label="Subject" @select="linkToSubject(item, $event)" />
             </div>
           </div>
+          <button
+            type="button"
+            class="act act-danger"
+            data-action="delete"
+            :title="`Delete ${item.title}`"
+            :aria-label="`Delete ${item.title}`"
+            @click="askToDelete(item)"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8h5.8l.6-8M6.8 7v3M9.2 7v3" />
+            </svg>
+          </button>
           <div v-if="canMakeTask" class="act-wrap">
             <button
               type="button"
@@ -891,12 +965,37 @@ function toggleRowMenu(item: LibraryItemSummary): void {
       </span>
       <span class="mono library-count">{{ countText }}</span>
     </div>
+    <div v-if="pendingDeletion" class="library-backdrop" @mousedown.self="cancelDeletion">
+      <div class="library-dialog" role="dialog" aria-labelledby="library-delete-title">
+        <h2 id="library-delete-title">Delete “{{ pendingDeletion.title }}”?</h2>
+        <p>
+          This deletes the saved link and the highlights, margin notes and note written on it.
+          Questions written from it are kept. There is no undo.
+        </p>
+        <div class="library-dialog-buttons">
+          <Button variant="secondary" @click="cancelDeletion">Cancel</Button>
+          <Button variant="primary" :disabled="writing.pending.value" @click="confirmDeletion">
+            Delete the item
+          </Button>
+        </div>
+      </div>
+    </div>
     <SaveLinkDialog v-model:open="saveOpen" />
   </main>
 </template>
 
 <style scoped>
 .act-wrap { position: relative; }
+/* The one destructive action on the row, coloured only on hover: a row of
+   icons where one is permanently red reads as a warning about the row. */
+.act-danger:hover { color: var(--danger); }
+/* The confirmation reads the way the subject screen's does: same backdrop,
+   same dialog, because the two ask the same question about different things. */
+.library-backdrop { position: fixed; inset: 0; z-index: 40; display: flex; justify-content: center; align-items: flex-start; padding-top: 14vh; background: rgb(13 17 23 / 32%); }
+.library-dialog { display: grid; width: min(480px, calc(100vw - 32px)); gap: var(--space-4); padding: 28px; border: 1px solid var(--line-strong); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-pop); }
+.library-dialog h2 { margin: 0; font-family: var(--font-display); font-size: 22px; font-weight: 650; line-height: 28px; }
+.library-dialog p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 22px; }
+.library-dialog-buttons { display: flex; justify-content: flex-end; gap: var(--space-3); }
 .act-menu { position: absolute; top: calc(100% + 4px); right: 0; z-index: 20; display: grid; min-width: 220px; padding: 4px; border: 1px solid var(--line-strong); border-radius: var(--radius-sm); background: var(--surface); box-shadow: var(--shadow-pop); }
 .act-menu-row { padding: 7px 10px; border: 0; border-radius: var(--radius-xs); background: transparent; color: var(--ink); font-family: var(--font-sans); font-size: 13px; text-align: left; cursor: pointer; }
 .act-menu-row:hover { background: var(--norte-soft); color: var(--norte); }

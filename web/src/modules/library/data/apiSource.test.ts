@@ -166,6 +166,21 @@ describe('the library API source: counts and writes', () => {
     expect(await fetchStub.mock.calls[0][0].clone().json()).toEqual({ url: 'https://example.test/b' })
   })
 
+  it('deletes the item through DELETE and reads a 204 with no body as success', async () => {
+    fetchStub.mockResolvedValue(new Response(null, { status: 204 }))
+    await createApiLibrarySource().deleteItem('item-1')
+
+    const request = fetchStub.mock.calls[0][0]
+    expect(request.method).toBe('DELETE')
+    expect(new URL(request.url).pathname).toBe('/api/library/items/item-1')
+  })
+
+  it('throws the message the envelope carries when a delete is refused', async () => {
+    fetchStub.mockResolvedValue(json({ error: { code: 'not_found', message: 'no library item item-9' } }, 404))
+
+    await expect(createApiLibrarySource().deleteItem('item-9')).rejects.toThrow('no library item item-9')
+  })
+
   it('patches the item and returns the record the server answered', async () => {
     fetchStub.mockResolvedValue(json({ id: 'item-1', unread: false }))
     const record = await createApiLibrarySource().patchItem('item-1', { unread: false })

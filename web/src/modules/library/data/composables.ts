@@ -42,6 +42,14 @@ export interface LibraryItemsResource extends AsyncResource<LibraryItemList> {
    * take the row out when the write moved it out of the location being shown.
    */
   applyItem: (item: LibraryItemSummary) => void
+  /**
+   * Take a deleted row out of the page being held.
+   *
+   * It is separate from `applyItem` because a delete has no record to apply:
+   * there is nothing left on the server to render, and the only honest value
+   * is the id that is gone.
+   */
+  removeItem: (id: string) => void
 }
 
 /**
@@ -120,7 +128,13 @@ export function useLibraryItems(
     }
   }
 
-  return { ...resource, loadingMore, loadMoreError, hasMore, loadMore, applyItem }
+  function removeItem(id: string): void {
+    const held = resource.data.value
+    if (!held) return
+    resource.data.value = { ...held, items: held.items.filter((existing) => existing.id !== id) }
+  }
+
+  return { ...resource, loadingMore, loadMoreError, hasMore, loadMore, applyItem, removeItem }
 }
 
 export interface LibraryItemResource extends AsyncResource<LibraryItemRecord | null> {

@@ -64,6 +64,7 @@ export interface FakeLibraryCalls {
   counts: number
   save: NewSavedLink[]
   patch: Array<{ id: string; patch: LibraryPatch }>
+  delete: string[]
   open: string[]
   extract: string[]
   draw: LibraryDrawQuery[]
@@ -122,6 +123,7 @@ export function fakeLibrarySource(
     counts: 0,
     save: [],
     patch: [],
+    delete: [],
     open: [],
     extract: [],
     draw: []
@@ -214,6 +216,15 @@ export function fakeLibrarySource(
       if (patch.unread === false) record.read_at = '2026-10-03T13:00:00Z'
       if (patch.unread === true) delete record.read_at
       return { ...record }
+    },
+
+    async deleteItem(id: string): Promise<void> {
+      calls.delete.push(id)
+      // Like the server, deleting something that is not there is a failure
+      // rather than a quiet success: a screen that showed a stale row has to
+      // find out.
+      const record = requireRecord(id)
+      held.splice(held.indexOf(record), 1)
     },
 
     async openItem(id: string): Promise<LibraryItemRecord> {
