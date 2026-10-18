@@ -21,7 +21,9 @@ button.danger:hover { background: var(--danger); color: var(--on-norte); }
 button.quiet { background: transparent; color: var(--ink); border: 1px solid var(--line-strong); }
 button.quiet:hover { background: var(--sunken); }
 .row { display: flex; gap: 8px; }
-#status { margin: 0; font-weight: 550; overflow-wrap: anywhere; }
+/* A refusal can carry a second line (the server's reason, then the rebuild hint),
+   and textContent would otherwise collapse the newline away. */
+#status { margin: 0; font-weight: 550; overflow-wrap: anywhere; white-space: pre-line; }
 #confirm p { margin: 16px 0 0; }
 #reason-state, #subject-state { margin: 6px 0 0; min-height: 1.5em; }
 /* The options sit directly under the field rather than floating: the popup is

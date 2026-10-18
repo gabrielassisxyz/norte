@@ -5,6 +5,7 @@ export const CANNOT_READ = 'This page could not be read. Open an http or https p
 export const SERVER_ERROR = 'The server did not answer. Check that Norte is running and try again.';
 export const CONFIGURE = 'configure the server';
 export const INTERRUPTED = 'The save was interrupted. Try again.';
+export const VERSION_HINT = "The extension may be older than the server. Rebuild it and reload it in the browser's extensions page.";
 export const resultKey = (url) => `save:${url}`;
 
 // The popup's own edits are small requests against an item that already exists.
@@ -50,6 +51,18 @@ export function readableURL(url) {
   } catch { return false; }
 }
 
+// The server already names what it refused; the fixed sentence hid it and asked for
+// a retry that could never work. An unsupported property specifically means the built
+// extension predates the contract the server now validates against, hence the hint.
+async function refusedSaveMessage(response) {
+  let error;
+  try { error = (await response.json())?.error; } catch { error = null; }
+  if (!error?.message) return `Could not save (HTTP ${response.status}). Try again.`;
+  const lines = [`Could not save: ${error.message}`];
+  if (error.code === 'invalid_request') lines.push(VERSION_HINT);
+  return lines.join('\n');
+}
+
 export function createSaveService(browserAPI, fetcher = fetch, now = Date.now) {
   const pending = new Map();
   async function save(tab, fields) {
@@ -79,7 +92,7 @@ export function createSaveService(browserAPI, fetcher = fetch, now = Date.now) {
         });
       } catch { throw new Error(SERVER_ERROR); }
       if (response.status === 413) throw new Error('the page is too large to save');
-      if (!response.ok) throw new Error(`Could not save (HTTP ${response.status}). Try again.`);
+      if (!response.ok) throw new Error(await refusedSaveMessage(response));
       const item = await response.json();
       if (!item.id) throw new Error('The server answered without an identifier.');
       const result = { state: 'saved', id: item.id, origin };
