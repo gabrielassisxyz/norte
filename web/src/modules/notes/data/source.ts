@@ -19,6 +19,7 @@ export type QuestionSetRecord = components['schemas']['QuestionSetDetail']
 export type ItemNoteRecord = components['schemas']['ItemNote']
 export type NotesCounts = components['schemas']['NoteCounts']
 export type NewHighlight = components['schemas']['NewHighlight']
+export type HighlightPassage = components['schemas']['HighlightPassage']
 export type NewAnnotation = components['schemas']['NewAnnotation']
 export type NewQuestion = components['schemas']['NewQuestion']
 export type QuestionPatch = components['schemas']['QuestionPatch']
@@ -85,6 +86,16 @@ export interface NotesSource {
   itemNote(itemId: string, signal: AbortSignal): Promise<ItemNoteRecord>
   putItemNote(itemId: string, text: string): Promise<ItemNoteRecord>
   addHighlight(highlight: NewHighlight): Promise<HighlightRecord>
+  /**
+   * Move a highlight onto another passage of the same text, keeping its id.
+   *
+   * The id is what the notes written on the passage reference, so a mark that
+   * caught the wrong words is corrected with this rather than deleted and made
+   * again. The answer comes back `anchored`: the person re-selecting is looking
+   * at the words in the article, which is how an orphaned passage is placed
+   * again by hand.
+   */
+  reselectHighlightPassage(id: string, passage: HighlightPassage): Promise<HighlightRecord>
   deleteHighlight(id: string): Promise<void>
   addAnnotation(annotation: NewAnnotation): Promise<AnnotationRecord>
   updateAnnotation(id: string, text: string): Promise<AnnotationRecord>

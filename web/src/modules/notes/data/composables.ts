@@ -170,6 +170,8 @@ export function useNotesQuestionSet(id: MaybeRefOrGetter<string>): NotesQuestion
 
 export interface ItemNotesResource extends AsyncResource<ItemNotes> {
   applyHighlight: (highlight: HighlightRecord) => void
+  /** Put a highlight the screen moved in place of the one it held, by its id. */
+  replaceHighlight: (highlight: HighlightRecord) => void
   applyAnnotation: (annotation: AnnotationRecord) => void
   replaceAnnotation: (annotation: AnnotationRecord) => void
   dropAnnotation: (id: string) => void
@@ -209,6 +211,15 @@ export function useItemNotes(
     resource.data.value = { ...current, highlights: [...current.highlights, highlight] }
   }
 
+  function replaceHighlight(highlight: HighlightRecord): void {
+    const current = resource.data.value
+    if (!current) return
+    resource.data.value = {
+      ...current,
+      highlights: current.highlights.map((held) => (held.id === highlight.id ? highlight : held))
+    }
+  }
+
   function applyAnnotation(annotation: AnnotationRecord): void {
     const current = resource.data.value
     if (!current) return
@@ -240,7 +251,15 @@ export function useItemNotes(
     }
   }
 
-  return { ...resource, applyHighlight, applyAnnotation, replaceAnnotation, dropAnnotation, dropHighlight }
+  return {
+    ...resource,
+    applyHighlight,
+    replaceHighlight,
+    applyAnnotation,
+    replaceAnnotation,
+    dropAnnotation,
+    dropHighlight
+  }
 }
 
 export interface ItemQuestionsResource extends AsyncResource<QuestionRecord[]> {

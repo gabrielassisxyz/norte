@@ -54,7 +54,23 @@ export interface paths {
         delete: operations["deleteNoteHighlight"];
         options?: never;
         head?: never;
-        patch?: never;
+        /**
+         * Re-select a highlight's passage
+         * @description The passage is replaced and the highlight keeps its id, which is what
+         *     keeps the notes written on it: an annotation references the highlight by
+         *     `highlight_id`, so a correction that deleted and re-created the passage
+         *     would take them with it.
+         *
+         *     The item is not part of the request: a passage moves inside the text it
+         *     was marked in, and a highlight that changed item would be a different
+         *     mark.
+         *
+         *     `exact` is not given a `minLength` here on purpose. The emptiness that
+         *     matters is emptiness after the server normalises the whitespace, which
+         *     the contract cannot express, so the refusal comes from the module and
+         *     names the field.
+         */
+        patch: operations["updateNoteHighlight"];
         trace?: never;
     };
     "/api/notes/annotations": {
@@ -272,6 +288,31 @@ export interface components {
             prefix?: string;
             /** @description The 32 code points after the passage, as the client saw them. */
             suffix?: string;
+        };
+        /**
+         * @description The passage a highlight is moved to, as the reader read it off the
+         *     rendered article: the words, the context around them, and where in the
+         *     text the search for them starts.
+         *
+         *     Every field is required rather than optional, because this is a
+         *     replacement and not a patch: a context left out would keep the one
+         *     stored for the words the person has just stopped marking, which is the
+         *     one thing that tells two occurrences of a sentence apart.
+         */
+        HighlightPassage: {
+            /** @description The corrected passage. */
+            exact: string;
+            /** @description The 32 code points before the passage, as the client saw them. */
+            prefix: string;
+            /** @description The 32 code points after the passage, as the client saw them. */
+            suffix: string;
+            /**
+             * @description Where to start looking for the passage in the item's text. It only
+             *     orders the search, as it does on a re-anchoring: the offset stored
+             *     is the one the passage was found at, and a client with nothing
+             *     better to say sends 0.
+             */
+            position_hint: number;
         };
         Highlight: {
             id: string;
@@ -550,6 +591,33 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            default: components["responses"]["Error"];
+        };
+    };
+    updateNoteHighlight: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HighlightPassage"];
+            };
+        };
+        responses: {
+            /** @description The highlight on its new passage. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Highlight"];
+                };
             };
             default: components["responses"]["Error"];
         };

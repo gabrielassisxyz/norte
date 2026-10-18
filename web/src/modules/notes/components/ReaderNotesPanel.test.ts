@@ -7,7 +7,7 @@ import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import ReaderNotesPanel from './ReaderNotesPanel.vue'
-import { endPassageAttach } from '../data/passageAttach'
+import { endPassageAttach, highlightAwaitingPassage } from '../data/passageAttach'
 import {
   annotationRecord,
   fakeNotesSource,
@@ -25,8 +25,10 @@ HTMLElement.prototype.scrollIntoView = () => {}
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount()
   resetModuleMounting()
-  // Which note is waiting for a passage is module state, so a case that left
-  // the panel in attach mode would hand it to the next one.
+  // What the next selection is for is module state, so a case that left the
+  // panel waiting for one would hand that wait to the next one. One call
+  // clears either wait: they are one value, because one selection can only
+  // answer one of them.
   endPassageAttach()
   vi.restoreAllMocks()
 })
@@ -406,5 +408,65 @@ describe('attaching a loose note to a passage chosen afterwards', () => {
     // The passage it had made is gone from the margin too, not only from the server.
     expect(entryKeys(wrapper)).not.toContain('passage-highlight-3')
     expect(entry(wrapper, 'annotation-a-loose').find('[data-action="jump"]').exists()).toBe(false)
+  })
+})
+
+describe('asking for a passage to be re-selected', () => {
+  /** The rows that offer the correction, named by the record they show. */
+  function offering(wrapper: VueWrapper): string[] {
+    return wrapper
+      .findAll('.notes-reader-entry')
+      .filter((row) => row.find('[data-action="reselect-passage"]').exists())
+      .map((row) => row.attributes('data-key') ?? '')
+  }
+
+  it('offers it on every row that has a passage, and on no row that has none', async () => {
+    const { wrapper } = await mountPanel({
+      ...READING,
+      highlights: [...(READING.highlights ?? []), highlightRecord({ id: 'h-bare', exact: 'Unannotated.', position_hint: 500 })]
+    })
+
+    // The two annotated passages and the bare one; not the loose note, and not
+    // a question, whose passage is the note's rather than the question's.
+    expect(offering(wrapper).sort()).toEqual(['annotation-a-early', 'annotation-a-late', 'passage-h-bare'])
+  })
+
+  it('offers it on a passage the text no longer holds, which is how one is anchored by hand', async () => {
+    const { wrapper } = await mountPanel({
+      highlights: [highlightRecord({ id: 'h-gone', exact: 'A sentence this text never held.', status: 'orphaned' })]
+    })
+
+    const orphan = wrapper.get('.notes-reader-orphan-row')
+    expect(orphan.text()).toContain('A sentence this text never held.')
+    expect(orphan.find('[data-action="reselect-passage"]').exists()).toBe(true)
+  })
+
+  /**
+   * The request is not this panel's: the passage layer over the article holds
+   * the marks in the text and is the one that moves one, wherever the
+   * correction was asked for. What the panel owes is the ask.
+   */
+  it('names the waiting passage without sending anything itself', async () => {
+    const { wrapper, notes } = await mountPanel(READING)
+
+    await entry(wrapper, 'annotation-a-early').get('[data-action="reselect-passage"]').trigger('click')
+
+    expect(highlightAwaitingPassage()).toBe('h-early')
+    expect(entry(wrapper, 'annotation-a-early').classes()).toContain('is-reselecting')
+    expect(notes.calls.reselectedPassages).toEqual([])
+    // Not the other wait: a selection must not be claimed by both at once.
+    expect(banner()).toBeNull()
+  })
+
+  it('gets the sheet out of the way on a phone, and leaves it alone otherwise', async () => {
+    const closeNotes = vi.fn()
+    const { wrapper } = await mountPanel(READING, { phone: true, closeNotes })
+
+    await entry(wrapper, 'annotation-a-early').get('[data-action="reselect-passage"]').trigger('click')
+    expect(closeNotes).toHaveBeenCalledTimes(1)
+
+    const wide = await mountPanel(READING, { phone: false, closeNotes })
+    await entry(wide.wrapper, 'annotation-a-early').get('[data-action="reselect-passage"]').trigger('click')
+    expect(closeNotes).toHaveBeenCalledTimes(1)
   })
 })

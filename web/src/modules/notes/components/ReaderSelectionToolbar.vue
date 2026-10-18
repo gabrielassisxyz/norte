@@ -71,6 +71,8 @@ const emit = defineEmits<{
   annotated: [annotation: AnnotationRecord]
   attached: [annotation: AnnotationRecord]
   questioned: [question: QuestionRecord]
+  /** The passage is being corrected: the next selection in the article replaces it. */
+  reselect: [id: string]
 }>()
 
 type Box = 'none' | 'annotate' | 'question'
@@ -266,6 +268,20 @@ async function copyText(): Promise<void> {
         <button type="button" role="menuitem" class="notes-seltool-item" data-action="toolbar-copy" @click="copyText">
           <span>Copy text</span>
           <span class="notes-seltool-hint">Ctrl+C</span>
+        </button>
+        <!--
+          Re-selecting is the owner's to run, not this component's: the words
+          are picked in the article, and the toolbar is gone by the time they
+          are. So this only says which passage is being corrected.
+        -->
+        <button
+          type="button"
+          role="menuitem"
+          class="notes-seltool-item"
+          data-action="toolbar-reselect"
+          @click="emit('reselect', props.highlight.id)"
+        >
+          <span>Re-select passage</span>
         </button>
       </Menu>
     </div>

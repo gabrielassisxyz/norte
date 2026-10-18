@@ -65,6 +65,34 @@ func (h NotesHandlers) ListNoteHighlights(ctx context.Context, request notesapi.
 	return notesapi.ListNoteHighlights200JSONResponse(list), nil
 }
 
+// UpdateNoteHighlight moves a highlight onto the passage just re-selected,
+// keeping its id and so the notes written on it.
+func (h NotesHandlers) UpdateNoteHighlight(ctx context.Context, request notesapi.UpdateNoteHighlightRequestObject) (notesapi.UpdateNoteHighlightResponseObject, error) {
+	if request.Body == nil {
+		return notesapi.UpdateNoteHighlightdefaultJSONResponse{
+			Body: notesErrorBody(notesBadRequest("invalid_request",
+				"the change carries no body", "body"), ctx),
+			StatusCode: http.StatusBadRequest,
+		}, nil
+	}
+	record, err := h.service.ReplaceHighlightPassage(ctx, request.Id, NotesHighlightPassage{
+		Exact:        request.Body.Exact,
+		Prefix:       request.Body.Prefix,
+		Suffix:       request.Body.Suffix,
+		PositionHint: request.Body.PositionHint,
+	})
+	if err != nil {
+		var domain *NotesError
+		if errors.As(err, &domain) {
+			return notesapi.UpdateNoteHighlightdefaultJSONResponse{
+				Body: notesErrorBody(domain, ctx), StatusCode: domain.Status,
+			}, nil
+		}
+		return nil, err
+	}
+	return notesapi.UpdateNoteHighlight200JSONResponse(notesMapHighlight(record)), nil
+}
+
 // DeleteNoteHighlight removes a passage and the annotations hanging on it.
 func (h NotesHandlers) DeleteNoteHighlight(ctx context.Context, request notesapi.DeleteNoteHighlightRequestObject) (notesapi.DeleteNoteHighlightResponseObject, error) {
 	if err := h.service.DeleteHighlight(ctx, request.Id); err != nil {
