@@ -372,8 +372,10 @@ function readerTarget(item: LibraryItemSummary): { name: string; params: { id: s
   return { name: 'reader', params: { id: item.id } }
 }
 
+// `.actions` holds the row's menus, whose search box and padding are neither
+// a button nor a link but still belong to the menu, not to the row.
 function openItem(item: LibraryItemSummary, event: MouseEvent): void {
-  if ((event.target as HTMLElement).closest('button, a')) return
+  if ((event.target as HTMLElement).closest('button, a, .actions')) return
   void router.push(readerTarget(item))
 }
 
