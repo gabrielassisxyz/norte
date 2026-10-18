@@ -7,6 +7,7 @@ import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import ReaderNotesPanel from './ReaderNotesPanel.vue'
+import { endPassageAttach } from '../data/passageAttach'
 import {
   annotationRecord,
   fakeNotesSource,
@@ -24,6 +25,9 @@ HTMLElement.prototype.scrollIntoView = () => {}
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount()
   resetModuleMounting()
+  // Which note is waiting for a passage is module state, so a case that left
+  // the panel in attach mode would hand it to the next one.
+  endPassageAttach()
   vi.restoreAllMocks()
 })
 
@@ -285,5 +289,122 @@ describe('questions written from the margin', () => {
     const keys = entryKeys(wrapper)
     const created = notes.held.questions[0]
     expect(keys[keys.indexOf('annotation-a-late') + 1]).toBe(`question-${created.id}`)
+  })
+})
+
+/** The passage picked in the article, as the reader reports one. */
+const PICKED = { exact: 'The passage it was about.', prefix: 'Before. ', suffix: ' After.' }
+
+/** The banner over the article, which is teleported out of the panel. */
+function banner(): HTMLElement | null {
+  return document.querySelector('[data-notes-attach]')
+}
+
+function attachAction(wrapper: VueWrapper, key: string) {
+  return entry(wrapper, key).find('[data-action="attach-passage"]')
+}
+
+describe('attaching a loose note to a passage chosen afterwards', () => {
+  it('offers the action on notes that hang on nothing, and on no other row', async () => {
+    const { wrapper } = await mountPanel(READING)
+
+    const offered = wrapper
+      .findAll('.notes-reader-entry')
+      .filter((row) => row.find('[data-action="attach-passage"]').exists())
+      .map((row) => row.attributes('data-key'))
+    expect(offered).toEqual(['annotation-a-loose'])
+  })
+
+  it('shows the banner over the article, and on a phone gets the sheet out of the way', async () => {
+    const closeNotes = vi.fn()
+    const { wrapper } = await mountPanel(READING, { phone: true, closeNotes })
+
+    await attachAction(wrapper, 'annotation-a-loose').trigger('click')
+
+    expect(closeNotes).toHaveBeenCalledTimes(1)
+    expect(banner()?.textContent).toContain('Select the passage for this note')
+    expect(entry(wrapper, 'annotation-a-loose').classes()).toContain('is-attaching')
+  })
+
+  it('leaves the sheet alone when the panel is under the article', async () => {
+    const closeNotes = vi.fn()
+    const { wrapper } = await mountPanel(READING, { phone: false, closeNotes })
+
+    await attachAction(wrapper, 'annotation-a-loose').trigger('click')
+
+    expect(closeNotes).not.toHaveBeenCalled()
+  })
+
+  it('highlights the next selection, hangs the note on it, and moves the row to the passage', async () => {
+    const clearSelection = vi.fn()
+    const { wrapper, notes } = await mountPanel(READING, { clearSelection })
+
+    await attachAction(wrapper, 'annotation-a-loose').trigger('click')
+    await wrapper.setProps({ liveSelection: PICKED })
+    await flushReads()
+
+    expect(notes.calls.addedHighlights).toEqual([{ item_id: 'item-1', ...PICKED }])
+    const created = notes.held.highlights[0]
+    expect(notes.calls.attachedPassages).toEqual([{ id: 'a-loose', highlight_id: created.id }])
+    expect(clearSelection).toHaveBeenCalledTimes(1)
+    // Out of attach mode, and the row is where its passage is: the created
+    // highlight sits at offset 0, ahead of both passages the reading had.
+    expect(banner()).toBeNull()
+    expect(entryKeys(wrapper)[0]).toBe('annotation-a-loose')
+    expect(entry(wrapper, 'annotation-a-loose').find('[data-action="jump"]').exists()).toBe(true)
+  })
+
+  it('sends nothing for a selection made after Cancel', async () => {
+    const { wrapper, notes } = await mountPanel(READING)
+
+    await attachAction(wrapper, 'annotation-a-loose').trigger('click')
+    await (banner()?.querySelector('[data-action="cancel-attach"]') as HTMLButtonElement).click()
+    expect(banner()).toBeNull()
+
+    await wrapper.setProps({ liveSelection: PICKED })
+    await flushReads()
+
+    expect(notes.calls.addedHighlights).toEqual([])
+    expect(notes.calls.attachedPassages).toEqual([])
+  })
+
+  it('sends nothing for a selection made after Escape', async () => {
+    const { wrapper, notes } = await mountPanel(READING)
+
+    await attachAction(wrapper, 'annotation-a-loose').trigger('click')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await flushReads()
+    expect(banner()).toBeNull()
+
+    await wrapper.setProps({ liveSelection: PICKED })
+    await flushReads()
+
+    expect(notes.calls.addedHighlights).toEqual([])
+    expect(notes.calls.attachedPassages).toEqual([])
+  })
+
+  it('deletes the highlight it had just made when the note cannot be attached', async () => {
+    setEnabledModules(['library', 'notes'])
+    const notes = fakeNotesSource(READING, {
+      attachAnnotationPassage: () => Promise.reject(new Error('the note already hangs on a passage'))
+    })
+    const wrapper = mount(ReaderNotesPanel, {
+      props: readerSlotProps(),
+      global: { plugins: [sourcesPlugin({ notes })] },
+      attachTo: document.body
+    })
+    mounted.push(wrapper)
+    await flushReads()
+
+    await attachAction(wrapper, 'annotation-a-loose').trigger('click')
+    await wrapper.setProps({ liveSelection: PICKED })
+    await flushReads()
+
+    expect(notes.calls.addedHighlights).toHaveLength(1)
+    expect(notes.calls.deletedHighlights).toEqual(['highlight-3'])
+    expect(wrapper.get('[data-notes-attach-error]').text()).toContain('the note already hangs on a passage')
+    // The passage it had made is gone from the margin too, not only from the server.
+    expect(entryKeys(wrapper)).not.toContain('passage-highlight-3')
+    expect(entry(wrapper, 'annotation-a-loose').find('[data-action="jump"]').exists()).toBe(false)
   })
 })

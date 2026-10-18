@@ -163,3 +163,61 @@ test.describe('a highlight whose context crosses a paragraph boundary', () => {
     await expect(row).toContainText(selected)
   })
 })
+
+/**
+ * A note written before there was a passage, pinned to one afterwards.
+ *
+ * It belongs with a real server and a real selection for the same reason the
+ * case above does: what the note ends up hanging on is a highlight the browser
+ * produced from its own Range and the server placed in its own extraction, and
+ * the half that only a reload can show — the note listed under its passage
+ * rather than among the loose ones — is read back from storage.
+ */
+test.describe('a loose note attached to a passage chosen afterwards', () => {
+  test('writes the note first, picks the passage second, and keeps them together', async ({ page }) => {
+    const title = 'A note that found its passage'
+    const article = await seedArticle(server.baseURL, {
+      url: 'https://example.invalid/attach-later',
+      title,
+      html: articleHtml({ title })
+    })
+
+    await page.goto(`${server.baseURL}/library/${article.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    await page.locator('#notes-reader-annotation').fill('A thought with no passage yet.')
+    await page.locator('[data-action="annotate"]').click()
+    const row = page.locator('[data-entry="annotation"]')
+    await expect(row).toHaveCount(1)
+    // Loose: nothing in the text to jump to yet.
+    await expect(row.locator('[data-action="jump"]')).toHaveCount(0)
+
+    await row.locator('[data-action="attach-passage"]').click()
+    await expect(page.locator('[data-notes-attach]')).toContainText('Select the passage for this note')
+
+    await selectInsideParagraph(page, PASSAGE, 0)
+
+    await expect
+      .poll(async () => {
+        const stored = await api<NotesPage<{ text: string; highlight_id?: string }>>(
+          server.baseURL,
+          `/api/notes/annotations?item_id=${article.id}`
+        )
+        return stored.items.map((annotation) => [annotation.text, annotation.highlight_id !== undefined])
+      })
+      .toEqual([['A thought with no passage yet.', true]])
+    // The passage layer left this selection to the panel, so no toolbar opened
+    // over it and the banner is gone.
+    await expect(page.locator('.notes-seltool')).toHaveCount(0)
+    await expect(page.locator('[data-notes-attach]')).toHaveCount(0)
+
+    await page.reload()
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+    const pinned = page.locator('[data-entry="annotation"]')
+    await expect(pinned).toHaveCount(1)
+    await expect(pinned).toContainText('A thought with no passage yet.')
+    await expect(pinned).toContainText(PASSAGE)
+    await expect(pinned.locator('[data-action="jump"]')).toHaveCount(1)
+    await expect(page.locator(`mark[data-notes-passage="${PASSAGE}"]`).first()).toBeVisible()
+  })
+})

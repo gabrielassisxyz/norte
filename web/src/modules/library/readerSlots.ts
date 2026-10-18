@@ -55,6 +55,14 @@ export interface ReaderSlotProps {
    * stays the filling module's and the library gains no knowledge of it.
    */
   openNotes: (section?: string) => void
+  /**
+   * Ask the reader to hide the sheet again.
+   *
+   * A slot needs it when what it offers is a gesture on the article itself:
+   * the sheet covers the text the person is about to act on, and the slot
+   * cannot reach the chrome that hides it.
+   */
+  closeNotes: () => void
   /** The section last asked for, or null; it changes identity on every ask. */
   notesSection: ReaderNotesRequest | null
 }

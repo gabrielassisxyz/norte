@@ -12,7 +12,8 @@ import { routes } from '@/router'
 import { flushReads, sourcesPlugin } from '@/sources/testing'
 
 import ReaderHighlightAction from './ReaderHighlightAction.vue'
-import { fakeNotesSource, highlightRecord, type FakeNotesRecords } from '../data/testing'
+import { endPassageAttach } from '../data/passageAttach'
+import { annotationRecord, fakeNotesSource, highlightRecord, type FakeNotesRecords } from '../data/testing'
 
 // Imported for its side effect: the registrations that fill the reader's slots
 // live in the module's own index, and the point of this suite is that the
@@ -106,6 +107,7 @@ beforeEach(() => {
 afterEach(() => {
   for (const wrapper of mounted.splice(0)) wrapper.unmount()
   resetModuleMounting()
+  endPassageAttach()
   document.body.innerHTML = ''
 })
 
@@ -465,5 +467,24 @@ describe("the reader's notes actions", () => {
     expect(wrapper.find('[data-action="save-note"]').exists()).toBe(false)
     expect(wrapper.find('[data-action="turn-into-question"]').exists()).toBe(false)
     expect(wrapper.find('[aria-labelledby="notes-reader-title"]').exists()).toBe(false)
+  })
+})
+
+describe('a selection made to attach a loose note', () => {
+  it('is the panel\'s alone: one highlight, the note hung on it, and no toolbar', async () => {
+    const { wrapper, notes } = await mountReader({
+      notes: { annotations: [annotationRecord({ id: 'a-loose', text: 'A thought with no passage yet.' })] }
+    })
+
+    await wrapper.get('[data-action="attach-passage"]').trigger('click')
+    selectInArticle('The marked passage.')
+    await wrapper.get('.reader-scroll').trigger('mouseup')
+    await flushReads()
+
+    // One create, not two: the passage layer over the article watches the same
+    // selection and has to leave this one to the panel.
+    expect(notes.calls.addedHighlights).toHaveLength(1)
+    expect(notes.calls.attachedPassages).toEqual([{ id: 'a-loose', highlight_id: notes.held.highlights[0].id }])
+    expect(wrapper.find('.notes-seltool').exists()).toBe(false)
   })
 })
