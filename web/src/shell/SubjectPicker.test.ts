@@ -188,8 +188,8 @@ describe('the subject picker', () => {
     await flushReads()
 
     expect(refused).toEqual(['Distributed systems'])
-    expect(wrapper.get('[role="alert"]').text()).toBe('the slug "distributed-systems" is already taken')
     expect(wrapper.emitted('select')).toBeUndefined()
+    expect(wrapper.get('[role="alert"]').text()).toBe('the slug "distributed-systems" is already taken')
   })
 
   it('says so when a search matches nothing and the name cannot be offered twice', async () => {
