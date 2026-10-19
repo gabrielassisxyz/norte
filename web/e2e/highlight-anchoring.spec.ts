@@ -351,3 +351,96 @@ test.describe("a highlight's passage re-selected after a note was written on it"
     expect(collapse((await marked.allTextContents()).join(''))).toBe(corrected)
   })
 })
+
+/**
+ * The two ends of the passage, in viewport coordinates.
+ *
+ * A drag is the only way to prove what a held mouse button does, and a drag
+ * needs points rather than nodes: the rectangles of a Range over the passage
+ * are where its first and last glyph are drawn, which is where a person would
+ * press and release.
+ */
+async function passageEnds(page: Page, needle: string): Promise<{
+  from: { x: number; y: number }
+  to: { x: number; y: number }
+}> {
+  const ends = await page.evaluate((text) => {
+    const article = document.querySelector('.article-content')
+    if (!article) throw new Error('the article is not on the page')
+    const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT)
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const at = (node.textContent ?? '').indexOf(text)
+      if (at < 0) continue
+      const range = document.createRange()
+      range.setStart(node, at)
+      range.setEnd(node, at + text.length)
+      const rects = Array.from(range.getClientRects())
+      const first = rects[0]
+      const last = rects[rects.length - 1]
+      // Inside the glyph box on both ends: a point on the boundary hits the
+      // character next to the one meant.
+      return {
+        from: { x: first.left + 1, y: first.top + first.height / 2 },
+        to: { x: last.right - 1, y: last.top + last.height / 2 }
+      }
+    }
+    throw new Error(`the article does not hold ${text}`)
+  }, needle)
+  return ends
+}
+
+/**
+ * A drag that pauses mid-passage, which is the gesture this bead is about.
+ *
+ * It is a real mouse rather than a Range built in the page, because what it
+ * proves is a browser's own behaviour: a drag held still fires
+ * `selectionchange` and settles while the button is down, and highlighting
+ * there wrapped half a sentence in marks — which changed the DOM under the live
+ * selection and ended the drag, so the rest of the passage could never be
+ * selected at all.
+ */
+test.describe('a slow drag across a passage', () => {
+  test('highlights the whole passage once, and nothing while the button is down', async ({ page }) => {
+    const title = 'A passage dragged over slowly'
+    const article = await seedArticle(server.baseURL, {
+      url: 'https://example.invalid/slow-drag',
+      title,
+      html: articleHtml({ title })
+    })
+
+    await page.goto(`${server.baseURL}/library/${article.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    const { from, to } = await passageEnds(page, PASSAGE)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move((from.x + to.x) / 2, (from.y + to.y) / 2, { steps: 10 })
+    // Longer than the reader's settle, which is when the half-dragged passage
+    // used to be highlighted.
+    await page.waitForTimeout(500)
+
+    const highlights = async (): Promise<string[]> => {
+      const stored = await api<NotesPage<StoredHighlight>>(
+        server.baseURL,
+        `/api/notes/highlights?item_id=${article.id}`
+      )
+      return stored.items.map((highlight) => highlight.exact)
+    }
+    expect(await highlights()).toEqual([])
+    await expect(page.locator('.notes-seltool')).toHaveCount(0)
+    await expect(page.locator('mark[data-notes-passage]')).toHaveCount(0)
+
+    await page.mouse.move(to.x, to.y, { steps: 10 })
+    // What the browser itself says is selected at the moment of the release,
+    // which is what the stored passage is compared against: the test states
+    // the points, and the browser decides which glyphs they cover.
+    const dragged = collapse(await page.evaluate(() => document.getSelection()?.toString() ?? ''))
+    await page.mouse.up()
+
+    await expect.poll(highlights).toEqual([dragged])
+    // The whole passage, not the half that was selected at the pause.
+    expect(dragged).toContain(collapse(PASSAGE).slice(-20))
+    await expect(page.locator('.notes-seltool')).toBeVisible()
+    await expect(page.locator('mark[data-notes-passage]').first()).toBeVisible()
+  })
+})
