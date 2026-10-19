@@ -22,10 +22,18 @@ import ReaderSelectionToolbar, { type ToolbarAnchor } from './ReaderSelectionToo
  * Highlighting what the person selected, and marking in the text what is
  * already highlighted.
  *
- * Selecting is the whole gesture: a passage released inside the article is
- * highlighted at once and the toolbar opens over it, so nothing has to be
- * confirmed and no control has to be found. What is then done with the
- * highlight — undone, annotated, questioned, copied — belongs to the toolbar.
+ * On a mouse or a key, selecting is the whole gesture: a passage released
+ * inside the article is highlighted at once and the toolbar opens over it, so
+ * nothing has to be confirmed and no control has to be found. What is then
+ * done with the highlight — undone, annotated, questioned, copied — belongs to
+ * the toolbar.
+ *
+ * A touch selection is published while the browser still owns it, with
+ * `pending` set, and highlighting it there is what broke selecting on a phone:
+ * the marks changed the DOM under the live selection and the handles went with
+ * it, so only a single word could ever be highlighted. Such a selection opens
+ * the toolbar over it and creates nothing; the first button is Highlight, and
+ * every button that needs one asks for it back through `createHighlight`.
  *
  * It fills the reader's `bottom-actions` slot and renders nothing of its own
  * there: the toolbar is placed against the window, and what is left in the flow
@@ -76,8 +84,19 @@ const UNPLACED_NOTICES: Record<UnplacedReason, string> = {
 
 const unplacedReason = ref<UnplacedReason | null>(null)
 
-/** The passage the toolbar is open for, with the rectangle it was opened against. */
-const open = ref<{ highlight: HighlightRecord; rect: ToolbarAnchor } | null>(null)
+/**
+ * What the toolbar is open for: a highlight, or a selection nothing has been
+ * made from yet.
+ *
+ * `highlight` null is the pending state, and `selected` is what a button would
+ * create from. The rectangle is the one it was opened against, which is what
+ * places it while the passage has no mark in the text.
+ */
+const open = ref<{
+  highlight: HighlightRecord | null
+  rect: ToolbarAnchor
+  selected: ReaderLiveSelection | null
+} | null>(null)
 
 /**
  * The selection a highlight has already been made for.
@@ -104,7 +123,7 @@ const looseNotes = computed<AnnotationRecord[]>(() =>
 )
 
 const notesOnOpenPassage = computed(() => {
-  const id = open.value?.highlight.id
+  const id = open.value?.highlight?.id
   if (!id) return 0
   return (notesOfItem.value?.annotations ?? []).filter((annotation) => annotation.highlight_id === id).length
 })
@@ -149,6 +168,9 @@ function marksOf(exact: string): HTMLElement[] {
 function measureAnchor(): ToolbarAnchor | null {
   const current = open.value
   if (!current) return null
+  // Pending, the selection itself is the anchor and it is still on the page:
+  // there is no mark to follow, because nothing has been created.
+  if (!current.highlight) return rectOfSelection() ?? current.rect
   const marks = marksOf(current.highlight.exact)
   return marks.length > 0 ? rectOf(marks[0]) : current.rect
 }
@@ -166,12 +188,14 @@ function close(): void {
  * selection over it would show the person two overlapping claims about the same
  * words.
  */
-async function highlightSelection(selected: ReaderLiveSelection): Promise<void> {
+async function highlightSelection(selected: ReaderLiveSelection): Promise<boolean> {
   const signature = signatureOf(selected)
-  if (handled.value === signature) return
+  if (handled.value === signature) return false
   handled.value = signature
   unplacedReason.value = null
-  const rect = rectOfSelection()
+  // A tap on a pending toolbar may have collapsed the selection already, and
+  // then the rectangle the toolbar is standing at is the only one there is.
+  const rect = rectOfSelection() ?? open.value?.rect ?? null
   const created = await writing.run(() =>
     notes.addHighlight({
       item_id: props.itemId,
@@ -182,16 +206,42 @@ async function highlightSelection(selected: ReaderLiveSelection): Promise<void> 
   )
   if (!created) {
     handled.value = null
-    return
+    return false
   }
   applyHighlight(created)
   if (created.status === 'orphaned') {
     unplacedReason.value = created.ambiguous === true ? 'repeated' : 'missing'
   }
   notesGainedNote()
+  // The toolbar leaves the pending state before the selection is dropped, so
+  // the drop is not read as the person collapsing a pending selection.
+  open.value = { highlight: created, rect: rect ?? { top: 0, bottom: 0, left: 0, width: 0 }, selected: null }
   window.getSelection()?.removeAllRanges()
   props.clearSelection()
-  open.value = { highlight: created, rect: rect ?? { top: 0, bottom: 0, left: 0, width: 0 } }
+  return true
+}
+
+/**
+ * Open the toolbar over a selection the person is still holding.
+ *
+ * Adjusting the handles publishes the selection again, which lands here and
+ * moves the toolbar onto the new words; nothing is created on the way.
+ */
+function openPending(selected: ReaderLiveSelection): void {
+  unplacedReason.value = null
+  handled.value = null
+  open.value = {
+    highlight: null,
+    rect: rectOfSelection() ?? open.value?.rect ?? { top: 0, bottom: 0, left: 0, width: 0 },
+    selected
+  }
+}
+
+/** Highlight what a pending toolbar is standing over, for the button that asked. */
+async function createFromPending(): Promise<boolean> {
+  const selected = open.value?.selected
+  if (!selected) return false
+  return highlightSelection(selected)
 }
 
 /* ------------------------------------------- re-selecting a passage */
@@ -260,7 +310,13 @@ onMounted(() => window.addEventListener('keydown', onReselectKeydown))
 watch(
   () => props.liveSelection,
   (selected) => {
-    if (!allowed.value || !selected) return
+    if (!allowed.value) return
+    if (!selected) {
+      // Nothing is selected any more, which for a pending toolbar is the
+      // passage it was standing over being gone.
+      if (open.value && !open.value.highlight) close()
+      return
+    }
     const correcting = reselecting.value
     if (correcting) {
       void reselectPassage(correcting, selected)
@@ -270,6 +326,12 @@ watch(
     // highlight itself and links the note to it, and a second highlight from
     // here would be the same words stored twice with a toolbar over them.
     if (annotationAwaitingPassage()) return
+    // Still the person's to adjust: the toolbar opens over it and waits to be
+    // asked, because marking the text now would take the handles with it.
+    if (selected.pending) {
+      openPending(selected)
+      return
+    }
     void highlightSelection(selected)
   }
 )
@@ -291,7 +353,7 @@ function handleArticleClick(event: MouseEvent): void {
   if (!found) return
   unplacedReason.value = null
   handled.value = null
-  open.value = { highlight: found, rect: rectOf(mark) }
+  open.value = { highlight: found, rect: rectOf(mark), selected: null }
 }
 
 watch(
@@ -368,6 +430,8 @@ function onQuestioned(): void {
       :measure="measureAnchor"
       :loose-notes="looseNotes"
       :notes-on-passage="notesOnOpenPassage"
+      :pending-text="open.selected?.exact"
+      :create-highlight="createFromPending"
       @close="close"
       @removed="onRemoved"
       @annotated="onAnnotated"

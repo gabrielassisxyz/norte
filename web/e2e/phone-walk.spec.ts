@@ -120,22 +120,31 @@ test.describe('at 390x844, with touch and no mouse', () => {
     // and the bar is the only place they live, so neither is a duplicate.
     await expect(page.locator('.reader-top-actions')).toHaveCount(0)
 
-    // --- a touch selection, highlighted by the release itself --------------
+    // --- a touch selection, which highlights nothing by itself -------------
     const toolbar = page.locator('.notes-seltool')
     await expect(toolbar).toHaveCount(0)
-    await selectPassage(page, PASSAGE)
-    // No tap: the selection is the gesture, and the toolbar is what it opens.
+    await touchSelectPassage(page, PASSAGE)
+    // The toolbar opens over the live selection and the first button offers to
+    // highlight it, because nothing has been created: marking the text here
+    // would change the DOM under the selection and take the handles with it,
+    // which is what left a phone able to highlight single words only.
     await expect(toolbar).toBeVisible()
+    await expect(toolbar.locator('button').first()).toHaveAttribute('aria-label', 'Highlight')
+    await expect(page.locator('mark[data-notes-passage]')).toHaveCount(0)
+    const storedPassages = async (): Promise<string[]> => {
+      const page_ = await api<NotesPage<{ exact: string }>>(
+        server.baseURL,
+        `/api/notes/highlights?item_id=${article.id}`
+      )
+      return page_.items.map((highlight) => highlight.exact)
+    }
+    expect(await storedPassages()).toEqual([])
 
-    await expect
-      .poll(async () => {
-        const page_ = await api<NotesPage<{ exact: string }>>(
-          server.baseURL,
-          `/api/notes/highlights?item_id=${article.id}`
-        )
-        return page_.items.map((highlight) => highlight.exact)
-      })
-      .toEqual([PASSAGE])
+    await tap(toolbar.locator('[data-action="toolbar-highlight"]'))
+    await expect.poll(storedPassages).toEqual([PASSAGE])
+    await expect(page.locator(`mark[data-notes-passage="${PASSAGE}"]`).first()).toBeVisible()
+    // The passage exists now, so the toolbar offers to undo it instead.
+    await expect(toolbar.locator('button').first()).toHaveAttribute('aria-label', 'Remove highlight')
 
     // --- a note written in the toolbar, with a thumb ------------------------
     await tap(toolbar.locator('[data-action="toolbar-annotate"]'))
@@ -519,6 +528,21 @@ test.describe('at 1440x900, on a long article', () => {
  * which is exactly the event a long press produces and `mouseup` is not. The
  * native handles themselves stay a manual check.
  */
+/**
+ * The same selection, announced as a finger's.
+ *
+ * Which gesture is selecting comes from the last `pointerdown`'s `pointerType`,
+ * and that is the whole difference between a passage highlighted on release and
+ * one the person is still adjusting. The native long press cannot be driven
+ * from a test, so the press and the lift are dispatched and the Range is built
+ * as above.
+ */
+async function touchSelectPassage(page: Page, needle: string): Promise<void> {
+  await page.dispatchEvent('.reader-scroll', 'pointerdown', { pointerType: 'touch' })
+  await selectPassage(page, needle)
+  await page.evaluate(() => window.dispatchEvent(new Event('pointerup')))
+}
+
 async function selectPassage(page: Page, needle: string): Promise<void> {
   await page.evaluate((text) => {
     const article = document.querySelector('.article-content')

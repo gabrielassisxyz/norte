@@ -14,6 +14,18 @@ export interface ReaderLiveSelection {
   exact: string
   prefix: string
   suffix: string
+  /**
+   * True while the selection is still the person's to adjust, so nothing may be
+   * created from it until a control is asked for it.
+   *
+   * A touch selection is the case: the long press and the handles that follow
+   * it have no release the reader can see, so a settled selection is published
+   * while the browser still owns it — and marking the passage at that moment
+   * changes the DOM under the selection and drops the handles with it. A mouse
+   * or a key publishes on release, where the gesture is over and the passage
+   * can be acted on at once, and leaves this false.
+   */
+  pending?: boolean
 }
 
 /** What the reader hands whatever fills one of its slots. */

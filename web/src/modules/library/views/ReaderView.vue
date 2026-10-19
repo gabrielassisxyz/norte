@@ -401,7 +401,7 @@ function handleArticleRendered(root: HTMLElement): void {
  * belong to the DOM the browser built, and the server anchors against the text
  * it extracted, which is not the same string.
  */
-function readSelection(): void {
+function readSelection(pending: boolean): void {
   const root = articleRoot.value
   const selection = window.getSelection()
   if (!root || !selection || selection.rangeCount === 0 || selection.isCollapsed) {
@@ -427,12 +427,69 @@ function readSelection(): void {
   liveSelection.value = {
     exact,
     prefix: [...before.toString()].slice(-SELECTION_CONTEXT).join(''),
-    suffix: [...after.toString()].slice(0, SELECTION_CONTEXT).join('')
+    suffix: [...after.toString()].slice(0, SELECTION_CONTEXT).join(''),
+    pending
   }
 }
 
 function clearSelection(): void {
   liveSelection.value = null
+}
+
+/**
+ * Whether the gesture selecting the text is still happening, and whether it is
+ * a finger rather than a mouse.
+ *
+ * A drag that pauses fires `selectionchange` and settles while the button is
+ * still down, and publishing there handed out a half-finished passage: it was
+ * highlighted mid-drag, and wrapping it in marks changed the DOM under the
+ * live selection, which ended the drag. So nothing is published while a
+ * pointer is down on the article; the release publishes instead.
+ *
+ * The kind of gesture comes from the last `pointerdown`'s `pointerType`, with
+ * `touchstart` behind it for a browser that reports touch separately, and never
+ * from the viewport width: a phone-sized window is not a finger, and a touch
+ * screen on a desk is not a phone.
+ */
+let pointerHeld = false
+let touchGesture = false
+
+function handlePointerDown(event: PointerEvent): void {
+  pointerHeld = true
+  touchGesture = event.pointerType === 'touch' || event.pointerType === 'pen'
+}
+
+function handleTouchStart(): void {
+  pointerHeld = true
+  touchGesture = true
+}
+
+/**
+ * The release that ends a gesture, wherever it lands.
+ *
+ * On the window rather than on the scroller because a drag that started in the
+ * article often ends outside it, and a release the reader never saw would leave
+ * the selection unpublished with a pointer it still believes is down.
+ */
+function handlePointerRelease(): void {
+  if (!pointerHeld) return
+  pointerHeld = false
+  readSelection(touchGesture)
+}
+
+function handleMouseUp(): void {
+  // A tap on a phone produces a mouse event too, and reading the selection
+  // there would commit a passage the finger is still adjusting.
+  if (touchGesture) return
+  readSelection(false)
+}
+
+function handleKeyUp(): void {
+  // Selecting with Shift and the arrows is a desktop gesture whatever the last
+  // pointer was, and it is over on the key's release.
+  touchGesture = false
+  pointerHeld = false
+  readSelection(false)
 }
 
 /**
@@ -443,6 +500,10 @@ function clearSelection(): void {
  * to the highlight control. `selectionchange` is the one event every way of
  * selecting fires, and it is on the document rather than on the article because
  * the browser only offers it there.
+ *
+ * The settled read is dropped, not deferred, while a pointer is down: the
+ * release reads the selection itself, so a drag in progress needs nothing from
+ * here.
  */
 let selectionTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -456,13 +517,24 @@ function handleSelectionChange(): void {
   clearSelectionTimer()
   selectionTimer = setTimeout(() => {
     selectionTimer = null
-    readSelection()
+    if (pointerHeld) return
+    readSelection(touchGesture)
   }, SELECTION_SETTLE_MS)
 }
 
-onMounted(() => document.addEventListener('selectionchange', handleSelectionChange))
+onMounted(() => {
+  document.addEventListener('selectionchange', handleSelectionChange)
+  window.addEventListener('pointerup', handlePointerRelease)
+  window.addEventListener('pointercancel', handlePointerRelease)
+  window.addEventListener('touchend', handlePointerRelease)
+  window.addEventListener('touchcancel', handlePointerRelease)
+})
 onBeforeUnmount(() => {
   document.removeEventListener('selectionchange', handleSelectionChange)
+  window.removeEventListener('pointerup', handlePointerRelease)
+  window.removeEventListener('pointercancel', handlePointerRelease)
+  window.removeEventListener('touchend', handlePointerRelease)
+  window.removeEventListener('touchcancel', handlePointerRelease)
   clearSelectionTimer()
 })
 
@@ -617,7 +689,15 @@ async function retryExtraction(): Promise<void> {
       <button type="button" class="reader-clear" @click="writing.clear()">Close</button>
     </p>
 
-    <div ref="scroller" class="reader-scroll" @scroll="handleScroll" @mouseup="readSelection" @keyup="readSelection">
+    <div
+      ref="scroller"
+      class="reader-scroll"
+      @scroll="handleScroll"
+      @pointerdown="handlePointerDown"
+      @touchstart="handleTouchStart"
+      @mouseup="handleMouseUp"
+      @keyup="handleKeyUp"
+    >
       <div class="reader-column">
         <div class="reader-meta">
           <span class="reader-mono">{{ item.site ?? item.canonical_url }}</span>
