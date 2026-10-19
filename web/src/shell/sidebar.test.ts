@@ -1,5 +1,5 @@
 import { mount } from '@vue/test-utils'
-import { createMemoryHistory, createRouter } from 'vue-router'
+import { createMemoryHistory, createRouter, type Router } from 'vue-router'
 import { afterEach, describe, expect, it } from 'vitest'
 
 import { enabledModuleNames, overrideModuleBacking, resetModuleMounting, setEnabledModules } from '@/modules/mounting'
@@ -11,6 +11,8 @@ import AppSidebar from './AppSidebar.vue'
 import { fakeCoreSource, subjectRecord } from './data/testing'
 
 const mounted: Array<{ unmount: () => void }> = []
+/** The router the last mount was given, for the cases that assert a navigation. */
+let lastRouter: Router | null = null
 
 afterEach(() => {
   while (mounted.length > 0) mounted.pop()?.unmount()
@@ -47,6 +49,7 @@ async function mountSidebar(subjects = sidebarSubjects(), props: { collapsed?: b
     if (!enabledModuleNames().includes(name)) setEnabledModules([...enabledModuleNames(), name])
   }
   const router = createRouter({ history: createMemoryHistory(), routes: createRouteTable() })
+  lastRouter = router
   await router.push('/')
   await router.isReady()
   const wrapper = mount(AppSidebar, {
@@ -157,6 +160,29 @@ describe('the subjects section in the sidebar', () => {
       .some((row) => row.attributes('href') === '/subjects/writing')).toBe(true)
   })
 
+  it('opens the subjects page from its line, in the sidebar and in the phone drawer', async () => {
+    for (const props of [{}, { drawer: true }]) {
+      const wrapper = await mountSidebar(sidebarSubjects(), props)
+      const line = wrapper.get('nav[aria-label="Main"] > .app-line > a[href="/subjects"]')
+
+      expect(line.text()).toContain('Subjects')
+
+      // The screen is a dynamic import, so the router reports its own arrival
+      // rather than the click being over by the next tick.
+      const navigated = new Promise<void>((resolve) => {
+        const stop = lastRouter!.afterEach((to) => {
+          if (to.name !== 'subjects') return
+          stop()
+          resolve()
+        })
+      })
+      await line.trigger('click')
+      await navigated
+
+      expect(lastRouter?.currentRoute.value.name).toBe('subjects')
+    }
+  })
+
   it('says the vocabulary is empty rather than showing an empty block', async () => {
     const wrapper = await mountSidebar([])
 
@@ -190,7 +216,7 @@ describe('the subjects section in the sidebar: more than one page', () => {
   }
 
   function assuntosCount(wrapper: Awaited<ReturnType<typeof mountSidebar>>): string {
-    return wrapper.get('nav[aria-label="Main"] .app-group .app-count').text()
+    return wrapper.get('nav[aria-label="Main"] a[href="/subjects"] .app-count').text()
   }
 
   function moreButton(wrapper: Awaited<ReturnType<typeof mountSidebar>>) {

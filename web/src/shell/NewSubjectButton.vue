@@ -16,7 +16,13 @@ import { subjectsChanged } from './data/revision'
  * and the subject page both offer it, and a second copy of the "the slug is
  * already taken" handling is a second place for it to be wrong.
  */
-withDefaults(defineProps<{ label?: string }>(), { label: 'New subject' })
+const props = withDefaults(defineProps<{ label?: string; navigate?: boolean }>(), {
+  label: 'New subject',
+  // Whether a successful create opens the new subject's page. The screens that
+  // show one subject at a time want that; a screen whose whole job is the list
+  // of subjects does not, and passes false to stay where it is.
+  navigate: true
+})
 
 const router = useRouter()
 const { core } = useSources()
@@ -38,7 +44,9 @@ function closeDialog(): void {
 
 /**
  * On success the screen goes to the new subject, because the next thing a
- * person does with a subject they just named is put something in it.
+ * person does with a subject they just named is put something in it — unless
+ * the caller asked to stay, which is the list of subjects itself: it re-reads
+ * on the revision bumped just above, so the new row is already on its way.
  */
 async function create(): Promise<void> {
   const typed = name.value.trim()
@@ -53,6 +61,7 @@ async function create(): Promise<void> {
   }
   open.value = false
   subjectsChanged()
+  if (!props.navigate) return
   await router.push({ name: 'subject', params: { slug: created.slug } })
 }
 </script>
