@@ -509,3 +509,196 @@ describe("re-selecting a highlight's passage", () => {
     expect(notes.calls.reselectedPassages).toEqual([])
   })
 })
+
+/**
+ * When a gesture is finished, which is what decides whether anything is created.
+ *
+ * A drag fires `selectionchange` and settles while the button is still down, and
+ * highlighting there handed out half a sentence and ended the drag: the marks
+ * change the DOM under the live selection. A finger has no release the reader
+ * can see at all, so there the toolbar opens over the selection and creates
+ * nothing until a button asks for it.
+ *
+ * The timers are fake because the claim is about a selection that holds still
+ * for a second, and a second of real waiting per case is the suite's time for a
+ * fact a counter already proves.
+ */
+describe('a selection that is still being made', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  /** Let the reader's settle timer fire, and every read it starts answer. */
+  async function settle(ms = 1000): Promise<void> {
+    vi.advanceTimersByTime(ms)
+    await flushReads()
+  }
+
+  /** The toolbar's buttons by what they say, which is what a person acts on. */
+  function toolbarLabels(wrapper: Awaited<ReturnType<typeof mountReader>>['wrapper']): string[] {
+    return wrapper
+      .get('.notes-seltool')
+      .findAll('button')
+      .map((button) => button.attributes('aria-label'))
+      .filter((label): label is string => label !== undefined)
+  }
+
+  it('creates nothing while the mouse button is still down, however long it holds still', async () => {
+    const { wrapper, notes } = await mountReader()
+
+    await wrapper.get('.reader-scroll').trigger('pointerdown', { pointerType: 'mouse' })
+    selectText('.article-content', PASSAGE)
+    document.dispatchEvent(new Event('selectionchange'))
+    await settle()
+
+    expect(notes.calls.addedHighlights).toEqual([])
+    expect(wrapper.find('.notes-seltool').exists()).toBe(false)
+    expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(0)
+  })
+
+  it('highlights the whole passage once the button is released, and opens the toolbar', async () => {
+    const { wrapper, notes } = await mountReader()
+
+    await wrapper.get('.reader-scroll').trigger('pointerdown', { pointerType: 'mouse' })
+    // Mid-drag: the words so far, held still long enough to settle.
+    selectText('.article-content', 'The marked')
+    document.dispatchEvent(new Event('selectionchange'))
+    await settle()
+    // The rest of the drag, and then the release.
+    selectText('.article-content', PASSAGE)
+    window.dispatchEvent(new Event('pointerup'))
+    await flushReads()
+
+    expect(notes.calls.addedHighlights.map((sent) => sent.exact)).toEqual([PASSAGE])
+    expect(wrapper.find('.notes-seltool').exists()).toBe(true)
+  })
+
+  it('highlights a selection made with the keyboard on the key release, once', async () => {
+    const { wrapper, notes } = await mountReader()
+
+    selectText('.article-content', PASSAGE)
+    await wrapper.get('.reader-scroll').trigger('keyup')
+    await flushReads()
+    // Releasing another key over the same selection is the same gesture. The
+    // settle timer is deliberately not advanced: the claim is about the key's
+    // own release, and jsdom's own `selectionchange` would otherwise publish
+    // the selection a second time and answer for it.
+    await wrapper.get('.reader-scroll').trigger('keyup')
+    await flushReads()
+
+    expect(notes.calls.addedHighlights.map((sent) => sent.exact)).toEqual([PASSAGE])
+    expect(toolbarLabels(wrapper)[0]).toBe('Remove highlight')
+  })
+
+  /** A long press and the selection it leaves behind, as a phone reports it. */
+  async function touchSelect(
+    wrapper: Awaited<ReturnType<typeof mountReader>>['wrapper'],
+    needle = PASSAGE
+  ): Promise<void> {
+    await wrapper.get('.reader-scroll').trigger('pointerdown', { pointerType: 'touch' })
+    selectText('.article-content', needle)
+    document.dispatchEvent(new Event('selectionchange'))
+    window.dispatchEvent(new Event('pointerup'))
+    await settle()
+  }
+
+  it('opens the toolbar over a touch selection in its pending state, creating nothing', async () => {
+    const { wrapper, notes } = await mountReader()
+
+    await touchSelect(wrapper)
+
+    expect(notes.calls.addedHighlights).toEqual([])
+    // Nothing in the text either: a mark would change the DOM under the live
+    // selection, and the handles would go with it.
+    expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(0)
+    expect(toolbarLabels(wrapper)).toEqual(['Highlight', 'Annotate', 'Ask a question', 'More'])
+  })
+
+  it('moves the pending toolbar when the handles change the selection, and sends nothing', async () => {
+    const { wrapper, notes } = await mountReader()
+    await touchSelect(wrapper, 'The marked')
+
+    // Dragging a handle is the browser's own chrome: it fires `selectionchange`
+    // and no pointer event of ours, which is why the gesture is remembered.
+    selectText('.article-content', PASSAGE)
+    document.dispatchEvent(new Event('selectionchange'))
+    await settle()
+
+    expect(notes.calls.addedHighlights).toEqual([])
+    expect(toolbarLabels(wrapper)[0]).toBe('Highlight')
+
+    await wrapper.get('[data-action="toolbar-highlight"]').trigger('click')
+    await flushReads()
+
+    expect(notes.calls.addedHighlights.map((sent) => sent.exact)).toEqual([PASSAGE])
+    expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(1)
+    // The passage exists now, so the toolbar offers to undo it rather than to
+    // make it again.
+    expect(toolbarLabels(wrapper)[0]).toBe('Remove highlight')
+  })
+
+  it('creates the highlight first when a pending toolbar is asked for a note', async () => {
+    const { wrapper, notes } = await mountReader()
+    await touchSelect(wrapper)
+
+    await wrapper.get('[data-action="toolbar-annotate"]').trigger('click')
+    await flushReads()
+    expect(notes.calls.addedHighlights).toHaveLength(1)
+    const created = notes.held.highlights[0].id
+
+    await wrapper.get('.notes-seltool-field').setValue('Worth coming back to.')
+    await wrapper.get('[data-action="toolbar-save-annotation"]').trigger('click')
+    await flushReads()
+
+    expect(notes.calls.addedAnnotations).toEqual([
+      { item_id: 'item-1', text: 'Worth coming back to.', highlight_id: created }
+    ])
+  })
+
+  it('creates the highlight first when a pending toolbar is asked for a question', async () => {
+    const { wrapper, notes } = await mountReader()
+    await touchSelect(wrapper)
+
+    await wrapper.get('[data-action="toolbar-question"]').trigger('click')
+    await flushReads()
+    expect(notes.calls.addedHighlights).toHaveLength(1)
+    const created = notes.held.highlights[0].id
+
+    await wrapper.get('.notes-seltool-field').setValue('Why this holds')
+    await wrapper.get('[data-action="toolbar-save-question"]').trigger('click')
+    await flushReads()
+
+    expect(notes.calls.addedQuestions).toEqual([
+      { item_id: 'item-1', text: 'Why this holds', highlight_id: created }
+    ])
+  })
+
+  it('copies a pending selection without creating anything', async () => {
+    const { wrapper, notes } = await mountReader()
+    await touchSelect(wrapper)
+
+    await wrapper.get('[aria-label="More"]').trigger('click')
+    await wrapper.get('[data-action="toolbar-copy"]').trigger('click')
+    await flushReads()
+
+    expect(writeText).toHaveBeenCalledWith(PASSAGE)
+    expect(notes.calls.addedHighlights).toEqual([])
+    expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(0)
+  })
+
+  it('closes a pending toolbar when the selection is collapsed', async () => {
+    const { wrapper } = await mountReader()
+    await touchSelect(wrapper)
+    expect(wrapper.find('.notes-seltool').exists()).toBe(true)
+
+    window.getSelection()?.removeAllRanges()
+    document.dispatchEvent(new Event('selectionchange'))
+    await settle()
+
+    expect(wrapper.find('.notes-seltool').exists()).toBe(false)
+  })
+})
