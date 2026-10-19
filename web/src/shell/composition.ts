@@ -1,3 +1,5 @@
+import type { RouteLocationRaw } from 'vue-router'
+
 import { norteModules } from '@/modules'
 import { isModuleMounted } from '@/modules/mounting'
 import type {
@@ -97,14 +99,16 @@ export function homeBlocks(region: HomeBlock['region'], modules: NorteModule[] =
 /**
  * A top-level sidebar block the shell owns rather than a module.
  *
- * It carries no `to` of its own, which is the one way it differs from a
- * module's section: a module's line is a screen you can open, while this is a
- * grouping of addresses with no index page behind it. Subjects are the case —
- * every subject has a page, the set of them does not.
+ * Like a module's section it names a screen to open: subjects had no index page
+ * behind them, which is why this block used to carry no `to` at all, and
+ * `/subjects` is now that page.
  */
 export interface ShellSidebarSection {
   id: string
   label: string
+  to: RouteLocationRaw
+  /** The routes the line is the active one on, as a module's section has. */
+  activeRouteNames: string[]
   order: number
   count: () => number | string | undefined
   rows: () => SidebarRow[]
@@ -129,6 +133,10 @@ export function useShellSidebarSections(): ShellSidebarSection[] {
     {
       id: 'subjects',
       label: 'Subjects',
+      to: { name: 'subjects' },
+      // The subject page too: a subject opened from this list is still inside
+      // the vocabulary, so the line it was opened from stays the current one.
+      activeRouteNames: ['subjects', 'subject'],
       // Ahead of every product: a subject is what the other lines are filed
       // under, and the core is on before any of them.
       order: 5,

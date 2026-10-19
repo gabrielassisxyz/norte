@@ -17,14 +17,20 @@ declare module 'vue-router' {
 
 /**
  * The routes that exist whichever modules are on: the home screen, the subject
- * screen, and in development the design-system gallery.
+ * screens, and in development the design-system gallery.
  *
- * The subject screen is here rather than in a module because subjects belong
+ * The subject screens are here rather than in a module because subjects belong
  * to the core: they are the one linkable thing no module owns, and switching
  * every module off must not take the vocabulary with it.
  */
 export const shellRoutes: RouteRecordRaw[] = [
   { path: '/', name: 'home', component: () => import('@/shell/HomeView.vue'), meta: { title: 'Home' } },
+  {
+    path: '/subjects',
+    name: 'subjects',
+    component: () => import('@/shell/SubjectsView.vue'),
+    meta: { title: 'Subjects' }
+  },
   {
     path: '/subjects/:slug',
     name: 'subject',

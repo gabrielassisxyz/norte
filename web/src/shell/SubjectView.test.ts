@@ -75,11 +75,19 @@ describe('the subject screen', () => {
     expect(wrapper.text()).toContain('Pods explained')
   })
 
+  it('offers no "New subject": creating a subject belongs to the subjects page', async () => {
+    const { wrapper } = await mountSubject()
+
+    expect(wrapper.text()).not.toContain('New subject')
+    expect(wrapper.find('.new-subject-dialog').exists()).toBe(false)
+  })
+
   it('says so when no subject answers to that address', async () => {
     const { wrapper } = await mountSubject('no-such-slug')
 
     expect(wrapper.text()).toContain('No subject at the address')
     expect(wrapper.find('h1').exists()).toBe(false)
+    expect(wrapper.get('a[href="/subjects"]').text()).toBe('All subjects')
   })
 
   it('toggles the focus and renders what came back', async () => {

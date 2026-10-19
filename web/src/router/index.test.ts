@@ -15,6 +15,7 @@ const APP_PATHS: Array<[string, string]> = [
   ['/', 'home'],
   // The subject screen is the shell's, not a module's: subjects belong to the
   // core, so the address answers whatever the server lists.
+  ['/subjects', 'subjects'],
   ['/subjects/kubernetes', 'subject'],
   ['/library', 'library'],
   ['/notes', 'notes'],
@@ -33,6 +34,7 @@ const APP_PATHS: Array<[string, string]> = [
 
 const TITLES: Record<string, string> = {
   home: 'Home',
+  subjects: 'Subjects',
   subject: 'Subject',
   library: 'Library',
   notes: 'Notes',
