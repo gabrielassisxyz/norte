@@ -105,6 +105,19 @@ test.describe('the browser tab and the addresses nothing claims', () => {
     await expect(page).toHaveTitle('Library · Norte')
   })
 
+  test('opens the subjects page from the navigation', async ({ page }) => {
+    await page.goto(`${server.baseURL}/`)
+
+    await page.getByRole('link', { name: 'Subjects' }).first().click()
+
+    await expect(page).toHaveTitle('Subjects · Norte')
+    await expect(page.getByRole('heading', { name: 'Subjects', level: 1 })).toBeVisible()
+    // A fresh server holds no subject, so the page is its empty state: the
+    // sentence, and the create button both in the header and beside it.
+    await expect(page.getByRole('status').getByText('No subject yet')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'New subject' }).first()).toBeVisible()
+  })
+
   test('answers an unknown address with a page that says so', async ({ page }) => {
     await page.goto(`${server.baseURL}/no-such-screen`)
 

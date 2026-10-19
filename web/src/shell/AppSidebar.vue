@@ -43,8 +43,8 @@ const shortcutGroups = computed(() => sidebarShortcuts(sidebars))
 /**
  * The shell's own blocks, which are not any module's and so are not in the
  * tree: subjects belong to the core and are there whatever the server lists.
- * They start expanded, because a grouping with no index page behind it is
- * useless collapsed.
+ * They start expanded, because the rows under the line are the quickest way
+ * into a subject and the line itself only opens the list of all of them.
  */
 const shellSections = useShellSidebarSections()
 const expanded = ref<Record<string, boolean>>(
@@ -122,10 +122,14 @@ const isHome = computed(() => route.name === 'home')
 
       <template v-for="section in shellSections" :key="section.id">
         <div class="app-line">
-          <span class="app-item app-line-link app-group">
+          <RouterLink
+            :to="section.to"
+            class="app-item app-line-link"
+            :class="{ 'is-active': section.activeRouteNames.includes(String(route.name)) }"
+          >
             <span class="app-label">{{ section.label }}</span>
             <span v-if="section.count() !== undefined" class="app-count">{{ section.count() }}</span>
-          </span>
+          </RouterLink>
           <button
             type="button"
             class="app-chevron"
@@ -336,18 +340,6 @@ const isHome = computed(() => route.name === 'home')
 .app-line-link {
   flex: 1;
   min-width: 0;
-}
-
-.app-group {
-  flex: 1;
-  min-width: 0;
-  color: var(--muted);
-  cursor: default;
-}
-
-.app-group:hover {
-  background: transparent;
-  color: var(--muted);
 }
 
 .app-empty {

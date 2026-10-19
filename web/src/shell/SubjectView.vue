@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import Button from '@/components/ds/Button.vue'
 import PageTitle from '@/components/ds/PageTitle.vue'
 import { useAsyncAction } from '@/lib/asyncResource'
 import { useSources } from '@/sources'
 
-import NewSubjectButton from './NewSubjectButton.vue'
 import SavedAboutPanel from './SavedAboutPanel.vue'
 import { useSubjectBySlug } from './data/composables'
 import { subjectsChanged } from './data/revision'
@@ -110,7 +109,10 @@ async function confirmDelete(): Promise<void> {
 
       <div v-else-if="subject === null" class="subject-state" role="status">
         <p>No subject at the address <span class="mono">{{ slug }}</span>.</p>
-        <NewSubjectButton label="Create the subject" />
+        <!-- Creating is on the subjects page, which is also where every other
+             subject is: the address that answered nothing is more likely a
+             stale link than a subject still to be named. -->
+        <RouterLink :to="{ name: 'subjects' }" class="subject-link">All subjects</RouterLink>
       </div>
 
       <template v-else>
@@ -129,7 +131,6 @@ async function confirmDelete(): Promise<void> {
                 <span class="subject-switch-track" aria-hidden="true"><span class="subject-switch-knob" /></span>
                 <span>In focus</span>
               </button>
-              <NewSubjectButton />
               <Button variant="secondary" :disabled="writing.pending.value" @click="openDelete">Delete</Button>
             </div>
           </template>
@@ -190,6 +191,16 @@ async function confirmDelete(): Promise<void> {
 }
 .subject-state p {
   margin: 0 0 var(--space-2);
+}
+.subject-link {
+  color: var(--norte);
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 550;
+  text-decoration: none;
+}
+.subject-link:hover {
+  text-decoration: underline;
 }
 .subject-error {
   margin: var(--space-4) 0 0;
