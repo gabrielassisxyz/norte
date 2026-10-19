@@ -95,14 +95,6 @@ async function confirmDelete(): Promise<void> {
   subjects.value = rows.value.filter((row) => row.id !== subject.id)
   subjectsChanged()
 }
-
-/**
- * A subject created from here stays here: the list is the screen the person
- * asked for, so the new row appears in place instead of the page jumping to it.
- */
-function created(subject: Subject): void {
-  subjects.value = [...rows.value, subject].sort((left, right) => left.name.localeCompare(right.name))
-}
 </script>
 
 <template>
@@ -110,7 +102,10 @@ function created(subject: Subject): void {
     <div class="subjects-inner">
       <PageTitle title="Subjects" objective="The topics everything else is filed under.">
         <template #actions>
-          <NewSubjectButton :navigate="false" @created="created" />
+          <!-- Creating does not leave the list, which is the screen the person
+               asked for; the new subject arrives through the revision every
+               subject list on screen already re-reads on. -->
+          <NewSubjectButton :navigate="false" />
         </template>
       </PageTitle>
 
@@ -125,7 +120,7 @@ function created(subject: Subject): void {
 
       <div v-if="empty" class="subjects-state subjects-empty" role="status">
         <p>No subject yet. A subject is a topic you file saved things under.</p>
-        <NewSubjectButton :navigate="false" @created="created" />
+        <NewSubjectButton :navigate="false" />
       </div>
 
       <ul v-else-if="rows.length > 0" class="subjects-list">

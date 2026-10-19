@@ -8,7 +8,6 @@ import { useAsyncAction } from '@/lib/asyncResource'
 import { useSources } from '@/sources'
 
 import { subjectsChanged } from './data/revision'
-import type { Subject } from './data/source'
 
 /**
  * Create a subject from wherever subjects are shown.
@@ -24,8 +23,6 @@ const props = withDefaults(defineProps<{ label?: string; navigate?: boolean }>()
   // of subjects does not, and passes false to stay where it is.
   navigate: true
 })
-
-const emit = defineEmits<{ created: [Subject] }>()
 
 const router = useRouter()
 const { core } = useSources()
@@ -48,8 +45,8 @@ function closeDialog(): void {
 /**
  * On success the screen goes to the new subject, because the next thing a
  * person does with a subject they just named is put something in it — unless
- * the caller asked to stay, in which case the created record is handed over so
- * the caller's own list can show it without a re-read.
+ * the caller asked to stay, which is the list of subjects itself: it re-reads
+ * on the revision bumped just above, so the new row is already on its way.
  */
 async function create(): Promise<void> {
   const typed = name.value.trim()
@@ -64,7 +61,6 @@ async function create(): Promise<void> {
   }
   open.value = false
   subjectsChanged()
-  emit('created', created)
   if (!props.navigate) return
   await router.push({ name: 'subject', params: { slug: created.slug } })
 }

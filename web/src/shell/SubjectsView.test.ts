@@ -38,6 +38,21 @@ async function mountSubjects(core?: FakeCoreSource) {
   return { wrapper, core: source, router }
 }
 
+/**
+ * Let anything already in flight finish, navigations included.
+ *
+ * `flushReads` is six turns, which a read answers inside and a lazily imported
+ * screen does not: asserting "it stayed here" needs the chance to leave.
+ */
+async function settle(): Promise<void> {
+  for (let pass = 0; pass < 3; pass += 1) {
+    await flushReads()
+    // A lazily imported screen is fetched off the microtask queue, so leaving
+    // the page needs a turn of the event loop and not only a flush.
+    await new Promise((resolve) => setTimeout(resolve, 60))
+  }
+}
+
 function names(wrapper: Awaited<ReturnType<typeof mountSubjects>>['wrapper']): string[] {
   return wrapper.findAll('.subjects-name').map((row) => row.text())
 }
@@ -54,6 +69,21 @@ describe('the subjects screen', () => {
     ])
     expect(wrapper.findAll('.subjects-row')[0]!.text()).toContain('1 link')
     expect(wrapper.findAll('.subjects-row')[2]!.text()).toContain('4 links')
+  })
+
+  it('sorts by name whatever order the answer arrived in', async () => {
+    // The server orders by slug, and a page assembled from several of its
+    // answers is in no single order at all, so the page does the sorting it
+    // promises instead of rendering what it was handed.
+    const core = fakeCoreSource(
+      { subjects: vocabulary() },
+      {
+        listSubjects: async () => ({ items: [...vocabulary()].reverse(), next_cursor: null })
+      }
+    )
+    const { wrapper } = await mountSubjects(core)
+
+    expect(names(wrapper)).toEqual(['Career', 'Kubernetes', 'Writing'])
   })
 
   it('follows the cursor to the end rather than listing the first page', async () => {
@@ -80,6 +110,11 @@ describe('the subjects screen', () => {
 
     expect(core.calls.createSubject).toEqual(['Rust'])
     expect(names(wrapper)).toEqual(['Career', 'Kubernetes', 'Rust', 'Writing'])
+    // The screens that show one subject open the new one; this one is the list
+    // of them, and a list that jumped elsewhere on every create would be
+    // unusable. The route is read once every pending navigation has settled,
+    // because a screen is a dynamic import and arrives a few turns later.
+    await settle()
     expect(router.currentRoute.value.name).toBe('subjects')
   })
 
