@@ -583,9 +583,12 @@ describe('a selection that is still being made', () => {
     selectText('.article-content', PASSAGE)
     await wrapper.get('.reader-scroll').trigger('keyup')
     await flushReads()
-    // Releasing another key over the same selection is the same gesture.
+    // Releasing another key over the same selection is the same gesture. The
+    // settle timer is deliberately not advanced: the claim is about the key's
+    // own release, and jsdom's own `selectionchange` would otherwise publish
+    // the selection a second time and answer for it.
     await wrapper.get('.reader-scroll').trigger('keyup')
-    await settle()
+    await flushReads()
 
     expect(notes.calls.addedHighlights.map((sent) => sent.exact)).toEqual([PASSAGE])
     expect(toolbarLabels(wrapper)[0]).toBe('Remove highlight')
