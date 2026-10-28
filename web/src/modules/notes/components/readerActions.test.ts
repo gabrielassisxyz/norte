@@ -95,6 +95,24 @@ function selectInArticle(needle: string): void {
   throw new Error(`the article does not hold ${needle}`)
 }
 
+/** A selection from the start of `from` to the end of `to`, across however many nodes lie between. */
+function selectAcrossArticle(from: string, to: string): void {
+  const article = document.querySelector('.article-content')
+  if (!article) throw new Error('the article is not on the page')
+  const nodes: Text[] = []
+  const walker = document.createTreeWalker(article, NodeFilter.SHOW_TEXT)
+  for (let node = walker.nextNode(); node; node = walker.nextNode()) nodes.push(node as Text)
+  const start = nodes.find((node) => node.data.includes(from))
+  const end = nodes.find((node) => node.data.includes(to))
+  if (!start || !end) throw new Error(`the article does not hold ${from} and ${to}`)
+  const range = document.createRange()
+  range.setStart(start, start.data.indexOf(from))
+  range.setEnd(end, end.data.indexOf(to) + to.length)
+  const selection = window.getSelection()
+  selection?.removeAllRanges()
+  selection?.addRange(range)
+}
+
 beforeEach(() => {
   // jsdom computes no layout and gives a Range neither `getClientRects` nor
   // `getBoundingClientRect`, which is how the toolbar is placed over the
@@ -159,6 +177,21 @@ describe('marking a passage in the article', () => {
     expect(markedText).toBe('The passage\nmarked  now.')
   })
 
+  it('marks a passage that crosses a paragraph break, however the break is spelled', async () => {
+    const html = '<p>Before. A line with the end of one.</p><p>The start of two goes on. After.</p>'
+    for (const exact of [
+      'the end of one.The start of two',
+      'the end of one. The start of two',
+      'the end of one.\n\nThe start of two'
+    ]) {
+      const { markedText } = await markedArticle(html, [
+        { id: 'h-1', exact, prefix: 'Before. A line with ', suffix: ' goes on. After.' }
+      ])
+
+      expect(markedText).toBe('the end of one.|The start of two')
+    }
+  })
+
   it('marks nothing when two occurrences have the same context', async () => {
     const { marks } = await markedArticle('<p>Same: the same sentence. end. Same: the same sentence. end.</p>', [
       { id: 'h-1', exact: 'the same sentence.', prefix: 'Same: ', suffix: ' end.' }
@@ -192,6 +225,63 @@ describe("the reader's notes actions", () => {
     // has to travel: the server refuses to guess between them without it.
     expect(sent.prefix).toContain('Before the passage.')
     expect(sent.suffix).toContain('After the passage.')
+  })
+
+  describe('the passage across block boundaries', () => {
+    async function highlightSelection(html: string, from: string, to: string) {
+      const mountedReader = await mountReader({ item: record({ content_html: html }) })
+      selectAcrossArticle(from, to)
+      await mountedReader.wrapper.get('.reader-scroll').trigger('mouseup')
+      await flushReads()
+      expect(mountedReader.notes.calls.addedHighlights).toHaveLength(1)
+      return mountedReader.notes.calls.addedHighlights[0]
+    }
+
+    it('puts one space where the selection passes from one paragraph into the next', async () => {
+      const sent = await highlightSelection(
+        '<p>Opening. Some words before character.</p><p>I say feel what follows. Closing words.</p>',
+        'character.',
+        'I say feel'
+      )
+
+      expect(sent.exact).toBe('character. I say feel')
+      expect(sent.prefix).toBe('Opening. Some words before ')
+      expect(sent.suffix).toBe(' what follows. Closing words.')
+    })
+
+    it('spaces the context too when the break falls inside the prefix and the suffix', async () => {
+      const sent = await highlightSelection(
+        '<p>First ends.</p><p>Second holds the passage chosen</p><p>Third begins.</p><p>Fourth follows.</p>',
+        'the passage',
+        'chosen'
+      )
+
+      expect(sent.exact).toBe('the passage chosen')
+      expect(sent.prefix).toBe('First ends. Second holds ')
+      expect(sent.suffix).toBe('Third begins. Fourth follows.')
+    })
+
+    it('puts one space at a list item boundary', async () => {
+      const sent = await highlightSelection(
+        '<ul><li>First item ends</li><li>second item begins</li></ul>',
+        'ends',
+        'second'
+      )
+
+      expect(sent.exact).toBe('ends second')
+    })
+
+    it('adds nothing at an inline element inside a paragraph', async () => {
+      const sent = await highlightSelection('<p>A word<em>glued</em>together and more.</p>', 'word', 'together')
+
+      expect(sent.exact).toBe('wordgluedtogether')
+    })
+
+    it('adds no second space where the markup already has whitespace', async () => {
+      const sent = await highlightSelection('<p>One ends.</p>\n<p>Two begins.</p>', 'ends.', 'Two')
+
+      expect(sent.exact).toBe('ends.\nTwo')
+    })
   })
 
   /** Highlight against a server that answers with `orphan`, which is what it stores. */

@@ -12,6 +12,7 @@ import { useSources } from '@/sources'
 import ArticleContent from '../components/ArticleContent.vue'
 import { useLibraryItem } from '../data/composables'
 import { libraryItemChanged } from '../data/revision'
+import { textWithBlockBreaks } from '../selectionText'
 import { readerSlotEntries, type ReaderLiveSelection, type ReaderNotesRequest } from '../readerSlots'
 import { parseHeadings, type LibraryLocation, type ReadPosition } from '../data/source'
 import ReaderActionBar from './ReaderActionBar.vue'
@@ -413,7 +414,7 @@ function readSelection(pending: boolean): void {
     liveSelection.value = null
     return
   }
-  const exact = range.toString().trim()
+  const exact = textWithBlockBreaks(range).trim()
   if (!exact) {
     liveSelection.value = null
     return
@@ -426,8 +427,8 @@ function readSelection(pending: boolean): void {
   after.setStart(range.endContainer, range.endOffset)
   liveSelection.value = {
     exact,
-    prefix: [...before.toString()].slice(-SELECTION_CONTEXT).join(''),
-    suffix: [...after.toString()].slice(0, SELECTION_CONTEXT).join(''),
+    prefix: [...textWithBlockBreaks(before)].slice(-SELECTION_CONTEXT).join(''),
+    suffix: [...textWithBlockBreaks(after)].slice(0, SELECTION_CONTEXT).join(''),
     pending
   }
 }

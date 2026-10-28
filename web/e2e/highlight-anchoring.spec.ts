@@ -444,3 +444,135 @@ test.describe('a slow drag across a passage', () => {
     await expect(page.locator('mark[data-notes-passage]').first()).toBeVisible()
   })
 })
+
+/**
+ * A passage that runs from the middle of one paragraph into the next.
+ *
+ * The stored article carries no whitespace between `</p>` and `<p>`, so the
+ * browser's own string for such a selection glues the sentences together
+ * ("navegação.Uma frase"), while the text the server extracts separates the
+ * blocks with a blank line. Nothing short of a real browser selection and a
+ * real extraction produces both halves of that disagreement. The case is
+ * asserted from the three places it was lost: the answer to the create, the
+ * mark in the text, and the notes panel, which listed the passage as not found.
+ */
+const FIRST_HALF = 'corpo de artigo e não apenas um fragmento de navegação.'
+const SECOND_HALF = 'Uma frase que aparece uma'
+const SPACED_BREAK = 'navegação. Uma frase'
+
+interface CreatedHighlight {
+  exact: string
+  status: string
+}
+
+/** The two halves, marked, in the text; the break between them spaced, in the panel. */
+async function expectBothParagraphsHighlighted(page: Page, created: CreatedHighlight, itemId: string): Promise<void> {
+  expect(created.status).toBe('anchored')
+  expect(created.exact).toContain(SPACED_BREAK)
+  expect(created.exact).not.toContain('navegação.Uma')
+
+  const marks = page.locator('mark[data-notes-passage]')
+  await expect(marks.first()).toBeVisible()
+  const marked = await marks.allTextContents()
+  expect(marked[0]).toContain(FIRST_HALF)
+  expect(marked[marked.length - 1]).toContain(SECOND_HALF)
+  // One mark per text node and no more: each half sits in its own paragraph.
+  const paragraphs = await marks.evaluateAll((nodes) => new Set(nodes.map((node) => node.closest('p'))).size)
+  expect(paragraphs).toBe(2)
+
+  const stored = await api<NotesPage<StoredHighlight>>(server.baseURL, `/api/notes/highlights?item_id=${itemId}`)
+  expect(stored.items.map((highlight) => highlight.status)).toEqual(['anchored'])
+  await expect(page.locator('[data-entry="passage"]')).toContainText(SPACED_BREAK)
+  await expect(page.locator('.notes-reader-orphans')).toHaveCount(0)
+}
+
+function highlightCreated(page: Page): Promise<CreatedHighlight> {
+  return page
+    .waitForResponse(
+      (response) => response.url().endsWith('/api/notes/highlights') && response.request().method() === 'POST'
+    )
+    .then((response) => response.json() as Promise<CreatedHighlight>)
+}
+
+test.describe('a drag from one paragraph into the next', () => {
+  test('highlights both halves, with a space where the paragraphs meet', async ({ page }) => {
+    const title = 'A passage dragged across two paragraphs'
+    const article = await seedArticle(server.baseURL, {
+      url: 'https://example.invalid/across-paragraphs-mouse',
+      title,
+      html: articleHtml({ title })
+    })
+
+    await page.goto(`${server.baseURL}/library/${article.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    // Points are only worth pressing on once the page has stopped moving: a
+    // font or a panel arriving after they are measured puts the press in the
+    // gap between paragraphs, and the drag then starts in the wrong one.
+    await page.evaluate(() => document.fonts.ready)
+    let start = (await passageEnds(page, FIRST_HALF)).from
+    let end = (await passageEnds(page, SECOND_HALF)).to
+    await expect(async () => {
+      const again = { from: (await passageEnds(page, FIRST_HALF)).from, to: (await passageEnds(page, SECOND_HALF)).to }
+      expect(again).toEqual({ from: start, to: end })
+      await page.waitForTimeout(150)
+      start = again.from
+      end = again.to
+    }).toPass()
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move((start.x + end.x) / 2, (start.y + end.y) / 2, { steps: 10 })
+    // Longer than the reader's settle: a half-dragged passage used to be
+    // highlighted here, and a one-step selection would never have shown it.
+    await page.waitForTimeout(300)
+    const stored = () => api<NotesPage<StoredHighlight>>(server.baseURL, `/api/notes/highlights?item_id=${article.id}`)
+    expect((await stored()).items).toEqual([])
+    await expect(page.locator('mark[data-notes-passage]')).toHaveCount(0)
+
+    await page.mouse.move(end.x, end.y, { steps: 10 })
+    // What the browser holds at the release: both halves, or the drag started
+    // somewhere other than where it was meant to.
+    const dragged = collapse(await page.evaluate(() => document.getSelection()?.toString() ?? ''))
+    expect(dragged).toContain(FIRST_HALF)
+    expect(dragged).toContain(SECOND_HALF)
+    const created = highlightCreated(page)
+    await page.mouse.up()
+
+    await expectBothParagraphsHighlighted(page, await created, article.id)
+  })
+})
+
+test.describe('a touch selection from one paragraph into the next', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+
+  test('waits for Highlight, then marks both halves', async ({ page }) => {
+    const title = 'A passage selected across two paragraphs by touch'
+    const article = await seedArticle(server.baseURL, {
+      url: 'https://example.invalid/across-paragraphs-touch',
+      title,
+      html: articleHtml({ title })
+    })
+
+    await page.goto(`${server.baseURL}/library/${article.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    await page.dispatchEvent('.reader-scroll', 'pointerdown', { pointerType: 'touch' })
+    await selectAcrossNodes(page, FIRST_HALF, SECOND_HALF)
+    await page.evaluate(() => window.dispatchEvent(new Event('pointerup')))
+
+    // Pending: the toolbar offers to highlight and nothing has been stored.
+    const toolbar = page.locator('.notes-seltool')
+    await expect(toolbar).toBeVisible()
+    await expect(page.locator('mark[data-notes-passage]')).toHaveCount(0)
+    const before = await api<NotesPage<StoredHighlight>>(
+      server.baseURL,
+      `/api/notes/highlights?item_id=${article.id}`
+    )
+    expect(before.items).toEqual([])
+
+    const created = highlightCreated(page)
+    await toolbar.locator('[data-action="toolbar-highlight"]').tap()
+
+    await expectBothParagraphsHighlighted(page, await created, article.id)
+  })
+})
