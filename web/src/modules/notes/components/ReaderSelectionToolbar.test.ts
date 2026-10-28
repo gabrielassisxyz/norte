@@ -350,6 +350,95 @@ describe('where the toolbar puts itself', () => {
     expect(toolbar.attributes('style')).toContain('translate(-50%, 0)')
   })
 
+  describe('for a selection made by touch', () => {
+    const FIRST = { top: 300, bottom: 320, left: 100, width: 200 }
+    const LAST = { top: 340, bottom: 360, left: 40, width: 120 }
+
+    function mountTouchToolbar(anchor: ToolbarAnchor) {
+      const wrapper = mount(ReaderSelectionToolbar, {
+        props: {
+          itemId: 'item-1',
+          highlight: highlightRecord({ id: 'h-1', item_id: 'item-1', exact: PASSAGE }),
+          measure: () => anchor,
+          looseNotes: [],
+          notesOnPassage: 0,
+          touch: true
+        },
+        global: { plugins: [sourcesPlugin({ notes: fakeNotesSource({}) })] },
+        attachTo: document.body
+      })
+      mounted.push(wrapper)
+      return wrapper.get('.notes-seltool')
+    }
+
+    afterEach(() => {
+      document.documentElement.style.removeProperty('--norte-library-reader-bar-height')
+    })
+
+    it('sits 24px below the last line, centred on it, clear of the end handle', () => {
+      const toolbar = mountTouchToolbar({ ...FIRST, last: LAST })
+
+      expect(toolbar.attributes('style')).toContain('top: 384px')
+      expect(toolbar.attributes('style')).toContain('left: 100px')
+      expect(toolbar.attributes('style')).toContain('translate(-50%, 0)')
+    })
+
+    it('keeps the 8px edge when the last line is at the window margin', () => {
+      const toolbar = mountTouchToolbar({ ...FIRST, last: { top: 340, bottom: 360, left: 0, width: 0 } })
+
+      // Half the toolbar's width is 0 in jsdom, so the clamp is the edge itself.
+      expect(toolbar.attributes('style')).toContain('left: 8px')
+    })
+
+    it('flips above the first line when the bottom action bar would cover the placement', () => {
+      document.documentElement.style.setProperty('--norte-library-reader-bar-height', '80px')
+      // 384px plus the toolbar is past 768 - 80, the top of the bar.
+      const toolbar = mountTouchToolbar({ top: 400, bottom: 420, left: 100, width: 200, last: { ...LAST, top: 640, bottom: 660 } })
+
+      expect(toolbar.classes()).not.toContain('is-below')
+      expect(toolbar.attributes('style')).toContain('top: 392px')
+      expect(toolbar.attributes('style')).toContain('translate(-50%, -100%)')
+    })
+
+    it('stays below when the same placement clears the bar', () => {
+      document.documentElement.style.setProperty('--norte-library-reader-bar-height', '80px')
+      const toolbar = mountTouchToolbar({ ...FIRST, last: LAST })
+
+      expect(toolbar.classes()).toContain('is-below')
+    })
+
+    it('flips above when there is no room below and the bar is unset', () => {
+      const toolbar = mountTouchToolbar({ top: 400, bottom: 420, left: 100, width: 200, last: { ...LAST, top: 730, bottom: 750 } })
+
+      expect(toolbar.classes()).not.toContain('is-below')
+      expect(toolbar.attributes('style')).toContain('top: 392px')
+    })
+  })
+
+  it('measures again when the selection it stands over changes, without a scroll', async () => {
+    let anchor: ToolbarAnchor = { top: 300, bottom: 320, left: 100, width: 200 }
+    const wrapper = mount(ReaderSelectionToolbar, {
+      props: {
+        itemId: 'item-1',
+        highlight: null,
+        pendingText: 'The marked',
+        measure: () => anchor,
+        looseNotes: [],
+        notesOnPassage: 0
+      },
+      global: { plugins: [sourcesPlugin({ notes: fakeNotesSource({}) })] },
+      attachTo: document.body
+    })
+    mounted.push(wrapper)
+    expect(wrapper.get('.notes-seltool').attributes('style')).toContain('top: 292px')
+
+    // A handle was dragged: the words and the line they end on are new.
+    anchor = { top: 400, bottom: 420, left: 100, width: 200 }
+    await wrapper.setProps({ pendingText: 'The marked passage.' })
+
+    expect(wrapper.get('.notes-seltool').attributes('style')).toContain('top: 392px')
+  })
+
   it('closes once the passage has scrolled out of the window', async () => {
     const anchor: ToolbarAnchor = { top: 300, bottom: 320, left: 100, width: 200 }
     const wrapper = mount(ReaderSelectionToolbar, {

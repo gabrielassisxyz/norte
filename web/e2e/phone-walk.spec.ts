@@ -206,6 +206,42 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect.poll(async () => (await item()).unread).toBe(false)
   })
 
+  test('keeps the selection toolbar below the passage, before and after highlighting it', async ({ page }) => {
+    await seed('Toolbar under the passage')
+    await boot(page, `/library/${article.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    // The handles are adjusted before the tap: a one-step selection is how a
+    // touch bug stays hidden, so the first words are selected and then grown.
+    await touchSelectPassage(page, PASSAGE.split(' ').slice(0, 3).join(' '))
+    const toolbar = page.locator('.notes-seltool')
+    await expect(toolbar).toBeVisible()
+    await touchSelectPassage(page, PASSAGE)
+    await expect(toolbar).toBeVisible()
+
+    const selectionBottom = await page.evaluate(() => {
+      const rects = document.getSelection()?.getRangeAt(0).getClientRects()
+      return rects && rects.length > 0 ? rects[rects.length - 1].bottom : NaN
+    })
+    // The browser draws its own menu above the selection and over any toolbar
+    // placed there, so Norte's has to be under the last line.
+    await expect.poll(async () => (await toolbar.boundingBox())?.y ?? NaN).toBeGreaterThan(selectionBottom)
+
+    await tap(toolbar.locator('[data-action="toolbar-highlight"]'))
+    const mark = page.locator(`mark[data-notes-passage="${PASSAGE}"]`)
+    await expect(mark.first()).toBeVisible()
+    await expect(toolbar.locator('button').first()).toHaveAttribute('aria-label', 'Remove highlight')
+
+    // The highlight collapses the native selection, and the toolbar stays under
+    // the passage rather than jumping above it.
+    const markBottom = await mark.last().evaluate((node) => {
+      const rects = node.getClientRects()
+      return rects[rects.length - 1].bottom
+    })
+    const box = await toolbar.boundingBox()
+    expect(box?.y ?? NaN).toBeGreaterThan(markBottom)
+  })
+
   test('reaches the Notes screen and its tabs by tap', async ({ page }) => {
     const own = await seed('Notes on the phone')
     const highlight = await api<{ id: string }>(server.baseURL, '/api/notes/highlights', {

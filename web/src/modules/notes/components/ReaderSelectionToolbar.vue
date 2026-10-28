@@ -6,11 +6,19 @@
  * first line of the selection, which may be one of several rectangles a range
  * covers, and because a test has to be able to state one.
  */
-export interface ToolbarAnchor {
+export interface ToolbarRect {
   top: number
   bottom: number
   left: number
   width: number
+}
+
+/**
+ * `last` is the selection's last line, which a touch selection places the
+ * toolbar under; without it the first line stands for both.
+ */
+export interface ToolbarAnchor extends ToolbarRect {
+  last?: ToolbarRect
 }
 
 /** A selection whose top is nearer the top of the window than this flips below it. */
@@ -21,10 +29,30 @@ const GAP_PX = 8
 
 /** How close to the window's edge the toolbar may be pushed. */
 const EDGE_PX = 8
+
+/**
+ * The room a touch selection's end handle needs under its last line, which
+ * the toolbar must not cover or the handle can no longer be dragged.
+ */
+const HANDLE_CLEARANCE_PX = 24
+
+/** The toolbar's height before it has been laid out: a 32px button, 4px padding and the border. */
+const TOOLBAR_HEIGHT_PX = 42
+
+/** The reader's bottom action bar publishes its height here; unset on screens without one. */
+const BAR_HEIGHT_PROPERTY = '--norte-library-reader-bar-height'
+
+function readBarHeight(): number {
+  if (typeof document === 'undefined') return 0
+  const root = document.documentElement
+  const raw = root.style.getPropertyValue(BAR_HEIGHT_PROPERTY) || getComputedStyle(root).getPropertyValue(BAR_HEIGHT_PROPERTY)
+  const height = Number.parseFloat(raw)
+  return Number.isFinite(height) ? height : 0
+}
 </script>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import Button from '@/components/ds/Button.vue'
 import Icon from '@/components/ds/Icon.vue'
@@ -82,6 +110,14 @@ const props = defineProps<{
    * component only knows which button asked for it.
    */
   createHighlight?: () => Promise<boolean>
+  /**
+   * The selection was made with a finger.
+   *
+   * The browser then draws its own menu above the selection, over this
+   * toolbar, and cannot be told to move it, so this one goes below the last
+   * line instead.
+   */
+  touch?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -117,20 +153,40 @@ const draft = ref('')
  * toolbar would be drawn partly outside the window, where nothing can be
  * clicked.
  */
-const below = computed(() => (anchor.value?.top ?? 0) < FLIP_BELOW_ABOVE_PX)
+const belowFirstLine = computed(() => (anchor.value?.top ?? 0) < FLIP_BELOW_ABOVE_PX)
+
+/**
+ * Under the last line of a touch selection, clear of the end handle.
+ *
+ * It gives way, to today's rule, when that spot would run into the bottom of
+ * the window or into the action bar fixed there. The bar's height is read each
+ * time because it changes with the safe area and is not this component's.
+ */
+const belowLastLine = computed(() => {
+  const rect = anchor.value
+  if (!props.touch || !rect) return false
+  const height = root.value?.offsetHeight || TOOLBAR_HEIGHT_PX
+  const floor = (typeof window === 'undefined' ? 0 : window.innerHeight) - readBarHeight()
+  return (rect.last ?? rect).bottom + HANDLE_CLEARANCE_PX + height <= floor
+})
+
+const below = computed(() => belowLastLine.value || belowFirstLine.value)
 
 const placement = computed(() => {
   const rect = anchor.value
   if (!rect) return { display: 'none' }
   const half = (root.value?.offsetWidth ?? 0) / 2
-  const centre = rect.left + rect.width / 2
+  const under = belowLastLine.value
+  const line = under ? (rect.last ?? rect) : rect
+  const centre = line.left + line.width / 2
   const room = typeof window === 'undefined' ? 0 : window.innerWidth
   // Clamped to the window, so a passage at either margin still gets a toolbar
   // that is entirely on the screen.
   const left = room > 0 ? Math.min(Math.max(centre, half + EDGE_PX), Math.max(room - half - EDGE_PX, half + EDGE_PX)) : centre
+  const top = under ? line.bottom + HANDLE_CLEARANCE_PX : below.value ? rect.bottom + GAP_PX : rect.top - GAP_PX
   return {
     left: `${left}px`,
-    top: below.value ? `${rect.bottom + GAP_PX}px` : `${rect.top - GAP_PX}px`,
+    top: `${top}px`,
     transform: below.value ? 'translate(-50%, 0)' : 'translate(-50%, -100%)'
   }
 })
@@ -170,6 +226,20 @@ function onPointerDown(event: Event): void {
   if (target && root.value?.contains(target)) return
   emit('close')
 }
+
+/**
+ * Measure again when what the toolbar stands over changes without a scroll.
+ *
+ * Dragging a handle moves the pending selection, and highlighting replaces it
+ * with a mark; neither fires a scroll, so without this the toolbar would keep
+ * the rectangle it opened with, which for a touch selection is the wrong line.
+ * After the render, because the mark is put in the text before it.
+ */
+watch(
+  () => [props.highlight?.id ?? null, props.pendingText],
+  () => reanchor(),
+  { flush: 'post' }
+)
 
 onMounted(() => {
   window.addEventListener('scroll', reanchor, true)
