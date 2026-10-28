@@ -26,11 +26,6 @@ export interface PassageQuery {
 
 const WHITESPACE = /\s/u
 
-/** Every run of whitespace becomes one space, and the ends are trimmed. */
-function collapse(value: string): string {
-  return value.split(/\s+/u).filter((word) => word !== '').join(' ')
-}
-
 /**
  * The article's text as the server sees it, with a map back into the DOM.
  * Text nodes are concatenated with no separator of their own: the whitespace
@@ -69,24 +64,25 @@ function occurrencesOf(haystack: string[], needle: string[]): number[] {
   return found
 }
 
+/** The code points of `value` that are not whitespace. */
+function withoutWhitespace(value: string[]): string[] {
+  return value.filter((char) => !WHITESPACE.test(char))
+}
+
 /** Whether `want` is what comes just before `start`, over the overlap only. */
 function tailMatches(chars: string[], start: number, want: string[]): boolean {
-  let end = start
-  while (end > 0 && chars[end - 1] === ' ') end--
-  const overlap = Math.min(end, want.length)
+  const overlap = Math.min(start, want.length)
   for (let back = 1; back <= overlap; back++) {
-    if (chars[end - back] !== want[want.length - back]) return false
+    if (chars[start - back] !== want[want.length - back]) return false
   }
   return true
 }
 
 /** Whether `want` is what comes just after `from`, over the overlap only. */
 function headMatches(chars: string[], from: number, want: string[]): boolean {
-  let begin = from
-  while (begin < chars.length && chars[begin] === ' ') begin++
-  const overlap = Math.min(chars.length - begin, want.length)
+  const overlap = Math.min(chars.length - from, want.length)
   for (let index = 0; index < overlap; index++) {
-    if (chars[begin + index] !== want[index]) return false
+    if (chars[from + index] !== want[index]) return false
   }
   return true
 }
@@ -94,22 +90,38 @@ function headMatches(chars: string[], from: number, want: string[]): boolean {
 /**
  * The code-point range [start, end) of the one occurrence the stored context
  * singles out, or null when there is none or more than one.
+ *
+ * The passage and its context are compared with their whitespace ignored, as
+ * the server does: a selection across two paragraphs reads "character.I say"
+ * off a DOM whose blocks touch, "character. I say" once the reader has spaced
+ * the break, and "character.\n\nI say" in the text the server extracted, and
+ * none of the three is the one spelling every side shares.
  */
 function locate(text: CollapsedText, query: PassageQuery): [number, number] | null {
-  const needle = [...collapse(query.exact)]
+  const needle = withoutWhitespace([...query.exact])
   if (needle.length === 0) return null
-  const wantPrefix = [...collapse(query.prefix)]
-  const wantSuffix = [...collapse(query.suffix)]
+  const wantPrefix = withoutWhitespace([...query.prefix])
+  const wantSuffix = withoutWhitespace([...query.suffix])
+  // Each non-whitespace code point of the article, and where it sits among the
+  // collapsed characters the DOM map is indexed by.
+  const squeezed: string[] = []
+  const positions: number[] = []
+  text.chars.forEach((char, index) => {
+    if (WHITESPACE.test(char)) return
+    squeezed.push(char)
+    positions.push(index)
+  })
   // The hint orders the search and never decides it, as on the server; with a
   // unique-match rule the order cannot change the answer.
-  const occurrences = occurrencesOf(text.chars, needle).sort(
-    (a, b) => Math.abs(a - query.position_hint) - Math.abs(b - query.position_hint)
+  const occurrences = occurrencesOf(squeezed, needle).sort(
+    (a, b) => Math.abs(positions[a] - query.position_hint) - Math.abs(positions[b] - query.position_hint)
   )
   const matches = occurrences.filter(
     (start) =>
-      tailMatches(text.chars, start, wantPrefix) && headMatches(text.chars, start + needle.length, wantSuffix)
+      tailMatches(squeezed, start, wantPrefix) && headMatches(squeezed, start + needle.length, wantSuffix)
   )
-  return matches.length === 1 ? [matches[0], matches[0] + needle.length] : null
+  if (matches.length !== 1) return null
+  return [positions[matches[0]], positions[matches[0] + needle.length - 1] + 1]
 }
 
 interface Slice {
