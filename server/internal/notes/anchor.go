@@ -66,6 +66,13 @@ func notesNormalizeText(value string) string {
 
 // notesAnchor decides whether exact still sits in text, and where.
 //
+// The passage is matched with its whitespace ignored, as the context is. A
+// browser hands over a selection across two paragraphs with the blocks glued
+// ("character.I say"), while the text the library extracted separates them
+// ("character.\n\nI say"), and no spelling of the break is common to both
+// sides. Two occurrences that differ only in whitespace therefore collide and
+// are settled by context like any other pair.
+//
 // The rule is a unique context match and nothing weaker. Every occurrence of
 // the passage is found, and an occurrence counts only when the words stored
 // before and after it are the words that are before and after it now. Exactly
@@ -78,18 +85,27 @@ func notesNormalizeText(value string) string {
 // a person's mark to words they never read.
 func notesAnchor(text, exact, prefix, suffix string, hint int) notesAnchorResult {
 	haystack := notesNormalizeText(text)
-	needle := notesNormalizeText(exact)
-	if needle == "" || haystack == "" {
+	runes := []rune(haystack)
+	needle := notesDropContextWhitespace([]rune(exact))
+	if len(needle) == 0 || len(runes) == 0 {
 		return notesAnchorResult{Status: NotesOrphaned}
 	}
-	occurrences := notesOccurrences(haystack, needle)
-	if len(occurrences) == 0 {
+	// The search runs over the text with its whitespace removed, and each
+	// occurrence is mapped back to where it starts and ends in the collapsed
+	// text, which is what the hint and the context comparison are measured in.
+	squeezed, origins := notesSqueeze(runes)
+	found := notesOccurrences(string(squeezed), string(needle))
+	if len(found) == 0 {
 		return notesAnchorResult{Status: NotesOrphaned}
+	}
+	occurrences := make([]int, len(found))
+	ends := make(map[int]int, len(found))
+	for index, at := range found {
+		occurrences[index] = origins[at]
+		ends[origins[at]] = origins[at+len(needle)-1] + 1
 	}
 	notesOrderByDistance(occurrences, hint)
 
-	runes := []rune(haystack)
-	needleLength := len([]rune(needle))
 	wantPrefix := []rune(notesNormalizeText(prefix))
 	wantSuffix := []rune(notesNormalizeText(suffix))
 
@@ -98,7 +114,7 @@ func notesAnchor(text, exact, prefix, suffix string, hint int) notesAnchorResult
 		if !notesTailMatches(runes[:start], wantPrefix) {
 			continue
 		}
-		if !notesHeadMatches(runes[start+needleLength:], wantSuffix) {
+		if !notesHeadMatches(runes[ends[start]:], wantSuffix) {
 			continue
 		}
 		matches = append(matches, start)
@@ -111,6 +127,21 @@ func notesAnchor(text, exact, prefix, suffix string, hint int) notesAnchorResult
 	default:
 		return notesAnchorResult{Status: NotesOrphaned, Ambiguous: true}
 	}
+}
+
+// notesSqueeze drops the whitespace of value and reports, for each code point
+// kept, the offset it had in value.
+func notesSqueeze(value []rune) ([]rune, []int) {
+	kept := make([]rune, 0, len(value))
+	origins := make([]int, 0, len(value))
+	for offset, candidate := range value {
+		if unicode.IsSpace(candidate) {
+			continue
+		}
+		kept = append(kept, candidate)
+		origins = append(origins, offset)
+	}
+	return kept, origins
 }
 
 // notesOccurrences lists the code-point offsets of every occurrence of needle

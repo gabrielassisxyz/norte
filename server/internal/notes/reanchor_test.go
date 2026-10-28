@@ -378,3 +378,36 @@ func TestAHighlightWithAGluedContextStaysAnchoredAcrossAReExtraction(t *testing.
 		t.Fatalf("the offset moved from %d to %d on unchanged text", hintBefore, hintAfter)
 	}
 }
+
+// TestAnOrphanStoredWithAGluedPassageIsAnchoredByTheNextReAnchoring covers the
+// passages saved before a selection across paragraphs could anchor: the browser
+// glued the two blocks together, the server stored the highlight as orphaned,
+// and the next re-anchoring over the item must find it without the person
+// selecting it again.
+func TestAnOrphanStoredWithAGluedPassageIsAnchoredByTheNextReAnchoring(t *testing.T) {
+	harness := newNotesHarness(t)
+	const marked = "O trecho que fica marcado nesta leitura."
+	itemID := harness.saveAndExtract("https://example.invalid/colado-exact", notesArticleHTML(marked))
+
+	created := notesDecode[notesHighlightBody](t, harness.request(http.MethodPost, "/api/notes/highlights",
+		map[string]any{
+			"item_id": itemID,
+			"exact":   "vem depois dela.O trecho que fica marcado",
+			"prefix":  "serve de contexto antes do que ",
+			"suffix":  " nesta leitura.",
+		}), http.StatusCreated)
+	if _, err := harness.database.Writer().Exec(
+		`UPDATE notes_highlights SET status = 'orphaned' WHERE id = ?`, created.ID); err != nil {
+		t.Fatalf("storing the highlight as it was before the fix: %v", err)
+	}
+
+	if recorder := harness.request(http.MethodPost, "/api/library/items/"+itemID+"/extract",
+		map[string]any{}); recorder.Code != http.StatusAccepted {
+		t.Fatalf("the re-extraction answered %d: %s", recorder.Code, recorder.Body.String())
+	}
+	harness.drainJobs()
+
+	if status, _ := harness.highlightStatus(created.ID); status != NotesAnchored {
+		t.Fatalf("the glued passage stayed %q after re-anchoring: %s", status, harness.articleText(itemID))
+	}
+}
