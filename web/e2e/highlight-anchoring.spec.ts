@@ -506,8 +506,19 @@ test.describe('a drag from one paragraph into the next', () => {
     await page.goto(`${server.baseURL}/library/${article.id}`)
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
-    const start = (await passageEnds(page, FIRST_HALF)).from
-    const end = (await passageEnds(page, SECOND_HALF)).to
+    // Points are only worth pressing on once the page has stopped moving: a
+    // font or a panel arriving after they are measured puts the press in the
+    // gap between paragraphs, and the drag then starts in the wrong one.
+    await page.evaluate(() => document.fonts.ready)
+    let start = (await passageEnds(page, FIRST_HALF)).from
+    let end = (await passageEnds(page, SECOND_HALF)).to
+    await expect(async () => {
+      const again = { from: (await passageEnds(page, FIRST_HALF)).from, to: (await passageEnds(page, SECOND_HALF)).to }
+      expect(again).toEqual({ from: start, to: end })
+      await page.waitForTimeout(150)
+      start = again.from
+      end = again.to
+    }).toPass()
     await page.mouse.move(start.x, start.y)
     await page.mouse.down()
     await page.mouse.move((start.x + end.x) / 2, (start.y + end.y) / 2, { steps: 10 })
@@ -519,6 +530,11 @@ test.describe('a drag from one paragraph into the next', () => {
     await expect(page.locator('mark[data-notes-passage]')).toHaveCount(0)
 
     await page.mouse.move(end.x, end.y, { steps: 10 })
+    // What the browser holds at the release: both halves, or the drag started
+    // somewhere other than where it was meant to.
+    const dragged = collapse(await page.evaluate(() => document.getSelection()?.toString() ?? ''))
+    expect(dragged).toContain(FIRST_HALF)
+    expect(dragged).toContain(SECOND_HALF)
     const created = highlightCreated(page)
     await page.mouse.up()
 
