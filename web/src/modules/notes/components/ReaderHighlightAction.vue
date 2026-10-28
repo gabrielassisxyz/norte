@@ -96,6 +96,8 @@ const open = ref<{
   highlight: HighlightRecord | null
   rect: ToolbarAnchor
   selected: ReaderLiveSelection | null
+  /** Made with a finger, which keeps the toolbar under the passage after the highlight exists. */
+  touch: boolean
 } | null>(null)
 
 /**
@@ -133,6 +135,11 @@ function rectOf(element: Element): ToolbarAnchor {
   return { top: box.top, bottom: box.bottom, left: box.left, width: box.width }
 }
 
+function lastLineOf(rects: DOMRectList): ToolbarAnchor['last'] {
+  const last = rects.length > 0 ? rects[rects.length - 1] : null
+  return last ? { top: last.top, bottom: last.bottom, left: last.left, width: last.width } : undefined
+}
+
 /**
  * The first line of what is selected, which is what the toolbar sits over.
  *
@@ -145,7 +152,7 @@ function rectOfSelection(): ToolbarAnchor | null {
   if (!selection || selection.rangeCount === 0) return null
   const rects = selection.getRangeAt(0).getClientRects()
   const first = rects.length > 0 ? rects[0] : selection.getRangeAt(0).getBoundingClientRect()
-  return { top: first.top, bottom: first.bottom, left: first.left, width: first.width }
+  return { top: first.top, bottom: first.bottom, left: first.left, width: first.width, last: lastLineOf(rects) }
 }
 
 /** The marks this passage has in the text now, in document order. */
@@ -172,7 +179,8 @@ function measureAnchor(): ToolbarAnchor | null {
   // there is no mark to follow, because nothing has been created.
   if (!current.highlight) return rectOfSelection() ?? current.rect
   const marks = marksOf(current.highlight.exact)
-  return marks.length > 0 ? rectOf(marks[0]) : current.rect
+  if (marks.length === 0) return current.rect
+  return { ...rectOf(marks[0]), last: lastLineOf(marks[marks.length - 1].getClientRects()) }
 }
 
 function close(): void {
@@ -215,7 +223,12 @@ async function highlightSelection(selected: ReaderLiveSelection): Promise<boolea
   notesGainedNote()
   // The toolbar leaves the pending state before the selection is dropped, so
   // the drop is not read as the person collapsing a pending selection.
-  open.value = { highlight: created, rect: rect ?? { top: 0, bottom: 0, left: 0, width: 0 }, selected: null }
+  open.value = {
+    highlight: created,
+    rect: rect ?? { top: 0, bottom: 0, left: 0, width: 0 },
+    selected: null,
+    touch: open.value?.touch ?? false
+  }
   window.getSelection()?.removeAllRanges()
   props.clearSelection()
   return true
@@ -233,7 +246,10 @@ function openPending(selected: ReaderLiveSelection): void {
   open.value = {
     highlight: null,
     rect: rectOfSelection() ?? open.value?.rect ?? { top: 0, bottom: 0, left: 0, width: 0 },
-    selected
+    selected,
+    // Only a finger's selection is published pending, so this is where the
+    // touch origin is learned; `pending` itself ends with the first tap.
+    touch: true
   }
 }
 
@@ -353,7 +369,7 @@ function handleArticleClick(event: MouseEvent): void {
   if (!found) return
   unplacedReason.value = null
   handled.value = null
-  open.value = { highlight: found, rect: rectOf(mark), selected: null }
+  open.value = { highlight: found, rect: rectOf(mark), selected: null, touch: false }
 }
 
 watch(
@@ -432,6 +448,7 @@ function onQuestioned(): void {
       :notes-on-passage="notesOnOpenPassage"
       :pending-text="open.selected?.exact"
       :create-highlight="createFromPending"
+      :touch="open.touch"
       @close="close"
       @removed="onRemoved"
       @annotated="onAnnotated"
