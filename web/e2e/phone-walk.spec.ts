@@ -39,7 +39,7 @@ test.afterAll(async () => {
  * the library: each passes alone as well as in the suite. The titles differ and
  * none is a prefix of another, because a row is found by its title.
  */
-async function seed(title: string, options: { fillerParagraphs?: number } = {}): Promise<SeededArticle> {
+async function seed(title: string, options: { fillerParagraphs?: number; sections?: string[]; headingless?: boolean } = {}): Promise<SeededArticle> {
   article = await seedArticle(server.baseURL, {
     url: `https://example.invalid/${encodeURIComponent(title)}`,
     title,
@@ -307,7 +307,8 @@ test.describe('the reader chrome at 390x844, with touch', () => {
     await openTall(page, 'Chrome geometry', 0)
 
     await expect(page.locator('.reader-top')).toHaveCount(0)
-    await expect(cluster(page).locator('button, a')).toHaveCount(2)
+    // Back, the contents (the seeded text has headings), and mark read.
+    await expect(cluster(page).locator('button, a')).toHaveCount(3)
     for (const button of await cluster(page).locator('button, a').all()) {
       const look = await button.evaluate((node) => {
         const box = node.getBoundingClientRect()
@@ -449,6 +450,67 @@ test.describe('the reader chrome at 390x844, with touch', () => {
     await scrollReaderTo(page, viewport * 2 + 400)
     await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
     await expect(cluster(page)).toHaveAttribute('data-hidden', 'false')
+  })
+
+  test('opens the contents drawer, jumps to the third heading and offers none on a headingless text', async ({ page }) => {
+    const own = await seed('Contents drawer', { sections: ['Alpha part', 'Beta part', 'Gamma part'] })
+    await boot(page, `/library/${own.id}`)
+    await expect(page.locator('.article-content')).toContainText('Gamma part')
+    const scroller = page.locator('.reader-scroll')
+    const drawer = page.locator('[data-reader-drawer="contents"]')
+    const gammaTop = (): Promise<number> =>
+      scroller.evaluate((node) => {
+        const heading = [...node.querySelectorAll('h2')].find((h) => h.textContent === 'Gamma part')
+        return (heading?.getBoundingClientRect().top ?? 0) - node.getBoundingClientRect().top
+      })
+
+    await tap(cluster(page).locator('[data-action="contents-open"]'))
+    await expect(drawer).toBeVisible()
+    const box = await drawer.boundingBox()
+    expect(Math.abs((box?.width ?? 0) - 390 * 0.86)).toBeLessThanOrEqual(2)
+    expect(box?.x).toBe(0)
+    // The article's own title and the sample's fixed section come ahead of the three.
+    await expect(drawer.locator('.reader-contents-row')).toHaveText([
+      'Contents drawer',
+      'Uma seção',
+      'Alpha part',
+      'Beta part',
+      'Gamma part'
+    ])
+
+    // Dismissing, by key or by the scrim, leaves the text where it was.
+    await page.keyboard.press('Escape')
+    await expect(drawer).toHaveCount(0)
+    await tap(cluster(page).locator('[data-action="contents-open"]'))
+    await page.locator('.reader-drawer-scrim').tap({ position: { x: 380, y: 400 } })
+    await expect(drawer).toHaveCount(0)
+    expect(await scroller.evaluate((node) => node.scrollTop)).toBe(0)
+
+    await tap(cluster(page).locator('[data-action="contents-open"]'))
+    await tap(drawer.locator('.reader-contents-row', { hasText: 'Gamma part' }))
+    await expect(drawer).toHaveCount(0)
+    await expect.poll(async () => Math.abs((await gammaTop()) - 16), { timeout: 5000 }).toBeLessThanOrEqual(4)
+
+    // Reopened (a pixel upward brings the controls back), the section now at the top is the marked one.
+    await scrollReaderTo(page, (await scroller.evaluate((node) => node.scrollTop)) - 1)
+    await tap(cluster(page).locator('[data-action="contents-open"]'))
+    await expect(drawer.locator('[aria-current="true"]')).toHaveText('Gamma part')
+    await expect(cluster(page).locator('[data-action="contents-open"] svg')).toHaveAttribute('stroke-width', '1.5')
+
+    // The controls hold still under the open drawer, as under any sheet.
+    const at = await scroller.evaluate((node) => node.scrollTop)
+    await scrollReaderTo(page, at - 300)
+    await scrollReaderTo(page, at + 400)
+    await scrollReaderTo(page, at + 800)
+    await expect(cluster(page)).toHaveAttribute('data-hidden', 'false')
+  })
+
+  test('draws no contents button on a text without headings', async ({ page }) => {
+    const own = await seed('No headings here', { headingless: true })
+    await boot(page, `/library/${own.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+    await expect(cluster(page)).toBeVisible()
+    await expect(cluster(page).locator('[data-action="contents-open"]')).toHaveCount(0)
   })
 
   test('moves the item from the location sheet in one tap, and the Library shows it there', async ({ page }) => {
@@ -746,6 +808,9 @@ test.describe('at 1440x900, unchanged', () => {
     await expect(page.locator('.reader-top-actions [data-action="read"]')).toBeVisible()
     await expect(page.locator('nav[aria-label="Reading actions"]')).toHaveCount(0)
     await expect(page.locator('[data-reader-sheet]')).toHaveCount(0)
+    // The text has headings, and still no contents button or drawer: that is the phone's.
+    await expect(page.locator('.article-content h2').first()).toBeVisible()
+    await expect(page.locator('[data-action="contents-open"], [data-reader-drawer]')).toHaveCount(0)
     // And the panel is under the article, where a wide screen has room for it.
     await expect(page.locator('#notes-reader-title')).toBeVisible()
 
