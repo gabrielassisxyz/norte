@@ -43,7 +43,9 @@ type libraryHarnessOptions struct {
 	FetchHandler http.Handler
 	Names        map[string][]string
 	MaxBytes     int64
-	LLM          bool
+	// CookieFile is handed to the fetcher the way NORTE_COOKIE_FILE is.
+	CookieFile string
+	LLM        bool
 	// Decider stands in for NORTE_DECIDER_URL being set: the extraction then
 	// enqueues the routing job, which is all this flag reaches. The sidecar
 	// the job would call is the router harness's own.
@@ -89,7 +91,7 @@ func newLibraryExtractHarness(t *testing.T, opts libraryHarnessOptions) *library
 		Jobs:              jobs,
 		Clock:             clock,
 		Events:            events,
-		Fetcher:           libraryTestFetcher(t, maxBytes, names, listener, harness.probe),
+		Fetcher:           libraryTestFetcherWithCookies(t, maxBytes, names, listener, harness.probe, opts.CookieFile),
 		LLMConfigured:     opts.LLM,
 		DeciderConfigured: opts.Decider,
 	})

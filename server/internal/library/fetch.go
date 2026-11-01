@@ -88,6 +88,9 @@ type LibraryFetchOptions struct {
 	// MaxBytes is NORTE_FETCH_MAX_BYTES. Zero takes the configured default
 	// from Deps, which is what production always passes.
 	MaxBytes int64
+	// CookieFile is the per-host cookie file, empty for none. It is read on
+	// every fetch, never cached, so a renewed cookie needs no restart.
+	CookieFile string
 	// Resolver and Dialer default to the real ones.
 	Resolver libraryHostResolver
 	Dialer   libraryDialer
@@ -108,8 +111,43 @@ type LibraryFetchOptions struct {
 // transport left to resolve the name itself would look it up a second time,
 // after the check, and a DNS answer that changed in between is the whole attack.
 type libraryFetcher struct {
-	client   *http.Client
-	maxBytes int64
+	client     *http.Client
+	maxBytes   int64
+	cookieFile string
+}
+
+// libraryCookiesKey carries the cookies read for one fetch through the request
+// context, so each redirect hop decides from the same snapshot while the shared
+// client holds none.
+type libraryCookiesKey struct{}
+
+// libraryApplyCookie is the one place that decides whether a request carries a
+// Cookie header. It always clears the header first, so nothing a previous hop
+// carried survives onto a host that has no entry, and it sets it again only when
+// the request host -- lowercased, port dropped -- equals a key exactly. No
+// suffix or subdomain matching: a wrong match is a cookie sent to the wrong party.
+func libraryApplyCookie(request *http.Request, cookies map[string]string) {
+	request.Header.Del("Cookie")
+	if request.URL == nil {
+		return
+	}
+	if header, ok := cookies[strings.ToLower(request.URL.Hostname())]; ok {
+		request.Header.Set("Cookie", header)
+	}
+}
+
+// libraryLoadCookies reads the cookie file for one fetch. A failure is
+// permanent and names the path and the host; the reader's errors never carry
+// file content.
+func (f *libraryFetcher) libraryLoadCookies(host string) (map[string]string, error) {
+	if f.cookieFile == "" {
+		return nil, nil
+	}
+	cookies, err := core.ReadCookieFile(f.cookieFile)
+	if err != nil {
+		return nil, core.Permanent(fmt.Errorf("fetching %s: %w", host, err))
+	}
+	return cookies, nil
 }
 
 // newLibraryFetcher assembles the client. Keep-alives are off because the
@@ -142,10 +180,16 @@ func newLibraryFetcher(opts LibraryFetchOptions) *libraryFetcher {
 				if len(via) > libraryFetchMaxRedirects {
 					return fmt.Errorf("%w: it passed more than %d hops", errLibraryTooManyRedirects, libraryFetchMaxRedirects)
 				}
-				return libraryValidateFetchURL(request.URL)
+				if err := libraryValidateFetchURL(request.URL); err != nil {
+					return err
+				}
+				cookies, _ := request.Context().Value(libraryCookiesKey{}).(map[string]string)
+				libraryApplyCookie(request, cookies)
+				return nil
 			},
 		},
-		maxBytes: opts.MaxBytes,
+		maxBytes:   opts.MaxBytes,
+		cookieFile: opts.CookieFile,
 	}
 }
 
@@ -286,12 +330,18 @@ func (f *libraryFetcher) Fetch(ctx context.Context, pageURL string) (libraryFetc
 	if err := libraryValidateFetchURL(parsed); err != nil {
 		return libraryFetchResult{}, core.Permanent(err)
 	}
+	cookies, err := f.libraryLoadCookies(parsed.Hostname())
+	if err != nil {
+		return libraryFetchResult{}, err
+	}
+	ctx = context.WithValue(ctx, libraryCookiesKey{}, cookies)
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, parsed.String(), nil)
 	if err != nil {
 		return libraryFetchResult{}, core.Permanent(fmt.Errorf("preparing the fetch: %w", err))
 	}
 	request.Header.Set("User-Agent", libraryFetchUserAgent)
 	request.Header.Set("Accept", "text/html,application/xhtml+xml")
+	libraryApplyCookie(request, cookies)
 
 	response, err := f.client.Do(request)
 	if err != nil {
