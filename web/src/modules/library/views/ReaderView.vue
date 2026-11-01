@@ -14,15 +14,16 @@ import ArticleContent from '../components/ArticleContent.vue'
 import { useLibraryItem } from '../data/composables'
 import { libraryItemChanged } from '../data/revision'
 import { useReaderChromeVisibility } from '../readerChromeVisibility'
+import { useMarkedPassageCount } from '../readerNotebookCount'
 import { textWithBlockBreaks } from '../selectionText'
 import { readerSlotEntries, type ReaderLiveSelection, type ReaderNotesRequest } from '../readerSlots'
 import { parseHeadings, type LibraryLocation, type ReadPosition } from '../data/source'
 import { currentHeadingAnchor, headingElement, offsetWithin } from '../readerHeadings'
 import ReaderContentsDrawer from './ReaderContentsDrawer.vue'
 import ReaderBottomStrip from './ReaderBottomStrip.vue'
+import ReaderInfoDrawer from './ReaderInfoDrawer.vue'
 import ReaderLocationSheet from './ReaderLocationSheet.vue'
 import ReaderMoreSheet from './ReaderMoreSheet.vue'
-import ReaderNotesSheet from './ReaderNotesSheet.vue'
 import ReaderTopCluster from './ReaderTopCluster.vue'
 
 /**
@@ -562,28 +563,37 @@ onBeforeUnmount(() => {
   clearSelectionTimer()
 })
 
-/* ------------------------------------------------------------ phone sheet */
+/* ----------------------------------------------------------- phone drawer */
 
-const sheetOpen = ref(false)
+const infoOpen = ref(false)
+const infoTab = ref<'info' | 'notebook'>('info')
+const notebookCount = useMarkedPassageCount(articleRoot)
 const notesSection = ref<ReaderNotesRequest | null>(null)
 let notesAsks = 0
 
 /**
- * Show the sheet, carrying the caller's own name for the part of it to show.
+ * Show the notebook in the info drawer, carrying the caller's own name for the
+ * part of it to show.
  *
  * The reader never reads that name: it belongs to whatever fills the `notes`
  * slot, and passing it through unexamined is what keeps the library from
  * learning another module's vocabulary.
  */
 function openNotes(section?: string): void {
-  sheetOpen.value = true
+  infoTab.value = 'notebook'
+  infoOpen.value = true
   if (section === undefined) return
   notesAsks += 1
   notesSection.value = { section, nth: notesAsks }
 }
 
 function closeNotes(): void {
-  sheetOpen.value = false
+  infoOpen.value = false
+}
+
+function openInfo(): void {
+  infoTab.value = 'info'
+  infoOpen.value = true
 }
 
 const locationOpen = ref(false)
@@ -628,7 +638,7 @@ function handleReaderKeydown(event: KeyboardEvent): void {
     moreOpen.value = false
     return
   }
-  if (sheetOpen.value) closeNotes()
+  if (infoOpen.value) closeNotes()
 }
 
 onMounted(() => window.addEventListener('keydown', handleReaderKeydown))
@@ -654,7 +664,7 @@ const { hidden: chromeHidden, reset: resetChrome } = useReaderChromeVisibility(s
   frozen: () =>
     restoring ||
     liveSelection.value !== null ||
-    sheetOpen.value ||
+    infoOpen.value ||
     locationOpen.value ||
     moreOpen.value ||
     contentsOpen.value ||
@@ -867,14 +877,12 @@ async function retryExtraction(): Promise<void> {
 
     <!--
       On a phone the same two slots are rendered somewhere else, not twice: the
-      sheet holds what a wide screen puts under the article, and the strip holds
-      the actions. The sheet keeps its contents mounted while shut, because they
-      are what marks the highlighted passages in the text behind it.
+      info drawer's Notebook tab holds what a wide screen puts under the
+      article, and the strip holds the actions. The drawer keeps its contents
+      mounted while shut, because they are what marks the highlighted passages
+      in the text behind it.
     -->
     <template v-if="phone">
-      <ReaderNotesSheet :open="sheetOpen" @close="closeNotes">
-        <component :is="entry.component" v-for="entry in notesSlots" :key="entry.id" v-bind="slotProps" />
-      </ReaderNotesSheet>
       <ReaderTopCluster
         :hidden="chromeHidden"
         :unread="item.unread"
@@ -894,6 +902,16 @@ async function retryExtraction(): Promise<void> {
             <Icon name="list" :size="18" />
           </button>
         </template>
+        <button
+          type="button"
+          class="reader-round"
+          data-action="info-open"
+          aria-label="About this item"
+          title="About this item"
+          @click="openInfo"
+        >
+          <Icon name="info" :size="18" />
+        </button>
       </ReaderTopCluster>
       <ReaderBottomStrip :hidden="chromeHidden" @open-location="locationOpen = true" @open-more="moreOpen = true">
         <component :is="entry.component" v-for="entry in bottomSlots" :key="entry.id" v-bind="slotProps" />
@@ -915,6 +933,15 @@ async function retryExtraction(): Promise<void> {
         @select="goToHeading"
         @close="contentsOpen = false"
       />
+      <ReaderInfoDrawer
+        v-model:tab="infoTab"
+        :open="infoOpen"
+        :item="item"
+        :notebook-count="notebookCount"
+        @close="closeNotes"
+      >
+        <component :is="entry.component" v-for="entry in notesSlots" :key="entry.id" v-bind="slotProps" />
+      </ReaderInfoDrawer>
       <ReaderMoreSheet
         v-if="moreOpen"
         :url="item.url"
