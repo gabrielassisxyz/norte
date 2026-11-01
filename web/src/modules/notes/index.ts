@@ -44,7 +44,7 @@ export const routes = [
  * `index.ts` to build its route table whether that module is mounted or not.
  *
  * Highlighting and the two ways into the sheet go in `bottom-actions`, which
- * the reader renders in its bottom bar on a phone and under the article on a
+ * the reader renders in its bottom strip on a phone and under the article on a
  * wide screen. The panel stays in `notes`, which is the sheet's contents on a
  * phone and the same place under the article otherwise -- so the order on a
  * wide screen is what it was when both were one slot.
