@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import Button from '@/components/ds/Button.vue'
 import Icon from '@/components/ds/Icon.vue'
+import Menu from '@/components/ds/Menu.vue'
 import { useAsyncAction } from '@/lib/asyncResource'
 import { formatShortDate } from '@/lib/clock'
 import { usePhoneViewport } from '@/lib/phoneViewport'
@@ -113,6 +114,9 @@ const selection = computed(() => {
   const exact = item.value?.selection?.exact?.trim()
   return exact ? exact : null
 })
+const currentLocationLabel = computed(
+  () => LOCATION_ACTIONS.find((action) => action.location === item.value?.location)?.label ?? ''
+)
 const readLabel = computed(() => (item.value?.unread ? 'Mark as read' : 'Mark as unread'))
 
 /* ---------------------------------------------------------------- opening */
@@ -743,17 +747,31 @@ async function retryExtraction(): Promise<void> {
         <span>Library</span>
       </RouterLink>
       <div class="reader-top-actions">
-        <button
-          v-for="action in LOCATION_ACTIONS"
-          :key="action.location"
-          type="button"
-          class="reader-chip"
-          :class="{ 'is-current': item.location === action.location }"
-          :aria-pressed="item.location === action.location"
-          @click="moveTo(action.location)"
+        <Menu
+          class="reader-location"
+          data-action="location-menu"
+          label="Move to"
+          menu-label="Move to"
         >
-          {{ action.label }}
-        </button>
+          <template #trigger>
+            <span class="reader-location-dot" aria-hidden="true" />
+            <span>{{ currentLocationLabel }}</span>
+            <Icon name="chevronDown" />
+          </template>
+          <button
+            v-for="action in LOCATION_ACTIONS"
+            :key="action.location"
+            type="button"
+            role="menuitemradio"
+            class="reader-location-row"
+            :data-action="`location-${action.location}`"
+            :aria-checked="item.location === action.location"
+            @click="moveTo(action.location)"
+          >
+            <span>{{ action.label }}</span>
+            <Icon v-if="item.location === action.location" name="check" />
+          </button>
+        </Menu>
         <Button
           data-action="read"
           :variant="item.unread ? 'primary' : 'secondary'"
@@ -919,20 +937,47 @@ async function retryExtraction(): Promise<void> {
 
 .reader-top-actions { display: flex; align-items: center; gap: var(--space-2); }
 
-.reader-chip {
-  height: 28px;
-  padding: 0 10px;
+.reader-location :deep(.nt-menu-trigger) {
+  height: 36px;
+  padding: 0 var(--space-3);
   border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 14px;
+}
+
+.reader-location :deep(.nt-menu-trigger:hover:not(:disabled)),
+.reader-location :deep(.nt-menu-trigger.is-open) { background: var(--sunken); }
+
+.reader-location-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--norte);
+}
+
+.reader-location-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 32px;
+  padding: 0 var(--space-3);
+  border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
-  color: var(--ink-2);
+  color: var(--ink);
   font-family: var(--font-display);
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 550;
+  text-align: left;
   cursor: pointer;
 }
 
-.reader-chip.is-current { border-color: var(--norte); background: var(--norte-soft); color: var(--norte); }
+.reader-location-row:hover,
+.reader-location-row:focus-visible { background: var(--sunken); outline: none; }
+
+.reader-location-row[aria-checked='true'] { color: var(--norte); }
 
 .reader-write-error {
   display: flex;

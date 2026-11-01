@@ -496,47 +496,93 @@ describe('the reader and the shelf an item sits on', () => {
     expect(wrapper.get('[data-action="read"]').text()).toBe('Mark as unread')
   })
 
+  async function openMenu(wrapper: VueWrapper) {
+    await wrapper.get('[data-action="location-menu"] > button').trigger('click')
+  }
+
+  function menuItems(wrapper: VueWrapper) {
+    return wrapper.findAll('[role="menu"] [role="menuitemradio"]')
+  }
+
+  it('shows one trigger naming the current shelf, and no row of chips', async () => {
+    const library = fakeLibrarySource([record({ location: 'up_next' })])
+    const { wrapper } = await mountReader(library)
+
+    expect(wrapper.findAll('.reader-chip')).toHaveLength(0)
+    const trigger = wrapper.get('[data-action="location-menu"] > button')
+    expect(trigger.text()).toBe('Up Next')
+    expect(trigger.find('path[d="M4.5 6.5L8 10l3.5-3.5"]').exists()).toBe(true)
+    expect(wrapper.find('.reader-top-actions [data-action="read"]').exists()).toBe(true)
+  })
+
   it('moves it to another shelf, and asks for nothing when it is already there', async () => {
     const library = fakeLibrarySource([record({ location: 'inbox' })])
     const { wrapper } = await mountReader(library)
 
-    const chips = wrapper.findAll('.reader-chip')
-    const later = chips.find((chip) => chip.text() === 'Later')!
-    await later.trigger('click')
+    await openMenu(wrapper)
+    await wrapper.get('[data-action="location-later"]').trigger('click')
     await flushReads()
 
     expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { location: 'later' } }])
-    expect(wrapper.findAll('.reader-chip').find((chip) => chip.text() === 'Later')!.classes()).toContain(
-      'is-current'
-    )
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
+    expect(wrapper.get('[data-action="location-menu"] > button').text()).toBe('Later')
 
-    await wrapper.findAll('.reader-chip').find((chip) => chip.text() === 'Later')!.trigger('click')
+    await openMenu(wrapper)
+    await wrapper.get('[data-action="location-later"]').trigger('click')
     await flushReads()
     expect(library.calls.patch).toHaveLength(1)
   })
 
-  it('offers all five locations, so none of them is reachable from nowhere', async () => {
-    const library = fakeLibrarySource([record({ location: 'inbox' })])
+  it('offers all five locations in order, with the current one ticked', async () => {
+    const library = fakeLibrarySource([record({ location: 'archive' })])
     const { wrapper } = await mountReader(library)
 
-    const labels = wrapper.findAll('.reader-chip').map((chip) => chip.text())
-    expect(labels).toEqual(['Inbox', 'Up Next', 'Later', 'Archive', 'Stash'])
+    await openMenu(wrapper)
+    const rows = menuItems(wrapper)
+    expect(rows.map((row) => row.attributes('data-action'))).toEqual([
+      'location-inbox',
+      'location-up_next',
+      'location-later',
+      'location-archive',
+      'location-stash'
+    ])
+    expect(rows.map((row) => row.text())).toEqual(['Inbox', 'Up Next', 'Later', 'Archive', 'Stash'])
+    expect(rows.filter((row) => row.attributes('aria-checked') === 'true').map((row) => row.text())).toEqual([
+      'Archive'
+    ])
+    expect(rows.filter((row) => row.find('svg').exists()).map((row) => row.text())).toEqual(['Archive'])
+    // Open menus listen on the document; a leaked one would answer a later test's Escape.
+    wrapper.unmount()
   })
 
   it('sends up_next and stash as the patch body, which no other control can reach', async () => {
-    for (const [label, location] of [
-      ['Up Next', 'up_next'],
-      ['Stash', 'stash']
-    ] as const) {
+    for (const location of ['up_next', 'stash'] as const) {
       const library = fakeLibrarySource([record({ location: 'inbox' })])
       const { wrapper } = await mountReader(library)
 
-      await wrapper.findAll('.reader-chip').find((chip) => chip.text() === label)!.trigger('click')
+      await openMenu(wrapper)
+      await wrapper.get(`[data-action="location-${location}"]`).trigger('click')
       await flushReads()
 
       expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { location } }])
       wrapper.unmount()
     }
+  })
+
+  it('opens on the first item from the keyboard and gives focus back on Escape', async () => {
+    const library = fakeLibrarySource([record({ location: 'inbox' })])
+    const { wrapper } = await mountReader(library)
+
+    const trigger = wrapper.get('[data-action="location-menu"] > button')
+    ;(trigger.element as HTMLElement).focus()
+    await trigger.trigger('keydown', { key: 'ArrowDown' })
+    await flushReads()
+    expect(document.activeElement).toBe(wrapper.get('[data-action="location-inbox"]').element)
+
+    await wrapper.get('[role="menu"]').trigger('keydown', { key: 'Escape' })
+    await flushReads()
+    expect(wrapper.find('[role="menu"]').exists()).toBe(false)
+    expect(document.activeElement).toBe(trigger.element)
   })
 })
 
