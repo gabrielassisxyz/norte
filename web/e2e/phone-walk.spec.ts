@@ -749,10 +749,33 @@ test.describe('at 1440x900, unchanged', () => {
     // And the panel is under the article, where a wide screen has room for it.
     await expect(page.locator('#notes-reader-title')).toBeVisible()
 
+    // The five location chips are one menu: a trigger naming the place, then the
+    // read button, and choosing Archive moves the item there.
+    const actionsBar = page.locator('.reader-top-actions')
+    await expect(actionsBar.locator('.reader-chip')).toHaveCount(0)
+    const locationTrigger = actionsBar.locator('[data-action="location-menu"] > button')
+    await expect(locationTrigger).toHaveText('Inbox')
+    await expect(locationTrigger.locator('svg')).toHaveCount(1)
+    await locationTrigger.click()
+    const rows = page.locator('[role="menu"] [role="menuitemradio"]')
+    await expect(rows).toHaveCount(5)
+    await expect(page.locator('[role="menuitemradio"][aria-checked="true"]')).toHaveCount(1)
+    await expect(page.locator('[role="menuitemradio"][aria-checked="true"]')).toHaveAttribute(
+      'data-action',
+      'location-inbox'
+    )
+    await page.locator('[data-action="location-archive"]').click()
+    await expect(page.locator('[role="menu"]')).toHaveCount(0)
+    await expect(locationTrigger).toHaveText('Archive')
+    await expect.poll(async () => (await item()).location).toBe('archive')
+
     // The reader is as wide as the window, not as wide as the sidebar it does
     // not render: a two-track grid with one item used to put it in track one.
     const width = await page.locator('main.reader').evaluate((node) => node.getBoundingClientRect().width)
     expect(width).toBeGreaterThan(1000)
+
+    await boot(page, '/library?v=archive')
+    await expect(page.locator('.item', { hasText: article.title })).toBeVisible()
   })
 })
 
