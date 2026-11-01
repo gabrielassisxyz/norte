@@ -13,6 +13,9 @@ import Icon from '@/components/ds/Icon.vue'
  *
  * The cluster leaves through a transform, unlike the strip: nothing in it
  * renders a window-fixed layer, so there is no containing block to protect.
+ *
+ * A slotted button wears the same round look through `:slotted`, since a scoped
+ * style does not reach content the parent rendered.
  */
 defineProps<{ hidden: boolean; unread: boolean; busy: boolean }>()
 
@@ -69,7 +72,8 @@ defineEmits<{ 'toggle-read': [] }>()
 
 .reader-cluster-end { display: flex; align-items: center; gap: 8px; }
 
-.reader-round {
+.reader-round,
+:slotted(.reader-round) {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -93,7 +97,8 @@ defineEmits<{ 'toggle-read': [] }>()
 
 .reader-round:disabled { opacity: 0.6; }
 
-.reader-round:focus-visible {
+.reader-round:focus-visible,
+:slotted(.reader-round):focus-visible {
   outline: 2px solid transparent;
   box-shadow: var(--focus-ring);
 }

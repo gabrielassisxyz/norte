@@ -126,6 +126,26 @@ describe('the reader on a phone', () => {
     expect(strip.find('[data-action="highlight"]').exists()).toBe(false)
   })
 
+  it('offers the contents only when the article has headings', async () => {
+    const plain = await mountReader()
+    expect(plain.wrapper.find('[data-action="contents-open"]').exists()).toBe(false)
+    plain.wrapper.unmount()
+
+    const broken = await mountReader({ item: record({ content_headings: '{not json' }) })
+    expect(broken.wrapper.find('[data-action="contents-open"]').exists()).toBe(false)
+    broken.wrapper.unmount()
+
+    const headings = JSON.stringify([{ level: 2, text: 'A section', anchor: 'a-section' }])
+    const { wrapper } = await mountReader({
+      item: record({ content_html: '<h2 id="a-section">A section</h2><p>Text.</p>', content_headings: headings })
+    })
+    const button = wrapper.get('.reader-cluster [data-action="contents-open"]')
+    expect(button.attributes('aria-label')).toBe('Contents')
+    expect(wrapper.find('[data-reader-drawer="contents"]').exists()).toBe(false)
+    await button.trigger('click')
+    expect(wrapper.get('[data-reader-drawer="contents"]').text()).toContain('A section')
+  })
+
   it('marks the item read from the cluster and shows the filled state once it is', async () => {
     const { wrapper, library } = await mountReader()
     const read = () => wrapper.get('.reader-cluster [data-action="read"]')

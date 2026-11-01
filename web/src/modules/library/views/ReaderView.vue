@@ -16,6 +16,8 @@ import { useReaderChromeVisibility } from '../readerChromeVisibility'
 import { textWithBlockBreaks } from '../selectionText'
 import { readerSlotEntries, type ReaderLiveSelection, type ReaderNotesRequest } from '../readerSlots'
 import { parseHeadings, type LibraryLocation, type ReadPosition } from '../data/source'
+import { currentHeadingAnchor, headingElement, offsetWithin } from '../readerHeadings'
+import ReaderContentsDrawer from './ReaderContentsDrawer.vue'
 import ReaderBottomStrip from './ReaderBottomStrip.vue'
 import ReaderLocationSheet from './ReaderLocationSheet.vue'
 import ReaderMoreSheet from './ReaderMoreSheet.vue'
@@ -211,18 +213,6 @@ function clearPositionTimer(): void {
 }
 
 /**
- * Where an element sits inside the scroll container, in the container's own
- * scroll coordinates.
- *
- * `offsetTop` is measured from the nearest positioned ancestor, which is the
- * container only while the stylesheet happens to position it; the rectangles
- * do not depend on that.
- */
-function offsetWithin(container: HTMLElement, element: HTMLElement): number {
-  return container.scrollTop + element.getBoundingClientRect().top - container.getBoundingClientRect().top
-}
-
-/**
  * The heading nearest above the top of the viewport.
  *
  * It is stored beside the percent, not instead of it: a percent of an article
@@ -230,15 +220,7 @@ function offsetWithin(container: HTMLElement, element: HTMLElement): number {
  * that somewhere else moved to.
  */
 function anchorAboveViewport(container: HTMLElement): string | undefined {
-  const headings = parseHeadings(item.value?.content_headings)
-  let found: string | undefined
-  for (const heading of headings) {
-    const element = container.querySelector(`[id="${CSS.escape(heading.anchor)}"]`)
-    if (!(element instanceof HTMLElement)) continue
-    if (offsetWithin(container, element) > container.scrollTop + 1) break
-    found = heading.anchor
-  }
-  return found
+  return currentHeadingAnchor(container, parseHeadings(item.value?.content_headings))
 }
 
 /**
@@ -602,6 +584,38 @@ function closeNotes(): void {
 
 const locationOpen = ref(false)
 const moreOpen = ref(false)
+const contentsOpen = ref(false)
+
+const headings = computed(() => parseHeadings(item.value?.content_headings))
+const currentHeading = ref<string | undefined>()
+const missingHeadings = ref<string[]>([])
+
+const CONTENTS_SCROLL_MARGIN = 16
+// A few pixels past the margin, so a heading the drawer scrolled to stays current after a pixel of drift.
+const CONTENTS_CURRENT_SLACK = CONTENTS_SCROLL_MARGIN + 4
+
+/** Measured when the drawer opens: the text does not move while it is over it. */
+function openContents(): void {
+  const container = scroller.value
+  if (!container) return
+  currentHeading.value = currentHeadingAnchor(container, headings.value, CONTENTS_CURRENT_SLACK)
+  missingHeadings.value = headings.value
+    .filter((heading) => !headingElement(container, heading.anchor))
+    .map((heading) => heading.anchor)
+  contentsOpen.value = true
+}
+
+function goToHeading(anchor: string): void {
+  const container = scroller.value
+  const element = container ? headingElement(container, anchor) : null
+  if (!container || !element) return
+  contentsOpen.value = false
+  const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  container.scrollTo({
+    top: offsetWithin(container, element) - CONTENTS_SCROLL_MARGIN,
+    behavior: reduced ? 'auto' : 'smooth'
+  })
+}
 
 function handleReaderKeydown(event: KeyboardEvent): void {
   if (event.key !== 'Escape') return
@@ -639,6 +653,7 @@ const { hidden: chromeHidden, reset: resetChrome } = useReaderChromeVisibility(s
     sheetOpen.value ||
     locationOpen.value ||
     moreOpen.value ||
+    contentsOpen.value ||
     document.querySelector(SELECTION_TOOLBAR) !== null
 })
 
@@ -649,6 +664,7 @@ watch(itemId, () => {
   closeNotes()
   locationOpen.value = false
   moreOpen.value = false
+  contentsOpen.value = false
   readingFraction.value = 0
   resetChrome()
 })
@@ -846,7 +862,19 @@ async function retryExtraction(): Promise<void> {
         :unread="item.unread"
         :busy="writing.pending.value"
         @toggle-read="toggleRead"
-      />
+      >
+        <button
+          v-if="headings.length > 0"
+          type="button"
+          class="reader-round"
+          data-action="contents-open"
+          aria-label="Contents"
+          title="Contents"
+          @click="openContents"
+        >
+          <Icon name="list" :size="18" />
+        </button>
+      </ReaderTopCluster>
       <ReaderBottomStrip :hidden="chromeHidden" @open-location="locationOpen = true" @open-more="moreOpen = true">
         <component :is="entry.component" v-for="entry in bottomSlots" :key="entry.id" v-bind="slotProps" />
       </ReaderBottomStrip>
@@ -858,6 +886,14 @@ async function retryExtraction(): Promise<void> {
         :busy="writing.pending.value"
         @move="moveTo"
         @close="locationOpen = false"
+      />
+      <ReaderContentsDrawer
+        v-if="contentsOpen"
+        :headings="headings"
+        :current="currentHeading"
+        :missing="missingHeadings"
+        @select="goToHeading"
+        @close="contentsOpen = false"
       />
       <ReaderMoreSheet
         v-if="moreOpen"
