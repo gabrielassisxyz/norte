@@ -61,6 +61,9 @@ type Deps struct {
 	Logger *slog.Logger
 	// FetchMaxBytes is the largest response a module's fetcher may download.
 	FetchMaxBytes int64
+	// CookieFile is the per-host cookie file the library fetcher reads on every
+	// fetch, empty when none is configured.
+	CookieFile string
 	// LLMURL is empty when no LLM is configured, which is how a module decides
 	// not to enqueue work whose handler would have nothing to call.
 	LLMURL string
