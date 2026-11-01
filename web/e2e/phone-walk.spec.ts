@@ -165,7 +165,7 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect(toolbar).toHaveCount(0)
     await expect(bar).toBeVisible()
 
-    // --- the annotations sheet --------------------------------------------
+    // --- the notebook drawer ----------------------------------------------
     const sheet = page.locator('[data-reader-sheet]')
     await expect(sheet).toBeHidden()
     await tap(bar.locator('[data-action="annotate-open"]'))
@@ -187,7 +187,11 @@ test.describe('at 390x844, with touch and no mouse', () => {
       .toEqual(['Read this part again.', 'Worth reading again.'])
 
     // --- a question --------------------------------------------------------
+    // The drawer's scrim covers the strip, so it is put away to reach the next button.
+    await tap(sheet.locator('[data-action="close-notes"]'))
+    await expect(sheet).toBeHidden()
     await tap(bar.locator('[data-action="question-open"]'))
+    await expect(sheet).toBeVisible()
     await sheet.locator('#notes-reader-question').fill('What does this change in practice?')
     await tap(sheet.locator('[data-action="turn-into-question"]'))
     await expect
@@ -202,10 +206,53 @@ test.describe('at 390x844, with touch and no mouse', () => {
 
     await tap(sheet.locator('[data-action="close-notes"]'))
     await expect(sheet).toBeHidden()
+    // Shut is not unmounted: the passage is still marked in the text behind it.
+    await expect(page.locator('mark[data-notes-passage]')).toHaveCount(1)
 
     // --- marked read, from the round button --------------------------------
     await tap(page.locator('.reader-cluster [data-action="read"]'))
     await expect.poll(async () => (await item()).unread).toBe(false)
+  })
+
+  test('shows the item\'s facts in the info drawer, and the notebook in its second tab', async ({ page }) => {
+    const own = await seed('Facts in the info drawer')
+    await api(server.baseURL, `/api/library/items/${own.id}/tags`, {
+      method: 'POST',
+      body: JSON.stringify({ name: 'systems' })
+    })
+    await boot(page, `/library/${own.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    const button = page.locator('.reader-cluster-end button').first()
+    await expect(button).toHaveAttribute('data-action', 'info-open')
+    await expect(button).toHaveAttribute('aria-label', 'About this item')
+    await expect(button.locator('svg')).toHaveCount(1)
+    await expect(button.locator('svg')).toHaveAttribute('stroke-width', '1.5')
+    await expect(page.locator('[data-reader-drawer="info"]')).toBeHidden()
+    await tap(button)
+
+    const panel = page.locator('[data-reader-drawer="info"]')
+    await expect(panel).toBeVisible()
+    await expect(panel).toHaveAttribute('role', 'dialog')
+    await expect(panel.locator('.reader-info-head [role="tab"][aria-selected="true"]')).toHaveText('Info')
+    const labels = await panel.locator('[data-info-row] dt').allTextContents()
+    expect(labels).toEqual(expect.arrayContaining(['URL', 'Length', 'Saved', 'Tags']))
+    const order = ['Author', 'Site', 'URL', 'Published', 'Length', 'Saved', 'Tags']
+    expect(labels.map((label) => order.indexOf(label))).toEqual([...labels.map((label) => order.indexOf(label))].sort((a, b) => a - b))
+    const link = panel.locator('[data-info-row="url"] a')
+    await expect(link).toHaveAttribute('href', `https://example.invalid/${encodeURIComponent('Facts in the info drawer')}`)
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    await expect(panel.locator('[data-info-row="tags"] li')).toHaveText(['systems'])
+    await expect(panel.locator('[data-info-row="saved"] dd')).toContainText('· app')
+
+    await tap(panel.getByRole('tab', { name: /^Notebook/ }))
+    await expect(panel.locator('#notes-reader-title')).toHaveText('What this reading left behind')
+    await expect(panel.locator('[data-reader-info]')).toBeHidden()
+
+    await page.keyboard.press('Escape')
+    await expect(panel).toBeHidden()
+    await expect(button).toBeFocused()
   })
 
   test('draws the selection toolbar as a column at the right edge, before and after highlighting', async ({ page }) => {
@@ -344,8 +391,8 @@ test.describe('the reader chrome at 390x844, with touch', () => {
     await openTall(page, 'Chrome geometry', 0)
 
     await expect(page.locator('.reader-top')).toHaveCount(0)
-    // Back, the contents (the seeded text has headings), and mark read.
-    await expect(cluster(page).locator('button, a')).toHaveCount(3)
+    // Back, the contents (the seeded text has headings), the item's info, and mark read.
+    await expect(cluster(page).locator('button, a')).toHaveCount(4)
     for (const button of await cluster(page).locator('button, a').all()) {
       const look = await button.evaluate((node) => {
         const box = node.getBoundingClientRect()
@@ -508,7 +555,7 @@ test.describe('the reader chrome at 390x844, with touch', () => {
     expect(back).toBeLessThan(contents)
     expect(contents).toBeLessThan(195)
     expect(contents).toBeLessThan(read)
-    await expect(cluster(page).locator('button, a')).toHaveCount(3)
+    await expect(cluster(page).locator('button, a')).toHaveCount(4)
 
     await tap(cluster(page).locator('[data-action="contents-open"]'))
     await expect(drawer).toBeVisible()
@@ -528,7 +575,7 @@ test.describe('the reader chrome at 390x844, with touch', () => {
     await page.keyboard.press('Escape')
     await expect(drawer).toHaveCount(0)
     await tap(cluster(page).locator('[data-action="contents-open"]'))
-    await page.locator('.reader-drawer-scrim').tap({ position: { x: 380, y: 400 } })
+    await page.locator('.reader-drawer-scrim[data-side="left"]').tap({ position: { x: 380, y: 400 } })
     await expect(drawer).toHaveCount(0)
     expect(await scroller.evaluate((node) => node.scrollTop)).toBe(0)
 
@@ -773,8 +820,8 @@ for (const phone of PHONES) {
       }
     })
 
-    test('leaves the whole action strip tappable under the notes sheet', async ({ page }) => {
-      const own = await seed(`The notes sheet on the ${phone.name}`)
+    test('covers the strip with the notebook drawer, 86% of the screen wide on the right', async ({ page }) => {
+      const own = await seed(`The notebook drawer on the ${phone.name}`)
       await boot(page, `/library/${own.id}`)
       await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
@@ -783,18 +830,26 @@ for (const phone of PHONES) {
       await tap(bar.locator('[data-action="annotate-open"]'))
       await expect(sheet).toBeVisible()
 
-      for (const action of ['annotate-open', 'question-open', 'notebook-open', 'location-open', 'more-open']) {
-        const button = bar.locator(`[data-action="${action}"]`)
-        await expect(button).toBeVisible()
-        expect(await hits(button), `${action} under the open sheet`).toBe(true)
-      }
+      // The drawer is the whole phone's business while it is open: the strip is
+      // behind its scrim, and a tap there closes the drawer instead of acting.
+      expect(await hits(bar.locator('[data-action="location-open"]'))).toBe(false)
+      const panel = page.locator('[data-reader-drawer="info"]')
+      const box = await panel.evaluate((node) => {
+        const rect = node.getBoundingClientRect()
+        return { left: rect.left, right: rect.right, width: rect.width, height: rect.height }
+      })
+      expect(Math.abs(box.width - phone.width * 0.86)).toBeLessThanOrEqual(2)
+      expect(box.right).toBeCloseTo(phone.width, 0)
+      expect(box.height).toBeGreaterThan(300)
 
-      // And the sheet is still a sheet: it has not been pushed off the screen
-      // to make room for the strip.
-      const room = await sheet.evaluate((node) => node.getBoundingClientRect().height)
-      expect(room).toBeGreaterThan(100)
+      // And the notes panel is the one that was always there, not a second one.
+      await expect(page.locator('.notes-reader')).toHaveCount(1)
+      await expect(page.locator('.reader-sheet')).toHaveCount(0)
 
-      // The strip is what the sheet clears, measured rather than guessed.
+      await page.touchscreen.tap(5, 300)
+      await expect(sheet).toBeHidden()
+      await expect(page.locator('.notes-reader')).toHaveCount(1)
+
       await tap(bar.locator('[data-action="location-open"]'))
       await tap(page.locator('[data-reader-sheet="location"] [data-action="location-archive"]'))
       await expect
@@ -859,6 +914,7 @@ test.describe('at 1440x900, unchanged', () => {
     await expect(page.locator('[data-action="contents-open"], [data-reader-drawer]')).toHaveCount(0)
     // And the panel is under the article, where a wide screen has room for it.
     await expect(page.locator('#notes-reader-title')).toBeVisible()
+    await expect(page.locator('[data-action="info-open"], [data-reader-drawer="info"]')).toHaveCount(0)
 
     // The five location chips are one menu: a trigger naming the place, then the
     // read button, and choosing Archive moves the item there.

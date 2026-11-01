@@ -105,7 +105,7 @@ describe('the reader on a phone', () => {
     expect(wrapper.find('.reader-top').exists()).toBe(false)
     expect(wrapper.find('.reader-top-actions').exists()).toBe(false)
     const cluster = wrapper.get('.reader-cluster')
-    expect(cluster.findAll('button, a').map((node) => node.attributes('data-action'))).toEqual(['back', 'read'])
+    expect(cluster.findAll('button, a').map((node) => node.attributes('data-action'))).toEqual(['back', 'info-open', 'read'])
 
     const strip = wrapper.get('nav[aria-label="Reading actions"]')
     // The notes module's own controls arrive through the bottom-actions slot,
@@ -144,6 +144,7 @@ describe('the reader on a phone', () => {
     expect(wrapper.findAll('.reader-cluster button, .reader-cluster a').map((node) => node.attributes('data-action'))).toEqual([
       'back',
       'contents-open',
+      'info-open',
       'read'
     ])
     expect(wrapper.get('.reader-cluster-start').find('[data-action="contents-open"]').exists()).toBe(true)
@@ -320,5 +321,82 @@ describe('the reader on a phone', () => {
     await wrapper.get('[data-action="close-notes"]').trigger('click')
 
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(1)
+  })
+})
+
+describe('the info drawer on a phone', () => {
+  const drawer = () => document.querySelector<HTMLElement>('[data-reader-drawer="info"]')
+
+  it('ends the top cluster\'s own buttons with the info icon, ahead of mark read', async () => {
+    const { wrapper } = await mountReader()
+    const button = wrapper.get('.reader-cluster [data-action="info-open"]')
+    expect(button.attributes('aria-label')).toBe('About this item')
+    expect(wrapper.get('.reader-cluster-end').findAll('button').map((node) => node.attributes('data-action'))).toEqual([
+      'info-open',
+      'read'
+    ])
+  })
+
+  it('opens on the Info tab from the info button, and on Notebook from the strip', async () => {
+    const { wrapper } = await mountReader()
+    const scrim = () => wrapper.get('[data-reader-sheet=""]').attributes('style') ?? ''
+    expect(scrim()).toContain('display: none')
+
+    await wrapper.get('[data-action="info-open"]').trigger('click')
+    expect(scrim()).not.toContain('display: none')
+    expect(wrapper.get('.reader-info-head [role="tab"][aria-selected="true"]').text()).toBe('Info')
+    await wrapper.get('[data-action="close-notes"]').trigger('click')
+
+    await wrapper.get('[data-action="notebook-open"]').trigger('click')
+    expect(wrapper.get('.reader-info-head [role="tab"][aria-selected="true"]').text()).toMatch(/^Notebook/)
+    expect(wrapper.get('[data-reader-info]').attributes('style')).toContain('display: none')
+  })
+
+  it('mounts the notes panel once, whether the drawer is open or shut, and no bottom sheet', async () => {
+    const { wrapper } = await mountReader()
+    expect(wrapper.findAll('.notes-reader')).toHaveLength(1)
+    expect(wrapper.find('.reader-sheet').exists()).toBe(false)
+
+    await wrapper.get('[data-action="info-open"]').trigger('click')
+    expect(wrapper.findAll('.notes-reader')).toHaveLength(1)
+    expect(wrapper.get('[data-reader-drawer="info"]').find('.notes-reader').exists()).toBe(true)
+  })
+
+  it('opens the annotations and question sections at their forms', async () => {
+    const { wrapper } = await mountReader()
+    await wrapper.get('[data-action="question-open"]').trigger('click')
+    await flushReads()
+    expect(wrapper.get('.reader-info-head [role="tab"][aria-selected="true"]').text()).toMatch(/^Notebook/)
+    expect(document.activeElement?.id).toBe('notes-reader-question')
+  })
+
+  it('shows the highlight count on the Notebook tab once there is one', async () => {
+    const none = await mountReader()
+    const label = (w: typeof none.wrapper) => w.get('.reader-info-head').findAll('[role="tab"]').map((tab) => tab.text())
+    expect(label(none.wrapper)).toEqual(['Info', 'Notebook'])
+    none.wrapper.unmount()
+
+    const { wrapper } = await mountReader({
+      notes: { highlights: [highlightRecord({ id: 'h-1', item_id: 'item-1', exact: 'The marked passage.' })] }
+    })
+    await vi.waitFor(() => expect(label(wrapper)).toEqual(['Info', 'Notebook1']))
+  })
+
+  it('closes on the scrim and on Escape, returning focus to the info button', async () => {
+    const { wrapper } = await mountReader()
+    const button = wrapper.get('[data-action="info-open"]')
+    ;(button.element as HTMLElement).focus()
+    await button.trigger('click')
+    await wrapper.vm.$nextTick()
+    expect(drawer()?.closest<HTMLElement>('[data-reader-sheet]')?.style.display).not.toBe('none')
+
+    await wrapper.get('.reader-drawer-scrim').trigger('click')
+    expect(wrapper.get('[data-reader-sheet=""]').attributes('style')).toContain('display: none')
+    expect(document.activeElement).toBe(button.element)
+
+    await button.trigger('click')
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    await wrapper.vm.$nextTick()
+    expect(wrapper.get('[data-reader-sheet=""]').attributes('style')).toContain('display: none')
   })
 })
