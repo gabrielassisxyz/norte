@@ -14,6 +14,8 @@ import (
 	"time"
 
 	"github.com/BurntSushi/toml"
+
+	"github.com/gabrielassisxyz/norte/server/internal/core"
 )
 
 // Source records where an effective value came from, which is what `norte
@@ -42,11 +44,16 @@ type Config struct {
 	TelegramToken string
 	TelegramChat  string
 	FetchMaxBytes int64
-	BodyMaxBytes  int64
-	LogLevel      string
+	// CookieFile is the path of the per-host cookie file, empty when unset.
+	CookieFile   string
+	BodyMaxBytes int64
+	LogLevel     string
 
 	// ConfigFile is the TOML file that was read, empty when none was.
 	ConfigFile string
+	// cookieHosts is how many hosts the cookie file named when it was read at
+	// startup; `norte config` prints it in place of the hosts themselves.
+	cookieHosts int
 	// Sources maps a setting name to where its value came from.
 	Sources map[string]Source
 }
@@ -183,6 +190,35 @@ var settings = []setting{
 		parse: func(c *Config, v string) error { return parseBytes(v, &c.FetchMaxBytes) },
 		show:  func(c *Config) string { return strconv.FormatInt(c.FetchMaxBytes, 10) },
 	},
+	// cookie_file is a path, so it is not a secret and shows in `norte config`;
+	// the file's content is, which is why show prints a host count and never a
+	// host or a value. Parsing reads the file once so a bad mode or bad JSON
+	// refuses startup instead of failing the first paid save.
+	{
+		name: "cookie_file", env: "NORTE_COOKIE_FILE", flag: "cookie-file",
+		def: func(*LoadOptions) (string, error) { return "", nil },
+		parse: func(c *Config, v string) error {
+			c.CookieFile, c.cookieHosts = v, 0
+			if v == "" {
+				return nil
+			}
+			cookies, err := core.ReadCookieFile(v)
+			if err != nil {
+				return err
+			}
+			c.cookieHosts = len(cookies)
+			return nil
+		},
+		show: func(c *Config) string {
+			if c.CookieFile == "" {
+				return "unset"
+			}
+			if c.cookieHosts == 1 {
+				return c.CookieFile + " (1 host)"
+			}
+			return fmt.Sprintf("%s (%d hosts)", c.CookieFile, c.cookieHosts)
+		},
+	},
 	{
 		name: "body_max_bytes", env: "NORTE_BODY_MAX_BYTES", flag: "body-max-bytes",
 		def:   func(*LoadOptions) (string, error) { return "67108864", nil },
@@ -222,7 +258,7 @@ var secretFileKeys = []string{"llm_key", "telegram_token"}
 
 // pathSettings are expanded with expandHome, because a shell is not involved
 // when a value arrives through the environment or a config file.
-var pathSettings = map[string]bool{"data": true}
+var pathSettings = map[string]bool{"data": true, "cookie_file": true}
 
 // Load resolves every setting, with flag over env over file over default, and
 // returns the warnings `serve` should log.

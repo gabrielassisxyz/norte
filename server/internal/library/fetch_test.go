@@ -65,10 +65,24 @@ func libraryTestFetcher(
 	probe *libraryFetchProbe,
 ) *libraryFetcher {
 	t.Helper()
+	return libraryTestFetcherWithCookies(t, maxBytes, names, listenerAddr, probe, "")
+}
+
+// libraryTestFetcherWithCookies is libraryTestFetcher with a cookie file path.
+func libraryTestFetcherWithCookies(
+	t *testing.T,
+	maxBytes int64,
+	names map[string][]string,
+	listenerAddr string,
+	probe *libraryFetchProbe,
+	cookieFile string,
+) *libraryFetcher {
+	t.Helper()
 	return newLibraryFetcher(LibraryFetchOptions{
-		MaxBytes: maxBytes,
+		MaxBytes:   maxBytes,
+		CookieFile: cookieFile,
 		Resolver: func(_ context.Context, host string) ([]netip.Addr, error) {
-			raw, ok := names[host]
+			raw, ok := names[strings.ToLower(host)]
 			if !ok {
 				return nil, fmt.Errorf("no test mapping for %s", host)
 			}
