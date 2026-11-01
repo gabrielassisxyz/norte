@@ -7,12 +7,16 @@ import Icon from '@/components/ds/Icon.vue'
  * The round buttons that float over the top of the article on a phone: back to
  * the Library on the left, and on the right whatever acts on the item.
  *
- * Mark read / unread is the library's own. The default slot sits in front of it
- * on the right, which is where a button another bead adds (the contents, the
- * item's facts) goes without this component's layout being edited.
+ * Mark read / unread is the library's own. The `start` slot sits beside the back
+ * button (the contents); the default slot sits in front of mark read on the
+ * right (the item's facts), so neither goes in without this component's layout
+ * being edited.
  *
  * The cluster leaves through a transform, unlike the strip: nothing in it
  * renders a window-fixed layer, so there is no containing block to protect.
+ *
+ * A slotted button wears the same round look through `:slotted`, since a scoped
+ * style does not reach content the parent rendered.
  */
 defineProps<{ hidden: boolean; unread: boolean; busy: boolean }>()
 
@@ -21,15 +25,18 @@ defineEmits<{ 'toggle-read': [] }>()
 
 <template>
   <div class="reader-cluster" :data-hidden="hidden ? 'true' : 'false'">
-    <RouterLink
-      class="reader-round"
-      data-action="back"
-      aria-label="Back to the Library"
-      title="Back to the Library"
-      :to="{ name: 'library', query: { v: 'all' } }"
-    >
-      <Icon name="arrowLeft" :size="18" />
-    </RouterLink>
+    <div class="reader-cluster-start">
+      <RouterLink
+        class="reader-round"
+        data-action="back"
+        aria-label="Back to the Library"
+        title="Back to the Library"
+        :to="{ name: 'library', query: { v: 'all' } }"
+      >
+        <Icon name="arrowLeft" :size="18" />
+      </RouterLink>
+      <slot name="start" />
+    </div>
     <div class="reader-cluster-end">
       <slot />
       <button
@@ -67,9 +74,11 @@ defineEmits<{ 'toggle-read': [] }>()
   transform: translateY(calc(-100% - 10px - env(safe-area-inset-top, 0px)));
 }
 
+.reader-cluster-start,
 .reader-cluster-end { display: flex; align-items: center; gap: 8px; }
 
-.reader-round {
+.reader-round,
+:slotted(.reader-round) {
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -93,7 +102,8 @@ defineEmits<{ 'toggle-read': [] }>()
 
 .reader-round:disabled { opacity: 0.6; }
 
-.reader-round:focus-visible {
+.reader-round:focus-visible,
+:slotted(.reader-round):focus-visible {
   outline: 2px solid transparent;
   box-shadow: var(--focus-ring);
 }

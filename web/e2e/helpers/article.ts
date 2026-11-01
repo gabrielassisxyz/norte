@@ -7,17 +7,25 @@
  */
 export const PASSAGE = 'Uma frase que aparece uma única vez neste texto.'
 
-export function articleHtml(options: { imageSrc?: string; title?: string; fillerParagraphs?: number } = {}): string {
+export function articleHtml(options: { imageSrc?: string; title?: string; fillerParagraphs?: number; sections?: string[]; headingless?: boolean } = {}): string {
   const title = options.title ?? 'Ler no telefone'
   const filler = Array.from(
     { length: options.fillerParagraphs ?? 0 },
     (_, index) =>
       `<p>Parágrafo de enchimento ${index + 1}, só para dar altura à página: o texto segue por mais algumas linhas para que a leitura precise rolar até o fim.</p>`
   ).join('\n      ')
+  // Each section is a heading and a screenful or more of text, so the last one
+  // can be scrolled to the top of the reader.
+  const sections = (options.sections ?? [])
+    .map(
+      (heading) => `<h2>${heading}</h2>
+      ${Array.from({ length: 12 }, (_, index) => `<p>Texto da seção ${heading}, parágrafo ${index + 1}, com linhas suficientes para ocupar a tela do telefone.</p>`).join('\n      ')}`
+    )
+    .join('\n      ')
   const image = options.imageSrc
     ? `<figure><img src="${options.imageSrc}" alt="Um ponto" width="8" height="8" /><figcaption>Uma figura servida de fora.</figcaption></figure>`
     : ''
-  return `<!doctype html>
+  const html = `<!doctype html>
 <html lang="pt-BR">
   <head><title>${title}</title></head>
   <body>
@@ -32,8 +40,11 @@ export function articleHtml(options: { imageSrc?: string; title?: string; filler
       <p>Mais um parágrafo, porque um artigo de um parágrafo não é um artigo e a
       extração trata textos curtos de outro jeito.</p>
       <p>E um último parágrafo, para que a página tenha altura e a leitura role.</p>
+      ${sections}
       ${filler}
     </article>
   </body>
 </html>`
+  // The same text with its headings demoted to paragraphs, for a save the extractor finds none in.
+  return options.headingless ? html.replace(/<h([12])([^>]*)>(.*?)<\/h\1>/g, '<p>$3</p>') : html
 }
