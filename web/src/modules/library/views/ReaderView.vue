@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import Button from '@/components/ds/Button.vue'
 import Icon from '@/components/ds/Icon.vue'
@@ -12,11 +12,15 @@ import { useSources } from '@/sources'
 import ArticleContent from '../components/ArticleContent.vue'
 import { useLibraryItem } from '../data/composables'
 import { libraryItemChanged } from '../data/revision'
+import { useReaderChromeVisibility } from '../readerChromeVisibility'
 import { textWithBlockBreaks } from '../selectionText'
 import { readerSlotEntries, type ReaderLiveSelection, type ReaderNotesRequest } from '../readerSlots'
 import { parseHeadings, type LibraryLocation, type ReadPosition } from '../data/source'
-import ReaderActionBar from './ReaderActionBar.vue'
+import ReaderBottomStrip from './ReaderBottomStrip.vue'
+import ReaderLocationSheet from './ReaderLocationSheet.vue'
+import ReaderMoreSheet from './ReaderMoreSheet.vue'
 import ReaderNotesSheet from './ReaderNotesSheet.vue'
+import ReaderTopCluster from './ReaderTopCluster.vue'
 
 /**
  * How often the reader asks again while the text is still being extracted.
@@ -80,6 +84,7 @@ const LOCATION_ACTIONS: Array<{ location: LibraryLocation; label: string }> = [
 ]
 
 const route = useRoute()
+const router = useRouter()
 const { library } = useSources()
 const phone = usePhoneViewport()
 
@@ -236,6 +241,15 @@ function anchorAboveViewport(container: HTMLElement): string | undefined {
   return found
 }
 
+/**
+ * How far into the article the reader is, 0 to 1.
+ *
+ * Reactive because the thin progress line along the bottom edge draws it while
+ * the controls are away; the debounced write of the reading position reads the
+ * same number and is unchanged.
+ */
+const readingFraction = ref(0)
+
 function scrollFraction(container: HTMLElement): number {
   const scrollable = container.scrollHeight - container.clientHeight
   if (scrollable <= 0) return 0
@@ -260,8 +274,9 @@ async function writePosition(): Promise<void> {
  * never writing until the reader stops moving.
  */
 function handleScroll(): void {
-  if (restoring) return
   const container = scroller.value
+  if (container) readingFraction.value = scrollFraction(container)
+  if (restoring) return
   const id = itemId.value
   if (!container || !id) return
   const anchor = anchorAboveViewport(container)
@@ -374,6 +389,28 @@ async function moveTo(location: LibraryLocation): Promise<void> {
   if (!updated) return
   apply(updated)
   libraryItemChanged()
+}
+
+/**
+ * Delete the item the more sheet named, then leave for the Library.
+ *
+ * The position still waiting to be written is dropped first: the reader's
+ * teardown would send it, and a patch to an item that no longer exists is an
+ * error nobody asked for.
+ */
+async function deleteCurrent(): Promise<void> {
+  const record = item.value
+  if (!record) return
+  const done = await writing.run(async () => {
+    await library.deleteItem(record.id)
+    return true
+  })
+  if (!done) return
+  clearPositionTimer()
+  pendingPosition = null
+  libraryItemChanged()
+  moreOpen.value = false
+  await router.push({ name: 'library', query: { v: 'all' } })
 }
 
 /* ----------------------------------------------------------- reader slots */
@@ -563,15 +600,58 @@ function closeNotes(): void {
   sheetOpen.value = false
 }
 
+const locationOpen = ref(false)
+const moreOpen = ref(false)
+
 function handleReaderKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape' && sheetOpen.value) closeNotes()
+  if (event.key !== 'Escape') return
+  if (locationOpen.value || moreOpen.value) {
+    locationOpen.value = false
+    moreOpen.value = false
+    return
+  }
+  if (sheetOpen.value) closeNotes()
 }
 
 onMounted(() => window.addEventListener('keydown', handleReaderKeydown))
 onBeforeUnmount(() => window.removeEventListener('keydown', handleReaderKeydown))
 
-// A reader left for another item starts with its sheet shut.
-watch(itemId, closeNotes)
+/**
+ * The selection toolbar the notes module floats over a passage.
+ *
+ * It can be open for a highlight the person tapped as well as for a live
+ * selection, and the reader holds only the second, so the first is read off the
+ * page. The class is that toolbar's own; asking for it by name here is the one
+ * place the library knows it, and it costs nothing when that module is off.
+ */
+const SELECTION_TOOLBAR = '.notes-seltool'
+
+/**
+ * The floating controls, and when they stay where they are.
+ *
+ * Restoring the saved position scrolls the container by a screenful in one
+ * jump, which is not the person reading and must not hide anything.
+ */
+const { hidden: chromeHidden, reset: resetChrome } = useReaderChromeVisibility(scroller, {
+  frozen: () =>
+    restoring ||
+    liveSelection.value !== null ||
+    sheetOpen.value ||
+    locationOpen.value ||
+    moreOpen.value ||
+    document.querySelector(SELECTION_TOOLBAR) !== null
+})
+
+const progressWidth = computed(() => `${Math.round(readingFraction.value * 1000) / 10}%`)
+
+// A reader left for another item starts with its sheets shut and its controls up.
+watch(itemId, () => {
+  closeNotes()
+  locationOpen.value = false
+  moreOpen.value = false
+  readingFraction.value = 0
+  resetChrome()
+})
 
 /**
  * A search hit for an item's note lands here naming the reader's note
@@ -657,12 +737,12 @@ async function retryExtraction(): Promise<void> {
   </main>
 
   <main v-else class="reader">
-    <header class="reader-top">
+    <header v-if="!phone" class="reader-top">
       <RouterLink class="reader-back" :to="{ name: 'library', query: { v: 'all' } }">
         <Icon name="arrowLeft" />
         <span>Library</span>
       </RouterLink>
-      <div v-if="!phone" class="reader-top-actions">
+      <div class="reader-top-actions">
         <button
           v-for="action in LOCATION_ACTIONS"
           :key="action.location"
@@ -753,7 +833,7 @@ async function retryExtraction(): Promise<void> {
 
     <!--
       On a phone the same two slots are rendered somewhere else, not twice: the
-      sheet holds what a wide screen puts under the article, and the bar holds
+      sheet holds what a wide screen puts under the article, and the strip holds
       the actions. The sheet keeps its contents mounted while shut, because they
       are what marks the highlighted passages in the text behind it.
     -->
@@ -761,16 +841,32 @@ async function retryExtraction(): Promise<void> {
       <ReaderNotesSheet :open="sheetOpen" @close="closeNotes">
         <component :is="entry.component" v-for="entry in notesSlots" :key="entry.id" v-bind="slotProps" />
       </ReaderNotesSheet>
-      <ReaderActionBar
-        :location="item.location"
+      <ReaderTopCluster
+        :hidden="chromeHidden"
         :unread="item.unread"
-        :locations="LOCATION_ACTIONS"
         :busy="writing.pending.value"
         @toggle-read="toggleRead"
-        @move="moveTo"
-      >
+      />
+      <ReaderBottomStrip :hidden="chromeHidden" @open-location="locationOpen = true" @open-more="moreOpen = true">
         <component :is="entry.component" v-for="entry in bottomSlots" :key="entry.id" v-bind="slotProps" />
-      </ReaderActionBar>
+      </ReaderBottomStrip>
+      <div v-if="chromeHidden" class="reader-progress" data-reader-progress :style="{ width: progressWidth }" />
+      <ReaderLocationSheet
+        v-if="locationOpen"
+        :location="item.location"
+        :locations="LOCATION_ACTIONS"
+        :busy="writing.pending.value"
+        @move="moveTo"
+        @close="locationOpen = false"
+      />
+      <ReaderMoreSheet
+        v-if="moreOpen"
+        :url="item.url"
+        :title="item.title"
+        :busy="writing.pending.value"
+        @delete="deleteCurrent"
+        @close="moreOpen = false"
+      />
     </template>
   </main>
 </template>
@@ -863,11 +959,21 @@ async function retryExtraction(): Promise<void> {
 
 .reader-column { max-width: 72ch; margin: 0 auto; padding: 40px 24px 96px; }
 
-/* Room under the text for the bar and the sheet, which float over the column. */
+/* Room above the text for the round buttons and under it for the strip and the sheet, which float over the column. */
 @media (max-width: 900px) {
-  .reader-column { padding: 20px 16px 180px; }
-  .reader-top { padding: 10px 16px; }
+  .reader-column { padding: 60px 16px 180px; }
   .reader-title { font-size: 26px; line-height: 32px; }
+}
+
+/* Two pixels along the bottom edge, drawn only while the strip that would cover it is away. */
+.reader-progress {
+  position: fixed;
+  left: 0;
+  bottom: 0;
+  z-index: 40;
+  height: 2px;
+  background: var(--norte);
+  pointer-events: none;
 }
 
 .reader-meta {

@@ -1,6 +1,6 @@
 import { mount } from '@vue/test-utils'
 import { createMemoryHistory, createRouter } from 'vue-router'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { stubPhoneViewport } from '@/lib/phoneViewport.testing'
 import { resetModuleMounting, setEnabledModules } from '@/modules/mounting'
@@ -99,37 +99,118 @@ async function settleSelection(): Promise<void> {
 }
 
 describe('the reader on a phone', () => {
-  it('puts the actions in a bar and takes them out of the header', async () => {
+  it('puts the actions in floating controls and takes them out of the header', async () => {
     const { wrapper } = await mountReader()
 
+    expect(wrapper.find('.reader-top').exists()).toBe(false)
     expect(wrapper.find('.reader-top-actions').exists()).toBe(false)
-    const bar = wrapper.get('nav[aria-label="Reading actions"]')
-    for (const action of ['location-inbox', 'location-up_next', 'location-later', 'location-archive', 'location-stash', 'read']) {
-      expect(bar.find(`[data-action="${action}"]`).exists()).toBe(true)
+    const cluster = wrapper.get('.reader-cluster')
+    expect(cluster.findAll('button, a').map((node) => node.attributes('data-action'))).toEqual(['back', 'read'])
+
+    const strip = wrapper.get('nav[aria-label="Reading actions"]')
+    // The notes module's own controls arrive through the bottom-actions slot,
+    // ahead of the two the library owns. Highlighting is not one of them: a
+    // selection highlights itself.
+    expect(strip.findAll('button').map((node) => node.attributes('data-action'))).toEqual([
+      'annotate-open',
+      'question-open',
+      'notebook-open',
+      'location-open',
+      'more-open'
+    ])
+    for (const button of strip.findAll('button')) {
+      expect(button.text(), button.attributes('data-action')).toBe('')
+      expect(button.attributes('aria-label')).toBeTruthy()
+      expect(button.attributes('title')).toBe(button.attributes('aria-label'))
     }
-    // The notes module's own controls arrive through the bottom-actions slot.
-    // Highlighting is not one of them any more: a selection highlights itself.
-    expect(bar.find('[data-action="highlight"]').exists()).toBe(false)
-    expect(bar.find('[data-action="annotate-open"]').exists()).toBe(true)
-    expect(bar.find('[data-action="question-open"]').exists()).toBe(true)
+    expect(strip.find('[data-action="highlight"]').exists()).toBe(false)
   })
 
-  it('marks the item read from the bar', async () => {
+  it('marks the item read from the cluster and shows the filled state once it is', async () => {
     const { wrapper, library } = await mountReader()
+    const read = () => wrapper.get('.reader-cluster [data-action="read"]')
+    expect(read().attributes('aria-pressed')).toBe('false')
 
-    await wrapper.get('nav[aria-label="Reading actions"] [data-action="read"]').trigger('click')
+    await read().trigger('click')
     await flushReads()
 
     expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { unread: false } }])
+    expect(read().attributes('aria-pressed')).toBe('true')
   })
 
-  it('moves the item to another shelf from the bar', async () => {
+  it('opens the location sheet, ticks the current row and moves the item in one tap', async () => {
     const { wrapper, library } = await mountReader()
+    expect(wrapper.find('[data-reader-sheet="location"]').exists()).toBe(false)
 
-    await wrapper.get('[data-action="location-later"]').trigger('click')
+    await wrapper.get('[data-action="location-open"]').trigger('click')
+
+    const sheet = wrapper.get('[data-reader-sheet="location"]')
+    expect(sheet.attributes('role')).toBe('dialog')
+    expect(sheet.findAll('button').map((node) => node.attributes('data-action'))).toEqual([
+      'location-inbox',
+      'location-up_next',
+      'location-later',
+      'location-archive',
+      'location-stash'
+    ])
+    expect(sheet.findAll('[aria-pressed="true"]').map((node) => node.attributes('data-action'))).toEqual([
+      'location-inbox'
+    ])
+
+    await sheet.get('[data-action="location-later"]').trigger('click')
     await flushReads()
 
     expect(library.calls.patch).toEqual([{ id: 'item-1', patch: { location: 'later' } }])
+    expect(wrapper.find('[data-reader-sheet="location"]').exists()).toBe(false)
+  })
+
+  it('offers the original page and a confirmed delete from the more sheet', async () => {
+    const { wrapper, library } = await mountReader({ item: record({ url: 'https://example.invalid/original' }) })
+    const router = wrapper.vm.$router
+    await wrapper.get('[data-action="more-open"]').trigger('click')
+
+    const sheet = wrapper.get('[data-reader-sheet="more"]')
+    const link = sheet.get('a')
+    expect(link.text()).toBe('Open the original')
+    expect(link.attributes()).toMatchObject({
+      href: 'https://example.invalid/original',
+      target: '_blank',
+      rel: 'noopener noreferrer'
+    })
+
+    await sheet.get('[data-action="delete"]').trigger('click')
+    expect(library.calls.delete).toEqual([])
+    await wrapper.get('[data-action="cancel-delete"]').trigger('click')
+    expect(library.calls.delete).toEqual([])
+    expect(wrapper.find('[data-reader-sheet="more"]').exists()).toBe(true)
+
+    await sheet.get('[data-action="delete"]').trigger('click')
+    await wrapper.get('[data-action="confirm-delete"]').trigger('click')
+    await flushReads()
+
+    await flushReads()
+
+    expect(library.calls.delete).toEqual(['item-1'])
+    // The Library's screen is a lazy route, so arriving takes more than a tick.
+    await vi.waitFor(() => expect(router.currentRoute.value.name).toBe('library'))
+    expect(router.currentRoute.value.query).toEqual({ v: 'all' })
+  })
+
+  it('opens the whole notebook from its own icon', async () => {
+    const { wrapper } = await mountReader()
+
+    await wrapper.get('[data-action="notebook-open"]').trigger('click')
+
+    expect(wrapper.get('[data-reader-sheet=""]').attributes('style') ?? '').not.toContain('display: none')
+  })
+
+  it('publishes the strip height on the document root and takes it back on unmount', async () => {
+    const { wrapper } = await mountReader()
+    expect(document.documentElement.style.getPropertyValue('--norte-library-reader-bar-height')).not.toBe('')
+
+    wrapper.unmount()
+
+    expect(document.documentElement.style.getPropertyValue('--norte-library-reader-bar-height')).toBe('')
   })
 
   it('highlights a selection that fired no mouseup, and opens the toolbar over it', async () => {
@@ -162,7 +243,7 @@ describe('the reader on a phone', () => {
     expect(wrapper.find('.notes-seltool').exists()).toBe(true)
   })
 
-  it('opens the annotations sheet from the bar and closes it again', async () => {
+  it('opens the annotations sheet from the strip and closes it again', async () => {
     const { wrapper } = await mountReader()
 
     const sheet = () => wrapper.get('[data-reader-sheet]')
