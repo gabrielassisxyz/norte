@@ -863,17 +863,19 @@ async function retryExtraction(): Promise<void> {
         :busy="writing.pending.value"
         @toggle-read="toggleRead"
       >
-        <button
-          v-if="headings.length > 0"
-          type="button"
-          class="reader-round"
-          data-action="contents-open"
-          aria-label="Contents"
-          title="Contents"
-          @click="openContents"
-        >
-          <Icon name="list" :size="18" />
-        </button>
+        <template #start>
+          <button
+            v-if="headings.length > 0"
+            type="button"
+            class="reader-round"
+            data-action="contents-open"
+            aria-label="Contents"
+            title="Contents"
+            @click="openContents"
+          >
+            <Icon name="list" :size="18" />
+          </button>
+        </template>
       </ReaderTopCluster>
       <ReaderBottomStrip :hidden="chromeHidden" @open-location="locationOpen = true" @open-more="moreOpen = true">
         <component :is="entry.component" v-for="entry in bottomSlots" :key="entry.id" v-bind="slotProps" />

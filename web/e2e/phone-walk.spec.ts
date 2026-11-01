@@ -464,6 +464,15 @@ test.describe('the reader chrome at 390x844, with touch', () => {
         return (heading?.getBoundingClientRect().top ?? 0) - node.getBoundingClientRect().top
       })
 
+    // Back, contents | mark read: the contents sits beside back, on the left.
+    const xOf = async (action: string): Promise<number> =>
+      (await cluster(page).locator(`[data-action="${action}"]`).boundingBox())?.x ?? -1
+    const [back, contents, read] = [await xOf('back'), await xOf('contents-open'), await xOf('read')]
+    expect(back).toBeLessThan(contents)
+    expect(contents).toBeLessThan(195)
+    expect(contents).toBeLessThan(read)
+    await expect(cluster(page).locator('button, a')).toHaveCount(3)
+
     await tap(cluster(page).locator('[data-action="contents-open"]'))
     await expect(drawer).toBeVisible()
     const box = await drawer.boundingBox()

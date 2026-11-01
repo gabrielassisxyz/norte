@@ -141,6 +141,12 @@ describe('the reader on a phone', () => {
     })
     const button = wrapper.get('.reader-cluster [data-action="contents-open"]')
     expect(button.attributes('aria-label')).toBe('Contents')
+    expect(wrapper.findAll('.reader-cluster button, .reader-cluster a').map((node) => node.attributes('data-action'))).toEqual([
+      'back',
+      'contents-open',
+      'read'
+    ])
+    expect(wrapper.get('.reader-cluster-start').find('[data-action="contents-open"]').exists()).toBe(true)
     expect(wrapper.find('[data-reader-drawer="contents"]').exists()).toBe(false)
     await button.trigger('click')
     expect(wrapper.get('[data-reader-drawer="contents"]').text()).toContain('A section')
