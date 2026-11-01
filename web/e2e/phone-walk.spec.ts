@@ -208,8 +208,8 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await expect.poll(async () => (await item()).unread).toBe(false)
   })
 
-  test('keeps the selection toolbar below the passage, before and after highlighting it', async ({ page }) => {
-    await seed('Toolbar under the passage')
+  test('draws the selection toolbar as a column at the right edge, before and after highlighting', async ({ page }) => {
+    await seed('Toolbar column beside the passage')
     await boot(page, `/library/${article.id}`)
     await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
@@ -221,27 +221,64 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await touchSelectPassage(page, PASSAGE)
     await expect(toolbar).toBeVisible()
 
-    const selectionBottom = await page.evaluate(() => {
+    await expect(toolbar).toHaveAttribute('data-layout', 'column')
+    await expect(toolbar).toHaveCSS('position', 'fixed')
+    await expect(toolbar.locator('.notes-seltool-row')).toHaveCSS('flex-direction', 'column')
+    const viewportWidth = page.viewportSize()?.width ?? 0
+    await expect
+      .poll(async () => {
+        const box = await toolbar.boundingBox()
+        return box ? viewportWidth - (box.x + box.width) : NaN
+      })
+      .toBeCloseTo(14, 0)
+
+    // Five round 36px icon buttons, top to bottom, none carrying text.
+    const buttons = toolbar.locator('.notes-seltool-row > button, .notes-seltool-row .nt-menu-trigger')
+    await expect(buttons).toHaveCount(5)
+    const boxes = []
+    for (let i = 0; i < 5; i++) boxes.push(await buttons.nth(i).boundingBox())
+    for (const box of boxes) {
+      expect(box?.width).toBeCloseTo(36, 0)
+      expect(box?.height).toBeCloseTo(36, 0)
+    }
+    for (let i = 1; i < 5; i++) expect(boxes[i]?.y ?? NaN).toBeGreaterThan(boxes[i - 1]?.y ?? Infinity)
+    expect(await buttons.evaluateAll((nodes) => nodes.map((node) => node.textContent?.trim()))).toEqual(['', '', '', '', ''])
+    expect(
+      await buttons.evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute('data-action') ?? node.getAttribute('aria-label'))
+      )
+    ).toEqual(['toolbar-highlight', 'toolbar-annotate', 'toolbar-question', 'More', 'toolbar-close'])
+
+    // The column's top is the top of the selection's last line, clamped.
+    const lastLineTop = await page.evaluate(() => {
       const rects = document.getSelection()?.getRangeAt(0).getClientRects()
-      return rects && rects.length > 0 ? rects[rects.length - 1].bottom : NaN
+      return rects && rects.length > 0 ? rects[rects.length - 1].top : NaN
     })
-    // The browser draws its own menu above the selection and over any toolbar
-    // placed there, so Norte's has to be under the last line.
-    await expect.poll(async () => (await toolbar.boundingBox())?.y ?? NaN).toBeGreaterThan(selectionBottom)
+    const topBefore = (await toolbar.boundingBox())?.y ?? NaN
+    expect(topBefore).toBeCloseTo(Math.max(lastLineTop, 8), -1)
 
     await tap(toolbar.locator('[data-action="toolbar-highlight"]'))
-    const mark = page.locator(`mark[data-notes-passage="${PASSAGE}"]`)
-    await expect(mark.first()).toBeVisible()
+    await expect(page.locator(`mark[data-notes-passage="${PASSAGE}"]`).first()).toBeVisible()
     await expect(toolbar.locator('button').first()).toHaveAttribute('aria-label', 'Remove highlight')
+    // Highlighting swaps the selection for a mark; the column stays where it was.
+    expect(Math.abs(((await toolbar.boundingBox())?.y ?? NaN) - topBefore)).toBeLessThanOrEqual(2)
 
-    // The highlight collapses the native selection, and the toolbar stays under
-    // the passage rather than jumping above it.
-    const markBottom = await mark.last().evaluate((node) => {
-      const rects = node.getClientRects()
-      return rects[rects.length - 1].bottom
-    })
-    const box = await toolbar.boundingBox()
-    expect(box?.y ?? NaN).toBeGreaterThan(markBottom)
+    // The more menu opens beside the column, fully on the screen.
+    await tap(toolbar.locator('.nt-menu-trigger'))
+    const panel = toolbar.locator('.nt-menu-panel')
+    await expect(panel).toBeVisible()
+    const panelBox = await panel.boundingBox()
+    expect(panelBox?.x ?? NaN).toBeGreaterThanOrEqual(0)
+    expect((panelBox?.x ?? NaN) + (panelBox?.width ?? NaN)).toBeLessThanOrEqual(viewportWidth)
+    await expect(panel).toContainText('Copy text')
+    await expect(panel).toContainText('Re-select passage')
+    await tap(toolbar.locator('.nt-menu-trigger'))
+
+    // Close drops the toolbar and leaves nothing selected.
+    await touchSelectPassage(page, PASSAGE)
+    await tap(toolbar.locator('[data-action="toolbar-close"]'))
+    await expect(toolbar).toHaveCount(0)
+    expect(await page.evaluate(() => document.getSelection()?.isCollapsed)).toBe(true)
   })
 
   test('reaches the Notes screen and its tabs by tap', async ({ page }) => {

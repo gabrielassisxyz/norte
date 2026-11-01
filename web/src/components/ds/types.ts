@@ -30,6 +30,7 @@ export type IconName =
   | 'cube'
   | 'pencil'
   | 'trash'
+  | 'marker'
 
 export interface PageTitleProps {
   title: Renderable

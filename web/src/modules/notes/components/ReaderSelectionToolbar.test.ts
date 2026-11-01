@@ -352,9 +352,8 @@ describe('where the toolbar puts itself', () => {
 
   describe('for a selection made by touch', () => {
     const FIRST = { top: 300, bottom: 320, left: 100, width: 200 }
-    const LAST = { top: 340, bottom: 360, left: 40, width: 120 }
 
-    function mountTouchToolbar(anchor: ToolbarAnchor) {
+    function mountTouchToolbar(anchor: ToolbarAnchor, props: Record<string, unknown> = {}) {
       const wrapper = mount(ReaderSelectionToolbar, {
         props: {
           itemId: 'item-1',
@@ -362,56 +361,84 @@ describe('where the toolbar puts itself', () => {
           measure: () => anchor,
           looseNotes: [],
           notesOnPassage: 0,
-          touch: true
+          touch: true,
+          ...props
         },
         global: { plugins: [sourcesPlugin({ notes: fakeNotesSource({}) })] },
         attachTo: document.body
       })
       mounted.push(wrapper)
-      return wrapper.get('.notes-seltool')
+      return wrapper
     }
 
     afterEach(() => {
       document.documentElement.style.removeProperty('--norte-library-reader-bar-height')
     })
 
-    it('sits 24px below the last line, centred on it, clear of the end handle', () => {
-      const toolbar = mountTouchToolbar({ ...FIRST, last: LAST })
+    it('stands in a column 14px from the right edge, top aligned with the last line', () => {
+      const toolbar = mountTouchToolbar({ ...FIRST, last: { top: 400, bottom: 420, left: 40, width: 120 } }).get('.notes-seltool')
 
-      expect(toolbar.attributes('style')).toContain('top: 384px')
-      expect(toolbar.attributes('style')).toContain('left: 100px')
-      expect(toolbar.attributes('style')).toContain('translate(-50%, 0)')
-    })
-
-    it('keeps the 8px edge when the last line is at the window margin', () => {
-      const toolbar = mountTouchToolbar({ ...FIRST, last: { top: 340, bottom: 360, left: 0, width: 0 } })
-
-      // Half the toolbar's width is 0 in jsdom, so the clamp is the edge itself.
-      expect(toolbar.attributes('style')).toContain('left: 8px')
-    })
-
-    it('flips above the first line when the bottom action bar would cover the placement', () => {
-      document.documentElement.style.setProperty('--norte-library-reader-bar-height', '80px')
-      // 384px plus the toolbar is past 768 - 80, the top of the bar.
-      const toolbar = mountTouchToolbar({ top: 400, bottom: 420, left: 100, width: 200, last: { ...LAST, top: 640, bottom: 660 } })
-
+      expect(toolbar.attributes('data-layout')).toBe('column')
+      expect(toolbar.attributes('style')).toContain('right: 14px')
+      expect(toolbar.attributes('style')).toContain('top: 400px')
+      expect(toolbar.attributes('style')).not.toContain('transform')
       expect(toolbar.classes()).not.toContain('is-below')
-      expect(toolbar.attributes('style')).toContain('top: 392px')
-      expect(toolbar.attributes('style')).toContain('translate(-50%, -100%)')
     })
 
-    it('stays below when the same placement clears the bar', () => {
-      document.documentElement.style.setProperty('--norte-library-reader-bar-height', '80px')
-      const toolbar = mountTouchToolbar({ ...FIRST, last: LAST })
+    it('is held above the action bar when the last line is near the bottom', () => {
+      document.documentElement.style.setProperty('--norte-library-reader-bar-height', '48px')
+      // jsdom's window is 768px tall and lays nothing out, so the clamp uses the
+      // column's estimated 198px: 768 - 48 - 8 - 198.
+      const toolbar = mountTouchToolbar({ ...FIRST, last: { top: 700, bottom: 720, left: 40, width: 120 } }).get('.notes-seltool')
 
-      expect(toolbar.classes()).toContain('is-below')
+      expect(toolbar.attributes('style')).toContain('top: 514px')
     })
 
-    it('flips above when there is no room below and the bar is unset', () => {
-      const toolbar = mountTouchToolbar({ top: 400, bottom: 420, left: 100, width: 200, last: { ...LAST, top: 730, bottom: 750 } })
+    it('is held inside the top edge when the last line is above it', () => {
+      const toolbar = mountTouchToolbar({ top: -40, bottom: -20, left: 40, width: 120, last: { top: 2, bottom: 22, left: 40, width: 120 } }).get('.notes-seltool')
 
-      expect(toolbar.classes()).not.toContain('is-below')
-      expect(toolbar.attributes('style')).toContain('top: 392px')
+      expect(toolbar.attributes('style')).toContain('top: 8px')
+    })
+
+    it('offers the five actions top to bottom, close last, with no text on any button', () => {
+      const wrapper = mountTouchToolbar({ ...FIRST, last: FIRST })
+      const buttons = wrapper.get('.notes-seltool-row').findAll('button')
+
+      expect(buttons.map((button) => button.attributes('data-action') ?? button.attributes('aria-label'))).toEqual([
+        'toolbar-remove',
+        'toolbar-annotate',
+        'toolbar-question',
+        'More',
+        'toolbar-close'
+      ])
+      for (const button of buttons) expect(button.text(), button.attributes('aria-label')).toBe('')
+      expect(wrapper.get('.notes-seltool-row').element.querySelectorAll('svg:not([stroke-width="1.5"])')).toHaveLength(0)
+    })
+
+    it('offers Highlight first while the selection is still pending', () => {
+      const wrapper = mountTouchToolbar({ ...FIRST, last: FIRST }, { highlight: null, pendingText: PASSAGE })
+
+      expect(wrapper.get('.notes-seltool-row').findAll('button')[0].attributes('data-action')).toBe('toolbar-highlight')
+    })
+
+    it('closes from the close button and leaves the selection collapsed', async () => {
+      const wrapper = mountTouchToolbar({ ...FIRST, last: FIRST })
+      const range = document.createRange()
+      range.selectNodeContents(document.body)
+      window.getSelection()?.addRange(range)
+      expect(window.getSelection()?.isCollapsed).toBe(false)
+
+      await wrapper.get('[data-action="toolbar-close"]').trigger('click')
+
+      expect(wrapper.emitted('close')).toHaveLength(1)
+      expect(window.getSelection()?.isCollapsed).toBe(true)
+    })
+
+    it('draws no close button for a mouse selection', () => {
+      const wrapper = mountTouchToolbar({ ...FIRST }, { touch: false })
+
+      expect(wrapper.find('[data-action="toolbar-close"]').exists()).toBe(false)
+      expect(wrapper.get('.notes-seltool').attributes('data-layout')).toBe('row')
     })
   })
 
@@ -704,7 +731,7 @@ describe('a selection that is still being made', () => {
     // Nothing in the text either: a mark would change the DOM under the live
     // selection, and the handles would go with it.
     expect(wrapper.findAll('mark[data-notes-passage]')).toHaveLength(0)
-    expect(toolbarLabels(wrapper)).toEqual(['Highlight', 'Annotate', 'Ask a question', 'More'])
+    expect(toolbarLabels(wrapper)).toEqual(['Highlight', 'Annotate', 'Ask a question', 'More', 'Close'])
   })
 
   it('moves the pending toolbar when the handles change the selection, and sends nothing', async () => {

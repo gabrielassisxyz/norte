@@ -33,7 +33,8 @@ const paths: Record<IconName, string> = {
   archive: 'M2.5 3.5h11v3h-11zM3.5 6.5v6h9v-6M6.5 9h3',
   cube: 'M8 2l5 2.75v6.5L8 14l-5-2.75v-6.5zM3 4.75l5 2.75 5-2.75M8 7.5V14',
   pencil: 'M10.5 3l2.5 2.5L6 12.5l-3 .5.5-3zM9 4.5L11.5 7',
-  trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 8.5h6l.5-8.5M7 7v3.5M9 7v3.5'
+  trash: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.5 8.5h6l.5-8.5M7 7v3.5M9 7v3.5',
+  marker: 'M9.5 2.5l4 4-5.5 5.5H4v-4zM2.5 14.5h11'
 }
 </script>
 
