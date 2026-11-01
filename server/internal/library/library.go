@@ -155,7 +155,7 @@ func newLibraryExtractionFromDeps(deps app.Deps) *LibraryExtraction {
 		Clock:         deps.Clock,
 		Events:        deps.Events,
 		Logger:        deps.Logger,
-		Fetcher:       newLibraryFetcher(LibraryFetchOptions{MaxBytes: deps.FetchMaxBytes}),
+		Fetcher:       newLibraryFetcher(LibraryFetchOptions{MaxBytes: deps.FetchMaxBytes, CookieFile: deps.CookieFile}),
 		LLMConfigured: deps.LLM.Configured(),
 		// Asked of a client built here and thrown away: what the extraction
 		// needs is the one bit, and building the client is the only honest

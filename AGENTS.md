@@ -47,8 +47,10 @@ Screens still run on mock data. Each module moves to real data as its backend be
 - `api/openapi/<module>.yaml` — one contract per module, not a single file. It generates the
   Go types and the TypeScript types both.
 - `extension/` — the Manifest V3 browser extension that saves the current tab's rendered
-  HTML, which is the only way a page behind a login reaches the server. Plain ES modules and
-  no bundler: `node build.mjs` copies `src/` into `dist/chromium/`. It installs with no host
+  HTML, which is how any page behind a login reaches the server. The other way, for saves by
+  URL only, is the server's `cookie_file` setting: a private owner-only JSON file mapping a
+  host to its browser `Cookie` header, sent to exactly that host and never on to another.
+  Plain ES modules and no bundler: `node build.mjs` copies `src/` into `dist/chromium/`. It installs with no host
   permissions and asks for the configured origin at runtime, so a homelab or Tailscale
   address needs no new release.
 - `design/system/` — the design system. Tokens in `tokens.css`/`tokens.json`, component docs
