@@ -20,7 +20,7 @@ describe('Icon', () => {
   })
 
   it('draws every glyph the phone reader uses with the thin 1.5 stroke', () => {
-    const names: IconName[] = ['list', 'info', 'notebook', 'tray', 'chevronUpDown', 'more', 'question', 'close', 'skipForward', 'clock', 'archive', 'cube', 'pencil', 'trash']
+    const names: IconName[] = ['list', 'info', 'notebook', 'tray', 'chevronUpDown', 'more', 'question', 'close', 'skipForward', 'clock', 'archive', 'cube', 'pencil', 'trash', 'marker']
 
     for (const name of names) {
       const wrapper = mount(Icon, { props: { name } })
