@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 /**
  * The frame the reader's side drawers share: a scrim, and a panel on one
@@ -12,8 +12,14 @@ import { onBeforeUnmount, onMounted, ref } from 'vue'
  *
  * Escape is heard on the window rather than on the panel, because focus may be
  * anywhere when it is pressed.
+ *
+ * A drawer that holds something which must stay mounted while shut passes
+ * `open` and is hidden with `v-show`; one that is rendered only while open
+ * leaves it at its default and is opened by being mounted.
  */
-defineProps<{ kind: string; side: 'left' | 'right'; labelledby: string }>()
+const props = withDefaults(defineProps<{ kind: string; side: 'left' | 'right'; labelledby: string; open?: boolean }>(), {
+  open: true
+})
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -24,20 +30,40 @@ function onKeydown(event: KeyboardEvent): void {
   if (event.key === 'Escape') emit('close')
 }
 
-onMounted(() => {
-  opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
-  panel.value?.focus()
-  window.addEventListener('keydown', onKeydown)
-})
+let listening = false
 
-onBeforeUnmount(() => {
+async function activate(wasHidden: boolean): Promise<void> {
+  if (listening) return
+  listening = true
+  opener = document.activeElement instanceof HTMLElement ? document.activeElement : null
+  window.addEventListener('keydown', onKeydown)
+  // A shut drawer is display:none, which cannot take focus until it has rendered.
+  if (wasHidden) await nextTick()
+  panel.value?.focus()
+}
+
+function deactivate(): void {
+  if (!listening) return
+  listening = false
   window.removeEventListener('keydown', onKeydown)
   if (opener?.isConnected) opener.focus()
+  opener = null
+}
+
+onMounted(() => {
+  if (props.open) void activate(false)
 })
+
+watch(
+  () => props.open,
+  (open) => (open ? void activate(true) : deactivate())
+)
+
+onBeforeUnmount(deactivate)
 </script>
 
 <template>
-  <div class="reader-drawer-scrim" :data-side="side" @click.self="$emit('close')">
+  <div v-show="open" class="reader-drawer-scrim" :data-side="side" @click.self="$emit('close')">
     <section
       ref="panel"
       class="reader-drawer"
