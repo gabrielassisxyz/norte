@@ -16,6 +16,20 @@ export type IconName =
   | 'note'
   | 'comment'
   | 'image'
+  | 'list'
+  | 'info'
+  | 'notebook'
+  | 'tray'
+  | 'chevronUpDown'
+  | 'more'
+  | 'question'
+  | 'close'
+  | 'skipForward'
+  | 'clock'
+  | 'archive'
+  | 'cube'
+  | 'pencil'
+  | 'trash'
 
 export interface PageTitleProps {
   title: Renderable

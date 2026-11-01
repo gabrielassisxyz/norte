@@ -117,8 +117,10 @@ test.describe('at 390x844, with touch and no mouse', () => {
     const bar = page.locator('nav[aria-label="Reading actions"]')
     await expect(bar).toBeVisible()
     // The header's actions are the ones a mouse used; on a phone they are gone
-    // and the bar is the only place they live, so neither is a duplicate.
+    // and the floating controls are the only place they live, so neither is a
+    // duplicate.
     await expect(page.locator('.reader-top-actions')).toHaveCount(0)
+    await expect(page.locator('.reader-cluster [data-action="back"]')).toBeVisible()
 
     // --- a touch selection, which highlights nothing by itself -------------
     const toolbar = page.locator('.notes-seltool')
@@ -201,8 +203,8 @@ test.describe('at 390x844, with touch and no mouse', () => {
     await tap(sheet.locator('[data-action="close-notes"]'))
     await expect(sheet).toBeHidden()
 
-    // --- marked read, from the bar ----------------------------------------
-    await tap(bar.locator('[data-action="read"]'))
+    // --- marked read, from the round button --------------------------------
+    await tap(page.locator('.reader-cluster [data-action="read"]'))
     await expect.poll(async () => (await item()).unread).toBe(false)
   })
 
@@ -275,6 +277,235 @@ test.describe('at 390x844, with touch and no mouse', () => {
     }
   })
 })
+
+/**
+ * The phone reader's floating controls: where they sit, when they leave and
+ * what they open.
+ */
+test.describe('the reader chrome at 390x844, with touch', () => {
+  test.use({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true })
+
+  const strip = (page: Page): Locator => page.locator('nav[aria-label="Reading actions"]')
+  const cluster = (page: Page): Locator => page.locator('.reader-cluster')
+
+  /** Scrolls the reader's own container and waits for the scroll event to be delivered. */
+  async function scrollReaderTo(page: Page, top: number): Promise<void> {
+    await page.locator('.reader-scroll').evaluate(async (node, to) => {
+      node.scrollTop = to
+      await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+    }, top)
+  }
+
+  async function openTall(page: Page, title: string, paragraphs: number): Promise<number> {
+    const own = await seed(title, { fillerParagraphs: paragraphs })
+    await boot(page, `/library/${own.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+    return page.locator('.reader-scroll').evaluate((node) => node.clientHeight)
+  }
+
+  test('draws round translucent buttons on top and a 48px translucent strip below', async ({ page }) => {
+    await openTall(page, 'Chrome geometry', 0)
+
+    await expect(page.locator('.reader-top')).toHaveCount(0)
+    await expect(cluster(page).locator('button, a')).toHaveCount(2)
+    for (const button of await cluster(page).locator('button, a').all()) {
+      const look = await button.evaluate((node) => {
+        const box = node.getBoundingClientRect()
+        const style = getComputedStyle(node)
+        return { width: box.width, height: box.height, border: style.borderTopWidth, background: style.backgroundColor }
+      })
+      expect(look.width).toBe(34)
+      expect(look.height).toBe(34)
+      expect(look.border).toBe('0px')
+      expect(alphaOf(look.background)).toBeLessThan(0.95)
+    }
+    // The cluster itself is a transparent row, not a bar across the screen.
+    expect(alphaOf(await cluster(page).evaluate((node) => getComputedStyle(node).backgroundColor))).toBe(0)
+
+    const look = await strip(page).evaluate((node) => {
+      const style = getComputedStyle(node)
+      return {
+        height: node.getBoundingClientRect().height,
+        border: style.borderTopWidth,
+        background: style.backgroundColor,
+        buttons: [...node.querySelectorAll('button')].map((button) => ({
+          action: button.getAttribute('data-action'),
+          text: (button.textContent ?? '').trim(),
+          label: button.getAttribute('aria-label'),
+          title: button.getAttribute('title'),
+          strokes: [...button.querySelectorAll('svg')].map((svg) => svg.getAttribute('stroke-width'))
+        }))
+      }
+    })
+    expect(look.height).toBe(48)
+    expect(look.border).toBe('0px')
+    expect(alphaOf(look.background)).toBeLessThan(0.95)
+    expect(look.buttons.map((button) => button.action)).toEqual([
+      'annotate-open',
+      'question-open',
+      'notebook-open',
+      'location-open',
+      'more-open'
+    ])
+    for (const button of look.buttons) {
+      expect(button.text, button.action ?? '').toBe('')
+      expect(button.label).toBeTruthy()
+      expect(button.title).toBe(button.label)
+      expect(button.strokes).toEqual(['1.5'])
+    }
+    const published = await page.evaluate(() =>
+      getComputedStyle(document.documentElement).getPropertyValue('--norte-library-reader-bar-height').trim()
+    )
+    expect(published).toBe('48px')
+  })
+
+  test('stays up inside the first viewport', async ({ page }) => {
+    const viewport = await openTall(page, 'Chrome first viewport', 14)
+
+    await scrollReaderTo(page, 0)
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
+    const reach = await page.locator('.reader-scroll').evaluate((node) => node.scrollHeight - node.clientHeight)
+    expect(reach, 'the article has to be scrollable past 500px for this to mean anything').toBeGreaterThan(500)
+    await scrollReaderTo(page, 300)
+    await scrollReaderTo(page, Math.min(500, viewport - 20))
+
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
+    await expect(cluster(page)).toHaveAttribute('data-hidden', 'false')
+  })
+
+  test('slides both away on a downward scroll and back on the first upward one', async ({ page }) => {
+    const viewport = await openTall(page, 'Chrome hides', 80)
+    const reach = await page.locator('.reader-scroll').evaluate((node) => node.scrollHeight - node.clientHeight)
+    expect(reach, 'at least four viewports of text').toBeGreaterThan(viewport * 3)
+
+    await scrollReaderTo(page, viewport * 2)
+    await scrollReaderTo(page, viewport * 2 - 1)
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
+    await scrollReaderTo(page, viewport * 2 + 38)
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
+    await scrollReaderTo(page, viewport * 2 + 80)
+
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'true')
+    await expect(cluster(page)).toHaveAttribute('data-hidden', 'true')
+    await expect.poll(async () => (await strip(page).boundingBox())?.y ?? 0).toBeGreaterThanOrEqual(844)
+    await expect.poll(async () => ((await cluster(page).boundingBox())?.y ?? 0) + 34).toBeLessThanOrEqual(0)
+
+    await scrollReaderTo(page, viewport * 2 + 79)
+
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
+    await expect(cluster(page)).toHaveAttribute('data-hidden', 'false')
+    await expect.poll(async () => (await strip(page).boundingBox())?.y ?? 0).toBeLessThan(844)
+  })
+
+  test('draws a two pixel progress line only while the controls are away', async ({ page }) => {
+    const viewport = await openTall(page, 'Chrome progress', 80)
+    const progress = page.locator('[data-reader-progress]')
+    await expect(progress).toHaveCount(0)
+
+    await scrollReaderTo(page, viewport * 2)
+    await scrollReaderTo(page, viewport * 2 + 120)
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'true')
+
+    await expect(progress).toHaveCount(1)
+    const measured = await page.evaluate(() => {
+      const node = document.querySelector('[data-reader-progress]') as HTMLElement
+      const scroller = document.querySelector('.reader-scroll') as HTMLElement
+      const box = node.getBoundingClientRect()
+      return {
+        height: box.height,
+        bottom: box.bottom,
+        percent: (box.width / window.innerWidth) * 100,
+        fraction: (scroller.scrollTop / (scroller.scrollHeight - scroller.clientHeight)) * 100
+      }
+    })
+    expect(measured.height).toBe(2)
+    expect(measured.bottom).toBe(844)
+    expect(Math.abs(measured.percent - measured.fraction)).toBeLessThan(1)
+
+    await scrollReaderTo(page, viewport * 2 + 100)
+    await expect(progress).toHaveCount(0)
+  })
+
+  test('holds still under an open sheet and under a live selection', async ({ page }) => {
+    const viewport = await openTall(page, 'Chrome frozen', 80)
+
+    // A live selection, made while the controls are up.
+    await touchSelectPassage(page, PASSAGE)
+    await expect(page.locator('.notes-seltool')).toBeVisible()
+    await scrollReaderTo(page, viewport * 2)
+    await scrollReaderTo(page, viewport * 2 + 200)
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
+    await scrollReaderTo(page, viewport * 2 + 100)
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
+    await page.evaluate(() => document.getSelection()?.removeAllRanges())
+    await page.evaluate(() => document.dispatchEvent(new Event('selectionchange')))
+    await expect(page.locator('.notes-seltool')).toHaveCount(0)
+
+    // An open sheet, whichever it is, while the controls are up.
+    await scrollReaderTo(page, viewport * 2 + 90)
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
+    await tap(strip(page).locator('[data-action="more-open"]'))
+    await expect(page.locator('[data-reader-sheet="more"]')).toBeVisible()
+    await scrollReaderTo(page, viewport * 2 + 400)
+    await expect(strip(page)).toHaveAttribute('data-hidden', 'false')
+    await expect(cluster(page)).toHaveAttribute('data-hidden', 'false')
+  })
+
+  test('moves the item from the location sheet in one tap, and the Library shows it there', async ({ page }) => {
+    const own = await seed('Chrome moves the item')
+    await boot(page, `/library/${own.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    await tap(strip(page).locator('[data-action="location-open"]'))
+    const sheet = page.locator('[data-reader-sheet="location"]')
+    await expect(sheet).toBeVisible()
+    await expect(sheet.locator('button')).toHaveCount(5)
+    await expect(sheet.locator('[aria-pressed="true"]')).toHaveAttribute('data-action', 'location-inbox')
+    for (const button of await sheet.locator('svg').all()) {
+      await expect(button).toHaveAttribute('stroke-width', '1.5')
+    }
+
+    await tap(sheet.locator('[data-action="location-archive"]'))
+    await expect(sheet).toHaveCount(0)
+    await expect.poll(async () => (await item()).location).toBe('archive')
+
+    await boot(page, '/library?v=archive')
+    await expect(page.locator('.item', { hasText: own.title })).toBeVisible()
+  })
+
+  test('opens the original from the more sheet and deletes only once confirmed', async ({ page }) => {
+    const own = await seed('Chrome deletes the item')
+    await boot(page, `/library/${own.id}`)
+    await expect(page.locator('.article-content')).toContainText(PASSAGE)
+
+    await tap(strip(page).locator('[data-action="more-open"]'))
+    const sheet = page.locator('[data-reader-sheet="more"]')
+    await expect(sheet.locator('a, button')).toHaveText(['Open the original', 'Delete'])
+    const link = sheet.locator('a')
+    await expect(link).toHaveAttribute('target', '_blank')
+    await expect(link).toHaveAttribute('rel', 'noopener noreferrer')
+    await expect(link).toHaveAttribute('href', `https://example.invalid/${encodeURIComponent(own.title)}`)
+
+    await tap(sheet.locator('[data-action="delete"]'))
+    await tap(page.locator('[data-action="cancel-delete"]'))
+    await expect(sheet).toBeVisible()
+    expect((await item()).id).toBe(own.id)
+
+    await tap(sheet.locator('[data-action="delete"]'))
+    await tap(page.locator('[data-action="confirm-delete"]'))
+    await expect(page).toHaveURL(/\/library\?v=all$/)
+    const gone = await fetch(`${server.baseURL}/api/library/items/${own.id}`)
+    expect(gone.status).toBe(404)
+  })
+})
+
+/** The alpha of a computed colour, whichever notation the browser answers in. */
+function alphaOf(colour: string): number {
+  if (colour === 'transparent') return 0
+  if (/^rgb\(/.test(colour)) return 1
+  const numbers = colour.match(/[\d.]+(?=\s*\))/)
+  return numbers ? Number(numbers[0]) : 1
+}
 
 /**
  * The two phone profiles every screen has to hold up under, by the width that
@@ -434,29 +665,30 @@ for (const phone of PHONES) {
       }
     })
 
-    test('leaves the whole action bar tappable under the notes sheet', async ({ page }) => {
+    test('leaves the whole action strip tappable under the notes sheet', async ({ page }) => {
       const own = await seed(`The notes sheet on the ${phone.name}`)
       await boot(page, `/library/${own.id}`)
       await expect(page.locator('.article-content')).toContainText(PASSAGE)
 
       const bar = page.locator('nav[aria-label="Reading actions"]')
-      const sheet = page.locator('[data-reader-sheet]')
+      const sheet = page.locator('[data-reader-sheet=""]')
       await tap(bar.locator('[data-action="annotate-open"]'))
       await expect(sheet).toBeVisible()
 
-      for (const label of ['Inbox', 'Up Next', 'Later', 'Archive', 'Stash', 'Read']) {
-        const chip = bar.locator('.reader-bar-chip', { hasText: label })
-        await expect(chip).toBeVisible()
-        expect(await hits(chip), `${label} under the open sheet`).toBe(true)
+      for (const action of ['annotate-open', 'question-open', 'notebook-open', 'location-open', 'more-open']) {
+        const button = bar.locator(`[data-action="${action}"]`)
+        await expect(button).toBeVisible()
+        expect(await hits(button), `${action} under the open sheet`).toBe(true)
       }
 
       // And the sheet is still a sheet: it has not been pushed off the screen
-      // to make room for the bar.
+      // to make room for the strip.
       const room = await sheet.evaluate((node) => node.getBoundingClientRect().height)
       expect(room).toBeGreaterThan(100)
 
-      // The bar is what the sheet clears, measured rather than guessed.
-      await tap(bar.locator('[data-action="location-archive"]'))
+      // The strip is what the sheet clears, measured rather than guessed.
+      await tap(bar.locator('[data-action="location-open"]'))
+      await tap(page.locator('[data-reader-sheet="location"] [data-action="location-archive"]'))
       await expect
         .poll(async () => (await api<LibraryItem>(server.baseURL, `/api/library/items/${own.id}`)).location)
         .toBe('archive')
