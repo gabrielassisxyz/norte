@@ -30,14 +30,11 @@ const GAP_PX = 8
 /** How close to the window's edge the toolbar may be pushed. */
 const EDGE_PX = 8
 
-/**
- * The room a touch selection's end handle needs under its last line, which
- * the toolbar must not cover or the handle can no longer be dragged.
- */
-const HANDLE_CLEARANCE_PX = 24
+/** Where the touch column sits from the window's right edge, which is where the thumb and the native handles are. */
+const COLUMN_RIGHT_PX = 14
 
-/** The toolbar's height before it has been laid out: a 32px button, 4px padding and the border. */
-const TOOLBAR_HEIGHT_PX = 42
+/** The column's height before it has been laid out: five 36px buttons, four 2px gaps, 4px padding and the border. */
+const COLUMN_HEIGHT_PX = 198
 
 /** The reader's bottom action bar publishes its height here; unset on screens without one. */
 const BAR_HEIGHT_PROPERTY = '--norte-library-reader-bar-height'
@@ -113,9 +110,9 @@ const props = defineProps<{
   /**
    * The selection was made with a finger.
    *
-   * The browser then draws its own menu above the selection, over this
-   * toolbar, and cannot be told to move it, so this one goes below the last
-   * line instead.
+   * The browser then draws its own menu above the selection and its handles
+   * below it, and cannot be told to move either, so the actions stand in a
+   * column at the right edge beside the selection instead.
    */
   touch?: boolean
 }>()
@@ -155,35 +152,37 @@ const draft = ref('')
  */
 const belowFirstLine = computed(() => (anchor.value?.top ?? 0) < FLIP_BELOW_ABOVE_PX)
 
-/**
- * Under the last line of a touch selection, clear of the end handle.
- *
- * It gives way, to today's rule, when that spot would run into the bottom of
- * the window or into the action bar fixed there. The bar's height is read each
- * time because it changes with the safe area and is not this component's.
- */
-const belowLastLine = computed(() => {
-  const rect = anchor.value
-  if (!props.touch || !rect) return false
-  const height = root.value?.offsetHeight || TOOLBAR_HEIGHT_PX
-  const floor = (typeof window === 'undefined' ? 0 : window.innerHeight) - readBarHeight()
-  return (rect.last ?? rect).bottom + HANDLE_CLEARANCE_PX + height <= floor
-})
+/** A finger selected the passage, so the actions stand in a column beside it. */
+const column = computed(() => props.touch === true)
 
-const below = computed(() => belowLastLine.value || belowFirstLine.value)
+const iconSize = computed(() => (column.value ? 18 : 14))
+
+const below = computed(() => !column.value && belowFirstLine.value)
+
+/**
+ * The column's top follows the top of the selection's last line, held inside
+ * the window: never under the action bar fixed at the bottom and never above
+ * the top edge. The rendered height is used once there is one, because the
+ * clamp is only right for the size that is actually drawn.
+ */
+function columnTop(rect: ToolbarAnchor): number {
+  const height = root.value?.offsetHeight || COLUMN_HEIGHT_PX
+  const floor = (typeof window === 'undefined' ? 0 : window.innerHeight) - readBarHeight()
+  const ceiling = Math.max(floor - EDGE_PX - height, EDGE_PX)
+  return Math.min(Math.max((rect.last ?? rect).top, EDGE_PX), ceiling)
+}
 
 const placement = computed(() => {
   const rect = anchor.value
   if (!rect) return { display: 'none' }
+  if (column.value) return { right: `${COLUMN_RIGHT_PX}px`, top: `${columnTop(rect)}px` }
   const half = (root.value?.offsetWidth ?? 0) / 2
-  const under = belowLastLine.value
-  const line = under ? (rect.last ?? rect) : rect
-  const centre = line.left + line.width / 2
+  const centre = rect.left + rect.width / 2
   const room = typeof window === 'undefined' ? 0 : window.innerWidth
   // Clamped to the window, so a passage at either margin still gets a toolbar
   // that is entirely on the screen.
   const left = room > 0 ? Math.min(Math.max(centre, half + EDGE_PX), Math.max(room - half - EDGE_PX, half + EDGE_PX)) : centre
-  const top = under ? line.bottom + HANDLE_CLEARANCE_PX : below.value ? rect.bottom + GAP_PX : rect.top - GAP_PX
+  const top = below.value ? rect.bottom + GAP_PX : rect.top - GAP_PX
   return {
     left: `${left}px`,
     top: `${top}px`,
@@ -326,6 +325,17 @@ async function saveQuestion(): Promise<void> {
   emit('questioned', created)
 }
 
+/**
+ * Close from the column's own button.
+ *
+ * On touch, tapping outside often starts a new selection instead of leaving
+ * the old one, so the selection is cleared here as well as the toolbar.
+ */
+function dismiss(): void {
+  window.getSelection()?.removeAllRanges()
+  emit('close')
+}
+
 const copied = ref(false)
 
 async function copyText(): Promise<void> {
@@ -341,7 +351,13 @@ async function copyText(): Promise<void> {
 </script>
 
 <template>
-  <div ref="root" class="notes-seltool" :class="{ 'is-below': below }" :style="placement">
+  <div
+    ref="root"
+    class="notes-seltool"
+    :class="{ 'is-below': below }"
+    :data-layout="column ? 'column' : 'row'"
+    :style="placement"
+  >
     <div class="notes-seltool-row" role="toolbar" aria-label="Actions for the highlighted passage">
       <!--
         The first button is the one the state calls for: create while nothing
@@ -359,10 +375,7 @@ async function copyText(): Promise<void> {
         :disabled="writing.pending.value"
         @click="ensureHighlight()"
       >
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M9.5 2.5l4 4-5.5 5.5H4v-4z" />
-          <path d="M2.5 14.5h11" />
-        </svg>
+        <Icon name="marker" :size="iconSize" />
       </button>
       <button
         v-else
@@ -374,9 +387,7 @@ async function copyText(): Promise<void> {
         :disabled="writing.pending.value"
         @click="remove"
       >
-        <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-          <path d="M4 4l8 8M12 4l-8 8" />
-        </svg>
+        <Icon name="trash" :size="iconSize" />
       </button>
       <button
         type="button"
@@ -387,7 +398,7 @@ async function copyText(): Promise<void> {
         title="Annotate"
         @click="openBox(box === 'annotate' ? 'none' : 'annotate')"
       >
-        <Icon name="comment" :size="14" />
+        <Icon name="note" :size="iconSize" />
       </button>
       <button
         type="button"
@@ -398,11 +409,11 @@ async function copyText(): Promise<void> {
         title="Ask a question"
         @click="openBox(box === 'question' ? 'none' : 'question')"
       >
-        <span class="notes-seltool-glyph" aria-hidden="true">?</span>
+        <Icon name="question" :size="iconSize" />
       </button>
       <Menu label="More" menu-label="More actions for this passage">
         <template #trigger>
-          <span class="notes-seltool-glyph" aria-hidden="true">···</span>
+          <Icon name="more" :size="iconSize" />
         </template>
         <button type="button" role="menuitem" class="notes-seltool-item" data-action="toolbar-copy" @click="copyText">
           <span>Copy text</span>
@@ -424,8 +435,20 @@ async function copyText(): Promise<void> {
           <span>Re-select passage</span>
         </button>
       </Menu>
+      <button
+        v-if="column"
+        type="button"
+        class="notes-seltool-btn notes-seltool-close"
+        data-action="toolbar-close"
+        aria-label="Close"
+        title="Close"
+        @click="dismiss"
+      >
+        <Icon name="close" :size="iconSize" />
+      </button>
     </div>
 
+    <div class="notes-seltool-aside">
     <form v-if="box !== 'none'" class="notes-seltool-box" @submit.prevent="box === 'annotate' ? saveAnnotation() : saveQuestion()">
       <textarea
         v-model="draft"
@@ -468,6 +491,7 @@ async function copyText(): Promise<void> {
 
     <p v-if="copied" class="notes-seltool-said" role="status">Passage copied.</p>
     <p v-if="writing.error.value" class="notes-seltool-error" role="alert">{{ writing.error.value }}</p>
+    </div>
   </div>
 </template>
 
@@ -493,11 +517,71 @@ async function copyText(): Promise<void> {
 
 .notes-seltool-row { display: inline-flex; gap: 2px; }
 
+/*
+  The touch column: round 36px buttons in a translucent rounded container at
+  the right edge. The note box and the messages leave the column's flow and
+  stand to its left, so writing a note never makes the column taller and
+  never moves it under the thumb.
+*/
+.notes-seltool[data-layout='column'] {
+  --seltool-btn: 36px;
+  display: block;
+  padding: 4px;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: blur(8px);
+}
+
+.notes-seltool[data-layout='column'] .notes-seltool-row { flex-direction: column; }
+.notes-seltool[data-layout='column'] .notes-seltool-btn { border-radius: 50%; }
+.notes-seltool[data-layout='column'] .notes-seltool-close { color: var(--danger); }
+
+.notes-seltool-aside { display: contents; }
+
+.notes-seltool[data-layout='column'] .notes-seltool-aside {
+  position: absolute;
+  top: 0;
+  right: calc(100% + 8px);
+  display: grid;
+  gap: var(--space-2);
+  width: max-content;
+  max-width: calc(100vw - 80px);
+}
+
+.notes-seltool[data-layout='column'] .notes-seltool-box,
+.notes-seltool[data-layout='column'] .notes-seltool-said,
+.notes-seltool[data-layout='column'] .notes-seltool-error {
+  margin: 0;
+  padding: 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-pop);
+}
+
+.notes-seltool[data-layout='column'] .notes-seltool-field { min-width: min(260px, calc(100vw - 112px)); }
+
+/* The menu's panel opens to the left of the column, beside its trigger, so it stays on screen. */
+.notes-seltool[data-layout='column'] :deep(.nt-menu-panel) {
+  top: 0;
+  right: calc(100% + 12px);
+}
+
+.notes-seltool :deep(.nt-menu-trigger) {
+  width: var(--seltool-btn, 32px);
+  height: var(--seltool-btn, 32px);
+  padding: 0;
+  justify-content: center;
+  color: var(--ink);
+}
+
+.notes-seltool[data-layout='column'] :deep(.nt-menu-trigger) { border-radius: 50%; }
+
 .notes-seltool-btn {
   display: inline-grid;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: var(--seltool-btn, 32px);
+  height: var(--seltool-btn, 32px);
   border: 0;
   border-radius: var(--radius-sm);
   background: transparent;
@@ -509,8 +593,6 @@ async function copyText(): Promise<void> {
 .notes-seltool-btn.is-open { background: var(--norte-soft); color: var(--norte); }
 .notes-seltool-btn:disabled { color: var(--muted); cursor: default; }
 .notes-seltool-btn:focus-visible { outline: 2px solid transparent; box-shadow: var(--focus-ring); }
-
-.notes-seltool-glyph { font-family: var(--font-display); font-size: 14px; font-weight: 700; line-height: 1; }
 
 .notes-seltool-item {
   display: flex;
